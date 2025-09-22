@@ -19,7 +19,7 @@
 (SEP 15 - 21, 2025)
 
 ### Recap of Milestone Goal - Week 3
-
+ 
 In Week 3, the team has performed brainstorming on the requirements of the project, and consolidated them into the Project Requirements Report, which will be uploaded to the Canvas.
 
 ### Username and Student Name for Team 17
