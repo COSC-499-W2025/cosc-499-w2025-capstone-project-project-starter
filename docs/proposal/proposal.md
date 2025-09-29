@@ -97,15 +97,15 @@ flowchart TD
 
 | # | Requirement (Functional unless noted) | Test Cases (positive & negative) | Who | H/M/E |
 |---|---------------------------------------|----------------------------------|-----|-------|
-| 1 | Select specific directories/repos for scanning | ✅ Choose multiple roots → only those scanned; ❌ invalid path → friendly error; ✅ persisted across restarts | Ronit | M |
-| 2 | Support artifact types: Git, documents (Word/PDF/MD), media (images/video/design) | ✅ Mixed sample set indexed; ❌ unknown type skipped with log; ✅ per‑type counters match | Sparsh | H |
-| 3 | Extract metadata: timestamps, authorship, file type, version history (if available) | ✅ Known sample yields expected timestamps/authors; ❌ missing EXIF handled; ✅ Git history parsed | Ethan | E |
-| 4 | Compute metrics: commit freq, doc/word counts, media dims (res, size, frame rate) | ✅ Fixture dataset → metrics equal ground truth; ❌ malformed file handled gracefully | Chris, Ethan | H |
-| 5 | Group artifacts by project (repo or root directory) | ✅ Multi‑root scan → correct grouping; ❌ no cross‑project duplicates | Ojus, Ronit | E |
-| 6 | Generate visualizations & text summaries (charts/timelines/dashboards) | ✅ Charts reflect metric values; ✅ filters/sorting; ❌ empty state renders without errors | Ribhav | M |
-| 7 | Export to HTML/MD/PDF incl. résumé bullets | ✅ Exports contain same sections/metrics; ❌ missing dependency → guided fix | Ojus | M |
-| 8 | Ignore patterns to exclude files from analysis | ✅ Patterns exclude matches only; ❌ too‑broad pattern warns; ✅ audit list shows excluded items | Ribhav | M |
-| 9 | Store user/project metadata in DB (title/tags/notes) | ✅ CRUD operations persisted; ✅ exports incorporate metadata; ❌ invalid input sanitized | Chris | E |
+| 1 | Select specific directories/repos for scanning | TC1.1: User selects one or more directories/repos. Only the chosen paths are scanned. Verify that no files outside selected paths are processed. | Ronit | M |
+| 2 | Support artifact types: Git, documents (Word/PDF/MD), media (images/video/design) | TC2.1: Pass a mixed set of files with supported and unsupported extensions. Supported files are scanned, unsupported files are rejected or ignored. | Sparsh | H |
+| 3 | Extract metadata: timestamps, authorship, file type, version history (if available) | TC3.1: Scan a sample selection of files (code, documents, media). Verify that extracted metadata includes timestamp, author, file type, and version history where applicable. | Ethan | E |
+| 4 | Compute metrics: commit freq, doc/word counts, media dims (res, size, frame rate) | TC4.1: Run metrics computation on a known sample dataset. Verify that computed commit counts, word counts, media dimensions, etc., match expected values. | Chris, Ethan | H |
+| 5 | Group artifacts by project (repo or root directory) | TC5.1: Scan multiple repositories/root directories. Verify each artifact is correctly grouped under its respective project and no duplicates exist. | Ojus, Ronit | E |
+| 6 | Generate visualizations & text summaries (charts/timelines/dashboards) | TC6.1: Generate charts and timelines for a sample dataset. Verify that plotted data points and summaries accurately reflect the underlying metrics. | Ribhav | M |
+| 7 | Export to HTML/MD/PDF incl. résumé bullets | TC7.1: Export a summary in HTML, Markdown, and PDF. Verify each format contains identical sections, results, and metrics, correctly formatted. | Ojus | M |
+| 8 | Ignore patterns to exclude files from analysis | TC8.1: Confirm ignored files do not appear in the results, while non-ignored files are included. | Ribhav | M |
+| 9 | Store user/project metadata in DB (title/tags/notes) | TC9.1: Create or define a project with user metadata (e.g., project name, description). Verify that metadata is saved and retrievable after scanning and analysis. | Chris | E |
 
 **Non‑Functional Requirements (and tests):**  
 - Cross‑platform (Win/Linux/macOS): run same scans/exports → identical outputs; app starts without errors.  
