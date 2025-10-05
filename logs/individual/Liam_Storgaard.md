@@ -19,7 +19,6 @@
 - Refine requirements as needed.
 
 
-<<<<<<< HEAD
 ![Alt text](./imgs/LiamStorgaard.png)
 ![Alt text](./imgs/LiamStorgaard2.png)
 
@@ -42,7 +41,15 @@
 - Come up with a plan for which tasks to complete first when we eventually do begin programming.
 ![Alt text](./imgs/LiamStorgaard_Week4.png)
 
+## Week 5
+- Applicable date range
+September 29 - October 5.
+- Type of tasks you worked on (screenshot from Peer Eval question)
+![Alt text](./imgs/liam_storgaard_w5.png)
+- Recap on your week's goals
+Complete both DFD levels and refine as needed based on feedback from other groups.
+- Which features were yours in the project plan for this milestone?
+I did the review for both the DFD diagrams.
+- Among these tasks, which have you completed/in progress in the last 2 weeks?
+I completed the fixes we needed for both DFDs since some of the icons were incorrect. I also readjusted it to be more accurate to our system layout. 
 
-=======
-![Alt text](imgs/liam_storgaard_w3.png)
->>>>>>> 4cd65fab86bd9dc7758b6efef1baf171296a928d
