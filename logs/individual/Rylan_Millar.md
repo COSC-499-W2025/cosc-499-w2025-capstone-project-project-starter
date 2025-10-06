@@ -21,7 +21,7 @@
 
 #Personal Log for Rylan Millar (33334400) Week 4 September 22-28
 
-## Features from the project plant this week
+## Features from the project plan this week
 - I helped create the branching structure for our repo
 - I reorganized folders and branches
 - I am reasearching the machine learning portion of this project
@@ -39,3 +39,22 @@
 ## Peer evaluation screenshot Week 4
 
 ![alt text](<imgs/rylan_millar_w4.PNG>)
+
+---
+---
+
+#Personal Log for Rylan Millar (33334400) Week 5 September 29 - October 05
+
+## Features from the project plan this week
+- Helped create the DFD Level 0 and 1
+
+## Tasks from the project board associated with these features
+- Create DFD Level 0 and Level 1
+
+## Completed and In Progress
+- Create DFD Level 0 and Level 1 (completed)
+- Research machine learning techniques in Python for our projcet (in progress)
+
+## Peer evaluation screenshot Week 4
+
+![alt text](<imgs/rylan_millar_w5.PNG>)
