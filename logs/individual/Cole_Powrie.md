@@ -1,3 +1,20 @@
+# Personal log of Cole Powrie (from Week 5)
+## Applicable Date Range
+- Monday, September 29th to Sunday, October 5th
+
+## Peer evaluation screenshot
+![alt text](<imgs/ColePowrieW5.png>)
+
+## This Milestone
+- We made our data flow diagram for our project
+- We created our level 0 and level 1 data flow diagram and finalized our level 1 diagram
+
+## Tasks
+- Helped review for our DFD's
+
+## Progress from the last two weeks
+- From the last two weeks I helped with our DFD as well as create and organize our system architecture diagram with Figma
+  
 # Personal log of Cole Powrie (from Week 4)
 ## Applicable Date Range
 - Monday, September 22nd to Sunday, September 28th
