@@ -57,4 +57,4 @@
 
 ## Peer evaluation screenshot Week 5
 
-![alt text](<imgs/rylan_millar_w5.PNG>)
+![alt text](<imgs/rylan_millar_w5.png>)
