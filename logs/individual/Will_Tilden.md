@@ -1,3 +1,29 @@
+# Personal log of Will Tilden (from Week 5) as per the personal log format outlined in lecture slides
+
+## Applicable date range
+- Monday, September 29th to Sunday, October 5th
+
+## Type of tasks I worked on
+![Alt text](imgs/will_tilden_w5.png)
+
+## Recap on your weeks goals
+
+- Which features were yours in the project plan for this milestone?
+
+    I helped the team work on the DFD diagram.
+
+- Which tasks from the project board are associated with these features?
+
+    DFD Explanation is the name of the associated issue.
+
+- Among these tasks, which have you completed / in progress in the last 2 weeks?
+
+    We completed this one, the DFD explanation, as well as the system architecture diagram.
+
+- Optional text: additional context that we should be aware of
+
+     N/A
+
 # Personal log of Will Tilden (from Week 4) as per the personal log format outlined in lecture slides
 
 ## Applicable date range
