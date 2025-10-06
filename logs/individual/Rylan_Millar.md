@@ -1,4 +1,4 @@
-#Personal Log for Rylan Millar (33334400) Week 3 September 15-21
+# Personal Log for Rylan Millar (33334400) Week 3 September 15-21
 
 ## What went well
 - Our team is already working together effectively and our team gets along well
@@ -19,7 +19,7 @@
 ---
 ---
 
-#Personal Log for Rylan Millar (33334400) Week 4 September 22-28
+# Personal Log for Rylan Millar (33334400) Week 4 September 22-28
 
 ## Features from the project plan this week
 - I helped create the branching structure for our repo
@@ -43,7 +43,7 @@
 ---
 ---
 
-#Personal Log for Rylan Millar (33334400) Week 5 September 29 - October 05
+# Personal Log for Rylan Millar (33334400) Week 5 September 29 - October 05
 
 ## Features from the project plan this week
 - Helped create the DFD Level 0 and 1
