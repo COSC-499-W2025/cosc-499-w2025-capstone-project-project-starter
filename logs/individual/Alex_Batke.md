@@ -1,4 +1,22 @@
 # Personal Log of Alex Batke
+## Week 5
+
+## Applicable Date Range
+- Monday, September 29th to Sunday, October 5th
+
+## Peer Evaluation Screenshot
+![alt text](<imgs/alex_batke_w5.png>)
+
+
+### Recap On Your Weeks Goals
+- Which Features Were Yours in the Project Plan for this Milestone?
+  I helped with the both Level 0 and 1 Data Flow diagrams and gave feedback where needed 
+- Which Tasks from the Project Board are Associated with these Features?
+  The relevant issue for the Data Flow Diagram (#14) were put on the Github Project board, with all group members being assigned to it
+- Among these tasks, which have you completed/in progress in the last 2 weeks?
+  The Data Flow Diagrams were the main tasks completed during this week
+- Optional text: additional context that we should be aware of:
+  No issues. On to next week!
 
 ## Week 4
 
@@ -6,7 +24,7 @@
 - Monday, September 22nd to Sunday, September 28th
 
 ### Peer evaluation screenshot
-![Alt text](imgs/alex_batke_w4.png)
+![alt text](imgs/alex_batke_w4.png)
 
 ### Recap On Your Weeks Goals
 - Which Features Were Yours in the Project Plan for this Milestone?
