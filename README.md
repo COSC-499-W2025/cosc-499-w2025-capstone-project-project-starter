@@ -11,8 +11,9 @@
 
 ## 📖 About
 
-
-
+## Explanations
+- [Level 1 data flow diagram](/docs/data%20flow%20diagram/explanation.md)
+- [System architecture design](/docs/system%20architecture%20design/explanation.md)
 
 
 
