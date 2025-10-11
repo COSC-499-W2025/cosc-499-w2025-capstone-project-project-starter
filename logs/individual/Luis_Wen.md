@@ -21,7 +21,7 @@
 - Set up tests for parser.py
 - Developed code for test_parser.py to pass
 
-## Peer evaluation screenshot week 5
+## Peer evaluation screenshot week 6
 
 ![alt text](</logs/individual/imgs/LuisWen_Week6.png>)
 
