@@ -1,3 +1,29 @@
+# Personal log of Will Tilden (from Week 6) as per the personal log format outlined in lecture slides
+
+## Applicable date range
+- Monday, October 6th to Sunday, October 12th
+
+## Type of tasks I worked on
+![Alt text](imgs/will_tilden_w6.png)
+
+## Recap on your weeks goals
+
+- Which features were yours in the project plan for this milestone?
+
+    I did issue 27 which was a documanation update on the project proposal document, and also helped others with their PRs doing reviews and giving suggestions.
+
+- Which tasks from the project board are associated with these features?
+
+    Issue 27 and the associated PR were mine for this week.
+
+- Among these tasks, which have you completed / in progress in the last 2 weeks?
+
+    The issue was completed today and is done now so into coding next week.
+
+- Optional text: additional context that we should be aware of
+
+     N/A
+
 # Personal log of Will Tilden (from Week 5) as per the personal log format outlined in lecture slides
 
 ## Applicable date range
