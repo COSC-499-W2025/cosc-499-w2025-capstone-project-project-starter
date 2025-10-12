@@ -21,4 +21,43 @@ This sprint focused on the planning and design phase of the project. The team wo
 ## Burnup Chart
 <img width="990" height="489" alt="image" src="https://github.com/user-attachments/assets/6dca39fb-e478-41ee-b1f8-9854912ff845" />
 
+# Sprint Report – Week 6 (2025/10/06 to 2025/10/12)
 
+## Overview
+This sprint marked the transition from planning and design into **initial implementation**.  
+The team began developing core system modules, connecting the database, and writing the first round of automated tests.
+
+## Completed Work
+- **Requirement #1 – User Consent Management** implemented by **Kevin**
+  - Includes consent scope definition, status checking before data access, and withdrawal handling  
+  - Related sub-issues: #11, #14, #18  
+- **Database connection and configuration** verified; test scripts executed successfully  
+- **File format validation** feature completed by **Eric** (#23)  
+- **File-listing functionality** (nested folder display) expanded by **Jinxi** (#35)  
+- **Initial test cases** added for consent and database modules  
+- **Team collaboration setup** refined: branch naming, pull-request workflow, and environment consistency  
+- **Sami** focused on reviewing pull requests and assisting with environment setup  
+- Waiting on updates from **Ryan** and **Evan** (you guys can updates here)
+
+## Current Status
+- Core backend structure and modules created under `src/consent/`  
+- Database container (PostgreSQL) successfully built and running via Docker  
+- Unit tests passing locally  
+- PR for Requirement #1 under review  
+- Preparing for next sprint
+
+## Testing
+- **Pytest** configured and executed  
+- Verified database connection tests (`test_db_connection.py`)  
+- Verified consent management tests (`test_consent.py`)  
+- All current tests pass locally; CI integration planned for next sprint
+
+## Next Steps
+- Merge approved PRs into `main`  
+- Begin work on Project requirement for week 7  
+- Expand unit tests for error handling and invalid consent scenarios  
+- Ensure documentation and weekly logs remain up to date
+
+## Burnup Chart
+<img width="1058" height="576" alt="image" src="https://github.com/user-attachments/assets/abe0a961-4860-4ff9-b89f-44fc9529b05e" />
+<img width="1045" height="559" alt="image" src="https://github.com/user-attachments/assets/329fb504-8120-4fc9-8617-2694e6aacd16" />
