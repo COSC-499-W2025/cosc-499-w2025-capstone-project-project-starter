@@ -1,9 +1,9 @@
 import pytest
-import os
 from parser.parser import parse_directory, summarize_results
 
 
 def test_parse_directory_basic(tmp_path):
+    # Create one text file and one binary file
     text_file = tmp_path / "a.txt"
     binary_file = tmp_path / "b.bin"
 
@@ -20,6 +20,7 @@ def test_parse_directory_basic(tmp_path):
 
 
 def test_parse_directory_nested(tmp_path):
+    # Create nested directory structure with one text and one binary file
     subdir = tmp_path / "nested"
     subdir.mkdir()
     file1 = subdir / "file1.txt"
@@ -35,12 +36,13 @@ def test_parse_directory_nested(tmp_path):
 
 
 def test_parse_directory_missing():
+    # Directory does not exist should raise FileNotFoundError
     with pytest.raises(FileNotFoundError):
         parse_directory("nonexistent_dir")
 
 
-def test_summarize_results_output(capsys, tmp_path):
-    # fake summary to test output
+def test_summarize_results_output(capsys):
+    # Fake summary to test printed output formatting
     summary = {
         "total_files": 3,
         "binary_files": ["a.bin"],
@@ -50,6 +52,6 @@ def test_summarize_results_output(capsys, tmp_path):
     summarize_results(summary)
     captured = capsys.readouterr()
 
-    assert "Total files: 3" in captured.out
-    assert "Binary files: 1" in captured.out
-    assert "Text files: 2" in captured.out
+    assert "Total files scanned: 3" in captured.out
+    assert "Binary files       : 1" in captured.out
+    assert "Text files         : 2" in captured.out

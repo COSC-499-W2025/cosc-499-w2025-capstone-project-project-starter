@@ -22,46 +22,62 @@ def parse_directory(directory):
         directory (str): The path to the directory to parse.
 
     Returns:
-        dict: A dictionary summarizing the files found, including:
-            - total_files (int): total number of files found
-            - binary_files (list[str]): list of binary file paths
-            - text_files (list[str]): list of text file paths
+        dict: A summary dictionary with:
+            - total_files (int)
+            - binary_files (list[str])
+            - text_files (list[str])
 
     Raises:
         FileNotFoundError: If the specified directory does not exist.
     """
-    if not os.path.exists(directory):
+    if not os.path.isdir(directory):
         raise FileNotFoundError(f"Directory not found: {directory}")
 
-    summary = {
-        "total_files": 0,
-        "binary_files": [],
-        "text_files": []
+    binary_files = []
+    text_files = []
+
+    for file_path in _yield_all_files(directory):
+        try:
+            if is_binary_file(file_path):
+                binary_files.append(file_path)
+            else:
+                text_files.append(file_path)
+        except Exception as e:
+            # Log or handle unreadable files if needed
+            print(f"Warning: could not classify file '{file_path}': {e}")
+            binary_files.append(file_path)  # Treat as binary by default
+
+    return {
+        "total_files": len(binary_files) + len(text_files),
+        "binary_files": binary_files,
+        "text_files": text_files
     }
 
-    # Walk through all folders and subfolders in the directory
+
+def _yield_all_files(directory):
+    """
+    Generator that yields all file paths under the given directory recursively.
+
+    Args:
+        directory (str): Root directory to walk.
+
+    Yields:
+        str: Full path to each file found.
+    """
     for root, _, files in os.walk(directory):
         for file in files:
-            path = os.path.join(root, file)
-            summary["total_files"] += 1
-
-            # Use the helper function to check if the file is binary
-            if is_binary_file(path):
-                summary["binary_files"].append(path)
-            else:
-                summary["text_files"].append(path)
-
-    return summary
+            yield os.path.join(root, file)
 
 
 def summarize_results(summary):
     """
     Print a readable summary of the parsed results.
-    Useful for quick testing or debugging.
 
     Args:
-        summary (dict): The dictionary returned by parse_directory().
+        summary (dict): Dictionary returned by `parse_directory()`.
     """
+    print("\n📊 Scan Summary")
+    print("------------------")
     print(f"Total files scanned: {summary['total_files']}")
-    print(f"Binary files: {len(summary['binary_files'])}")
-    print(f"Text files: {len(summary['text_files'])}")
+    print(f"Binary files       : {len(summary['binary_files'])}")
+    print(f"Text files         : {len(summary['text_files'])}")
