@@ -24,9 +24,9 @@ Secondary users may include career advisors or recruiters who could review these
 
 # 2. Proposed Solution  
 
-Our solution is a **local-first digital mining system** that enables users to drop in files for automatic extraction, analysis, and visualization of the work artifacts they’ve created over time. By combining high-performance preprocessing in **Rust** with a pretrained **PyTorch machine learning model**, the system can identify file types, detect skills and programming languages, highlight collaboration patterns, and generate productivity metrics along with project timelines. The results are then displayed in a modern, intuitive web-based dashboard, where users can filter, search, preview, and export personalized summaries for use in résumés or digital portfolios.  
+Our solution is a **local-first digital mining system** that enables users to drop in files for automatic extraction, analysis, and visualization of the work artifacts they’ve created over time. By combining high-performance preprocessing in **Python** with a pretrained **PyTorch machine learning model**, the system can identify file types, detect skills and programming languages, highlight collaboration patterns, and generate productivity metrics along with project timelines. The results are then displayed in a modern, intuitive web-based dashboard, where users can filter, search, preview, and export personalized summaries for use in résumés or digital portfolios.  
 
-What makes our solution unique is its **focus on speed, privacy, and usability**. In contrast to approaches that rely heavily on cloud infrastructure, all processing occurs **entirely on the user’s local machine**, preserving privacy and ensuring ethical handling of data. Rust’s efficiency and memory safety allow the system to process large collections of files quickly, while machine learning produces insights that go far beyond raw metadata. Compared to other solutions, our approach emphasizes scalability, responsiveness, and a polished user experience, ensuring that users gain not just information, but **clear, actionable insights** they can confidently present to demonstrate their skills and professional growth.  
+What makes our solution unique is its **focus on speed, privacy, and usability**. In contrast to approaches that rely heavily on cloud infrastructure, all processing occurs **entirely on the user’s local machine**, preserving privacy and ensuring ethical handling of data. High efficiency and memory safety will allow the system to process large collections of files quickly, while machine learning produces insights that go far beyond raw metadata. Compared to other solutions, our approach emphasizes scalability, responsiveness, and a polished user experience, ensuring that users gain not just information, but **clear, actionable insights** they can confidently present to demonstrate their skills and professional growth.  
 
 ---
 
@@ -43,7 +43,7 @@ What makes our solution unique is its **focus on speed, privacy, and usability**
 1. User drags archive into drop zone  
 2. Sets search scope (languages, file types, ignore `.gitignore`, etc.)  
 3. Backend unpacks and processes  
-4. Rust preprocessor chunks content and caches files  
+4. Preprocessor chunks content and caches files  
 5. ML model classifies chunks (skills, domains, languages)  
 6. Postprocessor compiles labels into summaries  
 7. Results returned and displayed in dashboard  
@@ -90,7 +90,7 @@ What makes our solution unique is its **focus on speed, privacy, and usability**
 
 ### Technology Stack  
 - **Frontend:** React.js + TypeScript  
-- **Backend:** Rust (preprocessing), Python (FastAPI + PyTorch ML)  
+- **Backend:** Python (Preprocessing, FastAPI + PyTorch ML)  
 - **Communication:** gRPC / Unix sockets  
 - **Database:** SQLite or JSON store (local caching)  
 - **Visualization:** Chart.js / D3.js  
@@ -100,7 +100,7 @@ What makes our solution unique is its **focus on speed, privacy, and usability**
 
 ### Testing Framework  
 - **Frontend:** Jest, React Testing Library, Cypress  
-- **Backend:** Pytest (Python), Cargo test (Rust)  
+- **Backend:** Pytest
 - **Integration:** Postman / Pytest + docker-compose  
 - **CI/CD:** GitHub Actions  
 
@@ -112,7 +112,7 @@ What makes our solution unique is its **focus on speed, privacy, and usability**
 |-------------|-------------|------------|-----|-------|
 | File Upload & Validation | User uploads compressed archive; validate type/size; handle errors | Upload valid `.zip`, reject invalid type, error on empty archive | Liam | Medium |
 | Archive Extraction | Decompress and filter files | Valid decompress, missing index handled, ignored files excluded | Liam | Hard |
-| Preprocessing Engine | Rust scans directories, chunks files, extracts metadata | Process 1000 files, <200MB memory, invalid path handled | Liam | Hard |
+| Preprocessing Engine | Python scans directories, chunks files, extracts metadata | Process 1000 files, <200MB memory, invalid path handled | Liam | Hard |
 | ML Classification | PyTorch classifies chunks | Known types → correct classification, unknown → unclassified, offline → queued | Luis/Rylan | Hard |
 | Result Aggregation | Combine predictions, resolve categories, compute metrics | Correct category, handle no confident tags, resolve conflicts | Luis | Medium |
 | Frontend Visualization | Display sortable/filterable table & charts | Table renders, filters work, missing data handled | Cole & Will | Medium |
