@@ -4,6 +4,8 @@ import pytest
 @pytest.fixture
 def db_connection():
     conn = sqlite3.connect(":memory:")
+    # Enable foreign key support
+    conn.execute("PRAGMA foreign_keys = ON;")
     with open("db/artifact_miner_schema.sql") as f:
         conn.executescript(f.read())
     yield conn
