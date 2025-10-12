@@ -56,17 +56,29 @@ def parse_directory(directory):
 
 def _yield_all_files(directory):
     """
-    Generator that yields all file paths under the given directory recursively.
+    Recursively yield all files and symlinks to files under the given directory.
 
     Args:
         directory (str): Root directory to walk.
 
     Yields:
-        str: Full path to each file found.
+        str: Full path to each file or symlinked file found.
     """
-    for root, _, files in os.walk(directory):
-        for file in files:
-            yield os.path.join(root, file)
+    with os.scandir(directory) as it:
+        for entry in it:
+            path = entry.path
+            if entry.is_symlink():
+                # If it's a symlink, check if it points to a file
+                try:
+                    if os.path.isfile(os.readlink(path)) or os.path.isfile(path):
+                        yield path
+                except OSError:
+                    # Broken symlink or permission error — skip or treat as needed
+                    continue
+            elif entry.is_file():
+                yield path
+            elif entry.is_dir(follow_symlinks=False):
+                yield from _yield_all_files(path)
 
 
 def summarize_results(summary):
@@ -81,3 +93,25 @@ def summarize_results(summary):
     print(f"Total files scanned: {summary['total_files']}")
     print(f"Binary files       : {len(summary['binary_files'])}")
     print(f"Text files         : {len(summary['text_files'])}")
+
+
+if __name__ == "__main__":
+    import sys
+
+    try:
+        if len(sys.argv) != 2:
+            print("Usage: python -m parser.parser <directory_path>")
+            sys.exit(1)
+
+        directory = sys.argv[1]
+        print(f"Parsing directory: {directory}")
+
+        summary = parse_directory(directory)
+        summarize_results(summary)
+
+    except FileNotFoundError as e:
+        print(f"Error: {e}")
+        sys.exit(1)
+    except Exception as e:
+        print(f"Unexpected error: {e}")
+        sys.exit(1)
