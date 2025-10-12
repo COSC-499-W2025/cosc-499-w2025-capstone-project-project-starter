@@ -1,3 +1,30 @@
+# Personal log of Luis Wen (from Week 6)
+
+## Features in this milestone
+
+- Explanations for the level 1 data flow diagram
+- Explanation for the system architecture design
+- Created tests and code for the tests to pass following a TDD approach
+- Added pull request template
+
+## Project board tasks
+
+- Issue #14
+- Issue #13
+- Issue #17
+- Issue #21
+
+## Work done in last 2 weeks
+
+- Added the explanation for the level 1 data flow diagram
+- Created the explanation for the system architecture design
+- Set up tests for parser.py
+- Developed code for test_parser.py to pass
+
+## Peer evaluation screenshot week 6
+
+![alt text](</logs/individual/imgs/LuisWen_Week6.png>)
+
 # Personal log of Luis Wen (from Week 5)
 
 ## Features in this milestone
