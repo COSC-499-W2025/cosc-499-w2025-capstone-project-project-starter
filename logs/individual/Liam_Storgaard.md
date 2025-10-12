@@ -53,3 +53,16 @@ I did the review for both the DFD diagrams.
 - Among these tasks, which have you completed/in progress in the last 2 weeks?
 I completed the fixes we needed for both DFDs since some of the icons were incorrect. I also readjusted it to be more accurate to our system layout. 
 
+## Week 6
+- Applicable date range
+October 6 - 11
+- Type of tasks you worked on (screenshot from Peer Eval question)
+![Alt text](./imgs/liam_storgaard_w6.png)
+- Recap on your week's goals
+We got a start on the parsing and other baseline mechanics, as well as laying out the file structure, which was in line with our goals.
+- Which features were yours in the project plan for this milestone?
+I worked on the file parser mechanics, specifically the logic for detecting and ignoring binary files.
+- Which tasks from the project board are associated with these features?
+Binary/Human Readable distinction, issue #19
+- Among these tasks, which have you completed/in progress in the last 2 weeks?
+I completed the MIME based file detector, which achieved that part of that task. I also created relevant test files for that function to ensure it worked properly.
