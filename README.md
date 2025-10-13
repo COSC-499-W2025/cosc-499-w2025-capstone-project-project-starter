@@ -130,9 +130,12 @@ Finally, the processed results are passed to the export dashboard where they are
 
 ### Work Breakdown Structure (WBS)
 
-Link: []
+<img width="710" height="524" alt="Screenshot 2025-10-12 at 11 10 32 PM" src="https://github.com/user-attachments/assets/905063f7-f333-4a0b-827a-d7dec5a2ac5e" />
+
 
 Description:
+
+The Work Breakdown Structure (WBS) outlines the main phases of the Digital Work Artifact Analysis System project and breaks them into manageable tasks. It includes project management, system design, backend development, output/export development, testing, and documentation. This structure helps organize the team’s work, clarify responsibilities, and plan the project timeline more effectively.
 
 # Project Structure
 Please use the provided folder structure for your project. You are free to organize any additional internal folder structure as required by the project. 
