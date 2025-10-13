@@ -1,3 +1,22 @@
+# Personal log of Cole Powrie (from Week 6)
+## Applicable Date Range
+- Monday, October 6th to Sunday, October 12th
+
+## Peer evaluation screenshot
+![alt text](<imgs/cole_powrie_w6.png>)
+
+## This Milestone
+- Finalized our DFDs
+- Start setting up our coding environment
+- Added pull request template
+
+## Tasks
+- Finalized and clarified our DFD using Figma
+- Created a wireframe of how we expect the flow of our program to work to help with our backend organization
+
+## Progress from the last two weeks
+- Finalized our DFD, started our code and its enviroment, and made a wireframe
+
 # Personal log of Cole Powrie (from Week 5)
 ## Applicable Date Range
 - Monday, September 29th to Sunday, October 5th
