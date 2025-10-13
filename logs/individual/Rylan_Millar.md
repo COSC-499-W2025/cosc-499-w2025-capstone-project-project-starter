@@ -80,6 +80,6 @@
 - Create Test Files (completed)
 - Research Python libraries for our projcet (in progress)
 
-## Peer evaluation screenshot Week 5
+## Peer evaluation screenshot Week 6
 
 ![alt text](<imgs/rylan_millar_w6.png>)
