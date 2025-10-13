@@ -114,9 +114,19 @@ Our modular architecture ensures that future features can be added without disru
 
 ### Data Flow Diagram (DFD) – Level 1
 
-Link: []()
+<img width="2504" height="1160" alt="DFD-Level 1 drawio (1)" src="https://github.com/user-attachments/assets/d0d86ce7-3430-4230-bcd7-d488f301647d" />
+
 
 Description:
+
+This Level 1 DFD shows our main processes and data movements within the Digital Work Artifact Analysis System. It breaks the system into key functional components and shows how data flows between them, external entities, and data stores.
+
+The user initiates the process by submitting privacy settings and scan requests, which are received and processed by the system. These requests pass through several stages, starting with privacy rule management to make sure sensitive data is handled correctly. Then it is followed by file scanning and metadata extraction from the file system.
+
+The extracted metadata, along with file paths and thumbnail references, is then sent to the analysis engine, which creates insights and contribution metrics. These results are coordinated and logged through the workflow coordinator, which also updates the record activity and sends logs to the Log Data store.
+
+Finally, the processed results are passed to the export dashboard where they are compiled and returned to the user. Additional data such as thumbnails are stored in the image cache to support visual outputs.
+
 
 ### Work Breakdown Structure (WBS)
 
