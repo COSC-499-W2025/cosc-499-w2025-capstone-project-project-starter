@@ -1,4 +1,23 @@
 # Personal Log of Alex Batke
+## Week 6
+
+## Applicable Date Range
+- Monday, October 6th to Sunday, October 12th
+
+## Peer Evaluation Screenshot
+![alt text](<imgs/alex_batke_w6.png>)
+
+
+### Recap On Your Weeks Goals
+- Which Features Were Yours in the Project Plan for this Milestone?
+  I was assigned to a simple ZIP Validation to ensure when the user runs the system, it only analyzes a ZIP, not other file types 
+- Which Tasks from the Project Board are Associated with these Features?
+  The relevant issue is #32 (ZIP File Validation) with only myself assigned
+- Among these tasks, which have you completed/in progress in the last 2 weeks?
+  The ZIP Validation was successfully completed and tested during this week
+- Optional text: additional context that we should be aware of:
+  No issues to report. On to next week
+
 ## Week 5
 
 ## Applicable Date Range
