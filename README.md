@@ -37,3 +37,12 @@ Please use the provided folder structure for your project. You are free to organ
 
 Please use a branching workflow, and once an item is ready, do remember to issue a PR, review, and merge it into the master branch.
 Be sure to keep your docs and README.md up-to-date.
+
+# System Architecture Diagram
+-Frontend: Our frontend will be built using React and Typescript to handle our drag-and-drop interface, visualize updates, and assist in export functionality.
+-Backend: Our backend is a combination of Rust and Python. We are using Rust as our preprocessing engine in order to scan directories and chunk files, cache results, and extra data. We are using Python(PyTorch+FastAPI) for our ML service and using pretrained PyTorch models to classify skills, languages, and contributions to return labelled classifications.
+
+# DFD Level 1
+-This DFD illustrates how data moves throughout the system from the user's input to the final output. Our system first captures the user input, then pre-processes and unpacks the data into pre-chunked streams, classifies the content using our pre-trained ML model, and finally summarizes and presents the final report.
+
+
