@@ -2,7 +2,8 @@ import pytest
 import zipfile
 import tempfile
 import os
-from src.main import check_zip_file
+from src.main import check_zip_file, main
+from unittest.mock import patch
 
 def test_nonexistent_file():
     # just provide a path that doesn't exist
@@ -36,3 +37,34 @@ def test_non_zip_file():
         assert "is not a zip file" in result
     finally:
         os.remove(non_zip_file)
+
+# --- New tests for consent in main() ---
+
+def test_main_user_consents(tmp_path):
+    # create a dummy zip file
+    zip_file = tmp_path / "dummy.zip"
+    with zipfile.ZipFile(zip_file, "w") as zf:
+        zf.writestr("file.txt", "content")
+
+    # mock input to simulate user consent, mock sys.argv for file argument
+    with patch("builtins.input", return_value="y"), \
+         patch("sys.argv", ["main.py", str(zip_file)]), \
+         patch("builtins.print") as mock_print:
+        main()
+        # check that the zip result is printed
+        printed = [call.args[0] for call in mock_print.call_args_list]
+        assert any("is a zip file" in line for line in printed)
+
+def test_main_user_declines(tmp_path):
+    # create a dummy zip file
+    zip_file = tmp_path / "dummy.zip"
+    with zipfile.ZipFile(zip_file, "w") as zf:
+        zf.writestr("file.txt", "content")
+
+    # mock input to simulate user declining consent
+    with patch("builtins.input", return_value="n"), \
+         patch("sys.argv", ["main.py", str(zip_file)]), \
+         patch("builtins.print") as mock_print:
+        main()
+        printed = [call.args[0] for call in mock_print.call_args_list]
+        assert "Consent not given. Exiting." in printed
