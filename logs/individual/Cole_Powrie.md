@@ -1,3 +1,12 @@
+# Personal log of Cole Powrie (from Week 7)
+## Applicable Date Range
+- Monday, October 6th to Sunday, October 12th
+
+## Peer evaluation screenshot
+![alt text](<imgs/ColePowrieW7.png>)
+
+
+
 # Personal log of Cole Powrie (from Week 6)
 ## Applicable Date Range
 - Monday, October 6th to Sunday, October 12th
