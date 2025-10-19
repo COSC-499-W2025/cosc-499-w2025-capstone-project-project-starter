@@ -7,7 +7,7 @@ from typing import Iterator, Dict, Tuple, Callable, Set, Optional
 # Easy default directories to skip
 DEFAULT_EXCLUDES: Set[str] = {".git", ".hg", ".svn", ".idea", ".vscode", "node_modules", "dist", "build", "target", "__pycache__", "venv", ".venv"}
 # Charlimit for ml model
-DEAULT_MAX_CHARS = 2000
+DEFAULT_MAX_CHARS = 2000
 # How many characters each chunk can overlap into the next oen
 DEFAULT_OVERLAP = 200
 # Maximum number of characters to avoid slowdowns on huge files
@@ -40,13 +40,13 @@ def iter_text(root: Path, is_binary_file: Callable[[str], bool], excludes: Optio
 	root = root.resolve()
 	for dirpath, dirnames, filenames in os.walk(root):
 		for fn in filenames:
-		p = Path(dirpath) / fn
-		try:
-			if not is_binary_file(str(p)):
-				yield p
-		except Exception:
-			#just skip
-			continue
+			p = Path(dirpath) / fn
+			try:
+				if not is_binary_file(str(p)):
+					yield p
+			except Exception:
+				#just skip
+				continue
 
 def file_to_chunk(path: Path, *, repo_root: Path, max_file_chars: int = DEFAULT_MAX_FILE_CHARS, max_chars: int = DEFAULT_MAX_CHARS, overlap: int = DEFAULT_OVERLAP) -> Iterator[Dict]:
 	try:
@@ -57,7 +57,7 @@ def file_to_chunk(path: Path, *, repo_root: Path, max_file_chars: int = DEFAULT_
 
 	text = _normalize_text(raw)
 	lang = _language_from_path(path)
-	rel = str(file_path.resolve().relative_to(repo_root))
+	rel = str(path.resolve().relative_to(repo_root))
 
 
 	for idx, (start, end, slice_) in enumerate(chunk(text, max_chars, overlap)):
@@ -79,10 +79,10 @@ def write_chunks_json(repo_root: str, out_json: str, is_binary_file: Callable[[s
 
 	count = 0
 	with open(out, "w", encoding="utf-8") as sink:
-		for p in iter_text_files(root, is_binary_file=is_binary_file, excudes=excludes):
+		for p in iter_text(root, is_binary_file=is_binary_file, excludes=excludes):
 			for chunk in file_to_chunk(p, repo_root=root, max_file_chars=max_file_chars, max_chars=max_chars,overlap=overlap):
-				sink.write(json.dumps(chunk, ensure_ascii=False) + "\n"
-				count +=
+				sink.write(json.dumps(chunk, ensure_ascii=False) + "\n")
+				count += 1
 	return count
 
 
