@@ -1,5 +1,5 @@
 import os
-from parser.file_classification import is_binary_file
+from .file_classification import is_binary_file
 
 
 def parse_directory(directory):
@@ -99,7 +99,7 @@ def summarize_results(summary):
 
 if __name__ == "__main__":
 	import argparse
-	from parser.chunking import write_chunks_json
+	from codeparser.chunking import write_chunks_json
 	
 	parser = argparse.ArgumentParser(description="gen jsonl data for the ML model")
 	parser.add_argument("root", type=str, help="Path to repo/extracted zip")
