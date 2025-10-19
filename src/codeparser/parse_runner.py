@@ -1,17 +1,5 @@
-"""
-parser.py
----------
-Core module for recursively parsing project directories and classifying files
-as either text or binary. This serves as the foundation for subsequent
-processing tasks such as categorization, metrics extraction, and ML-based
-analysis.
-
-Dependencies:
-- file_classification.py : provides the `is_binary_file` function
-"""
-
 import os
-from parser.file_classification import is_binary_file
+from .file_classification import is_binary_file
 
 
 def parse_directory(directory):
@@ -95,23 +83,33 @@ def summarize_results(summary):
     print(f"Text files         : {len(summary['text_files'])}")
 
 
+
+
+
+# move everything above this line out of this module pls
+
+
+
+
+
+
+
+
+
+
 if __name__ == "__main__":
-    import sys
+	import argparse
+	from codeparser.chunking import write_chunks_json
+	
+	parser = argparse.ArgumentParser(description="gen jsonl data for the ML model")
+	parser.add_argument("root", type=str, help="Path to repo/extracted zip")
+	parser.add_argument("--out", type=str, default="chunks.jsonl", help="Output file")
+	parser.add_argument("--max-chars", type=int, default=2000, help="Max chars per chunk, default 2k")
+	parser.add_argument("--overlap", type=int, default=200, help="Overlap chars")
+	parser.add_argument("--max-file-chars", type=int, default=1_000_000, help="file char count limit")
+	args = parser.parse_args()
 
-    try:
-        if len(sys.argv) != 2:
-            print("Usage: python -m parser.parser <directory_path>")
-            sys.exit(1)
+	n = write_chunks_json(repo_root=args.root, out_json=args.out, is_binary_file=is_binary_file, max_file_chars=args.max_file_chars, max_chars=args.max_chars,overlap=args.overlap)
 
-        directory = sys.argv[1]
-        print(f"Parsing directory: {directory}")
-
-        summary = parse_directory(directory)
-        summarize_results(summary)
-
-    except FileNotFoundError as e:
-        print(f"Error: {e}")
-        sys.exit(1)
-    except Exception as e:
-        print(f"Unexpected error: {e}")
-        sys.exit(1)
+	print(f"Wrote {n} chunks to file {args.out}")
+	
