@@ -39,6 +39,7 @@ def iter_text(root: Path, is_binary_file: Callable[[str], bool], excludes: Optio
 	excludes = excludes or DEFAULT_EXCLUDES
 	root = root.resolve()
 	for dirpath, dirnames, filenames in os.walk(root):
+		dirnames[:] = [d for d in dirnames if d not in excludes]
 		for fn in filenames:
 			p = Path(dirpath) / fn
 			try:
