@@ -66,3 +66,18 @@ I worked on the file parser mechanics, specifically the logic for detecting and 
 Binary/Human Readable distinction, issue #19
 - Among these tasks, which have you completed/in progress in the last 2 weeks?
 I completed the MIME based file detector, which achieved that part of that task. I also created relevant test files for that function to ensure it worked properly.
+
+
+## Week 7
+- Applicable date range
+October 13 - 19
+- Type of tasks you worked on (screenshot from Peer Eval question)
+![Alt text](./imgs/liam_storgaard_w7.png)
+- Recap on your week's goals
+We needed to continue adding the baseline I/O and file parsing so that we have a foundation for passing the input to the ML model later on.
+- Which features were yours in the project plan for this milestone?
+Adding file chunking from the parsed directories.
+- Which tasks from the project board are associated with these features?
+Text chunking for future ML model use, issue #35
+- Among these tasks, which have you completed/in progress in the last 2 weeks?
+I completed the above task/issue. There is now a functioning parser which iterates through directories, ignores binary files and directories like .git, and outputs ~2000 word JSONL chunks with some basic language metadata.
