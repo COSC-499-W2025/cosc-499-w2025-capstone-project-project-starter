@@ -1,11 +1,27 @@
 # Personal log of Cole Powrie (from Week 7)
 ## Applicable Date Range
-- Monday, October 6th to Sunday, October 12th
+- Monday, October 13th to Sunday, October 19th
 
 ## Peer evaluation screenshot
 ![alt text](<imgs/ColePowrieW7.png>)
 
+## This Milestone
+- Started work on our coding parser and our zip file validator
+- Updated our ReadMe with our DFD level 1 and our system architecture design
 
+## Tasks
+- Start coding work on our backend for our file handling
+- Update our ReadMe with our system information and DFD
+
+## Progress from the last two weeks
+- Our coding environment has been set up, and functional requirements are being worked on
+
+## In Progress Tasks
+- The backend code for our file processing and handling
+- The start of our code for the parser
+
+## Next Cycle Activities
+- We will next continue on our backend code for our file handling
 
 # Personal log of Cole Powrie (from Week 6)
 ## Applicable Date Range
