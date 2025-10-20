@@ -1,3 +1,26 @@
+# Personal log of Luis Wen (from Week 7)
+
+## Features in this milestone
+
+- Refactored parser
+- Did team log
+- Modified parser_runner to follow the SRP approach
+
+## Project board tasks
+
+- Issue #47
+- Issue #49
+
+## Work done in last 2 weeks
+
+- Test locally (a lot)
+- Approve of the new DFD and system architecture design
+- Check and/or review teammate's code
+
+## Peer evaluation screenshot week 7
+
+![alt text](</logs/individual/imgs/LuisWen_Week7.png>)
+
 # Personal log of Luis Wen (from Week 6)
 
 ## Features in this milestone
