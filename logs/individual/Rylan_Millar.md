@@ -83,3 +83,23 @@
 ## Peer evaluation screenshot Week 6
 
 ![alt text](<imgs/rylan_millar_w6.png>)
+
+---
+---
+
+# Personal Log for Rylan Millar (33334400) Week 7 (October 13 - 19)
+
+## Features from the project plan this week
+- Research Pandas
+- Research NumPy
+- Research scikit-learn
+
+## Tasks from the project board associated with these features
+- Research Data Analysis Methods (Pandas, NumPy, scikit-learn)
+
+## Completed and In Progress
+- Research Data Analysis Methods (Pandas, NumPy, scikit-learn) (**IN PROGRESS**)
+
+## Peer evaluation screenshot Week 7
+
+![alt text](<imgs/rylan_millar_w7.png>)
