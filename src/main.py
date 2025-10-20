@@ -1,5 +1,5 @@
 import sys
-from src.validator import zipvalidation
+from validator import zipvalidation
 
 def main():
     # get the file as a command-line argument
