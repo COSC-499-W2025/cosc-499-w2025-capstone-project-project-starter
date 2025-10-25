@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-PY_VERSION="${PY_VERSION:-3.6.15}"   # last 3.6 patch; override if needed
+PY_VERSION="${PY_VERSION:-3.6.15}"
 ENV_NAME="${ENV_NAME:-py36env}"
 REQ_FILE="${REQ_FILE:-HiGitClass/requirements.txt}"
 export PYENV_ROOT="${PYENV_ROOT:-$HOME/.pyenv}"
