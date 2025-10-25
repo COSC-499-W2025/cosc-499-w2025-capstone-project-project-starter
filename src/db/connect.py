@@ -4,7 +4,7 @@ def connect_to_postgres():
     try:
         connection = psycopg2.connect(
             host="localhost",
-            port="5432",
+            port="5432",            # this is default port for PostgreSQL
             user="postgres",        # change if you made a different user
             password="password",    # use the password you set during installation
             database="postgres"     # use the default postgres db for now
