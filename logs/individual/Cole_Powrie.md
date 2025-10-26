@@ -1,3 +1,30 @@
+# Personal log of Cole Powrie (from Week 8)
+## Applicable Date Range
+- Monday, October 20th to Sunday, October 16th
+
+## Peer evaluation screenshot
+![alt text](<imgs/ColePowrieW8.png>)
+
+## This Milestone
+- We continued work on our zip and file validator
+- Researched and found a dataset to pre-train our ML model
+- Started setting up our PostgreSQL and the connection to it
+
+## Tasks
+- Researching and identifying different datasets and methods of pre-training for our ML model
+- Setting up a basic connection file to PostgreSQL, as well as implementing a test table to ensure proper connection
+
+## Progress from the last two weeks
+- We have made extensive progress on the training of our ML model
+- Started a basic implementation of DB and the connection to it
+
+## In Progress Tasks
+- Adding values to our tables in our database and further setting up the DB
+
+## Next Cycle Activities
+- We will next continue on our backend code for our file handling
+- Continue the integration and implementation of our DB
+
 # Personal log of Cole Powrie (from Week 7)
 ## Applicable Date Range
 - Monday, October 13th to Sunday, October 19th
