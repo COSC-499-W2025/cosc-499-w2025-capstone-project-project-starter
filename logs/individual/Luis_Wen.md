@@ -1,3 +1,53 @@
+# Personal log of Luis Wen (from Week 7)
+
+## Features in this milestone
+
+- Refactored parser
+- Did team log
+- Modified parser_runner to follow the SRP approach
+
+## Project board tasks
+
+- Issue #47
+- Issue #49
+
+## Work done in last 2 weeks
+
+- Test locally (a lot)
+- Approve of the new DFD and system architecture design
+- Check and/or review teammate's code
+
+## Peer evaluation screenshot week 7
+
+![alt text](</logs/individual/imgs/LuisWen_Week7.png>)
+
+# Personal log of Luis Wen (from Week 6)
+
+## Features in this milestone
+
+- Explanations for the level 1 data flow diagram
+- Explanation for the system architecture design
+- Created tests and code for the tests to pass following a TDD approach
+- Added pull request template
+
+## Project board tasks
+
+- Issue #14
+- Issue #13
+- Issue #17
+- Issue #21
+
+## Work done in last 2 weeks
+
+- Added the explanation for the level 1 data flow diagram
+- Created the explanation for the system architecture design
+- Set up tests for parser.py
+- Developed code for test_parser.py to pass
+
+## Peer evaluation screenshot week 6
+
+![alt text](</logs/individual/imgs/LuisWen_Week6.png>)
+
 # Personal log of Luis Wen (from Week 5)
 
 ## Features in this milestone

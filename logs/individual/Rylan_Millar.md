@@ -58,3 +58,48 @@
 ## Peer evaluation screenshot Week 5
 
 ![alt text](<imgs/rylan_millar_w5.png>)
+
+---
+---
+
+# Personal Log for Rylan Millar (33334400) Week 6 (October 6 - 12)
+
+## Features from the project plan this week
+- Create main.py
+- Create parser.py
+- Create tests files
+
+## Tasks from the project board associated with these features
+- Add main.py starter file
+- Create parser module
+- Create Test Files
+
+## Completed and In Progress
+- Add main.py starter file (completed)
+- Create parser module (completed)
+- Create Test Files (completed)
+- Research Python libraries for our projcet (in progress)
+
+## Peer evaluation screenshot Week 6
+
+![alt text](<imgs/rylan_millar_w6.png>)
+
+---
+---
+
+# Personal Log for Rylan Millar (33334400) Week 7 (October 13 - 19)
+
+## Features from the project plan this week
+- Research Pandas
+- Research NumPy
+- Research scikit-learn
+
+## Tasks from the project board associated with these features
+- Research Data Analysis Methods (Pandas, NumPy, scikit-learn)
+
+## Completed and In Progress
+- Research Data Analysis Methods (Pandas, NumPy, scikit-learn) (**IN PROGRESS**)
+
+## Peer evaluation screenshot Week 7
+
+![alt text](<imgs/rylan_millar_w7.png>)

@@ -1,3 +1,55 @@
+# Personal log of Will Tilden (from Week 7) as per the personal log format outlined in lecture slides
+
+## Applicable date range
+- Monday, October 13th to Sunday, October 19th
+
+## Type of tasks I worked on
+![Alt text](imgs/will_tilden_w7.png)
+
+## Recap on your weeks goals
+
+- Which features were yours in the project plan for this milestone?
+
+    This week my feature was #1 in the milestone requirements which specifies to ensure that the user is asked for their consent before their data is analyzed so I added the functionality to prompt the user for their consent before we analyzed their data. And I added tests to ensure this functionality works properly. I also mistakenly forgot to pull in our team logs from week 6 which was last week. They were my responsibility and I did them on time, I just forgot to pull them into the branch so we got a zero so I am going to get those pulled in and see if I may still be able to get them marked because I don't want to have let my team down there.
+
+- Which tasks from the project board are associated with these features?
+
+    From the project board issue [COSC-499-W2025/capstone-project-team-15#41](https://github.com/COSC-499-W2025/capstone-project-team-15/issues/41) is associated with the obtaining of the users consent for data analysis that i mentioned. And the issue associated with pulling in last weeks team logs is issue[COSC-499-W2025/capstone-project-team-15#43](https://github.com/COSC-499-W2025/capstone-project-team-15/issues/43).
+
+- Among these tasks, which have you completed / in progress in the last 2 weeks?
+
+    Both have been completed this week and are merged in now and marked done.
+
+- Optional text: additional context that we should be aware of
+
+     My mistake forgetting to merge in the team logs was an honest one and I do feel bad for letting my team down there so I am really hoping that, now that they are merged in, that someone may be able to go back and review them again so we may get the marks 🙏🏻.
+
+# Personal log of Will Tilden (from Week 6) as per the personal log format outlined in lecture slides
+
+## Applicable date range
+- Monday, October 6th to Sunday, October 12th
+
+## Type of tasks I worked on
+![Alt text](imgs/will_tilden_w6.png)
+
+## Recap on your weeks goals
+
+- Which features were yours in the project plan for this milestone?
+
+    I did issue 27 which was a documanation update on the project proposal document, and also helped others with their PRs doing reviews and giving suggestions.
+
+- Which tasks from the project board are associated with these features?
+
+    Issue 27 and the associated PR were mine for this week.
+
+- Among these tasks, which have you completed / in progress in the last 2 weeks?
+
+    The issue was completed today and is done now so into coding next week.
+
+- Optional text: additional context that we should be aware of
+
+     N/A
+
 # Personal log of Will Tilden (from Week 5) as per the personal log format outlined in lecture slides
 
 ## Applicable date range
