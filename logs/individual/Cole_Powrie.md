@@ -1,6 +1,6 @@
 # Personal log of Cole Powrie (from Week 8)
 ## Applicable Date Range
-- Monday, October 20th to Sunday, October 16th
+- Monday, October 20th to Sunday, October 26th
 
 ## Peer evaluation screenshot
 ![alt text](<imgs/ColePowrieW8.png>)
