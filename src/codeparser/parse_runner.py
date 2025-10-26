@@ -1,6 +1,7 @@
 if __name__ == "__main__":
 	import argparse
 	from codeparser.chunking import write_chunks_json
+	from codeparser.file_classification import is_binary_file
 	
 	parser = argparse.ArgumentParser(description="gen jsonl data for the ML model")
 	parser.add_argument("root", type=str, help="Path to repo/extracted zip")
