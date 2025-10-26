@@ -81,3 +81,19 @@ Adding file chunking from the parsed directories.
 Text chunking for future ML model use, issue #35
 - Among these tasks, which have you completed/in progress in the last 2 weeks?
 I completed the above task/issue. There is now a functioning parser which iterates through directories, ignores binary files and directories like .git, and outputs ~2000 word JSONL chunks with some basic language metadata.
+
+
+## Week 8
+- Applicable date range
+October 20 - 26
+- Type of tasks you worked on (screenshot from Peer Eval question)
+![Alt text](./imgs/liam_storgaard_w8.png)
+- Recap on your week's goals
+We wanted to get our ML model choice concretely solidified and begin integrating it into our project.
+- Which features were yours in the project plan for this milestone?
+Adding and integrating the ML model.
+- Which tasks from the project board are associated with these features?
+HiGitClass integration, #56
+- Among these tasks, which have you completed/in progress in the last 2 weeks?
+I completed the task successfully. I used an ML model based on the academic paper "HiGitClass" originally intended for easy keyword classification of GitHub projects. We can easily adapt this to our use case, and I integrated it into our project as a submodule, and created scripts to easily set it up and install the dependencies.
+
