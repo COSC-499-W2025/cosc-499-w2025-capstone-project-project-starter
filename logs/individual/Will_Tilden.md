@@ -1,3 +1,29 @@
+# Personal log of Will Tilden (from Week 8) as per the personal log format outlined in lecture slides
+
+## Applicable date range
+- Monday, October 20th to Sunday, October 26th
+
+## Type of tasks I worked on
+![Alt text](imgs/will_tilden_w8.png)
+
+## Recap on your weeks goals
+
+- Which features were yours in the project plan for this milestone?
+
+    This week my feature was to setup all of the necessary docker files so that we are ready to run our app in a docker container when the time comes to begin running it and testing it. Right now it is instead setup to run a test file (which is the test file I used to make sure my docker files were working properly) just to ensure that it is all setup properly but once we're ready to run the app in a docker container, we now have all the files in place to be able to do that which is a helpful step towards milestone 1 completion.
+
+- Which tasks from the project board are associated with these features?
+
+    From the project board issue [COSC-499-W2025/capstone-project-team-15#62](https://github.com/COSC-499-W2025/capstone-project-team-15/issues/62) is the one that I completed this week with my pull request.
+
+- Among these tasks, which have you completed / in progress in the last 2 weeks?
+
+    This issue was created and completed by me this week.
+
+- Optional text: additional context that we should be aware of
+
+     None for this week, I felt I made a storng contirbution to an important part of getting the app going and it is good to have it done ✅
+     
 # Personal log of Will Tilden (from Week 7) as per the personal log format outlined in lecture slides
 
 ## Applicable date range
