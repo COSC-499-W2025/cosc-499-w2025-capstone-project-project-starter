@@ -15,7 +15,9 @@ def main():
 
     file = sys.argv[1]
     result = zipvalidation.check_zip_file(file)
-    print(result)
+    unzipped = zipvalidation.unzip_file(file)
+    print("\n"+ result + "\n")
+    print("\n" + unzipped + "\n")
     print("\nMain working correctly.\n")
 
 
