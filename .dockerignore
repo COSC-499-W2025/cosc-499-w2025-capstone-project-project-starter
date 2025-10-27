@@ -1,0 +1,14 @@
+# files and file types to be ignored by docker when setting up the container
+
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+*.log
+*.env
+*.DS_Store
+.git
+.gitignore
+.env
+*.zip
+tests/
