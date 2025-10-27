@@ -1,3 +1,24 @@
+# Personal log of Luis Wen (from Week 8)
+
+## Features in this milestone
+
+- No coding features added this week
+
+## Project board tasks
+
+- Issue #53
+
+## Work done in last 2 weeks
+
+- Research data analysis methods
+- Team logs
+- Reviewing and checking coding PRs
+- Manually testing code PRs
+
+## Peer evaluation screenshot week 8
+
+![alt text](</logs/individual/imgs/LuisWen_Week8.png>)
+
 # Personal log of Luis Wen (from Week 7)
 
 ## Features in this milestone
