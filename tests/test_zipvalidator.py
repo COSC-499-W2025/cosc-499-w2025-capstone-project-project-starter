@@ -68,3 +68,20 @@ def test_main_user_declines(tmp_path):
         main()
         printed = [call.args[0] for call in mock_print.call_args_list]
         assert "Consent not given. Exiting." in printed
+
+def test_unzip_file():
+    # create a temporary zip file same as before
+    # this test assumes that test_zip_file() and non_zip_file() have 
+    # already run and passed
+    with tempfile.NamedTemporaryFile(suffix=".zip", delete=False) as tmp:
+        zip_file = tmp.name
+        try:
+        # write a dummy file into the zip
+            with zipfile.ZipFile(zip_file, "w") as zf:
+                zf.writestr("file.txt", "content")
+            
+            result = unzip_file(zip_file)
+            assert zip_file in result
+            assert "extraction successful!" in result
+        finally:
+            os.remove(zip_file)
