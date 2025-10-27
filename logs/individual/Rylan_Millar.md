@@ -1,3 +1,26 @@
+
+---
+---
+
+# Personal Log for Rylan Millar (33334400) Week 8 (October 20 - 26)
+
+## Features from the project plan this week
+- Research Data Analysis Methods
+- Research HiGitClass
+
+## Tasks from the project board associated with these features
+- Research Data Analysis Methods 
+
+## Completed and In Progress
+- Research Data Analysis Methods (**In Progress**)
+
+## Peer evaluation screenshot Week 8
+
+![alt text](<imgs/rylan_millar_w8.png>)
+
+---
+---
+
 # Personal Log for Rylan Millar (33334400) Week 3 September 15-21
 
 ## What went well
