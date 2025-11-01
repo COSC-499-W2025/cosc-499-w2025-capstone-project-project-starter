@@ -33,6 +33,25 @@ def create_tables():
         );
         '''
 
+        #artifacts table
+        create_artifacts_table = '''
+        CREATE TABLE IF NOT EXISTS artifacts (
+            id SERIAL PRIMARY KEY,
+            user_id INTEGER REFERENCES users(id),
+            file_name VARCHAR(255) NOT NULL,
+            file_path TEXT NOT NULL,
+            file_type VARCHAR(50)
+        );
+        '''
+
+        #category table(just main category for now)
+        create_category_table = '''
+        CREATE TABLE IF NOT EXISTS category (
+            id SERIAL PRIMARY KEY,
+            main_category VARCHAR(100) NOT NULL 
+        );
+        '''
+
         #execute table creation queries
         cursor.execute(create_test_table)
         cursor.execute(create_users_table)
