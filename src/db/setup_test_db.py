@@ -2,8 +2,9 @@ import psycopg2
 from connect import connect_to_postgres
 
 
-def create_test_table():
+def create_tables():
     try:
+        #connect to the PostgreSQL database
         connection = psycopg2.connect(
             host="localhost",
             port="5432",
@@ -12,17 +13,37 @@ def create_test_table():
             database="postgres"
         )
         cursor = connection.cursor()
-        create_table_query = '''
+
+        #create test table
+        create_test_table = '''
         CREATE TABLE IF NOT EXISTS test_table (
             id SERIAL PRIMARY KEY,
-            name VARCHAR(100) NOT NULL
+            name VARCHAR(100) NOT NULL,
+            category_main VARCHAR(100),
+            category_sub VARCHAR(100)
         );
         '''
-        cursor.execute(create_table_query)
+
+        #create user table
+        create_users_table = '''
+        CREATE TABLE IF NOT EXISTS users (
+            id SERIAL PRIMARY KEY,
+            username VARCHAR(50) UNIQUE NOT NULL,
+            password_hash TEXT NOT NULL
+        );
+        '''
+
+        #execute table creation queries
+        cursor.execute(create_test_table)
+        cursor.execute(create_users_table)
+
+        #commit the changes
         connection.commit()
-        print("Test table created successfully!")
+        print("Tables created successfully!")
+
     except Exception as e:
-        print("Failed to create test table:", e)
+        print("Failed to create tables:", e)
+
     finally:
         if cursor:
             cursor.close()
@@ -30,7 +51,5 @@ def create_test_table():
             connection.close()
 
 
-
-
 if __name__ == "__main__":
-    create_test_table()
+    create_tables()
