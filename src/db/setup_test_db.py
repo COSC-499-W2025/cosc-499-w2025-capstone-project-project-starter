@@ -4,7 +4,7 @@ from connect import connect_to_postgres
 
 def create_tables():
     try:
-        #connect to the PostgreSQL database
+        # Connect to the PostgreSQL database
         connection = psycopg2.connect(
             host="localhost",
             port="5432",
@@ -14,7 +14,7 @@ def create_tables():
         )
         cursor = connection.cursor()
 
-        #create user table
+        # Create users table
         create_users_table = '''
         CREATE TABLE IF NOT EXISTS users (
             id SERIAL PRIMARY KEY,
@@ -23,7 +23,7 @@ def create_tables():
         );
         '''
 
-        #artifacts table
+        # Create artifacts table
         create_artifacts_table = '''
         CREATE TABLE IF NOT EXISTS artifacts (
             id SERIAL PRIMARY KEY,
@@ -34,19 +34,20 @@ def create_tables():
         );
         '''
 
-        #category table(just main category for now)
+        # Create category table (just main categories for now)
         create_category_table = '''
         CREATE TABLE IF NOT EXISTS category (
             id SERIAL PRIMARY KEY,
-            main_category VARCHAR(100) NOT NULL 
+            main_category VARCHAR(100) NOT NULL
         );
         '''
 
-        #execute table creation queries
-        cursor.execute(create_test_table)
+        # Execute all table creation queries
         cursor.execute(create_users_table)
+        cursor.execute(create_artifacts_table)
+        cursor.execute(create_category_table)
 
-        #commit the changes
+        # Commit the changes
         connection.commit()
         print("Tables created successfully!")
 
