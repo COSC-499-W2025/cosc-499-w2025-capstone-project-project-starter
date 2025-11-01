@@ -14,16 +14,6 @@ def create_tables():
         )
         cursor = connection.cursor()
 
-        #create test table
-        create_test_table = '''
-        CREATE TABLE IF NOT EXISTS test_table (
-            id SERIAL PRIMARY KEY,
-            name VARCHAR(100) NOT NULL,
-            category_main VARCHAR(100),
-            category_sub VARCHAR(100)
-        );
-        '''
-
         #create user table
         create_users_table = '''
         CREATE TABLE IF NOT EXISTS users (
