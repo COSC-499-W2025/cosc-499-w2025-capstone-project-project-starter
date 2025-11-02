@@ -1,0 +1,11 @@
+version: "3.9"
+
+services:
+  app:
+    build: .
+    container_name: artifact-miner
+    # command: python main.py - commented for now while we are still buidling the app
+    volumes:
+      - .:/app
+    ports:
+      - "5001:5000"
