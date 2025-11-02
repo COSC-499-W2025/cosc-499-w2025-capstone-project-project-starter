@@ -1,55 +1,88 @@
-import json
-import os
-from pathlib import Path
+"""
+LLM_permission.py
 
-CONFIG_PATH = Path.home() / ".artifact_miner_config.json"
+This module:
+  • Requests user consent before sending data to an external service (e.g., LLM).
+  • Clearly provides data privacy implications (requirement 4).
+  • Offers a local alternative analysis (/src/ml/) if consent is denied (requirement 5).
+"""
 
-def _load_config():
-    """Load the user configuration file if it exists."""
-    if CONFIG_PATH.exists():
-        try:
-            with open(CONFIG_PATH, "r") as f:
-                return json.load(f)
-        except json.JSONDecodeError:
-            return {}
-    return {}
+import importlib
 
-def _save_config(config):
-    """Save the configuration file to disk."""
-    with open(CONFIG_PATH, "w") as f:
-        json.dump(config, f, indent=4)
 
-def request_external_service_permission(service_name: str, data_description: str) -> bool:
+def request_external_service_permission(service_name: str, data_type: str) -> bool:
     """
-    Request user permission before sending data to an external service.
+    Ask the user for consent before using an external service and
+    display clear data privacy implications.
 
     Args:
         service_name (str): Name of the external service (e.g., "OpenAI API").
-        data_description (str): Description of what data will be sent.
+        data_type (str): Type of data that will be sent (e.g., "source code", "user input").
 
     Returns:
-        bool: True if user consents, False otherwise.
+        bool: True if the user consents, False otherwise.
     """
 
-    config = _load_config()
+    print("\n⚠️  DATA PRIVACY NOTICE")
+    print("=" * 70)
+    print(f"You are about to send your {data_type} to an external service: {service_name}")
+    print("\nBy consenting, you acknowledge that:")
+    print("  • The data may be processed or stored by external servers outside your local machine.")
+    print("  • The external service may log or retain portions of your data for debugging or improvement.")
+    print("  • You should avoid including personal, confidential, or proprietary information.")
+    print("  • This process is optional — if you decline, a local analysis will be performed instead.")
+    print("=" * 70)
 
-    # Check if user has already set a preference
-    if "external_services" in config and service_name in config["external_services"]:
-        return config["external_services"][service_name]
+    while True:
+        consent = input(f"\nDo you consent to use {service_name} for processing your {data_type}? (yes/no): ").strip().lower()
+        if consent in ["yes", "no"]:
+            return consent == "yes"
+        print("❌ Invalid input. Please type 'yes' or 'no'.")
 
-    # Explain implications
-    print(f"\n⚠️  Data Privacy Notice for {service_name}")
-    print(f"The following data may be sent externally:\n  → {data_description}\n")
-    print("By proceeding, you acknowledge that this data may be processed by third-party servers.")
-    print("No sensitive personal data should be included unless absolutely necessary.\n")
 
-    choice = input("Do you consent to send this data? (yes/no): ").strip().lower()
+def analyze_with_external_service(data: str):
+    """
+    Stub for sending data to an external service such as an LLM.
+    In actual implementation, this would handle the API request and return the response.
+    """
+    print("📤 Sending data to external service...")
+    # Placeholder for API logic
+    return f"[External Analysis Result for data: {data[:30]}...]"
 
-    allow = choice in ["yes", "y"]
-    print("\n✅ External service allowed.\n" if allow else "🚫 External service disabled. Local fallback will be used.\n")
 
-    # Store the user's decision
-    config.setdefault("external_services", {})[service_name] = allow
-    _save_config(config)
+def analyze_locally(data: str):
+    """
+    Alternative local analysis (Requirement 5).
+    Uses models or logic in /src/ml/ if the user declines external service.
+    """
+    try:
+        # Dynamically load your local ML analysis module (placeholder)
+        local_module = importlib.import_module("src.ml.universal.local_analysis")
+        print("🧠 Running local analysis using /src/ml/universal/local_analysis.py...")
+        return local_module.run_local_analysis(data)
+    except ModuleNotFoundError:
+        print("⚙️ Local ML module not found. Using fallback local heuristic analysis.")
+        return f"[Local Analysis Result for data: {data[:30]}...]"
 
-    return allow
+
+def process_data_with_permission(service_name: str, data_type: str, data: str):
+    """
+    Orchestrates the workflow:
+    - Requests user permission
+    - Runs external or local analysis accordingly
+    """
+    has_consent = request_external_service_permission(service_name, data_type)
+
+    if has_consent:
+        print("✅ User consented to external processing.")
+        return analyze_with_external_service(data)
+    else:
+        print("🔒 User declined external service — switching to local analysis.")
+        return analyze_locally(data)
+
+
+if __name__ == "__main__":
+    # Example standalone run
+    example_data = "Sample source code snippet for testing"
+    result = process_data_with_permission("OpenAI API", "source code", example_data)
+    print("\nResult:\n", result)
