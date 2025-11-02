@@ -34,20 +34,45 @@ def create_tables():
         );
         '''
 
-        # Create category table (just main categories for now)
+        # Create category table
         create_category_table = '''
         CREATE TABLE IF NOT EXISTS category (
             id SERIAL PRIMARY KEY,
-            main_category VARCHAR(100) NOT NULL
+            main_category VARCHAR(100) UNIQUE NOT NULL
         );
         '''
 
-        # Execute all table creation queries
+        # Execute table creation
         cursor.execute(create_users_table)
         cursor.execute(create_artifacts_table)
         cursor.execute(create_category_table)
 
-        # Commit the changes
+        # Check if the category table is empty
+        cursor.execute("SELECT COUNT(*) FROM category;")
+        count = cursor.fetchone()[0]
+
+        if count == 0:
+            # Insert 10 default categories
+            cursor.executemany(
+                "INSERT INTO category (main_category) VALUES (%s);",
+                [
+                    ("General Cat 1",),
+                    ("General Cat 2",),
+                    ("General Cat 3",),
+                    ("General Cat 4",),
+                    ("General Cat 5",),
+                    ("General Cat 6",),
+                    ("General Cat 7",),
+                    ("General Cat 8",),
+                    ("General Cat 9",),
+                    ("General Cat 10",)
+                ]
+            )
+            print("Inserted default categories into 'category' table.")
+        else:
+            print("Category table already has data. Skipping insertion.")
+
+        # Commit all changes
         connection.commit()
         print("Tables created successfully!")
 
