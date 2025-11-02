@@ -6,7 +6,7 @@ This module builds and trains a weakly supervised multi-label classifier that as
 
 ## Requirements
 
-- **Python > 3.14** - DO NOT USE 3.14 IT WILL NOT RUN
+- **Python < 3.14** - DO NOT USE 3.14 IT WILL NOT RUN
 - GPU optional but recommended for embedding speed
 - Use a venv
 
