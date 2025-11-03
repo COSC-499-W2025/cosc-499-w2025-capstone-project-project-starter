@@ -1,6 +1,6 @@
 from config.db_config import get_connection
 from upload_file import add_file_to_db
-from project_manager import list_projects
+from project_manager import list_projects, list_project_files
 from consent.consent_manager import ConsentManager
 from collaborative.collaborative_manager import CollaborativeManager
 from analysis.key_metrics import analyze_project_from_db
@@ -421,7 +421,29 @@ def main():
             add_file_to_db(filepath)
             
         elif choice == '2':
-            list_projects()
+            projects = list_projects()
+            if projects:
+                print("\nWould you like to view files for a specific project?")
+                view_choice = input("Enter project number to view files, or 'q' to go back: ").strip()
+                if view_choice.lower() != 'q':
+                    try:
+                        project_num = int(view_choice)
+                        if 1 <= project_num <= len(projects):
+                            selected_project = projects[project_num - 1]
+                            print(f"\n" + "-"*80)
+                            print(f"Files in project: {selected_project['filename']}")
+                            print("-"*80)
+                            files = list_project_files(selected_project['id'])
+                            if files:
+                                for i, file_path in enumerate(files, 1):
+                                    print(f"{i}. {file_path}")
+                                print("-"*80)
+                                print(f"Total files: {len(files)}")
+                            input("\nPress Enter to continue...")
+                        else:
+                            print(f"Please enter a number between 1 and {len(projects)}")
+                    except ValueError:
+                        print("Please enter a valid number or 'q'")
             
         elif choice == '3':
             selected_project = _select_project_interactive("Analyze project metrics")
