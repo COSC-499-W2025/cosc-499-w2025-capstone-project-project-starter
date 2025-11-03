@@ -193,6 +193,35 @@ def display_success(result):
                 print(f"  ... and {len(result.data['files']) - 5} more files")
     print("="*60 + "\n")
 
+def ask_user_preferences(is_start):
+    just_changed = False
+    if consent_manager.has_access() and not is_start:
+        while True:
+            print("Collaborative not granted. Doing individual.")
+    else:
+        print("Collaborative granted. Doing colabrative and individual.")
+        if not get_user_git_username() or get_user_git_username()[0] is None:
+            response = input("\nWhat is you GitHub user name: ").strip()
+            update_user_git_username(response)
+            just_changed = True
+        print("\nYour github username is:"+str(get_user_git_username()))
+        # Path to the ZIP file
+        zip_path = os.path.abspath(os.path.join(os.path.dirname(__file__), "../test.zip"))
+        ic = identify_contributors(zip_path)
+            # Cleanup temporary extracted files
+        ic.cleanup()
+
+    if not just_changed and not get_user_git_username()[0] is None and not is_start:
+        while True:
+            response = input("\nWould you like to change you GitHub username? (y/n)")
+            if response in ['yes', 'y']:
+                new_username = input("\nWhat is you GitHub user name: ").strip()
+                update_user_git_username(new_username)
+            elif response in ['no', 'n']:
+                break
+            else:
+                print("Invalid input. Please enter 'yes' or 'no'.")
+
 def analyze_project_menu():
     """
     Handle the project analysis menu.
