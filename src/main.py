@@ -309,20 +309,16 @@ def main():
         print("="*70)
         print("1. Upload a ZIP file")
         print("2. List stored projects")
-        print("3. Summarize a project (basic summary)")
-        print("4. Analyze a project (detailed analysis with local fallback)")
-        print("5. Manage external service settings")
-        print("6. Exit")
-        print("="*70)
         print("3. Analyze project metrics")
-        print("4. Summarize a project")
-        print("5. Rank all projects")
-        print("6. Change preferences")
-        print("7. Cleanup insights for a project")
-        print("8. Exit")
-        print("-"*50)
+        print("4. Summarize a project (basic summary)")
+        print("5. Analyze a project (detailed analysis with local fallback)")
+        print("6. Rank all projects")
+        print("7. Manage external service settings")
+        print("8. Cleanup insights for a project")
+        print("9. Exit")
+        print("="*70)
         
-        choice = input("Choose an option (1-7): ").strip()
+        choice = input("Choose an option (1-9): ").strip()
         
         if choice == '1':
             filepath = input("Enter the path to your zip file: ")
@@ -335,22 +331,22 @@ def main():
             selected_project = _select_project_interactive("Analyze project metrics")
             if selected_project:
                 analyze_project_from_db(int(selected_project['id']))
+                
         elif choice == '4':
             summarize_project_menu()
             
-        elif choice == '4':
+        elif choice == '5':
             analyze_project_menu()
             
-        elif choice == '5':
+        elif choice == '6':
             print("\nRanking all projects...")
             ranked = rank_all_projects()
             display_rankings(ranked)
             input("\nPress Enter to continue...")
-        elif choice == '6';
-            manage_external_services_menu()
             
         elif choice == '7':
-            ask_user_preferences(False)
+            manage_external_services_menu()
+            
         elif choice == '8':
             pid = input("Enter project ID to clean: ").strip()
             if pid.isdigit():
@@ -365,16 +361,13 @@ def main():
                     print("Cancelled.")
             else:
                 print("Invalid project ID.")
+                
         elif choice == '9':
             print("Goodbye!")
             break
             
         else:
-            print("Invalid choice. Please enter 1, 2, 3, 4, 5, or 6.")
-
-
-        else:
-            print("Invalid choice. Please enter 1-7.")
+            print("Invalid choice. Please enter 1-9.")
 
 if __name__ == "__main__":
     main()
