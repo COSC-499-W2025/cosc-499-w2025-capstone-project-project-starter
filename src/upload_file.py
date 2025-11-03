@@ -125,7 +125,7 @@ def add_file_to_db(filepath) -> UploadResult:
         with open(dest_path, "rb") as f:
             zip_bytes = f.read()
         with with_db_cursor() as cursor:
-            cur.execute("""
+            cursor.execute("""
             INSERT INTO uploaded_files (filename, filepath, status, metadata, file_data)
             VALUES (%s, %s, %s, %s, %s)
             RETURNING id

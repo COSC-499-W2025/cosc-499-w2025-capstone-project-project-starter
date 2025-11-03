@@ -12,6 +12,7 @@ import os
 import sys
 from collaborative.identify_contributors import identify_contributors
 from database.user_preferences import get_user_git_username, update_user_git_username
+from tools.cleanup_insights import delete_insights
 
 consent_manager = ConsentManager(user_id="default_user")
 collab_manager = CollaborativeManager()
