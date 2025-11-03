@@ -1,0 +1,56 @@
+name: PR tests
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out PR code
+        uses: actions/checkout@v4
+
+      - name: Also check out main (for pre-test init step)
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          path: mainbranch
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Show Python version
+        run: python --version
+
+      - name: Create .env files (PR and main)
+        run: |
+          cp .env.example .env
+          cp .env.example mainbranch/.env
+
+      - name: Start database (Docker)
+        run: docker-compose up -d
+
+      # Simple wait for DB to be ready (keep it minimal per your command set)
+      - name: Wait for DB
+        run: sleep 15
+
+      - name: Install dependencies (from PR branch)
+        run: pip install -r requirements.txt
+
+      # Your note: "Before test you should do: run python src/main.py in main branch"
+      - name: Run app init from main branch (pre-test)
+        run: python src/main.py
+        working-directory: mainbranch
+
+      - name: Run project (sanity step on PR branch)
+        run: python src/main.py
+
+      - name: Run tests
+        env:
+          PYTHONPATH: .
+        run: |
+          pytest -v
