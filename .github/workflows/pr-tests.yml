@@ -21,42 +21,44 @@ jobs:
       - name: Set up Python 3.12
         uses: actions/setup-python@v5
         with:
-          python-version: '3.12'
+          python-version: "3.12"
 
       - name: Show Python version
         run: python --version
 
-           - name: Create .env files (PR and main)
+      - name: Create .env files (PR and main)
         run: |
           cp .env.example .env
           cp .env.example mainbranch/.env
 
-      # Verify Docker is installed and running
       - name: Verify Docker setup
         run: |
-          echo "Checking Docker installation..."
           docker --version
           docker compose version || docker-compose --version
-          echo "Checking Docker daemon status..."
-          docker info > /dev/null 2>&1 && echo "Docker is running" || (echo "Docker is not running" && exit 1)
+          docker info >/dev/null 2>&1 || (echo "Docker not running" && exit 1)
 
       - name: Start database (Docker)
         run: docker compose up -d
 
-
-      # Simple wait for DB to be ready (keep it minimal per your command set)
       - name: Wait for DB
         run: sleep 15
 
       - name: Install dependencies (from PR branch)
         run: pip install -r requirements.txt
 
-      - name: Run project (sanity step on PR branch)
-        run: python src/main.py --yes --yes --10
+      - name: Run app init from main branch (pre-test)
+        working-directory: mainbranch
+        run: |
+          printf "yes\nyes\n10\n" | python src/main.py
 
+      - name: Run project (sanity step on PR branch)
+        run: |
+          printf "yes\nyes\n10\n" | python src/main.py
 
       - name: Run tests
         env:
           PYTHONPATH: .
+          PYTHONUNBUFFERED: "1"
+          PYTEST_ADDOPTS: "-vv -s"
         run: |
-          pytest -v
+          pytest tests --ignore=mainbranch --ignore=data/postgres
