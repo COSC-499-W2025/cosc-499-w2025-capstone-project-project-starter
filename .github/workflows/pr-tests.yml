@@ -31,15 +31,6 @@ jobs:
           cp .env.example .env
           cp .env.example mainbranch/.env
 
-      # Verify Docker is installed and running
-      - name: Verify Docker setup
-        run: |
-          echo "Checking Docker installation..."
-          docker --version
-          docker compose version || docker-compose --version
-          echo "Checking Docker daemon status..."
-          docker info > /dev/null 2>&1 && echo "Docker is running" || (echo "Docker is not running" && exit 1)
-
       - name: Start database (Docker)
         run: docker-compose up -d
 
