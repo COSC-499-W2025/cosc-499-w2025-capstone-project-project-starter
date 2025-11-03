@@ -10,9 +10,8 @@ from external_services.external_service_prompt import request_external_service_p
 from project_analyzer import analyze_project_by_id
 import os
 import sys
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "../src/collaborative")))
-from identify_contributors import identify_contributors
-from tools.cleanup_insights import delete_insights
+from collaborative.identify_contributors import identify_contributors
+from database.user_preferences import get_user_git_username, update_user_git_username
 
 def display_error(result):
     """Display error information to user."""
@@ -33,6 +32,45 @@ def display_error(result):
     
     print("="*70 + "\n")
 
+def ensure_user_preferences_schema():
+    """Debug version to check why git_username is not being added."""
+    try:
+        with get_connection() as conn, conn.cursor() as cur:
+            
+            # Check if table exists
+            cur.execute("""
+                SELECT EXISTS (
+                    SELECT 1
+                    FROM information_schema.tables
+                    WHERE table_name = 'user_preferences'
+                );
+            """)
+            table_exists = cur.fetchone()[0]
+            print("Table exists:", table_exists)
+            
+            # Add git_username column if missing
+            cur.execute("""
+                SELECT column_name 
+                FROM information_schema.columns
+                WHERE table_name = 'user_preferences' AND column_name = 'git_username';
+            """)
+            column_exists = cur.fetchone()
+            print("git_username column exists before ALTER:", column_exists)
+            cur.execute("""
+                ALTER TABLE user_preferences
+                ADD COLUMN IF NOT EXISTS git_username VARCHAR(255);
+            """)
+            # Check after
+            cur.execute("""
+                SELECT column_name 
+                FROM information_schema.columns
+                WHERE table_name = 'user_preferences' AND column_name = 'git_username';
+            """)
+            column_exists_after = cur.fetchone()
+            print("git_username column exists after ALTER:", column_exists_after)
+            conn.commit()
+    except Exception as e:
+        print(f"[WARN] Exception caught: {e}")
 
 def display_success(result):
     """Display success information to user."""
@@ -107,7 +145,6 @@ def _select_project_interactive(title: str):
                 print(f"Please enter a number between 1 and {len(projects)}")
         except ValueError:
             print("Please enter a valid number or 'q' to quit")
-
 
 def summarize_project_menu():
     """Handle the project summarization menu."""
@@ -208,6 +245,52 @@ def analyze_project_menu():
         except ValueError:
             print("Please enter a valid number or 'q' to quit")
 
+    just_changed = False
+    prefs = collab_manager.get_preferences()
+    if prefs and prefs[1] and not is_start: 
+        while True:
+            response = input("\nWould you like to not include collaborative work? (yes/no): ").strip().lower()
+            if response in ['yes', 'y']:
+                collab_manager.update_collaborative(False)
+                print("\nCollaborative not granted. Thank you!")
+                break
+            elif response in ['no', 'n']:
+                break
+            else:
+                print("Invalid input. Please enter 'yes' or 'no'.")
+    else:
+        # Check/request user consent
+        if not collab_manager.request_collaborative_if_needed():
+            print("Collaborative not granted. Doing individual.")
+        else:
+            print("Collaborative granted. Doing colabrative and individual.")
+            if not get_user_git_username() or get_user_git_username()[0] is None:
+                response = input("\nWhat is you GitHub user name: ").strip()
+                update_user_git_username(response)
+                just_changed = True
+            print("\nYour github username is:"+str(get_user_git_username()))
+            # Path to the ZIP file
+            zip_path = os.path.abspath(os.path.join(os.path.dirname(__file__), "../test.zip"))
+            ic = identify_contributors(zip_path)
+            # Extract the repo
+            repo_path = ic.extract_repo()
+            if repo_path is None:
+                print("No git repository found in the ZIP.")
+                return
+            # Get the full contribution profile
+            profile = ic.get_full_contribution_profile()
+                
+        if not just_changed and not get_user_git_username()[0] is None and not is_start:
+            while True:
+                response = input("\nWould you like to change you GitHub username? (y/n) ")
+                if response in ['yes', 'y']:
+                    new_username = input("\nWhat is you GitHub user name: ").strip()
+                    update_user_git_username(new_username)
+                    break
+                elif response in ['no', 'n']:
+                    break
+                else:
+                    print("Invalid input. Please enter 'yes' or 'no'.")
 
 def manage_external_services_menu():
     """
@@ -261,7 +344,6 @@ def manage_external_services_menu():
         return
     else:
         print("Invalid choice. Please enter 1, 2, 3, or 4.")
-
 
 def main():
     print("STARTING BACKEND SETUP...")
