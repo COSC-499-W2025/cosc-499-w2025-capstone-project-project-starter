@@ -421,7 +421,7 @@ def main():
             filepath = input("Enter the path to your zip file: ")
             add_file_to_db(filepath)
             
-        elif choice == '2':
+        elif choice == '2': 
             list_projects()
             
         elif choice == '3':
