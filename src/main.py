@@ -9,6 +9,7 @@ import os
 import sys
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "../src/collaborative")))
 from identify_contributors import identify_contributors
+from tools.cleanup_insights import delete_insights
 
 consent_manager = ConsentManager(user_id="default_user")
 collab_manager = CollaborativeManager()
@@ -79,23 +80,6 @@ def summarize_project_menu():
     summary = summarize_project(selected_project['id'])
     print(summary)
     input("\nPress Enter to continue...")
-
-def ensure_user_preferences_schema():
-    """Ensure user_preferences table has all required columns and defaults."""
-    try:
-        with get_connection() as conn, conn.cursor() as cur:
-            cur.execute("""
-                ALTER TABLE user_preferences
-                ADD COLUMN IF NOT EXISTS collaborative BOOLEAN DEFAULT FALSE;
-            """)
-            cur.execute("""
-                ALTER TABLE user_preferences
-                ALTER COLUMN consent SET DEFAULT TRUE;
-            """)
-            conn.commit()
-        print("user_preferences schema verified/updated")
-    except Exception as e:
-        print(f"[WARN] Failed to update user_preferences schema: {e}")
 
 def display_error(result):
     """Format and display error information"""
@@ -234,10 +218,11 @@ def main():
         print("3. Analyze project metrics")
         print("4. Summarize a project")
         print("5. Change preferences")
-        print("6. Exit")
+        print("6. Cleanup insights for a project")
+        print("7. Exit")
         print("-"*50)
         
-        choice = input("Choose an option (1-6): ").strip()
+        choice = input("Choose an option (1-7): ").strip()
         
         if choice == '1':
             filepath = input("Enter the path to your zip file: ")
@@ -259,10 +244,26 @@ def main():
         elif choice == '5':
             ask_user_preferences(False)
         elif choice == '6':
+            pid = input("Enter project ID to clean: ").strip()
+            if pid.isdigit():
+                confirm = input(
+                    f"Delete insights and the uploaded file for project {pid}? "
+                    f"This cannot be undone. (y/n): "
+                ).strip().lower()
+                if confirm in ('y', 'yes'):
+                    m, f, p = delete_insights(int(pid))
+                    print(f"Deleted: project_metrics={m}, file_contents={f}, uploaded_files={p}")
+                else:
+                    print("Cancelled.")
+            else:
+                print("Invalid project ID.")
+
+        elif choice == '7':
             print("Goodbye!")
             break
+
         else:
-            print("Invalid choice. Please enter 1-6.")
+            print("Invalid choice. Please enter 1-7.")
 
 if __name__ == "__main__":
     main()
