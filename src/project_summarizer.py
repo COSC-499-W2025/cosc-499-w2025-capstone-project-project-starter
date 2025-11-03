@@ -11,7 +11,8 @@ from datetime import datetime, timedelta
 from collections import Counter, defaultdict
 from config.db_config import with_db_cursor
 from project_manager import get_project_by_id
-from parsing.file_contents_manager import get_file_contents_by_upload_id, get_file_statistics
+from collaborative.identify_contributors import identify_contributors
+from parsing.file_contents_manager import get_file_contents_by_upload_id, get_file_statistics, get_zip_file
 from common.constants import LANGUAGE_EXTENSIONS, PROJECT_TYPE_INDICATORS
 
 
@@ -53,7 +54,7 @@ class ProjectSummarizer:
             },
             "languages": self._detect_languages(file_contents),
             "project_description": self._generate_project_description(file_contents, file_stats),
-            "collaboration_analysis": self._analyze_collaboration(file_contents),
+            "collaboration_analysis": self._analyze_collaboration(file_contents, project_id),
             "time_analysis": self._analyze_time_patterns(file_contents),
             "file_statistics": file_stats,
             "summary_generated_at": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
@@ -168,13 +169,14 @@ class ProjectSummarizer:
         
         return key_files[:10]  # Limit to top 10 key files
     
-    def _analyze_collaboration(self, file_contents):
+    def _analyze_collaboration(self, file_contents, project_id):
         """
         Analyze if this was worked on by a single user or with others.
-        
+
         Args:
             file_contents (list): List of file content records
-            
+            project_id (int): ID of the uploaded zip project
+
         Returns:
             dict: Collaboration analysis
         """
@@ -185,49 +187,62 @@ class ProjectSummarizer:
             'team_structure': False,
             'collaboration_score': 0
         }
-        
-        # Check for Git-related files
+
         for file_info in file_contents:
-            filename = file_info['file_name'].lower()
-            if filename in ['.gitignore', '.gitattributes', '.gitmodules']:
+            file_path = file_info.get('file_path', '').lower()
+            filename = file_info.get('file_name', '').lower()
+
+            # Count any file inside a .git directory
+            if "/.git/" in file_path or file_path.startswith(".git/"):
                 collaboration_indicators['git_files'] += 1
-        
+            # Also count common Git config files at root level
+            elif filename in ['.gitignore', '.gitattributes', '.gitmodules']:
+                collaboration_indicators['git_files'] += 1
+
         # Check for team structure indicators
-        team_indicators = ['team', 'collaborative', 'shared', 'common', 'utils', 'helpers']
+        team_indicators = ['team', 'collaborative', 'shared', 'common']
         for file_info in file_contents:
-            filename = file_info['file_name'].lower()
+            filename = file_info.get('file_name', '').lower()
             if any(indicator in filename for indicator in team_indicators):
                 collaboration_indicators['team_structure'] = True
                 break
-        
+
+        # Handle contributors
+        num_contributors = 1
+        if project_id > 0:
+            ic = identify_contributors(zip_bytes=get_zip_file(project_id))
+            repo_path = ic.extract_repo()
+            if repo_path is not None:
+                num_contributors = len(ic.get_commit_counts())
+            ic.cleanup()
+
         # Calculate collaboration score
         score = 0
         if collaboration_indicators['git_files'] > 0:
-            score += 30
+            if num_contributors > 1:
+                score += 50
+            score += 50
         if collaboration_indicators['team_structure']:
             score += 40
-        
-        # Additional heuristics based on file count and structure
-        if len(file_contents) > 20:
-            score += 20
-        if len(file_contents) > 50:
-            score += 10
-        
+
         collaboration_indicators['collaboration_score'] = min(score, 100)
-        
+
         # Determine collaboration level
-        if score >= 70:
+        if score >= 100:
+            collaboration_level = "Definitely collaborative"
+        elif score >= 70:
             collaboration_level = "Likely team project"
         elif score >= 40:
             collaboration_level = "Possibly collaborative"
         else:
             collaboration_level = "Likely individual project"
-        
+
         return {
             "collaboration_level": collaboration_level,
             "indicators": collaboration_indicators,
-            "analysis": f"Based on file structure and Git presence, this appears to be a {collaboration_level.lower()}."
+            "analysis": f"Based on file names and/or Git presence, this appears to be a {collaboration_level.lower()}."
         }
+
     
     def _analyze_time_patterns(self, file_contents):
         """

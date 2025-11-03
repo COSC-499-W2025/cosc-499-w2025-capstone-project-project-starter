@@ -30,16 +30,16 @@ def init_uploaded_files_table():
     try:
         with with_db_cursor() as cursor:
             cursor.execute("""
-                CREATE TABLE IF NOT EXISTS uploaded_files (
-                    id SERIAL PRIMARY KEY,
-                    filename VARCHAR(255) NOT NULL,
-                    filepath VARCHAR(500) NOT NULL,
-                    status VARCHAR(50) DEFAULT 'uploaded',
-                    metadata JSONB,
-                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-                );
-            """)
-        
+            CREATE TABLE IF NOT EXISTS uploaded_files (
+                id SERIAL PRIMARY KEY,
+                filename VARCHAR(255) NOT NULL,
+                filepath VARCHAR(500) NOT NULL,
+                status VARCHAR(50) DEFAULT 'uploaded',
+                metadata JSONB,
+                file_data BYTEA,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            );
+        """)
         print(" Uploaded files table initialized")
         
         # Also initialize the file contents table
@@ -122,12 +122,14 @@ def add_file_to_db(filepath) -> UploadResult:
     
     # 6. Save to database
     try:
+        with open(dest_path, "rb") as f:
+            zip_bytes = f.read()
         with with_db_cursor() as cursor:
-            cursor.execute("""
-                INSERT INTO uploaded_files (filename, filepath, status, metadata)
-                VALUES (%s, %s, %s, %s)
-                RETURNING id
-            """, (filename, dest_path, "uploaded", json.dumps({"files": file_contents})))
+            cur.execute("""
+            INSERT INTO uploaded_files (filename, filepath, status, metadata, file_data)
+            VALUES (%s, %s, %s, %s, %s)
+            RETURNING id
+        """, (filename, dest_path, "uploaded", json.dumps({"files": file_contents}), zip_bytes))
             
             uploaded_file_id = cursor.fetchone()[0]
         
@@ -201,7 +203,7 @@ def list_uploaded_files():
                 "filepath": row[2],
                 "status": row[3],
                 "metadata": row[4],
-                "created_at": row[5]
+                "created_at": row[6]
             })
         
         return files

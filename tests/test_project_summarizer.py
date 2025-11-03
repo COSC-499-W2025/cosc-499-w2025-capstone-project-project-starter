@@ -155,7 +155,7 @@ class TestProjectSummarizer:
     
     def test_collaboration_analysis_individual(self):
         """Test collaboration analysis for individual projects"""
-        collaboration = self.summarizer._analyze_collaboration(self.sample_file_contents)
+        collaboration = self.summarizer._analyze_collaboration(self.sample_file_contents, 0)
         
         assert 'collaboration_level' in collaboration
         assert 'indicators' in collaboration
@@ -172,7 +172,7 @@ class TestProjectSummarizer:
             {'file_name': 'common_helpers.py'}
         ]
         
-        collaboration = self.summarizer._analyze_collaboration(team_files)
+        collaboration = self.summarizer._analyze_collaboration(team_files, 0)
         
         # Should have higher collaboration score due to Git files and team indicators
         assert collaboration['indicators']['collaboration_score'] > 40

@@ -1,6 +1,7 @@
 import os
 import zipfile
 import json
+from psycopg import Binary
 from config.db_config import with_db_cursor, with_db_connection
 
 
@@ -9,19 +10,19 @@ def init_file_contents_table():
     try:
         with with_db_cursor() as cursor:
             cursor.execute("""
-                CREATE TABLE IF NOT EXISTS file_contents (
-                    id SERIAL PRIMARY KEY,
-                    uploaded_file_id INTEGER REFERENCES uploaded_files(id) ON DELETE CASCADE,
-                    file_path VARCHAR(1000) NOT NULL,
-                    file_name VARCHAR(255) NOT NULL,
-                    file_extension VARCHAR(50),
-                    file_size BIGINT,
-                    file_content TEXT, -- Stores line count as string for text files, "0" for binary files
-                    content_type VARCHAR(100),
-                    is_binary BOOLEAN DEFAULT FALSE,
-                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-                );
-            """)
+            CREATE TABLE IF NOT EXISTS file_contents (
+                id SERIAL PRIMARY KEY,
+                uploaded_file_id INTEGER REFERENCES uploaded_files(id) ON DELETE CASCADE,
+                file_path VARCHAR(1000) NOT NULL,
+                file_name VARCHAR(255) NOT NULL,
+                file_extension VARCHAR(50),
+                file_size BIGINT,
+                file_content BYTEA,
+                content_type VARCHAR(100),
+                is_binary BOOLEAN DEFAULT FALSE,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            );
+        """)
         print("File contents table initialized")
     except ConnectionError:
         raise Exception("Failed to connect to database")
@@ -32,17 +33,8 @@ def init_file_contents_table():
 
 def extract_and_store_file_contents(uploaded_file_id, zip_file_path, max_files=1000, batch_size=50):
     """
-    Extract all files from a zip archive and store their line counts in the database.
+    Extract all files from a zip archive and store their content in the database.
     Handles nested folders and large numbers of files efficiently.
-    
-    Args:
-        uploaded_file_id (int): The ID of the uploaded file record
-        zip_file_path (str): Path to the zip file
-        max_files (int): Maximum number of files to process (safety limit)
-        batch_size (int): Number of files to process in each batch
-    
-    Returns:
-        dict: Summary of extraction results
     """
     if not os.path.exists(zip_file_path):
         print(f"Zip file does not exist: {zip_file_path}")
@@ -55,7 +47,7 @@ def extract_and_store_file_contents(uploaded_file_id, zip_file_path, max_files=1
     extracted_files = []
     errors = []
     processed_count = 0
-    
+
     try:
         with with_db_connection() as (conn, cursor):
             with zipfile.ZipFile(zip_file_path, 'r') as zip_ref:
@@ -65,98 +57,77 @@ def extract_and_store_file_contents(uploaded_file_id, zip_file_path, max_files=1
                 print(f"Found {total_files} files in zip archive")
                 
                 if total_files > max_files:
-                    print(f"Warning: Zip contains {total_files} files, but processing limit is {max_files}")
                     return {"success": False, "error": f"Too many files ({total_files}). Maximum allowed: {max_files}"}
                 
-                # Process files in batches for better memory management
                 batch_data = []
                 
                 for file_path in file_list:
                     try:
-                        # Skip directories
                         if file_path.endswith('/'):
                             continue
-                        
-                        # Extract file info
+
                         file_name = os.path.basename(file_path)
                         file_extension = os.path.splitext(file_name)[1].lower()
-                        
-                        # Get file info from zip
                         file_info = zip_ref.getinfo(file_path)
                         file_size = file_info.file_size
-                        
-                        # Determine if file is binary
+
                         is_binary = _is_binary_file(file_extension)
-                        
-                        # Read file content and count lines
-                        file_content = None
                         content_type = _get_content_type(file_extension)
-                        
-                        if not is_binary:
-                            try:
-                                # Try to read as text and count lines
-                                text_content = zip_ref.read(file_path).decode('utf-8')
-                                line_count = len(text_content.splitlines())
-                                file_content = str(line_count)  # Store line count as string
-                            except UnicodeDecodeError:
-                                # If UTF-8 fails, try other encodings
-                                try:
-                                    text_content = zip_ref.read(file_path).decode('latin-1')
-                                    line_count = len(text_content.splitlines())
-                                    file_content = str(line_count)  # Store line count as string
-                                except:
-                                    # If all text decoding fails, mark as binary
-                                    is_binary = True
-                                    file_content = "0"  # Binary files have 0 lines
-                        
-                        # Add to batch
+
+                        file_bytes = zip_ref.read(file_path)
+                        # Always store raw bytes in BYTEA for binary files
+                        file_content = Binary(file_bytes)
+
                         batch_data.append((
-                            uploaded_file_id, file_path, file_name, file_extension,
-                            file_size, file_content, content_type, is_binary
+                            uploaded_file_id,
+                            file_path,
+                            file_name,
+                            file_extension,
+                            file_size,
+                            file_content,
+                            content_type,
+                            is_binary
                         ))
-                        
+
                         extracted_files.append({
                             "file_path": file_path,
                             "file_name": file_name,
                             "file_size": file_size,
                             "is_binary": is_binary
                         })
-                        
+
                         processed_count += 1
-                        
-                        # Process batch when it reaches batch_size
+
                         if len(batch_data) >= batch_size:
                             _insert_batch(cursor, batch_data)
                             batch_data = []
                             print(f"Processed {processed_count}/{total_files} files...")
-                    
+
                     except Exception as e:
-                        error_msg = f"Error processing {file_path}: {str(e)}"
-                        errors.append(error_msg)
-                        print(error_msg)
-                
-                # Insert remaining files in the last batch
+                        errors.append(f"Error processing {file_path}: {str(e)}")
+                        print(f"Error processing {file_path}: {str(e)}")
+
                 if batch_data:
                     _insert_batch(cursor, batch_data)
-                
+
                 conn.commit()
                 print(f"Successfully extracted {len(extracted_files)} files from zip")
-            
-            return {
-                "success": True,
-                "extracted_files": extracted_files,
-                "total_files": len(extracted_files),
-                "errors": errors,
-                "processed_count": processed_count
-            }
-        
+
+        return {
+            "success": True,
+            "extracted_files": extracted_files,
+            "total_files": len(extracted_files),
+            "errors": errors,
+            "processed_count": processed_count
+        }
+
     except ConnectionError:
         print("Could not connect to database.")
         return {"success": False, "error": "Database connection failed"}
     except Exception as e:
-        error_msg = f"Error extracting zip contents: {str(e)}"
-        print(error_msg)
-        return {"success": False, "error": error_msg}
+        print(f"Error extracting zip contents: {e}")
+        return {"success": False, "error": str(e)}
+
 
 
 def _insert_batch(cursor, batch_data):
@@ -172,6 +143,30 @@ def _insert_batch(cursor, batch_data):
         print(f"Error inserting batch: {e}")
         raise
 
+def get_zip_file(uploaded_file_id):
+    conn = get_connection()
+    if not conn:
+        print("Could not connect to database.")
+        return {}
+    
+    try:
+        cursor = conn.cursor()
+        cursor.execute("""
+            SELECT file_data
+            FROM uploaded_files
+            WHERE id = %s
+            """, (uploaded_file_id,))
+        row = cursor.fetchone()
+        if row:
+            return row[0]  # file_data column
+        return None
+        
+    except Exception as e:
+        print(f"Error retrieving the zip file: {e}")
+        return {}
+    finally:
+        cursor.close()
+        conn.close()
 
 def get_file_contents_by_folder(uploaded_file_id, folder_path=""):
     """
