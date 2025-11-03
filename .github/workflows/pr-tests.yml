@@ -48,12 +48,10 @@ jobs:
 
       - name: Run app init from main branch (pre-test)
         working-directory: mainbranch
-        run: |
-          printf "yes\nyes\n10\n" | python src/main.py
+        run: python src/main.py --yes --yes --10
 
       - name: Run project (sanity step on PR branch)
-        run: |
-          printf "yes\nyes\n10\n" | python src/main.py
+        run: python src/main.py --yes --yes --10
 
       - name: Run tests
         env:
