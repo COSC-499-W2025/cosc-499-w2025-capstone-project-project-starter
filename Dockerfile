@@ -30,10 +30,10 @@ WORKDIR /app
 COPY . /app
 
 # Step 6: Ensure install script is executable
-RUN chmod +x ./src/ml/install.sh
+RUN chmod +x /app/src/ml/setup.sh
 
 # Step 7: Run install script (which installs Python 3.6.15 and dependencies)
-RUN bash ./src/ml/install.sh
+RUN bash /app/src/ml/setup.sh
 
 # Step 8: Default command to run your Python app
-CMD ["python", "docker_test_entry.py"]
+# CMD ["python", "main.py"]
