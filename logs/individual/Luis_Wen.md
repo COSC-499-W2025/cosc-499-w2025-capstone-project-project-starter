@@ -1,3 +1,32 @@
+# Personal log of Luis Wen (from Week 9)
+
+## Features in this milestone
+
+- Started working on getting the user's consent to use external services (e.g. LLM)
+- Provide implications on data privacy about user's data before getting their consent
+- Testing and reviewing code
+- Team log (week 9)
+
+## Project board tasks
+
+- Issue #74
+
+## Work done in last week
+
+- Added test cases for code
+- Made the code for the test to pass
+- Included implications on data privacy
+- Manually tested code to ensure functionality (steps in the PR)
+
+## Peer evaluation screenshot week 8
+
+![alt text](</logs/individual/imgs/LuisWen_Week9.png>)
+
+## Next cycle
+
+- Work on setting up regression testing
+- Try to implement external services (e.g. LLM) with our project
+
 # Personal log of Luis Wen (from Week 8)
 
 ## Features in this milestone
