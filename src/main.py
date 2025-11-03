@@ -272,26 +272,25 @@ def analyze_project_menu():
             # Path to the ZIP file
             zip_path = os.path.abspath(os.path.join(os.path.dirname(__file__), "../test.zip"))
             ic = identify_contributors(zip_path)
-            try:
-                # Extract the repo
-                repo_path = ic.extract_repo()
-                if repo_path is None:
-                    print("No git repository found in the ZIP.")
-                    return
-                # Get the full contribution profile
-                profile = ic.get_full_contribution_profile()
+            # Extract the repo
+            repo_path = ic.extract_repo()
+            if repo_path is None:
+                print("No git repository found in the ZIP.")
+                return
+            # Get the full contribution profile
+            profile = ic.get_full_contribution_profile()
                 
-     if not just_changed and not get_user_git_username()[0] is None and not is_start:
-        while True:
-            response = input("\nWould you like to change you GitHub username? (y/n) ")
-            if response in ['yes', 'y']:
-                new_username = input("\nWhat is you GitHub user name: ").strip()
-                update_user_git_username(new_username)
-                break
-            elif response in ['no', 'n']:
-                break
-            else:
-                print("Invalid input. Please enter 'yes' or 'no'.")
+        if not just_changed and not get_user_git_username()[0] is None and not is_start:
+            while True:
+                response = input("\nWould you like to change you GitHub username? (y/n) ")
+                if response in ['yes', 'y']:
+                    new_username = input("\nWhat is you GitHub user name: ").strip()
+                    update_user_git_username(new_username)
+                    break
+                elif response in ['no', 'n']:
+                    break
+                else:
+                    print("Invalid input. Please enter 'yes' or 'no'.")
 
 def manage_external_services_menu():
     """
