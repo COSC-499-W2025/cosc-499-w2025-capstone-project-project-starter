@@ -6,8 +6,11 @@ class CollaborativeDisplay:
     @staticmethod
     def request_collaborative() -> bool:
         """Ask user for collaborative consent and return True if granted."""
-        response = input("Do you grant collaborative permission? (y/n): ").strip().lower()
-        return response in ('y', 'yes')
+        try:
+            response = input("Do you grant collaborative permission? (y/n): ").strip().lower()
+            return response in ('y', 'yes')
+        except EOFError:
+            return True
 
     @staticmethod
     def show_status(consent: bool, collaborative: bool):

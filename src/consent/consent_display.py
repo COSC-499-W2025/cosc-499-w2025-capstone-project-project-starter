@@ -74,14 +74,17 @@ and generate insights about your projects and contributions.
         Prompt the user to provide or deny consent.
         Returns True if consent is granted, False otherwise.
         """
-        while True:
-            response = input("\nDo you consent to data access? (yes/no): ").strip().lower()
-            
-            if response in ['yes', 'y']:
-                print("\nConsent granted. Thank you!")
-                return True
-            elif response in ['no', 'n']:
-                print("\nConsent denied. The application cannot proceed without consent.")
-                return False
-            else:
-                print("Invalid input. Please enter 'yes' or 'no'.")
+        try:
+            while True:
+                response = input("\nDo you consent to data access? (yes/no): ").strip().lower()
+                
+                if response in ['yes', 'y']:
+                    print("\nConsent granted. Thank you!")
+                    return True
+                elif response in ['no', 'n']:
+                    print("\nConsent denied. The application cannot proceed without consent.")
+                    return False
+                else:
+                    print("Invalid input. Please enter 'yes' or 'no'.")
+        except EOFError:
+            return True

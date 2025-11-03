@@ -415,7 +415,10 @@ def main():
         print("10. Exit")
         print("="*70) 
         
-        choice = input("Choose an option (1-10): ").strip()
+        try:
+            choice = input("Choose an option (1-10): ").strip()
+        except EOFError:
+            choice = "10"
         
         if choice == '1':
             filepath = input("Enter the path to your zip file: ")
