@@ -1,3 +1,36 @@
+# Personal log of Cole Powrie (from Week 9)
+## Applicable Date Range
+- Monday, October 27th to Sunday, November 2nd
+
+## Peer evaluation screenshot
+![alt text](<imgs/ColePowrieW9.png>)
+
+## This Milestone
+- Implemented proper database schema for our PostgreSQL setup  
+- Added Users, Artifacts, and Category tables to structure our backend data  
+- Established foreign key relationships between tables to link users, artifacts, and categories  
+- Inserted 10 default general categories into the `category` table upon creation (subject to change as we identify our categories)
+
+## Tasks
+- Updated database initialization script (`setup_test_db.py`) to include:  
+  - Creation of the `users`, `artifacts`, and `category` tables  
+  - Establishment of a foreign key relationship between `artifacts.user_id` → `users.id`  
+  - Addition of a foreign key between `artifacts.category_id` → `category.id`  
+  - Automatic population of 10 general categories when the table is first created  
+
+## Progress from the last two weeks
+- Successfully connected to PostgreSQL via Python using `psycopg2`  
+- Confirmed working connection through test table creation and queries  
+- Transitioned from test tables to the start of relational structure for our project  
+
+## In Progress Tasks
+- Populating the tables with real project data (users, file uploads, etc.)  
+- Integrating database interactions into our backend endpoints  
+
+## Next Cycle Activities
+- Expand the category system and artifact handling to support ML integration for file analysis
+- Adding more relevant tables and furthering the relationships between them
+
 # Personal log of Cole Powrie (from Week 8)
 ## Applicable Date Range
 - Monday, October 20th to Sunday, October 26th
