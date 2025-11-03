@@ -352,15 +352,16 @@ class ProjectAnalyzer:
             path_lower = f['file_path'].lower()
             ext = f['file_extension'].lower()
             
-            if ext in self.local_analyzer.LANGUAGE_EXTENSIONS:
+            # Check document extensions first since some extensions (like .md) are in both
+            if ext in self.local_analyzer.DOCUMENT_EXTENSIONS:
+                doc_files += 1
+            elif ext in ['.json', '.yml', '.yaml', '.xml', '.env', '.ini']:
+                config_files += 1
+            elif ext in self.local_analyzer.LANGUAGE_EXTENSIONS:
                 if 'test' in path_lower:
                     test_files += 1
                 else:
                     code_files += 1
-            elif ext in self.local_analyzer.DOCUMENT_EXTENSIONS:
-                doc_files += 1
-            elif ext in ['.json', '.yml', '.yaml', '.xml', '.env', '.ini']:
-                config_files += 1
         
         total = code_files + test_files + doc_files + config_files
         

@@ -199,6 +199,18 @@ def display_success(result):
 
 def ask_user_preferences(is_start):
     just_changed = False
+    
+    # Check/request user consent first
+    if not is_start and consent_manager.has_access():
+        # Allow user to withdraw consent
+        response = input("\nWould you like to withdraw consent? (yes/no): ").strip().lower()
+        if response in ['yes', 'y']:
+            consent_manager.withdraw()
+    
+    # Request consent if needed (for is_start=True or if consent was withdrawn)
+    if not consent_manager.has_access():
+        consent_manager.request_consent_if_needed()
+    
     prefs = collab_manager.get_preferences()
     if prefs and prefs[1] and not is_start: 
         while True:
@@ -212,7 +224,7 @@ def ask_user_preferences(is_start):
             else:
                 print("Invalid input. Please enter 'yes' or 'no'.")
     else:
-        # Check/request user consent
+        # Check/request collaborative consent
         if not collab_manager.request_collaborative_if_needed():
             print("Collaborative not granted. Doing individual.")
         else:

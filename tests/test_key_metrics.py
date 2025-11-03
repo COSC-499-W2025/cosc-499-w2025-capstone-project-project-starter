@@ -34,9 +34,9 @@ def _mock_db(monkeypatch, rows: List[Tuple[str, int, str, int]]):
 
 def test_analyze_project_from_db(monkeypatch):
     rows = [
-        ("src/a.py", 120, "Python", 10),
-        ("docs/readme.md", 50, "Markdown", 15),
-        ("data/users.csv", 90, "CSV", 5),
+        ("src/a.py", 120, "Python", False, b"line1\nline2\nline3\nline4\nline5\nline6\nline7\nline8\nline9\nline10"),
+        ("docs/readme.md", 50, "Markdown", False, b"line1\nline2\nline3\nline4\nline5\nline6\nline7\nline8\nline9\nline10\nline11\nline12\nline13\nline14\nline15"),
+        ("data/users.csv", 90, "CSV", False, b"line1\nline2\nline3\nline4\nline5"),
     ]
     _mock_db(monkeypatch, rows)
     result = key_metrics.analyze_project_from_db(project_id=1)
@@ -51,7 +51,7 @@ def test_empty_project(monkeypatch):
     assert result["totals"]["lines"] == 0
 
 def test_print_summary(capsys, monkeypatch):
-    rows = [("src/x.py", 100, "Python", 8)]
+    rows = [("src/x.py", 100, "Python", False, b"line1\nline2\nline3\nline4\nline5\nline6\nline7\nline8")]
     _mock_db(monkeypatch, rows)
     key_metrics.analyze_project_from_db(project_id=42)
     out = capsys.readouterr().out

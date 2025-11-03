@@ -19,9 +19,17 @@ def mock_conn_cursor():
     """
     mock_cursor = MagicMock()
     mock_conn = MagicMock()
-    mock_conn.cursor.return_value = mock_cursor
     
-    with patch('database.user_preferences.get_connection', return_value=mock_conn):
+    # Setup cursor as context manager - cursor() returns a context manager that yields mock_cursor
+    mock_conn.cursor.return_value.__enter__ = MagicMock(return_value=mock_cursor)
+    mock_conn.cursor.return_value.__exit__ = MagicMock(return_value=False)
+    
+    # Setup connection as context manager - get_connection() returns a context manager that yields mock_conn
+    mock_conn_context = MagicMock()
+    mock_conn_context.__enter__ = MagicMock(return_value=mock_conn)
+    mock_conn_context.__exit__ = MagicMock(return_value=False)
+    
+    with patch('database.user_preferences.get_connection', return_value=mock_conn_context):
         yield mock_cursor, mock_conn
 
 # ----------------------------
@@ -54,7 +62,6 @@ def test_get_user_preferences_returns_tuple(mock_conn_cursor):
     mock_cursor.fetchone.return_value = expected
     result = user_preferences.get_user_preferences()
     assert result == expected
-    mock_conn.close.assert_called()
 
 # ----------------------------
 # Tests for update_user_collaboration
@@ -76,9 +83,8 @@ def test_get_user_callaboration_returns_tuple(mock_conn_cursor):
     mock_cursor, mock_conn = mock_conn_cursor
     expected = (False, datetime.now())
     mock_cursor.fetchone.return_value = expected
-    result = user_preferences.get_user_callaboration()
+    result = user_preferences.get_user_collaboration()
     assert result == expected
-    mock_conn.close.assert_called()
 
 # ----------------------------
 # Tests for update_user_git_username
@@ -100,5 +106,4 @@ def test_get_user_git_username_returns_tuple(mock_conn_cursor):
     expected = ("testuser",)
     mock_cursor.fetchone.return_value = expected
     result = user_preferences.get_user_git_username()
-    assert result == expected
-    mock_conn.close.assert_called()
+    assert result == "testuser"  # function returns result[0], not the full tuple
