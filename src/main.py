@@ -14,11 +14,14 @@ def main():
         print("Consent not given. Exiting.")
         return
 
+    # validate zip
     file = sys.argv[1]
     result = zipvalidation.check_zip_file(file)
-    unzipped = zipvalidation.unzip_file(file)
     print("\n"+ result + "\n")
-    print("\n" + unzipped + "\n")
+
+    # now unzip the zip file
+    unzipped = zipvalidation.unzip_file(file)
+    print(unzipped + " unzipped successfully!\n")
 
     # parse the unzipped folder and summarize results
     parsed_folder = parse_core.parse_directory(unzipped)
