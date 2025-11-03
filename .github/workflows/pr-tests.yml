@@ -41,7 +41,7 @@ jobs:
           docker info > /dev/null 2>&1 && echo "Docker is running" || (echo "Docker is not running" && exit 1)
 
       - name: Start database (Docker)
-        run: docker-compose up -d
+        run: docker compose up -d
 
 
       # Simple wait for DB to be ready (keep it minimal per your command set)
