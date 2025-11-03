@@ -413,7 +413,7 @@ def main():
         print("8. Cleanup insights for a project")
         print("9. Change User Preferences")
         print("10. Exit")
-        print("="*70)
+        print("="*70) 
         
         choice = input("Choose an option (1-10): ").strip()
         
