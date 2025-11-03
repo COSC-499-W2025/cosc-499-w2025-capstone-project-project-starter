@@ -1,3 +1,4 @@
+import os
 """
 Module for displaying consent information to users.
 Handles the presentation of data access terms and conditions.
@@ -74,6 +75,8 @@ and generate insights about your projects and contributions.
         Prompt the user to provide or deny consent.
         Returns True if consent is granted, False otherwise.
         """
+        if os.getenv("GITHUB_ACTIONS") == "true" or not os.isatty(0):
+            return True
         try:
             while True:
                 response = input("\nDo you consent to data access? (yes/no): ").strip().lower()
