@@ -97,3 +97,16 @@ HiGitClass integration, #56
 - Among these tasks, which have you completed/in progress in the last 2 weeks?
 I completed the task successfully. I used an ML model based on the academic paper "HiGitClass" originally intended for easy keyword classification of GitHub projects. We can easily adapt this to our use case, and I integrated it into our project as a submodule, and created scripts to easily set it up and install the dependencies.
 
+## Week 9
+- Applicable date range
+October 27 - November 2
+- Type of tasks you worked on (screenshot from Peer Eval question)
+![Alt text](./imgs/liam_storgaard_w9.png)
+- Recap on your week's goals
+We wanted to wire up the file I/O stuff to the ML model. We also needed to investigate an alternative to HiGitClass that would work with arbitrary code rather than just Git repos.
+- Which features were yours in the project plan for this milestone?
+The ML classification model (using PyTorch and the-stack for training)
+- Which tasks from the project board are associated with these features?
+Universal ML Classification Model #72
+- Among these tasks, which have you completed/in progress in the last 2 weeks?
+That one I completed this week. The model is set up and was tested and it works great (testing against our own code, it correctly classifies our Docker code under the "containerization" skillset). In the coming weeks I will add more training data and refine the categories since the current ones are just random ones for testing.
