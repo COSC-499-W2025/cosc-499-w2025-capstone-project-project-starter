@@ -57,8 +57,7 @@ jobs:
         working-directory: mainbranch
 
       - name: Run project (sanity step on PR branch)
-        run: |
-          printf "yes\nyes\n10\n" | python src/main.py
+        run: python src/main.py --yes --yes --10
 
 
       - name: Run tests
