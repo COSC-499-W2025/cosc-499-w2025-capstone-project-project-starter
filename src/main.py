@@ -1,5 +1,6 @@
 import sys
 from validator import zipvalidation
+from codeparser import parse_core
 
 def main():
     # get the file as a command-line argument
@@ -18,6 +19,11 @@ def main():
     unzipped = zipvalidation.unzip_file(file)
     print("\n"+ result + "\n")
     print("\n" + unzipped + "\n")
+
+    # parse the unzipped folder and summarize results
+    parsed_folder = parse_core.parse_directory(unzipped)
+    parse_core.summarize_results(parsed_folder)
+
     print("\nMain working correctly.\n")
 
 
