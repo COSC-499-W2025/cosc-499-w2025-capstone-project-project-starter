@@ -12,12 +12,25 @@ class identify_contributors:
     Class to analyze a Git repository stored in a ZIP file.
     """
 
-    def __init__(self, zip_path: str):
+    def __init__(self, zip_path: str = None, zip_bytes: bytes = None):
         """
-        Initialize with the path to the ZIP file.
+        Initialize with either:
+        - zip_path: path to the ZIP file, OR
+        - zip_bytes: binary data of the ZIP file
         """
-        self.zip_path = zip_path
-        self.repo_dir = None  # Will hold the path to the extracted repo
+        if not zip_path and not zip_bytes:
+            raise ValueError("Must provide either zip_path or zip_bytes")
+
+        if zip_bytes:
+            # Write binary ZIP data to a temporary file
+            self.temp_file = tempfile.NamedTemporaryFile(suffix=".zip", delete=False)
+            self.temp_file.write(zip_bytes)
+            self.temp_file.flush()
+            self.zip_path = self.temp_file.name
+        else:
+            self.zip_path = zip_path
+
+        self.repo_dir = None
 
     def extract_repo(self) -> str | None:
         """

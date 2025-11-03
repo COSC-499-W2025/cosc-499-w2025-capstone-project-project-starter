@@ -170,7 +170,7 @@ def ask_user_preferences(is_start):
             print("Collaborative granted. Doing colabrative and individual.")
             # Path to the ZIP file
             zip_path = os.path.abspath(os.path.join(os.path.dirname(__file__), "../test.zip"))
-            ic = identify_contributors(zip_path)
+            ic = identify_contributors(zip_path=zip_path)
             try:
                 # Extract the repo
                 repo_path = ic.extract_repo()

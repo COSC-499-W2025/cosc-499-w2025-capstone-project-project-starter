@@ -40,6 +40,7 @@ def init_uploaded_files_table():
                 filepath VARCHAR(500) NOT NULL,
                 status VARCHAR(50) DEFAULT 'uploaded',
                 metadata JSONB,
+                file_data BYTEA,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             );
         """)
@@ -138,11 +139,13 @@ def add_file_to_db(filepath) -> UploadResult:
     # 7. Save to database
     try:
         cur = conn.cursor()
+        with open(dest_path, "rb") as f:
+            zip_bytes = f.read()
         cur.execute("""
-            INSERT INTO uploaded_files (filename, filepath, status, metadata)
-            VALUES (%s, %s, %s, %s)
+            INSERT INTO uploaded_files (filename, filepath, status, metadata, file_data)
+            VALUES (%s, %s, %s, %s, %s)
             RETURNING id
-        """, (filename, dest_path, "uploaded", json.dumps({"files": file_contents})))
+        """, (filename, dest_path, "uploaded", json.dumps({"files": file_contents}), zip_bytes))
         
         uploaded_file_id = cur.fetchone()[0]
         conn.commit()
@@ -219,7 +222,7 @@ def list_uploaded_files():
                 "filepath": row[2],
                 "status": row[3],
                 "metadata": row[4],
-                "created_at": row[5]
+                "created_at": row[6]
             })
         
         return files
