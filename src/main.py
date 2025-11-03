@@ -206,9 +206,8 @@ def ask_user_preferences(is_start):
         response = input("\nWould you like to withdraw consent? (yes/no): ").strip().lower()
         if response in ['yes', 'y']:
             consent_manager.withdraw()
-    
     # Request consent if needed (for is_start=True or if consent was withdrawn)
-    if not consent_manager.has_access():
+    else:
         consent_manager.request_consent_if_needed()
     
     prefs = collab_manager.get_preferences()
@@ -244,6 +243,7 @@ def ask_user_preferences(is_start):
                 return
             # Get the full contribution profile
             profile = ic.get_full_contribution_profile()
+            ic.cleanup()
                 
         if not just_changed and not get_user_git_username()[0] is None and not is_start:
             while True:
@@ -372,7 +372,8 @@ def main():
     except Exception as e:
         print(f"Failed to initialize database tables: {e}")
         return
-
+    
+    ensure_user_preferences_schema()
     consent_manager.initialize()
     
     # Check/request user consent
