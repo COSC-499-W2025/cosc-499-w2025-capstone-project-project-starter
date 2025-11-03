@@ -51,11 +51,6 @@ jobs:
       - name: Install dependencies (from PR branch)
         run: pip install -r requirements.txt
 
-      # Your note: "Before test you should do: run python src/main.py in main branch"
-      - name: Run app init from main branch (pre-test)
-        run: python src/main.py
-        working-directory: mainbranch
-
       - name: Run project (sanity step on PR branch)
         run: python src/main.py --yes --yes --10
 
