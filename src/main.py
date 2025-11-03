@@ -251,7 +251,7 @@ def main():
         elif choice == '6':
             ask_user_preferences(False)
         elif choice == '7':
-          pid = input("Enter project ID to clean: ").strip()
+            pid = input("Enter project ID to clean: ").strip()
             if pid.isdigit():
                 confirm = input(
                     f"Delete insights and the uploaded file for project {pid}? "
