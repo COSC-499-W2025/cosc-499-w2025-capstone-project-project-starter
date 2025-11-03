@@ -3,6 +3,8 @@ from upload_file import add_file_to_db
 from project_manager import list_projects
 from consent.consent_manager import ConsentManager
 from collaborative.collaborative_manager import CollaborativeManager
+from analysis.key_metrics import analyze_project_from_db
+from analysis.project_ranking import rank_all_projects, display_rankings
 from project_summarizer import summarize_project, get_available_projects
 from external_services.external_service_prompt import request_external_service_permission
 from project_analyzer import analyze_project_by_id
@@ -314,9 +316,10 @@ def main():
         print("="*70)
         print("3. Analyze project metrics")
         print("4. Summarize a project")
-        print("5. Change preferences")
-        print("6. Cleanup insights for a project")
-        print("7. Exit")
+        print("5. Rank all projects")
+        print("6. Change preferences")
+        print("7. Cleanup insights for a project")
+        print("8. Exit")
         print("-"*50)
         
         choice = input("Choose an option (1-7): ").strip()
@@ -339,9 +342,16 @@ def main():
             analyze_project_menu()
             
         elif choice == '5':
+            print("\nRanking all projects...")
+            ranked = rank_all_projects()
+            display_rankings(ranked)
+            input("\nPress Enter to continue...")
+        elif choice == '6';
             manage_external_services_menu()
             
-        elif choice == '6':
+        elif choice == '7':
+            ask_user_preferences(False)
+        elif choice == '8':
             pid = input("Enter project ID to clean: ").strip()
             if pid.isdigit():
                 confirm = input(
@@ -355,8 +365,7 @@ def main():
                     print("Cancelled.")
             else:
                 print("Invalid project ID.")
-
-        elif choice == '7':
+        elif choice == '9':
             print("Goodbye!")
             break
             
