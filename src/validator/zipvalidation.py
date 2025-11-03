@@ -21,5 +21,6 @@ def unzip_file(file):
     with zipfile.ZipFile(file,'r') as unzipf:
         unzipf.extractall(extract_dir)
 
-    
-    return f"{file} extraction successful!"
+    # modify function behaviour to return the extracted folder path
+
+    return os.path.splitext(file)[0]
