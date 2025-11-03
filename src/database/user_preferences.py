@@ -1,25 +1,33 @@
-# src/database/user_preferences.py
+from config.db_config import get_connection
 
-from config.db_config import with_db_cursor
 
 def init_user_preferences_table():
     """
     Create the user_preferences table if it does not exist.
     This table stores user consent and future preferences.
     """
-    conn = get_connection()
-    cursor = conn.cursor()
-    cursor.execute("""
-        CREATE TABLE IF NOT EXISTS user_preferences (
-            user_id SERIAL PRIMARY KEY,
-            consent BOOLEAN NOT NULL,
-            collaborative BOOLEAN NOT NULL,
-            git_username VARCHAR(255),
-            last_updated TIMESTAMP DEFAULT NOW()
-        );
-    """)
-    conn.commit()
-    conn.close()
+    with get_connection() as conn, conn.cursor() as cur:
+        # Check if table exists
+        cur.execute("""
+            SELECT EXISTS (
+                SELECT 1
+                FROM information_schema.tables
+                WHERE table_name = 'user_preferences'
+            );
+        """)
+        exists = cur.fetchone()[0]
+
+        if not exists:
+            cur.execute("""
+                CREATE TABLE user_preferences (
+                    user_id SERIAL PRIMARY KEY,
+                    consent BOOLEAN NOT NULL,
+                    collaborative BOOLEAN NOT NULL,
+                    git_username VARCHAR(255),
+                    last_updated TIMESTAMP DEFAULT NOW()
+                );
+            """)
+            conn.commit()
 
 
 def update_user_preferences(consent: bool):
@@ -28,15 +36,14 @@ def update_user_preferences(consent: bool):
     If the record doesn't exist, insert it.
     """
     try:
-        with with_db_cursor() as cursor:
-            cursor.execute("""
+        with get_connection() as conn, conn.cursor() as cur:
+            cur.execute("""
                 INSERT INTO user_preferences (user_id, consent, last_updated)
                 VALUES (1, %s, NOW())
                 ON CONFLICT (user_id)
                 DO UPDATE SET consent = EXCLUDED.consent, last_updated = NOW();
             """, (consent,))
-    except ConnectionError:
-        raise Exception("Failed to connect to database")
+            conn.commit()
     except Exception as e:
         raise Exception(f"Error updating user preferences: {e}")
 
@@ -48,63 +55,72 @@ def get_user_preferences():
         tuple: (consent: bool, last_updated: datetime) or None
     """
     try:
-        with with_db_cursor() as cursor:
-            cursor.execute("SELECT consent, last_updated FROM user_preferences WHERE user_id = 1;")
-            result = cursor.fetchone()
-        return result
-    except ConnectionError:
-        return None
+        with get_connection() as conn, conn.cursor() as cur:
+            cur.execute("SELECT consent, last_updated FROM user_preferences WHERE user_id = 1;")
+            return cur.fetchone()
     except Exception:
         return None
 
+
 def update_user_collaboration(collaborative: bool):
     """
-    Update the user's consent preference in the database.
+    Update the user's collaboration preference in the database.
     If the record doesn't exist, insert it.
     """
     try:
-        with with_db_cursor() as cursor:
-            cursor.execute("""
+        with get_connection() as conn, conn.cursor() as cur:
+            cur.execute("""
                 INSERT INTO user_preferences (user_id, collaborative, last_updated)
                 VALUES (1, %s, NOW())
                 ON CONFLICT (user_id)
-                DO UPDATE SET consent = EXCLUDED.consent, last_updated = NOW();
+                DO UPDATE SET collaborative = EXCLUDED.collaborative, last_updated = NOW();
             """, (collaborative,))
-    except ConnectionError:
-        raise Exception("Failed to connect to database")
+            conn.commit()
     except Exception as e:
         raise Exception(f"Error updating user collaboration: {e}")
 
 
-def get_user_callaboration():
+def get_user_collaboration():
     """
-    Retrieve user preferences from the database.
+    Retrieve the user's collaboration setting.
     Returns:
-        tuple: (consent: bool, last_updated: datetime) or None
+        tuple: (collaborative: bool, last_updated: datetime) or None
     """
-    conn = get_connection()
-    cursor = conn.cursor()
-    cursor.execute("SELECT collaborative, last_updated FROM user_preferences WHERE user_id = 1;")
-    result = cursor.fetchone()
-    conn.close()
-    return result
+    try:
+        with get_connection() as conn, conn.cursor() as cur:
+            cur.execute("SELECT collaborative, last_updated FROM user_preferences WHERE user_id = 1;")
+            return cur.fetchone()
+    except Exception:
+        return None
+
 
 def update_user_git_username(git_username: str):
-    conn = get_connection()
-    cursor = conn.cursor()
-    cursor.execute("""
-        INSERT INTO user_preferences (user_id, git_username, last_updated)
-        VALUES (1, %s, NOW())
-        ON CONFLICT (user_id)
-        DO UPDATE SET git_username = EXCLUDED.git_username, last_updated = NOW();
-    """, (git_username,))
-    conn.commit()
-    conn.close()
+    """
+    Update or insert the user's GitHub username.
+    """
+    try:
+        with get_connection() as conn, conn.cursor() as cur:
+            cur.execute("""
+                INSERT INTO user_preferences (user_id, git_username, last_updated)
+                VALUES (1, %s, NOW())
+                ON CONFLICT (user_id)
+                DO UPDATE SET git_username = EXCLUDED.git_username, last_updated = NOW();
+            """, (git_username,))
+            conn.commit()
+    except Exception as e:
+        raise Exception(f"Error updating GitHub username: {e}")
+
 
 def get_user_git_username():
-    conn = get_connection()
-    cursor = conn.cursor()
-    cursor.execute("SELECT git_username FROM user_preferences WHERE user_id = 1;")
-    result = cursor.fetchone()
-    conn.close()
-    return result
+    """
+    Retrieve the user's GitHub username.
+    Returns:
+        str or None
+    """
+    try:
+        with get_connection() as conn, conn.cursor() as cur:
+            cur.execute("SELECT git_username FROM user_preferences WHERE user_id = 1;")
+            result = cur.fetchone()
+            return result[0] if result else None
+    except Exception:
+        return None

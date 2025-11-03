@@ -13,6 +13,9 @@ import sys
 from collaborative.identify_contributors import identify_contributors
 from database.user_preferences import get_user_git_username, update_user_git_username
 
+consent_manager = ConsentManager(user_id="default_user")
+collab_manager = CollaborativeManager()
+
 def display_error(result):
     """Display error information to user."""
     print("\n" + "="*70)
@@ -195,32 +198,51 @@ def display_success(result):
 
 def ask_user_preferences(is_start):
     just_changed = False
-    if consent_manager.has_access() and not is_start:
+    prefs = collab_manager.get_preferences()
+    if prefs and prefs[1] and not is_start: 
         while True:
-            print("Collaborative not granted. Doing individual.")
-    else:
-        print("Collaborative granted. Doing colabrative and individual.")
-        if not get_user_git_username() or get_user_git_username()[0] is None:
-            response = input("\nWhat is you GitHub user name: ").strip()
-            update_user_git_username(response)
-            just_changed = True
-        print("\nYour github username is:"+str(get_user_git_username()))
-        # Path to the ZIP file
-        zip_path = os.path.abspath(os.path.join(os.path.dirname(__file__), "../test.zip"))
-        ic = identify_contributors(zip_path)
-            # Cleanup temporary extracted files
-        ic.cleanup()
-
-    if not just_changed and not get_user_git_username()[0] is None and not is_start:
-        while True:
-            response = input("\nWould you like to change you GitHub username? (y/n)")
+            response = input("\nWould you like to not include collaborative work? (yes/no): ").strip().lower()
             if response in ['yes', 'y']:
-                new_username = input("\nWhat is you GitHub user name: ").strip()
-                update_user_git_username(new_username)
+                collab_manager.update_collaborative(False)
+                print("\nCollaborative not granted. Thank you!")
+                break
             elif response in ['no', 'n']:
                 break
             else:
                 print("Invalid input. Please enter 'yes' or 'no'.")
+    else:
+        # Check/request user consent
+        if not collab_manager.request_collaborative_if_needed():
+            print("Collaborative not granted. Doing individual.")
+        else:
+            print("Collaborative granted. Doing colabrative and individual.")
+            if not get_user_git_username() or get_user_git_username()[0] is None:
+                response = input("\nWhat is you GitHub user name: ").strip()
+                update_user_git_username(response)
+                just_changed = True
+            print("\nYour github username is:"+str(get_user_git_username()))
+            # Path to the ZIP file
+            zip_path = os.path.abspath(os.path.join(os.path.dirname(__file__), "../test.zip"))
+            ic = identify_contributors(zip_path=zip_path)
+            # Extract the repo
+            repo_path = ic.extract_repo()
+            if repo_path is None:
+                print("No git repository found in the ZIP.")
+                return
+            # Get the full contribution profile
+            profile = ic.get_full_contribution_profile()
+                
+        if not just_changed and not get_user_git_username()[0] is None and not is_start:
+            while True:
+                response = input("\nWould you like to change you GitHub username? (y/n) ")
+                if response in ['yes', 'y']:
+                    new_username = input("\nWhat is you GitHub user name: ").strip()
+                    update_user_git_username(new_username)
+                    break
+                elif response in ['no', 'n']:
+                    break
+                else:
+                    print("Invalid input. Please enter 'yes' or 'no'.")
 
 def analyze_project_menu():
     """
@@ -273,53 +295,6 @@ def analyze_project_menu():
                 print(f"Please enter a number between 1 and {len(projects)}")
         except ValueError:
             print("Please enter a valid number or 'q' to quit")
-
-    just_changed = False
-    prefs = collab_manager.get_preferences()
-    if prefs and prefs[1] and not is_start: 
-        while True:
-            response = input("\nWould you like to not include collaborative work? (yes/no): ").strip().lower()
-            if response in ['yes', 'y']:
-                collab_manager.update_collaborative(False)
-                print("\nCollaborative not granted. Thank you!")
-                break
-            elif response in ['no', 'n']:
-                break
-            else:
-                print("Invalid input. Please enter 'yes' or 'no'.")
-    else:
-        # Check/request user consent
-        if not collab_manager.request_collaborative_if_needed():
-            print("Collaborative not granted. Doing individual.")
-        else:
-            print("Collaborative granted. Doing colabrative and individual.")
-            if not get_user_git_username() or get_user_git_username()[0] is None:
-                response = input("\nWhat is you GitHub user name: ").strip()
-                update_user_git_username(response)
-                just_changed = True
-            print("\nYour github username is:"+str(get_user_git_username()))
-            # Path to the ZIP file
-            zip_path = os.path.abspath(os.path.join(os.path.dirname(__file__), "../test.zip"))
-            ic = identify_contributors(zip_path=zip_path)
-            # Extract the repo
-            repo_path = ic.extract_repo()
-            if repo_path is None:
-                print("No git repository found in the ZIP.")
-                return
-            # Get the full contribution profile
-            profile = ic.get_full_contribution_profile()
-                
-        if not just_changed and not get_user_git_username()[0] is None and not is_start:
-            while True:
-                response = input("\nWould you like to change you GitHub username? (y/n) ")
-                if response in ['yes', 'y']:
-                    new_username = input("\nWhat is you GitHub user name: ").strip()
-                    update_user_git_username(new_username)
-                    break
-                elif response in ['no', 'n']:
-                    break
-                else:
-                    print("Invalid input. Please enter 'yes' or 'no'.")
 
 def manage_external_services_menu():
     """
@@ -385,18 +360,14 @@ def main():
         print(f"Failed to initialize database tables: {e}")
         return
 
-    # Initialize ConsentManager
-    manager = ConsentManager(user_id="default_user")
-    manager.initialize()
+    consent_manager.initialize()
     
     # Check/request user consent
-    if not manager.request_consent_if_needed():
+    if not consent_manager.request_consent_if_needed():
         print("Consent not granted. Exiting...")
         return
     else:
         print("User consent granted. Proceeding with backend setup.")
-
-    collab_manager = CollaborativeManager()
     
     # Check/request collaborative consent
     if not collab_manager.request_collaborative_if_needed():
@@ -426,7 +397,8 @@ def main():
         print("6. Rank all projects")
         print("7. Manage external service settings")
         print("8. Cleanup insights for a project")
-        print("9. Exit")
+        print("9. Change User Preferences")
+        print("10. Exit")
         print("="*70)
         
         choice = input("Choose an option (1-9): ").strip()
@@ -474,11 +446,14 @@ def main():
                 print("Invalid project ID.")
                 
         elif choice == '9':
+            ask_user_preferences(False)
+
+        elif choice == '10':
             print("Goodbye!")
             break
             
         else:
-            print("Invalid choice. Please enter 1-9.")
+            print("Invalid choice. Please enter 1-10.")
 
 if __name__ == "__main__":
     main()
