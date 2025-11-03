@@ -1,4 +1,26 @@
 # Personal Log of Alex Batke
+# Week 9
+
+## Applicable Date Range
+- Monday, October 27th to Sunday, November 2nd
+
+## Peer Evaluation Screenshot
+![alt text](<imgs/alex_batke_w9.png>)
+
+
+### Recap On Your Weeks Goals
+- Which Features Were Yours in the Project Plan for this Milestone?
+  My task for this week were to fix a small filepath issue with the input file unzipping, and then pass the unzipped input to the parser
+- Which Tasks from the Project Board are Associated with these Features?
+  The relevant issues are #65 and #66 (Unzipping of Input Files and Passing of Unzipped Files to Parser) with just myself assigned
+- Among these tasks, which have you completed/in progress in the last 2 weeks?
+  The unzipping of files was was successfully implemented and tested fully last week, the tests written previously still passed.  The passing of the files to the parser was completed successfully.
+- Planning for next week: 
+  The next task assigned to me will to start work on exporting of our analyzed results. This would be done using a pdf.
+- Optional text: additional context that we should be aware of:
+  Nothing else to report.
+
+
 # Week 8
 
 ## Applicable Date Range
