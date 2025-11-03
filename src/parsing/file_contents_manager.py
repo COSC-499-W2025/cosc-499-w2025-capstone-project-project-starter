@@ -144,29 +144,23 @@ def _insert_batch(cursor, batch_data):
         raise
 
 def get_zip_file(uploaded_file_id):
-    conn = get_connection()
-    if not conn:
+    try:
+        with with_db_cursor() as cursor:
+            cursor.execute("""
+                SELECT file_data
+                FROM uploaded_files
+                WHERE id = %s
+            """, (uploaded_file_id,))
+            row = cursor.fetchone()
+            if row:
+                return row[0]  # file_data column
+            return None
+    except ConnectionError:
         print("Could not connect to database.")
         return {}
-    
-    try:
-        cursor = conn.cursor()
-        cursor.execute("""
-            SELECT file_data
-            FROM uploaded_files
-            WHERE id = %s
-            """, (uploaded_file_id,))
-        row = cursor.fetchone()
-        if row:
-            return row[0]  # file_data column
-        return None
-        
     except Exception as e:
         print(f"Error retrieving the zip file: {e}")
         return {}
-    finally:
-        cursor.close()
-        conn.close()
 
 def get_file_contents_by_folder(uploaded_file_id, folder_path=""):
     """

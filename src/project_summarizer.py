@@ -210,11 +210,17 @@ class ProjectSummarizer:
         # Handle contributors
         num_contributors = 1
         if project_id > 0:
-            ic = identify_contributors(zip_bytes=get_zip_file(project_id))
-            repo_path = ic.extract_repo()
-            if repo_path is not None:
-                num_contributors = len(ic.get_commit_counts())
-            ic.cleanup()
+            zip_data = get_zip_file(project_id)
+            if zip_data and isinstance(zip_data, bytes):
+                try:
+                    ic = identify_contributors(zip_bytes=zip_data)
+                    repo_path = ic.extract_repo()
+                    if repo_path is not None:
+                        num_contributors = len(ic.get_commit_counts())
+                    ic.cleanup()
+                except (ValueError, Exception):
+                    # If zip data is invalid or extraction fails, assume individual project
+                    num_contributors = 1
 
         # Calculate collaboration score
         score = 0

@@ -17,10 +17,8 @@ def fetch_records_from_db(project_id: int) -> List[Tuple[str, int, str, int]]:
               fc.file_path,
               COALESCE(fc.file_size, 0) AS size_bytes,
               COALESCE(fc.content_type, fc.file_extension, 'Unknown') AS language,
-              COALESCE(
-                  (length(fc.file_content) - length(replace(fc.file_content, E'\n','')) + 1),
-                  0
-              ) AS num_lines
+              fc.is_binary,
+              fc.file_content
             FROM file_contents fc
             WHERE fc.uploaded_file_id = %s
             ORDER BY fc.id;
@@ -29,7 +27,28 @@ def fetch_records_from_db(project_id: int) -> List[Tuple[str, int, str, int]]:
         )
         rows = cur.fetchall()
 
-    return [(str(r[0]), int(r[1] or 0), str(r[2] or "Unknown"), int(r[3] or 0)) for r in rows]
+    results = []
+    for row in rows:
+        file_path, size_bytes, language, is_binary, file_content = row
+        
+        # Count lines in Python to avoid UTF-8 conversion issues
+        num_lines = 0
+        if not is_binary and file_content is not None:
+            try:
+                content_str = file_content.tobytes() if hasattr(file_content, 'tobytes') else bytes(file_content)
+                # Try to decode as UTF-8, fallback to counting bytes if invalid
+                try:
+                    text = content_str.decode('utf-8', errors='ignore')
+                    num_lines = text.count('\n') + (1 if text else 0)
+                except Exception:
+                    # If decode fails, just count newline bytes
+                    num_lines = content_str.count(b'\n') + (1 if content_str else 0)
+            except Exception:
+                num_lines = 0
+        
+        results.append((str(file_path), int(size_bytes or 0), str(language or "Unknown"), int(num_lines)))
+    
+    return results
 
 
 

@@ -223,12 +223,14 @@ class TestProjectSummarizer:
     @patch('src.project_summarizer.get_project_by_id')
     @patch('src.project_summarizer.get_file_contents_by_upload_id')
     @patch('src.project_summarizer.get_file_statistics')
-    def test_generate_project_summary_success(self, mock_stats, mock_contents, mock_project):
+    @patch('src.project_summarizer.get_zip_file')
+    def test_generate_project_summary_success(self, mock_get_zip, mock_stats, mock_contents, mock_project):
         """Test successful project summary generation"""
         # Mock the dependencies
         mock_project.return_value = self.sample_project_info
         mock_contents.return_value = self.sample_file_contents
         mock_stats.return_value = self.sample_file_stats
+        mock_get_zip.return_value = b"fake zip data"
         
         summary = self.summarizer.generate_project_summary(1)
         
@@ -427,7 +429,8 @@ class TestProjectSummarizerIntegration:
     @patch('src.project_summarizer.get_project_by_id')
     @patch('src.project_summarizer.get_file_contents_by_upload_id')
     @patch('src.project_summarizer.get_file_statistics')
-    def test_full_summarization_workflow(self, mock_stats, mock_contents, mock_project):
+    @patch('src.project_summarizer.get_zip_file')
+    def test_full_summarization_workflow(self, mock_get_zip, mock_stats, mock_contents, mock_project):
         """Test the complete summarization workflow"""
         # Mock project data
         project_info = {
@@ -435,7 +438,7 @@ class TestProjectSummarizerIntegration:
             'filename': 'integration_test.zip',
             'created_at': datetime(2024, 1, 1, 10, 0, 0)
         }
-        
+
         file_contents = [
             {
                 'file_extension': '.py',
@@ -456,7 +459,7 @@ class TestProjectSummarizerIntegration:
                 'created_at': datetime(2024, 1, 1, 10, 10, 0)
             }
         ]
-        
+
         file_stats = {
             'total_files': 3,
             'total_size_bytes': 2000,
@@ -469,12 +472,13 @@ class TestProjectSummarizerIntegration:
             ],
             'folders': [{'folder': 'root', 'file_count': 3}]
         }
-        
+
         # Set up mocks
         mock_project.return_value = project_info
         mock_contents.return_value = file_contents
         mock_stats.return_value = file_stats
-        
+        mock_get_zip.return_value = b"fake zip data"
+
         # Create summarizer and generate summary
         summarizer = ProjectSummarizer()
         summary = summarizer.generate_project_summary(1)
