@@ -32,7 +32,7 @@ jobs:
           cp .env.example mainbranch/.env
 
       - name: Start database (Docker)
-        run: docker-compose up -d
+        run: docker compose up -d
 
       # Simple wait for DB to be ready (keep it minimal per your command set)
       - name: Wait for DB
