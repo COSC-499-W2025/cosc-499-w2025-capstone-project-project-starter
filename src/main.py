@@ -414,7 +414,7 @@ def main():
         print("10. Exit")
         print("="*70)
         
-        choice = input("Choose an option (1-9): ").strip()
+        choice = input("Choose an option (1-10): ").strip()
         
         if choice == '1':
             filepath = input("Enter the path to your zip file: ")
