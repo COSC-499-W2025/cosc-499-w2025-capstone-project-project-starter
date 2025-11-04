@@ -55,4 +55,4 @@ jobs:
           PYTHONUNBUFFERED: "1"
           PYTEST_ADDOPTS: "-vv -s"
         run: |
-          pytest tests --ignore=mainbranch --ignore=data/postgres
+          pytest
