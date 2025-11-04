@@ -36,7 +36,6 @@ jobs:
           docker --version
           docker compose version || docker-compose --version
           docker info >/dev/null 2>&1 || (echo "Docker not running" && exit 1)
-
       - name: Start database (Docker)
         run: docker compose up -d
 
