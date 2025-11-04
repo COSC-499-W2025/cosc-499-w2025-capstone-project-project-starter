@@ -1,7 +1,7 @@
 import pytest
 import os
 import tempfile
-from parser.file_classification import is_binary_file, scan_directory_for_binaries
+from src.codeparser.file_classification import is_binary_file, scan_directory_for_binaries
 
 def test_is_binary_file_text(tmp_path):
     text_file = tmp_path / "example.txt"
