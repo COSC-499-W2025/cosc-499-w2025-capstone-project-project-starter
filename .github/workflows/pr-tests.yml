@@ -8,8 +8,7 @@ jobs:
   test:
     runs-on: ubuntu-latest
     env:
-      UPLOAD_FOLDER: ${{ runner.temp }}/uploads
-
+      UPLOAD_FOLDER: ${{ runner.temp }}/uploads 
     steps:
       - name: Check out PR code
         uses: actions/checkout@v4
