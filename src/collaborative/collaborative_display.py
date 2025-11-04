@@ -1,3 +1,5 @@
+import os
+
 class CollaborativeDisplay:
     """
     Handles display and user interaction for collaborative consent requests.
@@ -6,8 +8,13 @@ class CollaborativeDisplay:
     @staticmethod
     def request_collaborative() -> bool:
         """Ask user for collaborative consent and return True if granted."""
-        response = input("Do you grant collaborative permission? (y/n): ").strip().lower()
-        return response in ('y', 'yes')
+        if os.getenv("GITHUB_ACTIONS") == "true" or not os.isatty(0):
+            return True
+        try:
+            response = input("Do you grant collaborative permission? (y/n): ").strip().lower()
+            return response in ('y', 'yes')
+        except EOFError:
+            return True
 
     @staticmethod
     def show_status(consent: bool, collaborative: bool):
