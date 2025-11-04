@@ -7,6 +7,8 @@ on:
 jobs:
   test:
     runs-on: ubuntu-latest
+    env:
+      UPLOAD_FOLDER: /tmp/uploads   # used by your code
 
     steps:
       - name: Check out PR code
@@ -21,7 +23,7 @@ jobs:
       - name: Set up Python 3.12
         uses: actions/setup-python@v5
         with:
-          python-version: '3.12'
+          python-version: "3.12"
 
       - name: Show Python version
         run: python --version
@@ -31,26 +33,48 @@ jobs:
           cp .env.example .env
           cp .env.example mainbranch/.env
 
-      - name: Start database (Docker)
-        run: docker-compose up -d
+      - name: Prepare upload dir
+        run: mkdir -p "$UPLOAD_FOLDER"
 
-      # Simple wait for DB to be ready (keep it minimal per your command set)
+      - name: Verify Docker setup
+        run: |
+          docker --version
+          docker compose version || docker-compose --version
+          docker info >/dev/null 2>&1 || (echo "Docker not running" && exit 1)
+
+      - name: Start database (Docker)
+        run: docker compose up -d
+
       - name: Wait for DB
         run: sleep 15
 
       - name: Install dependencies (from PR branch)
         run: pip install -r requirements.txt
 
-      # Your note: "Before test you should do: run python src/main.py in main branch"
+      # REQUIRED: run main branch init first, but feed its prompts via stdin
       - name: Run app init from main branch (pre-test)
-        run: python src/main.py
         working-directory: mainbranch
+        run: |
+          printf "yes\nyes\n10\n" | python src/main.py
 
+      # Sanity run on PR branch, also feed prompts
       - name: Run project (sanity step on PR branch)
-        run: python src/main.py
+        run: |
+          printf "yes\nyes\n10\n" | python src/main.py
 
       - name: Run tests
         env:
           PYTHONPATH: .
+          PYTHONUNBUFFERED: "1"
+          PYTEST_ADDOPTS: "-vv -s"
         run: |
-          pytest -v
+          pytest tests --ignore=mainbranch --ignore=data/postgres
+
+      # Optional: help debugging if something fails
+      - name: Compose logs on failure
+        if: failure()
+        run: docker compose logs --no-color
+
+      - name: Compose down
+        if: always()
+        run: docker compose down -v

@@ -166,19 +166,15 @@ class TestUploadFile:
         assert "source" in result.data
         assert "destination" in result.data
     
-    @patch('src.upload_file.os.makedirs')
-    def test_add_file_to_db_directory_creation_failure(self, mock_makedirs):
-        """Test handling of directory creation failure"""
+    @patch('src.upload_file.ensure_upload_dir', return_value="Failed to create upload directory: Permission denied")
+    def test_add_file_to_db_directory_creation_failure(self, mock_ensure):
         zip_path = self.create_test_zip()
-        
-        # Mock directory creation failure
-        mock_makedirs.side_effect = Exception("Permission denied")
-        
         result = add_file_to_db(zip_path)
         assert isinstance(result, UploadResult)
         assert result.success is False
         assert result.error_type == "DIRECTORY_ERROR"
         assert "Failed to create upload directory" in result.message
+
     
     @patch('src.upload_file.extract_and_store_file_contents')
     @patch('src.upload_file.with_db_cursor')

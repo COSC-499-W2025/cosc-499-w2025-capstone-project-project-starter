@@ -5,8 +5,9 @@ import json
 from config.db_config import with_db_cursor
 from parsing.file_validator import validate_uploaded_file, WrongFormatError
 from parsing.file_contents_manager import init_file_contents_table, extract_and_store_file_contents, get_file_contents_by_upload_id
+from pathlib import Path
 
-UPLOAD_FOLDER = "data/uploads"
+UPLOAD_FOLDER = UPLOAD_FOLDER = Path(os.getenv("UPLOAD_FOLDER", "uploads"))
 
 class UploadResult:
     """Encapsulates the result of an upload operation"""
@@ -24,6 +25,12 @@ class UploadResult:
             "error_type": self.error_type,
             "data": self.data
         }
+def ensure_upload_dir() -> str | None:
+    try:
+        UPLOAD_FOLDER.mkdir(parents=True, exist_ok=True)
+        return None
+    except Exception as e:
+        return f"Failed to create upload directory: {e}"
 
 def init_uploaded_files_table():
     """Create the uploaded_files table if it doesn't exist."""
@@ -52,47 +59,29 @@ def init_uploaded_files_table():
         raise
 
 def add_file_to_db(filepath) -> UploadResult:
-    """
-    Upload file to database with comprehensive error handling
-    
-    Args:
-        filepath: Path to the file to upload
-        
-    Returns:
-        UploadResult: Object containing success status, message, error type, and data
-    """
     # 1. Check if file exists
     if not os.path.exists(filepath):
-        return UploadResult(
-            success=False,
-            message=f"File does not exist: {filepath}",
-            error_type="FILE_NOT_FOUND"
-        )
-    
+        return UploadResult(False, f"File does not exist: {filepath}", "FILE_NOT_FOUND")
+
     # 2. Validate file format
     try:
         validate_uploaded_file(filepath)
     except WrongFormatError as e:
-        return UploadResult(
-            success=False,
-            message=f"Invalid file format: {str(e)}",
-            error_type="INVALID_FORMAT",
-            data={"filepath": filepath}
-        )
-    
+        return UploadResult(False, f"Invalid file format: {str(e)}", "INVALID_FORMAT", {"filepath": filepath})
+
     filename = os.path.basename(filepath)
-    dest_path = os.path.join(UPLOAD_FOLDER, filename)
-    
-    # 3. Create upload directory
-    try:
-        os.makedirs(UPLOAD_FOLDER, exist_ok=True)
-    except Exception as e:
+    dest_path = str(UPLOAD_FOLDER / filename)   # keep as str if the rest of your code expects str
+
+    # 3. Create upload directory (via helper)
+    err = ensure_upload_dir()
+    if err:
         return UploadResult(
             success=False,
-            message=f"Failed to create upload directory: {str(e)}",
-            error_type="DIRECTORY_ERROR"
+            message=err,
+            error_type="DIRECTORY_ERROR",
+            data={"destination": str(UPLOAD_FOLDER)}
         )
-    
+
     # 4. Copy file to upload folder
     try:
         shutil.copy(filepath, dest_path)
@@ -104,7 +93,7 @@ def add_file_to_db(filepath) -> UploadResult:
             error_type="COPY_ERROR",
             data={"source": filepath, "destination": dest_path}
         )
-    
+
     # 5. Extract metadata from zip
     file_contents = []
     try:
@@ -119,21 +108,19 @@ def add_file_to_db(filepath) -> UploadResult:
             error_type="ZIP_EXTRACTION_ERROR",
             data={"filepath": dest_path}
         )
-    
+
     # 6. Save to database
     try:
         with open(dest_path, "rb") as f:
             zip_bytes = f.read()
         with with_db_cursor() as cursor:
             cursor.execute("""
-            INSERT INTO uploaded_files (filename, filepath, status, metadata, file_data)
-            VALUES (%s, %s, %s, %s, %s)
-            RETURNING id
-        """, (filename, dest_path, "uploaded", json.dumps({"files": file_contents}), zip_bytes))
-            
+                INSERT INTO uploaded_files (filename, filepath, status, metadata, file_data)
+                VALUES (%s, %s, %s, %s, %s)
+                RETURNING id
+            """, (filename, dest_path, "uploaded", json.dumps({"files": file_contents}), zip_bytes))
             uploaded_file_id = cursor.fetchone()[0]
-        
-        # Extract and store file contents
+
         print("Extracting file contents...")
         extraction_result = extract_and_store_file_contents(uploaded_file_id, dest_path)
 
@@ -151,18 +138,9 @@ def add_file_to_db(filepath) -> UploadResult:
         )
 
     except ConnectionError:
-        return UploadResult(
-            success=False,
-            message="Could not connect to database",
-            error_type="DATABASE_CONNECTION_ERROR"
-        )
+        return UploadResult(False, "Could not connect to database", "DATABASE_CONNECTION_ERROR")
     except Exception as e:
-        return UploadResult(
-            success=False,
-            message=f"Database save failed: {str(e)}",
-            error_type="DATABASE_SAVE_ERROR",
-            data={"filename": filename}
-        )
+        return UploadResult(False, f"Database save failed: {str(e)}", "DATABASE_SAVE_ERROR", {"filename": filename})
 
 
 def get_uploaded_file_contents(uploaded_file_id):
