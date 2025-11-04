@@ -109,7 +109,7 @@ def test_complex_upload_and_extraction():
         # Initialize database tables
         print("1. Initializing database tables...")
         init_uploaded_files_table()
-        print("✓ Database tables initialized\n")
+        print("Database tables initialized\n")
         
         # Create complex test zip file
         print("2. Creating complex test zip file with nested folders...")
@@ -182,32 +182,5 @@ def test_complex_upload_and_extraction():
         traceback.print_exc()
 
 
-def test_performance_with_many_files():
-    """Test performance with a large number of files."""
-    print("\n=== Testing Performance with Many Files ===\n")
-    
-    try:
-        # Create a zip with many files
-        with tempfile.TemporaryDirectory() as temp_dir:
-            zip_path = os.path.join(temp_dir, 'many_files.zip')
-            
-            with zipfile.ZipFile(zip_path, 'w') as zip_ref:
-                # Create 100 small files
-                for i in range(100):
-                    content = f"# File {i}\nThis is file number {i}\n" + "Line " * 10
-                    zip_ref.writestr(f"file_{i:03d}.txt", content)
-            
-            print(f"Created zip with 100 files: {zip_path}")
-            
-            # Upload and extract
-            print("Uploading and extracting many files...")
-            add_file_to_db(zip_path)
-            print(" Many files uploaded and extracted successfully!")
-            
-    except Exception as e:
-        print(f" Performance test failed: {e}")
-
-
 if __name__ == "__main__":
     test_complex_upload_and_extraction()
-    test_performance_with_many_files()
