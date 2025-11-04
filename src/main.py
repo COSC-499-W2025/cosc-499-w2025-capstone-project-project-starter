@@ -1,11 +1,11 @@
 from config.db_config import get_connection
 from upload_file import add_file_to_db
-from project_manager import list_projects, list_project_files
+from project_display import select_project_interactive, list_projects_menu
 from consent.consent_manager import ConsentManager
 from collaborative.collaborative_manager import CollaborativeManager
 from analysis.key_metrics import analyze_project_from_db
 from analysis.project_ranking import rank_all_projects, display_rankings
-from project_summarizer import summarize_project, get_available_projects
+from project_summarizer import summarize_project
 from external_services.external_service_prompt import request_external_service_permission
 from project_analyzer import analyze_project_by_id
 import os
@@ -117,46 +117,13 @@ def display_success(result):
     print("="*70 + "\n")
 
 
-def _select_project_interactive(title: str):
-    """Unified project selection UI. Returns selected project dict or None."""
-    print("\n" + "-"*50)
-    print(title)
-    print("-"*50)
-
-    projects = get_available_projects()
-
-    if not projects:
-        print("No projects found in database.")
-        print("Please upload a project first using option 1.")
-        return None
-
-    print("Available projects:")
-    for i, project in enumerate(projects, 1):
-        created_date = project['created_at'].strftime("%Y-%m-%d") if project['created_at'] else "Unknown"
-        print(f"{i}. {project['filename']} (ID: {project['id']}, Created: {created_date})")
-
-    print("-"*50)
-
-    while True:
-        try:
-            choice = input(f"Select a project (1-{len(projects)}) or 'q' to quit: ").strip()
-            if choice.lower() == 'q':
-                return None
-            choice_num = int(choice)
-            if 1 <= choice_num <= len(projects):
-                return projects[choice_num - 1]
-            else:
-                print(f"Please enter a number between 1 and {len(projects)}")
-        except ValueError:
-            print("Please enter a valid number or 'q' to quit")
-
 def summarize_project_menu():
     """Handle the project summarization menu."""
     print("\n" + "-"*50)
     print("Project Summarization")
     print("-"*50)
     
-    selected_project = _select_project_interactive("Project Summarization")
+    selected_project = select_project_interactive("Project Summarization")
     if not selected_project:
         return
     print(f"\nGenerating summary for: {selected_project['filename']}")
@@ -262,52 +229,21 @@ def analyze_project_menu():
     Handle the project analysis menu.
     This is the main menu for Issue #10: Analysis if User Declines Outside Sources.
     """
-    print("\n" + "-"*50)
-    print("Project Analysis (with Local Fallback)")
-    print("-"*50)
+    selected_project = select_project_interactive("Project Analysis (with Local Fallback)")
     
-    # Get available projects
-    projects = get_available_projects()
-    
-    if not projects:
-        print("No projects found in database.")
-        print("Please upload a project first using option 1.")
+    if not selected_project:
         return
     
-    # Display available projects
-    print("Available projects:")
-    for i, project in enumerate(projects, 1):
-        created_date = project['created_at'].strftime("%Y-%m-%d") if project['created_at'] else "Unknown"
-        print(f"{i}. {project['filename']} (ID: {project['id']}, Created: {created_date})")
+    print(f"\nAnalyzing: {selected_project['filename']}")
+    print("Please wait...")
     
-    print("-"*50)
+    # Perform analysis (respects user's external service permission)
+    analyze_project_by_id(selected_project['id'])
     
-    # Get user selection
-    while True:
-        try:
-            choice = input(f"Select a project to analyze (1-{len(projects)}) or 'q' to quit: ").strip()
-            
-            if choice.lower() == 'q':
-                return
-            
-            choice_num = int(choice)
-            if 1 <= choice_num <= len(projects):
-                selected_project = projects[choice_num - 1]
-                print(f"\nAnalyzing: {selected_project['filename']}")
-                print("Please wait...")
-                
-                # Perform analysis (respects user's external service permission)
-                analyze_project_by_id(selected_project['id'])
-                
-                # Ask if user wants to continue
-                continue_choice = input("\nPress Enter to continue or 'q' to quit: ").strip()
-                if continue_choice.lower() == 'q':
-                    return
-                break
-            else:
-                print(f"Please enter a number between 1 and {len(projects)}")
-        except ValueError:
-            print("Please enter a valid number or 'q' to quit")
+    # Ask if user wants to continue
+    continue_choice = input("\nPress Enter to continue or 'q' to quit: ").strip()
+    if continue_choice.lower() == 'q':
+        return
 
 def manage_external_services_menu():
     """
@@ -428,32 +364,10 @@ def main():
             add_file_to_db(filepath)
             
         elif choice == '2':
-            projects = list_projects()
-            if projects:
-                print("\nWould you like to view files for a specific project?")
-                view_choice = input("Enter project number to view files, or 'q' to go back: ").strip()
-                if view_choice.lower() != 'q':
-                    try:
-                        project_num = int(view_choice)
-                        if 1 <= project_num <= len(projects):
-                            selected_project = projects[project_num - 1]
-                            print(f"\n" + "-"*80)
-                            print(f"Files in project: {selected_project['filename']}")
-                            print("-"*80)
-                            files = list_project_files(selected_project['id'])
-                            if files:
-                                for i, file_path in enumerate(files, 1):
-                                    print(f"{i}. {file_path}")
-                                print("-"*80)
-                                print(f"Total files: {len(files)}")
-                            input("\nPress Enter to continue...")
-                        else:
-                            print(f"Please enter a number between 1 and {len(projects)}")
-                    except ValueError:
-                        print("Please enter a valid number or 'q'")
+            list_projects_menu()
             
         elif choice == '3':
-            selected_project = _select_project_interactive("Analyze project metrics")
+            selected_project = select_project_interactive("Analyze project metrics")
             if selected_project:
                 analyze_project_from_db(int(selected_project['id']))
                 
