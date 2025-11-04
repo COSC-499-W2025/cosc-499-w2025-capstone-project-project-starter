@@ -36,6 +36,7 @@ jobs:
           docker --version
           docker compose version || docker-compose --version
           docker info >/dev/null 2>&1 || (echo "Docker not running" && exit 1)
+
       - name: Start database (Docker)
         run: docker compose up -d
 
@@ -44,10 +45,6 @@ jobs:
 
       - name: Install dependencies (from PR branch)
         run: pip install -r requirements.txt
-
-      - name: Run app init from main branch (pre-test)
-        working-directory: mainbranch
-        run: python src/main.py --yes --yes --10
 
       - name: Run project (sanity step on PR branch)
         run: python src/main.py --yes --yes --10
