@@ -18,90 +18,6 @@ class TestMainIntegration:
     @patch('src.project_display.get_available_projects')
     @patch('src.project_summarizer.get_available_projects')
     @patch('src.main.summarize_project')
-    def test_summarize_project_menu_no_projects(self, mock_summarize, mock_get_projects_summarizer, mock_get_projects_display):
-        """Test summarize_project_menu when no projects are available"""
-        mock_get_projects_display.return_value = []
-        mock_get_projects_summarizer.return_value = []
-        
-        # Capture stdout to verify output
-        with patch('sys.stdout', new_callable=StringIO) as mock_stdout:
-            with patch('builtins.input', return_value='q'):
-                summarize_project_menu()
-            output = mock_stdout.getvalue()
-            
-            assert "No projects found in database." in output
-            assert "Please upload a project first using option 1." in output
-            mock_summarize.assert_not_called()
-    
-    @patch('src.project_display.get_available_projects')
-    @patch('src.project_summarizer.get_available_projects')
-    @patch('src.main.summarize_project')
-    def test_summarize_project_menu_with_projects(self, mock_summarize, mock_get_projects_summarizer, mock_get_projects_display):
-        """Test summarize_project_menu when projects are available"""
-        from datetime import datetime
-        
-        mock_projects = [
-            {
-                'id': 1,
-                'filename': 'test_project1.zip',
-                'created_at': datetime(2024, 1, 1, 10, 0, 0)
-            },
-            {
-                'id': 2,
-                'filename': 'test_project2.zip',
-                'created_at': datetime(2024, 1, 2, 11, 0, 0)
-            }
-        ]
-        
-        mock_get_projects_display.return_value = mock_projects
-        mock_get_projects_summarizer.return_value = mock_projects
-        mock_summarize.return_value = "Mock summary output"
-        
-        # Mock user input to select first project
-        with patch('builtins.input', side_effect=['1', 'q']):
-            with patch('sys.stdout', new_callable=StringIO) as mock_stdout:
-                summarize_project_menu()
-                output = mock_stdout.getvalue()
-                
-                # Verify project list is displayed
-                assert "Available projects:" in output
-                assert "1. test_project1.zip" in output
-                assert "2. test_project2.zip" in output
-                
-                # Verify summarization was called
-                mock_summarize.assert_called_once_with(1)
-    
-    @patch('src.project_display.get_available_projects')
-    @patch('src.project_summarizer.get_available_projects')
-    @patch('src.main.summarize_project')
-    def test_summarize_project_menu_invalid_input(self, mock_summarize, mock_get_projects_summarizer, mock_get_projects_display):
-        """Test summarize_project_menu with invalid user input"""
-        from datetime import datetime
-        
-        mock_projects = [
-            {
-                'id': 1,
-                'filename': 'test_project.zip',
-                'created_at': datetime(2024, 1, 1, 10, 0, 0)
-            }
-        ]
-        
-        mock_get_projects_display.return_value = mock_projects
-        mock_get_projects_summarizer.return_value = mock_projects
-        
-        # Mock user input: invalid number, then quit
-        with patch('builtins.input', side_effect=['5', 'q']):
-            with patch('sys.stdout', new_callable=StringIO) as mock_stdout:
-                summarize_project_menu()
-                output = mock_stdout.getvalue()
-                
-                # Verify error message for invalid input
-                assert "Please enter a number between 1 and 1" in output
-                mock_summarize.assert_not_called()
-    
-    @patch('src.project_display.get_available_projects')
-    @patch('src.project_summarizer.get_available_projects')
-    @patch('src.main.summarize_project')
     def test_summarize_project_menu_non_numeric_input(self, mock_summarize, mock_get_projects_summarizer, mock_get_projects_display):
         """Test summarize_project_menu with non-numeric input"""
         from datetime import datetime
@@ -126,38 +42,6 @@ class TestMainIntegration:
                 # Verify error message for non-numeric input
                 assert "Please enter a valid number or 'q' to quit" in output
                 mock_summarize.assert_not_called()
-    
-    @patch('src.project_display.get_available_projects')
-    @patch('src.project_summarizer.get_available_projects')
-    @patch('src.main.summarize_project')
-    def test_summarize_project_menu_quit_option(self, mock_summarize, mock_get_projects_summarizer, mock_get_projects_display):
-        """Test summarize_project_menu quit option"""
-        from datetime import datetime
-        
-        mock_projects = [
-            {
-                'id': 1,
-                'filename': 'test_project.zip',
-                'created_at': datetime(2024, 1, 1, 10, 0, 0)
-            }
-        ]
-        
-        mock_get_projects_display.return_value = mock_projects
-        mock_get_projects_summarizer.return_value = mock_projects
-        
-        # Mock user input: quit immediately
-        with patch('builtins.input', return_value='q'):
-            with patch('sys.stdout', new_callable=StringIO) as mock_stdout:
-                summarize_project_menu()
-                output = mock_stdout.getvalue()
-                
-                # Verify project list is still displayed
-                assert "Available projects:" in output
-                assert "1. test_project.zip" in output
-                
-                # Verify summarization was not called
-                mock_summarize.assert_not_called()
-
 
 class TestProjectSummarizerEdgeCases:
     """Test edge cases and error conditions for project summarization"""

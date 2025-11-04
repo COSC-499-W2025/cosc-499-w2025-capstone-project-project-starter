@@ -1,6 +1,6 @@
 from config.db_config import get_connection
 from upload_file import add_file_to_db
-from src.project_display import select_project_interactive, list_projects_menu
+from project_display import select_project_interactive, list_projects_menu
 from consent.consent_manager import ConsentManager
 from collaborative.collaborative_manager import CollaborativeManager
 from analysis.key_metrics import analyze_project_from_db
