@@ -21,6 +21,7 @@ def main():
 
     # now unzip the zip file
     unzipped = zipvalidation.unzip_file(file)
+    unzipped = unzipped.split("Extracted to: ")[1]
     print(unzipped + " unzipped successfully!\n")
 
     # parse the unzipped folder and summarize results
