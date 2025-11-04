@@ -415,13 +415,7 @@ def main():
         print("10. Exit")
         print("="*70) 
         
-        if os.getenv("GITHUB_ACTIONS") == "true" or not sys.stdin.isatty():
-            choice = "10"
-        else:
-            try:
-                choice = input("Choose an option (1-10): ").strip()
-            except EOFError:
-                choice = "10"
+        choice = input("Choose an option (1-10): ").strip()
         
         if choice == '1':
             filepath = input("Enter the path to your zip file: ")
