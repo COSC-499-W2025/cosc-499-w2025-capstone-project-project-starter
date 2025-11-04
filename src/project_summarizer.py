@@ -11,72 +11,26 @@ from datetime import datetime, timedelta
 from collections import Counter, defaultdict
 from config.db_config import with_db_cursor
 from project_manager import get_project_by_id
-from collaborative.identify_contributors import identify_contributors
 from parsing.file_contents_manager import get_file_contents_by_upload_id, get_file_statistics, get_zip_file
+from collaborative.identify_projects import _identify_authors_from_zip, _count_git_files, _compute_collab_score, _extract_common_names_from_filenames, _detect_team_structure
 from common.constants import LANGUAGE_EXTENSIONS, PROJECT_TYPE_INDICATORS
-from names_dataset import NameDataset
-import re
-from pathlib import Path
-import unicodedata
+from typing import Dict, List, Set, Tuple, Any
 
-nd = NameDataset()
-import re
-from names_dataset import NameDataset
+def _collab_level_from_score(score: int) -> str:
+    """Map score to high-level label."""
+    if score >= 100:
+        return "Definitely collaborative"
+    if score >= 70:
+        return "Likely team project"
+    if score >= 40:
+        return "Possibly collaborative"
+    return "Likely individual project"
 
-nd = NameDataset()
-
-def _normalize_name(s: str) -> str:
-    # NFKC handles width/compatibility; casefold() for case-insensitive match
-    return unicodedata.normalize("NFKC", s).casefold().strip()
-
-# Precompute top lists once (guarded for version differences)
-try:
-    TOP_FIRST_1000 = nd.get_top_names(n=100, use_first_names=True)
-except Exception:
-    TOP_FIRST_1000 = set()
-
-try:
-    TOP_LAST_500 = nd.get_top_names(n=10, use_first_names=False)
-except Exception:
-    TOP_LAST_500 = set()
-
-TOP_FIRST_SET = {
-    _normalize_name(name)
-    for country in TOP_FIRST_1000.values()
-    for gender_list in country.values()
-    for name in gender_list
-}
-
-TOP_LAST_SET = {
-    _normalize_name(name)
-    for names in TOP_LAST_500.values()
-    for name in names
-
-}
-    
-def _letters_only_unicode(s: str) -> str:
-    # Keep all Unicode letters + space/'/’/-
-    kept = []
-    for ch in s:
-        if ch.isalpha() or ch in (" ", "-", "'", "’"):
-            kept.append(ch)
-    return "".join(kept).strip()
-
-def is_top_common_name(word: str):
-    """
-    Return title-cased word if it's in the top first/last-name sets; else None.
-    Handles Unicode letters, accents, and multi-word names.
-    """
-    token = _letters_only_unicode(word)
-    if not token:
-        return None
-
-    key = _normalize_name(token)
-    if key in TOP_FIRST_SET or key in TOP_LAST_SET:
-        # Title-case heuristically; for better results you could return the canonical
-        # form from the dataset instead of .title()
-        return token.title()
-    return None
+def _build_analysis_text(level: str, authors: Set[str]) -> str:
+    base = f"Based on file names and/or Git presence, this appears to be a {level.lower()}."
+    if authors:
+        base += " The likely contributors are: " + ", ".join(sorted(authors))
+    return base
 
 
 class ProjectSummarizer:
@@ -117,7 +71,7 @@ class ProjectSummarizer:
             },
             "languages": self._detect_languages(file_contents),
             "project_description": self._generate_project_description(file_contents, file_stats),
-            "collaboration_analysis": self._analyze_collaboration(file_contents, project_id),
+            "collaboration_analysis": self._analyze_collaboration(project_id),
             "time_analysis": self._analyze_time_patterns(file_contents),
             "file_statistics": file_stats,
             "summary_generated_at": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
@@ -231,106 +185,40 @@ class ProjectSummarizer:
                 })
         
         return key_files[:10]  # Limit to top 10 key files
-    
-    def _analyze_collaboration(self, file_contents, project_id):
+    def _analyze_collaboration(self, project_id: int) -> Dict[str, Any]:
         """
         Analyze if this was worked on by a single user or with others.
-
-        Args:
-            file_contents (list): List of file content records
-            project_id (int): ID of the uploaded zip project
 
         Returns:
             dict: Collaboration analysis
         """
-        # Look for collaboration indicators
-        collaboration_indicators = {
-            'git_files': 0,
-            'multiple_authors': False,
-            'team_structure': False,
+        file_contents = get_file_contents_by_upload_id(project_id)
+
+        indicators = {
+            'git_files': _count_git_files(file_contents),
+            'multiple_authors': False,   # (kept for compatibility; not directly used below)
+            'team_structure': _detect_team_structure(file_contents),
+            'has_common_names': False,
             'collaboration_score': 0
         }
 
-        for file_info in file_contents:
-            file_path = file_info.get('file_path', '').lower()
-            filename = file_info.get('file_name', '').lower()
-
-            # Count any file inside a .git directory
-            if "/.git/" in file_path or file_path.startswith(".git/"):
-                collaboration_indicators['git_files'] += 1
-            # Also count common Git config files at root level
-            elif filename in ['.gitignore', '.gitattributes', '.gitmodules']:
-                collaboration_indicators['git_files'] += 1
-
-        # Check for team structure indicators
-        collaboration_indicators['has_common_names'] = False
-        team_indicators = ['team', 'collaborative', 'shared', 'common']
-        common_names_found = set()
-        for file_info in file_contents:
-            filename = file_info.get('file_name', '').lower()
-            if any(indicator in filename for indicator in team_indicators):
-                collaboration_indicators['team_structure'] = True
-
-            parts = re.split(r"[ _-]+", filename)
-
-            for part in parts:
-                if not part.strip():
-                    continue
-
-                detected_name = is_top_common_name(part)
-                if detected_name:
-                    common_names_found.add(detected_name)
+        common_names_found = _extract_common_names_from_filenames(file_contents)
         if common_names_found:
-            collaboration_indicators['has_common_names'] = True
+            indicators['has_common_names'] = True
 
-        # Handle contributors
-        authors = set()
-        if project_id > 0:
-            zip_data = get_zip_file(project_id)
-            if zip_data and isinstance(zip_data, bytes):
-                try:
-                    ic = identify_contributors(zip_bytes=zip_data)
-                    repo_path = ic.extract_repo()
-                    if repo_path is not None:
-                        commit_counts = ic.get_commit_counts()
-                        authors = set(commit_counts.keys())
-                    ic.cleanup()
-                except (ValueError, Exception):
-                    # If zip data is invalid or extraction fails, assume individual project
-                    authors = set()
-
+        authors = _identify_authors_from_zip(project_id)
         authors.update(common_names_found)
-        # Calculate collaboration score
-        score = 0
-        if collaboration_indicators['git_files'] > 0:
-            if len(authors) > 1:
-                score += 50
-            score += 50
-        if collaboration_indicators['team_structure']:
-            score += 25
-        if collaboration_indicators['has_common_names']:
-            score += 25
 
-        collaboration_indicators['collaboration_score'] = min(score, 100)
+        score = _compute_collab_score(indicators, authors)
+        indicators['collaboration_score'] = score
 
-        # Determine collaboration level
-        if score >= 100:
-            collaboration_level = "Definitely collaborative"
-        elif score >= 70:
-            collaboration_level = "Likely team project"
-        elif score >= 40:
-            collaboration_level = "Possibly collaborative"
-        else:
-            collaboration_level = "Likely individual project"
-
-        analysis = f"Based on file names and/or Git presence, this appears to be a {collaboration_level.lower()}."
-        #if(len(authors)>0):
-        analysis = analysis + "The likley contributors are: " + str(authors)
+        level = _collab_level_from_score(score)
+        analysis = _build_analysis_text(level, authors)
 
         return {
-            "collaboration_level": collaboration_level,
-            "indicators": collaboration_indicators,
-            "analysis": analysis
+            "collaboration_level": level,
+            "indicators": indicators,
+            "analysis": analysis,
         }
 
     def _analyze_time_patterns(self, file_contents):
