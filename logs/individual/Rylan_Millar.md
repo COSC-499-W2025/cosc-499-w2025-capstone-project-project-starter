@@ -2,6 +2,28 @@
 ---
 ---
 
+# Personal Log for Rylan Millar (33334400) Week 9 (October 27 - November 3)
+
+## Features from the project plan this week
+- Update our zipvalidation.py module to fix some edge case bugs
+- Research Data Analysis Methods
+- Research HiGitClass
+
+## Tasks from the project board associated with these features
+- Update zipvalidation.py to account for edge cases
+- Research Data Analysis Methods 
+
+## Completed and In Progress
+- Update zipvalidation.py to account for edge cases (**Completed**)
+- Research Data Analysis Methods (**Completed**)
+
+## Peer evaluation screenshot Week 9
+
+![alt text](<imgs/rylan_millar_w9.png>)
+
+---
+---
+
 # Personal Log for Rylan Millar (33334400) Week 8 (October 20 - 26)
 
 ## Features from the project plan this week
