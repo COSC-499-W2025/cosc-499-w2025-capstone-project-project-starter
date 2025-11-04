@@ -10,5 +10,6 @@ postgres/
 .env 
 /.idea
 
+uploads/
 test_project/
 test_project.zip
