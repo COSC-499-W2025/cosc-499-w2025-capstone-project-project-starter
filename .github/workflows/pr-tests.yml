@@ -7,10 +7,15 @@ on:
 jobs:
   test:
     runs-on: ubuntu-latest
+    env:
+      UPLOAD_FOLDER: ${{ runner.temp }}/uploads
 
     steps:
       - name: Check out PR code
         uses: actions/checkout@v4
+      
+      - name: Prepare upload dir
+        run: mkdir -p "$UPLOAD_FOLDER" && ls -ld "$UPLOAD_FOLDER"
 
       - name: Also check out main (for pre-test init step)
         uses: actions/checkout@v4
@@ -55,4 +60,4 @@ jobs:
           PYTHONUNBUFFERED: "1"
           PYTEST_ADDOPTS: "-vv -s"
         run: |
-          pytest tests
+          pytest tests --ignore=mainbranch --ignore=data/postgres
