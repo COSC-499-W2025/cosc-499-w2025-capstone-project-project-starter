@@ -2,8 +2,8 @@
 Project display and selection UI functions.
 Handles all user interface interactions for listing and selecting projects.
 """
-from project_manager import list_projects, list_project_files
-from project_summarizer import get_available_projects
+from src.project_manager import list_projects, list_project_files
+from src.project_summarizer import get_available_projects
 
 
 def select_project_interactive(title: str):
