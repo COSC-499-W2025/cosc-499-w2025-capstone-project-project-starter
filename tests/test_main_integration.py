@@ -13,25 +13,28 @@ from src.main import summarize_project_menu
 class TestMainIntegration:
     """Test suite for main.py integration with project summarization"""
     
-    @patch('src.project_display.get_available_projects')
-    @patch('src.project_summarizer.get_available_projects')
     @patch('src.main.summarize_project')
-    def test_summarize_project_menu_no_projects(self, mock_summarize, mock_get_projects):
+    @patch('project_display.get_available_projects')
+    @patch('project_summarizer.get_available_projects')
+    def test_summarize_project_menu_no_projects(self, mock_get_projects_source, mock_get_projects_display, mock_summarize):
         """Test summarize_project_menu when no projects are available"""
-        mock_get_projects.return_value = []
+        mock_get_projects_source.return_value = []
+        mock_get_projects_display.return_value = []
         
         # Capture stdout to verify output
         with patch('sys.stdout', new_callable=StringIO) as mock_stdout:
-            summarize_project_menu()
+            with patch('builtins.input', return_value='q'):
+                summarize_project_menu()
             output = mock_stdout.getvalue()
             
             assert "No projects found in database." in output
             assert "Please upload a project first using option 1." in output
             mock_summarize.assert_not_called()
     
-    @patch('src.main.get_available_projects')
     @patch('src.main.summarize_project')
-    def test_summarize_project_menu_with_projects(self, mock_summarize, mock_get_projects):
+    @patch('project_display.get_available_projects')
+    @patch('project_summarizer.get_available_projects')
+    def test_summarize_project_menu_with_projects(self, mock_get_projects_source, mock_get_projects_display, mock_summarize):
         """Test summarize_project_menu when projects are available"""
         from datetime import datetime
         
@@ -48,11 +51,12 @@ class TestMainIntegration:
             }
         ]
         
-        mock_get_projects.return_value = mock_projects
+        mock_get_projects_source.return_value = mock_projects
+        mock_get_projects_display.return_value = mock_projects
         mock_summarize.return_value = "Mock summary output"
         
-        # Mock user input to select first project
-        with patch('builtins.input', side_effect=['1', 'q']):
+        # Mock user input to select first project, then press Enter to continue
+        with patch('builtins.input', side_effect=['1', '']):
             with patch('sys.stdout', new_callable=StringIO) as mock_stdout:
                 summarize_project_menu()
                 output = mock_stdout.getvalue()
@@ -65,9 +69,10 @@ class TestMainIntegration:
                 # Verify summarization was called
                 mock_summarize.assert_called_once_with(1)
     
-    @patch('src.main.get_available_projects')
     @patch('src.main.summarize_project')
-    def test_summarize_project_menu_invalid_input(self, mock_summarize, mock_get_projects):
+    @patch('project_display.get_available_projects')
+    @patch('project_summarizer.get_available_projects')
+    def test_summarize_project_menu_invalid_input(self, mock_get_projects_source, mock_get_projects_display, mock_summarize):
         """Test summarize_project_menu with invalid user input"""
         from datetime import datetime
         
@@ -79,7 +84,8 @@ class TestMainIntegration:
             }
         ]
         
-        mock_get_projects.return_value = mock_projects
+        mock_get_projects_source.return_value = mock_projects
+        mock_get_projects_display.return_value = mock_projects
         
         # Mock user input: invalid number, then quit
         with patch('builtins.input', side_effect=['5', 'q']):
@@ -91,9 +97,10 @@ class TestMainIntegration:
                 assert "Please enter a number between 1 and 1" in output
                 mock_summarize.assert_not_called()
     
-    @patch('src.main.get_available_projects')
     @patch('src.main.summarize_project')
-    def test_summarize_project_menu_non_numeric_input(self, mock_summarize, mock_get_projects):
+    @patch('project_display.get_available_projects')
+    @patch('project_summarizer.get_available_projects')
+    def test_summarize_project_menu_non_numeric_input(self, mock_get_projects_source, mock_get_projects_display, mock_summarize):
         """Test summarize_project_menu with non-numeric input"""
         from datetime import datetime
         
@@ -105,8 +112,8 @@ class TestMainIntegration:
             }
         ]
         
+        mock_get_projects_source.return_value = mock_projects
         mock_get_projects_display.return_value = mock_projects
-        mock_get_projects_summarizer.return_value = mock_projects
         
         # Mock user input: non-numeric, then quit
         with patch('builtins.input', side_effect=['abc', 'q']):

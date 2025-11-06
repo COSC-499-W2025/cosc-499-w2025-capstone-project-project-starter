@@ -41,8 +41,9 @@ class TestUploadFile:
         return file_path
     
     @patch('src.upload_file.extract_and_store_file_contents')
+    @patch('src.upload_file.shutil.copy')
     @patch('src.upload_file.with_db_cursor')
-    def test_add_file_to_db_success(self, mock_with_db_cursor, mock_extract_and_store_file_contents):
+    def test_add_file_to_db_success(self, mock_with_db_cursor, mock_copy, mock_extract_and_store_file_contents):
 
         """Test successful file upload to database"""
         # Create a valid ZIP file for testing
@@ -90,7 +91,8 @@ class TestUploadFile:
         assert result.error_type == "FILE_NOT_FOUND"
         assert "does not exist" in result.message
     
-    def test_add_file_to_db_invalid_extension(self):
+    @patch('src.upload_file.shutil.copy')
+    def test_add_file_to_db_invalid_extension(self, mock_copy):
         """Test handling of file with invalid extension"""
         invalid_file = self.create_invalid_file("test.txt")
         
@@ -102,9 +104,10 @@ class TestUploadFile:
         assert "Invalid file format" in result.message
     
     @patch('src.upload_file.extract_and_store_file_contents')
+    @patch('src.upload_file.shutil.copy')
     @patch('src.upload_file.with_db_cursor')
     # This is a mock database connection and it mocks it to return None to see if the function handles it correctly when the database fails to connect
-    def test_add_file_to_db_database_connection_failure(self, mock_with_db_cursor, mock_extract_and_store_file_contents):
+    def test_add_file_to_db_database_connection_failure(self, mock_with_db_cursor, mock_copy, mock_extract_and_store_file_contents):
         """Test handling of database connection failure"""
         zip_path = self.create_test_zip()
         
@@ -118,7 +121,8 @@ class TestUploadFile:
         assert result.error_type == "DATABASE_CONNECTION_ERROR"
         assert "Could not connect to database" in result.message
     
-    def test_add_file_to_db_invalid_zip_file(self):
+    @patch('src.upload_file.shutil.copy')
+    def test_add_file_to_db_invalid_zip_file(self, mock_copy):
         """Test handling of corrupted/invalid ZIP file"""
         # Create a file with .zip extension but invalid content
         fake_zip_path = os.path.join(self.test_dir, "fake.zip")
@@ -132,8 +136,9 @@ class TestUploadFile:
         assert "Invalid file format" in result.message
     
     @patch('src.upload_file.extract_and_store_file_contents')
+    @patch('src.upload_file.shutil.copy')
     @patch('src.upload_file.with_db_cursor')
-    def test_add_file_to_db_database_save_failure(self, mock_with_db_cursor, mock_extract_and_store_file_contents):
+    def test_add_file_to_db_database_save_failure(self, mock_with_db_cursor, mock_copy, mock_extract_and_store_file_contents):
         """Test handling of database save failure"""
         zip_path = self.create_test_zip()
         
@@ -177,8 +182,9 @@ class TestUploadFile:
 
     
     @patch('src.upload_file.extract_and_store_file_contents')
+    @patch('src.upload_file.shutil.copy')
     @patch('src.upload_file.with_db_cursor')
-    def test_upload_result_to_dict(self, mock_with_db_cursor, mock_extract_and_store_file_contents):
+    def test_upload_result_to_dict(self, mock_with_db_cursor, mock_copy, mock_extract_and_store_file_contents):
         """Test UploadResult.to_dict() method from actual upload operation"""
         zip_path = self.create_test_zip()
         
