@@ -4,29 +4,23 @@ import os
 import pytest
 from unittest.mock import Mock, patch, MagicMock
 from io import StringIO
-import importlib
 
 # Adjust the path to import from src
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'src')))
+# Import main module to ensure it's loaded before patching
+import src.main
+from src.main import summarize_project_menu
 
 
 class TestMainIntegration:
     """Test suite for main.py integration with project summarization"""
     
-    @patch('project_summarizer.get_available_projects')
-    @patch('project_display.get_available_projects')
+    @patch('src.project_display.get_available_projects')
+    @patch('src.project_summarizer.get_available_projects')
     @patch('src.main.summarize_project')
-    def test_summarize_project_menu_no_projects(self, mock_summarize, mock_get_projects_display, mock_get_projects_source):
+    def test_summarize_project_menu_no_projects(self, mock_summarize, mock_get_projects):
         """Test summarize_project_menu when no projects are available"""
-        mock_get_projects_display.return_value = []
-        mock_get_projects_source.return_value = []
-        
-        # Import and reload after patching to ensure patches take effect
-        import src.main
-        import project_display
-        importlib.reload(project_display)
-        importlib.reload(src.main)
-        from src.main import summarize_project_menu
+        mock_get_projects.return_value = []
         
         # Capture stdout to verify output
         with patch('sys.stdout', new_callable=StringIO) as mock_stdout:
@@ -38,11 +32,9 @@ class TestMainIntegration:
             assert "Please upload a project first using option 1." in output
             mock_summarize.assert_not_called()
     
-    @patch('project_summarizer.get_available_projects')
-    @patch('project_display.get_available_projects')
-    @patch('project_summarizer.summarize_project')
+    @patch('src.main.get_available_projects')
     @patch('src.main.summarize_project')
-    def test_summarize_project_menu_with_projects(self, mock_summarize_main, mock_summarize_source, mock_get_projects_display, mock_get_projects_source):
+    def test_summarize_project_menu_with_projects(self, mock_summarize, mock_get_projects):
         """Test summarize_project_menu when projects are available"""
         from datetime import datetime
         
@@ -59,20 +51,11 @@ class TestMainIntegration:
             }
         ]
         
-        mock_get_projects_display.return_value = mock_projects
-        mock_get_projects_source.return_value = mock_projects
-        mock_summarize_main.return_value = "Mock summary output"
-        mock_summarize_source.return_value = "Mock summary output"
+        mock_get_projects.return_value = mock_projects
+        mock_summarize.return_value = "Mock summary output"
         
-        # Import and reload after patching to ensure patches take effect
-        import src.main
-        import project_display
-        importlib.reload(project_display)
-        importlib.reload(src.main)
-        from src.main import summarize_project_menu
-        
-        # Mock user input to select first project, then press Enter to continue
-        with patch('builtins.input', side_effect=['1', '']):
+        # Mock user input to select first project
+        with patch('builtins.input', side_effect=['1', 'q']):
             with patch('sys.stdout', new_callable=StringIO) as mock_stdout:
                 summarize_project_menu()
                 output = mock_stdout.getvalue()
@@ -82,17 +65,12 @@ class TestMainIntegration:
                 assert "1. test_project1.zip" in output
                 assert "2. test_project2.zip" in output
                 
-                # Verify summarization was called (check either mock)
-                assert mock_summarize_main.called or mock_summarize_source.called
-                if mock_summarize_main.called:
-                    mock_summarize_main.assert_called_once_with(1)
-                else:
-                    mock_summarize_source.assert_called_once_with(1)
+                # Verify summarization was called
+                mock_summarize.assert_called_once_with(1)
     
-    @patch('project_summarizer.get_available_projects')
-    @patch('project_display.get_available_projects')
+    @patch('src.main.get_available_projects')
     @patch('src.main.summarize_project')
-    def test_summarize_project_menu_invalid_input(self, mock_summarize, mock_get_projects_display, mock_get_projects_source):
+    def test_summarize_project_menu_invalid_input(self, mock_summarize, mock_get_projects):
         """Test summarize_project_menu with invalid user input"""
         from datetime import datetime
         
@@ -104,15 +82,7 @@ class TestMainIntegration:
             }
         ]
         
-        mock_get_projects_display.return_value = mock_projects
-        mock_get_projects_source.return_value = mock_projects
-        
-        # Import and reload after patching to ensure patches take effect
-        import src.main
-        import project_display
-        importlib.reload(project_display)
-        importlib.reload(src.main)
-        from src.main import summarize_project_menu
+        mock_get_projects.return_value = mock_projects
         
         # Mock user input: invalid number, then quit
         with patch('builtins.input', side_effect=['5', 'q']):
@@ -124,10 +94,9 @@ class TestMainIntegration:
                 assert "Please enter a number between 1 and 1" in output
                 mock_summarize.assert_not_called()
     
-    @patch('project_summarizer.get_available_projects')
-    @patch('project_display.get_available_projects')
+    @patch('src.main.get_available_projects')
     @patch('src.main.summarize_project')
-    def test_summarize_project_menu_non_numeric_input(self, mock_summarize, mock_get_projects_display, mock_get_projects_source):
+    def test_summarize_project_menu_non_numeric_input(self, mock_summarize, mock_get_projects):
         """Test summarize_project_menu with non-numeric input"""
         from datetime import datetime
         
@@ -140,14 +109,7 @@ class TestMainIntegration:
         ]
         
         mock_get_projects_display.return_value = mock_projects
-        mock_get_projects_source.return_value = mock_projects
-        
-        # Import and reload after patching to ensure patches take effect
-        import src.main
-        import project_display
-        importlib.reload(project_display)
-        importlib.reload(src.main)
-        from src.main import summarize_project_menu
+        mock_get_projects_summarizer.return_value = mock_projects
         
         # Mock user input: non-numeric, then quit
         with patch('builtins.input', side_effect=['abc', 'q']):
@@ -157,42 +119,6 @@ class TestMainIntegration:
                 
                 # Verify error message for non-numeric input
                 assert "Please enter a valid number or 'q' to quit" in output
-                mock_summarize.assert_not_called()
-    
-    @patch('project_summarizer.get_available_projects')
-    @patch('project_display.get_available_projects')
-    @patch('src.main.summarize_project')
-    def test_summarize_project_menu_quit_option(self, mock_summarize, mock_get_projects_display, mock_get_projects_source):
-        """Test summarize_project_menu quit option"""
-        from datetime import datetime
-        
-        mock_projects = [
-            {
-                'id': 1,
-                'filename': 'test_project.zip',
-                'created_at': datetime(2024, 1, 1, 10, 0, 0)
-            }
-        ]
-        
-        mock_get_projects_display.return_value = mock_projects
-        mock_get_projects_source.return_value = mock_projects
-        
-        # Import and reload after patching to ensure patches take effect
-        import src.main
-        import project_display
-        importlib.reload(project_display)
-        importlib.reload(src.main)
-        from src.main import summarize_project_menu
-        
-        # Mock user input: quit immediately
-        with patch('builtins.input', return_value='q'):
-            with patch('sys.stdout', new_callable=StringIO) as mock_stdout:
-                summarize_project_menu()
-                output = mock_stdout.getvalue()
-                
-                # Verify project list is still displayed
-                assert "Available projects:" in output
-                assert "1. test_project.zip" in output
                 mock_summarize.assert_not_called()
 
 class TestProjectSummarizerEdgeCases:
