@@ -7,8 +7,6 @@ from io import StringIO
 
 # Adjust the path to import from src
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'src')))
-# Import project_display to ensure it's loaded before patching
-import src.project_display
 from src.main import summarize_project_menu
 
 

@@ -140,7 +140,8 @@ class TestUploadFile:
         assert result.error_type == "FILE_NOT_FOUND"
         assert "does not exist" in result.message
     
-    def test_add_file_to_db_invalid_extension(self):
+    @patch('src.upload_file.shutil.copy')
+    def test_add_file_to_db_invalid_extension(self, mock_copy):
         """Test handling of file with invalid extension"""
         invalid_file = self.create_invalid_file("test.txt")
         
@@ -193,7 +194,8 @@ class TestUploadFile:
         assert result.error_type == "DATABASE_CONNECTION_ERROR"
         assert "Could not connect to database" in result.message
     
-    def test_add_file_to_db_invalid_zip_file(self):
+    @patch('src.upload_file.shutil.copy')
+    def test_add_file_to_db_invalid_zip_file(self, mock_copy):
         """Test handling of corrupted/invalid ZIP file"""
         # Create a file with .zip extension but invalid content
         fake_zip_path = os.path.join(self.test_dir, "fake.zip")
