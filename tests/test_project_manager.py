@@ -7,16 +7,16 @@ from unittest.mock import Mock, patch, MagicMock
 
 # Adjust the path to import from src
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'src')))
-from src.project_manager import list_projects, get_project_by_id, get_project_count
+from src.project_manager import list_projects, list_project_files, get_project_by_id, get_project_count
 
 
 class TestProjectManager:
     """Test suite for project_manager functionality"""
     
     @patch('src.project_manager.with_db_cursor')
-    # this test will test the list_projects function when there are individual files in the projects
-    def test_list_projects_individual_files(self, mock_with_db_cursor):
-        """Test that individual files are properly extracted and sorted"""
+    # this test will test the list_projects function when there are projects with files
+    def test_list_projects_with_files(self, mock_with_db_cursor):
+        """Test that projects are listed with file counts"""
         # Mock database cursor
         mock_cursor = Mock()
         mock_context = MagicMock()
@@ -37,8 +37,17 @@ class TestProjectManager:
         mock_with_db_cursor.assert_called_once()
         mock_cursor.execute.assert_called_once()
         
-        # Verify return value (should still return original projects)
-        assert result == mock_projects
+        # Verify return value structure (should return list of project dicts)
+        assert len(result) == 2
+        assert result[0]['id'] == 1
+        assert result[0]['filename'] == "project_a.zip"
+        assert result[0]['file_count'] == 2  # 2 files (excluding directory "folder/")
+        assert result[0]['created_at'] == datetime(2024, 1, 1, 10, 0, 0)
+        
+        assert result[1]['id'] == 2
+        assert result[1]['filename'] == "project_b.zip"
+        assert result[1]['file_count'] == 3  # 3 files
+        assert result[1]['created_at'] == datetime(2024, 1, 2, 11, 0, 0)
     
     @patch('src.project_manager.with_db_cursor')
     # this test will test the list_projects function when there are no projects in the database
@@ -121,6 +130,52 @@ class TestProjectManager:
         
         # Verify return value
         assert result is None
+    
+    @patch('src.project_manager.with_db_cursor')
+    # this test will test the list_project_files function
+    def test_list_project_files_success(self, mock_with_db_cursor):
+        """Test listing files within a project"""
+        # Mock database cursor
+        mock_cursor = Mock()
+        mock_context = MagicMock()
+        mock_context.__enter__.return_value = mock_cursor
+        mock_with_db_cursor.return_value = mock_context
+        
+        # Mock database result with metadata containing files
+        mock_metadata = '{"files": ["folder/file1.py", "folder/file2.js", "folder/", "readme.md"]}'
+        mock_cursor.fetchone.return_value = (mock_metadata,)
+        
+        # Call the function
+        result = list_project_files(1)
+        
+        # Verify database operations
+        mock_with_db_cursor.assert_called_once()
+        mock_cursor.execute.assert_called_once()
+        
+        # Verify return value (should return only actual files, not directories)
+        assert len(result) == 3
+        assert "folder/file1.py" in result
+        assert "folder/file2.js" in result
+        assert "readme.md" in result
+        assert "folder/" not in result  # Directory should be excluded
+    
+    @patch('src.project_manager.with_db_cursor')
+    def test_list_project_files_not_found(self, mock_with_db_cursor):
+        """Test listing files when project doesn't exist"""
+        # Mock database cursor
+        mock_cursor = Mock()
+        mock_context = MagicMock()
+        mock_context.__enter__.return_value = mock_cursor
+        mock_with_db_cursor.return_value = mock_context
+        
+        # Mock empty result
+        mock_cursor.fetchone.return_value = None
+        
+        # Call the function
+        result = list_project_files(999)
+        
+        # Verify return value
+        assert result == []
     
     @patch('src.project_manager.with_db_cursor')
     # this test will test the get_project_count function

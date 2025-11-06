@@ -1,11 +1,14 @@
 # this file will list the projects in the database uploaded_files table. 
 # it will list the projects in alphabetical order.
-# it will also list the individual files in the projects if there are any.
 import json
 from config.db_config import with_db_cursor
 
 
 def list_projects():
+    """
+    List all stored projects (ZIP files) in alphabetical order.
+    Returns list of project dictionaries with id, filename, created_at, and file_count.
+    """
     try:
         with with_db_cursor() as cursor:
             cursor.execute("""
@@ -19,82 +22,102 @@ def list_projects():
         if not projects:
             print("No projects found in database.")
             return []
+        
         print("-"*80)
         print("Stored Projects (Alphabetical Order)")  
         print("-"*80)
-        individual_projects = []
+        
+        project_list = []
         
         for project in projects:
             project_id, filename, status, metadata, created_at = project
             
-     # if there is metadata, try to extract the individual files
+            # Count files in metadata if available
+            file_count = 0
             if metadata:
                 try:
                     metadata_dict = json.loads(metadata) if isinstance(metadata, str) else metadata
                     if 'files' in metadata_dict and metadata_dict['files']:
-# since we only want to list the individual files, we need to filter out the directories
-                        actual_files = []
-                        for file in metadata_dict['files']:
-                            if not file.endswith('/'):
-                                # Extract just the filename (last part after '/')
-                                individual_filename = file.split('/')[-1]
-                                actual_files.append(individual_filename)
-                        
-                        # Add each file as a separate project entry
-                        for individual_file in actual_files:
-                            individual_projects.append({
-                                'zip_name': filename,
-                                'file_name': individual_file,
-                                'project_id': project_id,
-                                'created_at': created_at
-                            })
-                    else:
-                        #this is a base case that will just show the zip file and list that as the project. unlikely to happen
-                        # If no files, add the ZIP itself as a project
-                        individual_projects.append({
-                            'zip_name': filename,
-                            'file_name': filename,
-                            'project_id': project_id,
-                            'created_at': created_at
-                        })
+                        # Count only actual files (not directories)
+                        actual_files = [f for f in metadata_dict['files'] if not f.endswith('/')]
+                        file_count = len(actual_files)
                 except (json.JSONDecodeError, TypeError):
-                    # If metadata error, add the ZIP itself as a project
-                    individual_projects.append({
-                        'zip_name': filename,
-                        'file_name': filename,
-                        'project_id': project_id,
-                        'created_at': created_at
-                    })
-            else:
-                # If no metadata, add the ZIP itself as a project
-                individual_projects.append({
-                    'zip_name': filename,
-                    'file_name': filename,
-                    'project_id': project_id,
-                    'created_at': created_at
-                })
-        
-        # Sort individual projects by filename
-        individual_projects.sort(key=lambda x: x['file_name'])
-        
-        # Display individual projects
-        for project in individual_projects:
-            print(f"\nProject: {project['file_name']}")
-            if project['file_name'] != project['zip_name']:
-                print(f"From: {project['zip_name']}")
+                    pass
+            
+            project_list.append({
+                'id': project_id,
+                'filename': filename,
+                'created_at': created_at,
+                'file_count': file_count
+            })
+            
+            # Display project info
+            created_date = created_at.strftime("%Y-%m-%d") if created_at else "Unknown"
+            print(f"\n{len(project_list)}. {filename}")
+            print(f"   ID: {project_id}, Created: {created_date}, Files: {file_count}")
         
         print("\n" + "-"*80)
-        print(f"Total individual projects: {len(individual_projects)}")
-        print(f"Total ZIP files: {len(projects)}")
+        print(f"Total projects: {len(project_list)}")
         print("-"*80)
         
-        return projects
+        return project_list
         
     except ConnectionError:
         print("Could not connect to database.")
         return []
     except Exception as e:
         print(f"Error retrieving projects: {e}")
+        return []
+
+
+def list_project_files(project_id):
+    """
+    List individual files within a specific project.
+    
+    Args:
+        project_id: The ID of the project to list files for
+        
+    Returns:
+        List of file paths/names in the project
+    """
+    try:
+        with with_db_cursor() as cursor:
+            cursor.execute("""
+                SELECT metadata
+                FROM uploaded_files
+                WHERE id = %s
+            """, (project_id,))
+            
+            result = cursor.fetchone()
+            
+            if not result:
+                print(f"Project with ID {project_id} not found.")
+                return []
+            
+            metadata = result[0]
+            
+            if not metadata:
+                print("No file metadata available for this project.")
+                return []
+            
+            try:
+                metadata_dict = json.loads(metadata) if isinstance(metadata, str) else metadata
+                if 'files' in metadata_dict and metadata_dict['files']:
+                    # Filter out directories and return actual files
+                    actual_files = [f for f in metadata_dict['files'] if not f.endswith('/')]
+                    return actual_files
+                else:
+                    print("No files found in project metadata.")
+                    return []
+            except (json.JSONDecodeError, TypeError) as e:
+                print(f"Error parsing project metadata: {e}")
+                return []
+                
+    except ConnectionError:
+        print("Could not connect to database.")
+        return []
+    except Exception as e:
+        print(f"Error retrieving project files: {e}")
         return []
 
 # this function will get a project by its id
