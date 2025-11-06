@@ -168,7 +168,7 @@ class TestProjectSummarizer:
     @patch('collaborative.identify_projects.get_zip_file')
     def test_collaboration_analysis_team_project(self, mock_get_zip, mock_identify_contributors, mock_get_files):
         """Test collaboration analysis when project data shows a team project"""
-        # 1️⃣ Mock what would come from the database via get_file_contents_by_upload_id()
+        # 1 Mock what would come from the database via get_file_contents_by_upload_id()
         mock_get_files.return_value = [
             {'file_name': '.gitignore', 'file_path': '.gitignore'},
             {'file_name': 'team_utils.py', 'file_path': 'src/team_utils.py'},
@@ -176,10 +176,10 @@ class TestProjectSummarizer:
             {'file_name': 'common_helpers.py', 'file_path': 'src/common_helpers.py'},
         ]
 
-        # 2️⃣ Pretend a ZIP file exists in storage
+        # 2 Pretend a ZIP file exists in storage
         mock_get_zip.return_value = b'fake-zip-bytes'
 
-        # 3️⃣ Fake identify_contributors() object with multiple commit authors
+        # 3 Fake identify_contributors() object with multiple commit authors
         fake_ic = Mock()
         fake_ic.extract_repo.return_value = '/tmp/fake_repo'
         fake_ic.get_commit_counts.return_value = {
@@ -189,11 +189,11 @@ class TestProjectSummarizer:
         fake_ic.cleanup.return_value = None
         mock_identify_contributors.return_value = fake_ic
 
-        # 4️⃣ Call the method using a dummy project_id that triggers the mocks
+        # 4 Call the method using a dummy project_id that triggers the mocks
         project_id = 99
         collaboration = self.summarizer._analyze_collaboration(project_id)
 
-        # 5️⃣ Assertions – high collaboration score and multiple indicators
+        # 5 Assertions – high collaboration score and multiple indicators
         assert collaboration['indicators']['git_files'] > 0
         assert collaboration['indicators']['team_structure']
         assert collaboration['indicators']['collaboration_score'] >= 70
@@ -201,7 +201,7 @@ class TestProjectSummarizer:
             'Likely team project', 'Definitely collaborative'
         }
 
-        # 6️⃣ Optional: verify analysis mentions both contributors
+        # 6 Optional: verify analysis mentions both contributors
         analysis_text = collaboration['analysis']
         assert 'Alice' in analysis_text
         assert 'Bob' in analysis_text
