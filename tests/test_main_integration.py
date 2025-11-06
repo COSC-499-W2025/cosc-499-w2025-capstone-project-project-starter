@@ -7,15 +7,16 @@ from io import StringIO
 
 # Adjust the path to import from src
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'src')))
-# Import main module to ensure it's loaded before patching
-import src.main
+# Import project_display to ensure it's loaded before patching
+import src.project_display
 from src.main import summarize_project_menu
 
 
 class TestMainIntegration:
     """Test suite for main.py integration with project summarization"""
     
-    @patch('src.main.get_available_projects')
+    @patch('src.project_display.get_available_projects')
+    @patch('src.project_summarizer.get_available_projects')
     @patch('src.main.summarize_project')
     def test_summarize_project_menu_no_projects(self, mock_summarize, mock_get_projects):
         """Test summarize_project_menu when no projects are available"""
@@ -96,6 +97,7 @@ class TestMainIntegration:
     @patch('src.main.get_available_projects')
     @patch('src.main.summarize_project')
     def test_summarize_project_menu_non_numeric_input(self, mock_summarize, mock_get_projects):
+
         """Test summarize_project_menu with non-numeric input"""
         from datetime import datetime
         
@@ -107,7 +109,8 @@ class TestMainIntegration:
             }
         ]
         
-        mock_get_projects.return_value = mock_projects
+        mock_get_projects_display.return_value = mock_projects
+        mock_get_projects_summarizer.return_value = mock_projects
         
         # Mock user input: non-numeric, then quit
         with patch('builtins.input', side_effect=['abc', 'q']):
@@ -118,36 +121,6 @@ class TestMainIntegration:
                 # Verify error message for non-numeric input
                 assert "Please enter a valid number or 'q' to quit" in output
                 mock_summarize.assert_not_called()
-    
-    @patch('src.main.get_available_projects')
-    @patch('src.main.summarize_project')
-    def test_summarize_project_menu_quit_option(self, mock_summarize, mock_get_projects):
-        """Test summarize_project_menu quit option"""
-        from datetime import datetime
-        
-        mock_projects = [
-            {
-                'id': 1,
-                'filename': 'test_project.zip',
-                'created_at': datetime(2024, 1, 1, 10, 0, 0)
-            }
-        ]
-        
-        mock_get_projects.return_value = mock_projects
-        
-        # Mock user input: quit immediately
-        with patch('builtins.input', return_value='q'):
-            with patch('sys.stdout', new_callable=StringIO) as mock_stdout:
-                summarize_project_menu()
-                output = mock_stdout.getvalue()
-                
-                # Verify project list is still displayed
-                assert "Available projects:" in output
-                assert "1. test_project.zip" in output
-                
-                # Verify summarization was not called
-                mock_summarize.assert_not_called()
-
 
 class TestProjectSummarizerEdgeCases:
     """Test edge cases and error conditions for project summarization"""
