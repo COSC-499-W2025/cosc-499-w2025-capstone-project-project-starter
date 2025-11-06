@@ -7,6 +7,8 @@ from io import StringIO
 
 # Adjust the path to import from src
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'src')))
+# Import main module to ensure it's loaded before patching
+import src.main
 from src.main import summarize_project_menu
 
 
@@ -21,7 +23,8 @@ class TestMainIntegration:
         
         # Capture stdout to verify output
         with patch('sys.stdout', new_callable=StringIO) as mock_stdout:
-            summarize_project_menu()
+            with patch('builtins.input', return_value='q'):
+                summarize_project_menu()
             output = mock_stdout.getvalue()
             
             assert "No projects found in database." in output
