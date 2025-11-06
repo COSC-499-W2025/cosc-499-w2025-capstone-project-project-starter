@@ -6,15 +6,18 @@ import sys
 
 # Add src directory to path
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "../src")))
-import main
+from src.cli.menus import ask_user_preferences
+from src.database.user_preferences import get_user_git_username, update_user_git_username
+from src.collaborative.identify_contributors import identify_contributors
 
 @pytest.fixture
 def mock_managers():
-    with patch('main.consent_manager') as consent_manager, \
-         patch('main.collab_manager') as collab_manager, \
-         patch('main.get_user_git_username') as get_git, \
-         patch('main.update_user_git_username') as update_git, \
-         patch('main.identify_contributors') as identify_contributors:
+    consent_manager = MagicMock()
+    collab_manager = MagicMock()
+    
+    with patch('src.database.user_preferences.get_user_git_username') as get_git, \
+         patch('src.database.user_preferences.update_user_git_username') as update_git, \
+         patch('src.collaborative.identify_contributors.identify_contributors') as identify_contributors_class:
 
         yield {
             'consent_manager': consent_manager,
@@ -44,7 +47,7 @@ def test_ask_user_preferences_full(mock_managers):
 
     with patch.object(builtins, 'input', lambda _: next(inputs)), \
          patch('builtins.print') as mock_print:
-        main.ask_user_preferences(is_start=False)
+        ask_user_preferences(cm, col, is_start=False)
 
     # Assertions
     cm.withdraw.assert_called_once()
@@ -60,11 +63,11 @@ def test_ask_user_preferences_no_access(mock_managers):
     col.request_collaborative_if_needed.return_value = False
 
     git_mock = mock_managers['get_git']
-    git_mock.return_value = ("user",)
+    git_mock.return_value = "user"
 
     with patch.object(builtins, 'input', return_value='no'), \
          patch('builtins.print') as mock_print:
-        main.ask_user_preferences(is_start=True)
+        ask_user_preferences(cm, col, is_start=True)
 
     # Consent and collaborative should have been requested
     cm.request_consent_if_needed.assert_called_once()
