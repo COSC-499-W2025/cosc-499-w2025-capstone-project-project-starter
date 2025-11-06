@@ -5,6 +5,7 @@ import pytest
 import zipfile
 import tempfile
 import shutil
+from pathlib import Path
 from unittest.mock import Mock, patch, MagicMock
 
 # Adjust the path to import from src
@@ -19,12 +20,34 @@ class TestUploadFile:
         """Set up test environment before each test"""
         # Create a temporary directory for testing
         self.test_dir = tempfile.mkdtemp()
+        # Create a temporary upload directory to avoid creating uploads/ in project root
+        self.temp_upload_dir = Path(tempfile.mkdtemp())
+        # Patch UPLOAD_FOLDER to use temp directory
+        self.upload_folder_patcher = patch('src.upload_file.UPLOAD_FOLDER', 
+                                          self.temp_upload_dir)
+        self.mock_upload_folder = self.upload_folder_patcher.start()
         
     def teardown_method(self):
         """Clean up after each test"""
-        # Remove temporary directory
+        # Stop the patcher
+        if hasattr(self, 'upload_folder_patcher'):
+            self.upload_folder_patcher.stop()
+        # Remove temporary directories
         if os.path.exists(self.test_dir):
             shutil.rmtree(self.test_dir)
+        if hasattr(self, 'temp_upload_dir') and self.temp_upload_dir.exists():
+            shutil.rmtree(str(self.temp_upload_dir))
+        # Clean up actual uploads/ folder if it was accidentally created
+        project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
+        actual_uploads = os.path.join(project_root, 'uploads')
+        if os.path.exists(actual_uploads) and os.path.isdir(actual_uploads):
+            try:
+                # Only remove if it's empty or contains only test files
+                files = os.listdir(actual_uploads)
+                if not files or all(f.startswith('test') for f in files):
+                    shutil.rmtree(actual_uploads)
+            except Exception:
+                pass  # Ignore cleanup errors
     
     def create_test_zip(self, filename="test.zip", content="test content"):
         """Helper method to create a test ZIP file"""
@@ -41,13 +64,39 @@ class TestUploadFile:
         return file_path
     
     @patch('src.upload_file.extract_and_store_file_contents')
+    @patch('src.upload_file.zipfile.is_zipfile')
+    @patch('src.upload_file.zipfile.ZipFile')
+    @patch('builtins.open', create=True)
     @patch('src.upload_file.shutil.copy')
     @patch('src.upload_file.with_db_cursor')
-    def test_add_file_to_db_success(self, mock_with_db_cursor, mock_copy, mock_extract_and_store_file_contents):
+    @patch('src.parsing.file_validator.validate_uploaded_file')
+    @patch('src.upload_file.os.path.exists')
+    def test_add_file_to_db_success(self, mock_exists, mock_validate, mock_with_db_cursor, mock_copy, mock_open, mock_zipfile, mock_is_zipfile, mock_extract_and_store_file_contents):
 
         """Test successful file upload to database"""
         # Create a valid ZIP file for testing
         zip_path = self.create_test_zip()
+        
+        # Mock file existence check - return True for source file, False for destination
+        def exists_side_effect(path):
+            return path == zip_path
+        mock_exists.side_effect = exists_side_effect
+        
+        # Mock validation to pass
+        mock_validate.return_value = None
+        
+        # Mock file operations
+        mock_is_zipfile.return_value = True
+        mock_zip_instance = MagicMock()
+        mock_zip_context = MagicMock()
+        mock_zip_context.namelist.return_value = ['test_file.txt']
+        mock_zip_instance.__enter__.return_value = mock_zip_context
+        mock_zipfile.return_value = mock_zip_instance
+        
+        # Mock file reading
+        mock_file_obj = MagicMock()
+        mock_file_obj.read.return_value = b'fake zip content'
+        mock_open.return_value.__enter__.return_value = mock_file_obj
         
         # Mock the database cursor
         mock_cursor = Mock()
@@ -104,12 +153,36 @@ class TestUploadFile:
         assert "Invalid file format" in result.message
     
     @patch('src.upload_file.extract_and_store_file_contents')
+    @patch('src.upload_file.zipfile.is_zipfile')
+    @patch('src.upload_file.zipfile.ZipFile')
+    @patch('builtins.open', create=True)
     @patch('src.upload_file.shutil.copy')
     @patch('src.upload_file.with_db_cursor')
+    @patch('src.parsing.file_validator.validate_uploaded_file')
+    @patch('src.upload_file.os.path.exists')
     # This is a mock database connection and it mocks it to return None to see if the function handles it correctly when the database fails to connect
-    def test_add_file_to_db_database_connection_failure(self, mock_with_db_cursor, mock_copy, mock_extract_and_store_file_contents):
+    def test_add_file_to_db_database_connection_failure(self, mock_exists, mock_validate, mock_with_db_cursor, mock_copy, mock_open, mock_zipfile, mock_is_zipfile, mock_extract_and_store_file_contents):
         """Test handling of database connection failure"""
         zip_path = self.create_test_zip()
+        
+        # Mock file existence check
+        def exists_side_effect(path):
+            return path == zip_path
+        mock_exists.side_effect = exists_side_effect
+        mock_validate.return_value = None
+        
+        # Mock file operations
+        mock_is_zipfile.return_value = True
+        mock_zip_instance = MagicMock()
+        mock_zip_context = MagicMock()
+        mock_zip_context.namelist.return_value = ['test_file.txt']
+        mock_zip_instance.__enter__.return_value = mock_zip_context
+        mock_zipfile.return_value = mock_zip_instance
+        
+        # Mock file reading
+        mock_file_obj = MagicMock()
+        mock_file_obj.read.return_value = b'fake zip content'
+        mock_open.return_value.__enter__.return_value = mock_file_obj
         
         # Mock database connection failure
         mock_with_db_cursor.side_effect = ConnectionError("Could not connect to database")
@@ -136,11 +209,35 @@ class TestUploadFile:
         assert "Invalid file format" in result.message
     
     @patch('src.upload_file.extract_and_store_file_contents')
+    @patch('src.upload_file.zipfile.is_zipfile')
+    @patch('src.upload_file.zipfile.ZipFile')
+    @patch('builtins.open', create=True)
     @patch('src.upload_file.shutil.copy')
     @patch('src.upload_file.with_db_cursor')
-    def test_add_file_to_db_database_save_failure(self, mock_with_db_cursor, mock_copy, mock_extract_and_store_file_contents):
+    @patch('src.parsing.file_validator.validate_uploaded_file')
+    @patch('src.upload_file.os.path.exists')
+    def test_add_file_to_db_database_save_failure(self, mock_exists, mock_validate, mock_with_db_cursor, mock_copy, mock_open, mock_zipfile, mock_is_zipfile, mock_extract_and_store_file_contents):
         """Test handling of database save failure"""
         zip_path = self.create_test_zip()
+        
+        # Mock file existence check
+        def exists_side_effect(path):
+            return path == zip_path
+        mock_exists.side_effect = exists_side_effect
+        mock_validate.return_value = None
+        
+        # Mock file operations
+        mock_is_zipfile.return_value = True
+        mock_zip_instance = MagicMock()
+        mock_zip_context = MagicMock()
+        mock_zip_context.namelist.return_value = ['test_file.txt']
+        mock_zip_instance.__enter__.return_value = mock_zip_context
+        mock_zipfile.return_value = mock_zip_instance
+        
+        # Mock file reading
+        mock_file_obj = MagicMock()
+        mock_file_obj.read.return_value = b'fake zip content'
+        mock_open.return_value.__enter__.return_value = mock_file_obj
         
         # Mock database cursor that fails on execute
         mock_cursor = Mock()
@@ -182,11 +279,35 @@ class TestUploadFile:
 
     
     @patch('src.upload_file.extract_and_store_file_contents')
+    @patch('src.upload_file.zipfile.is_zipfile')
+    @patch('src.upload_file.zipfile.ZipFile')
+    @patch('builtins.open', create=True)
     @patch('src.upload_file.shutil.copy')
     @patch('src.upload_file.with_db_cursor')
-    def test_upload_result_to_dict(self, mock_with_db_cursor, mock_copy, mock_extract_and_store_file_contents):
+    @patch('src.parsing.file_validator.validate_uploaded_file')
+    @patch('src.upload_file.os.path.exists')
+    def test_upload_result_to_dict(self, mock_exists, mock_validate, mock_with_db_cursor, mock_copy, mock_open, mock_zipfile, mock_is_zipfile, mock_extract_and_store_file_contents):
         """Test UploadResult.to_dict() method from actual upload operation"""
         zip_path = self.create_test_zip()
+        
+        # Mock file existence check
+        def exists_side_effect(path):
+            return path == zip_path
+        mock_exists.side_effect = exists_side_effect
+        mock_validate.return_value = None
+        
+        # Mock file operations
+        mock_is_zipfile.return_value = True
+        mock_zip_instance = MagicMock()
+        mock_zip_context = MagicMock()
+        mock_zip_context.namelist.return_value = ['test_file.txt']
+        mock_zip_instance.__enter__.return_value = mock_zip_context
+        mock_zipfile.return_value = mock_zip_instance
+        
+        # Mock file reading
+        mock_file_obj = MagicMock()
+        mock_file_obj.read.return_value = b'fake zip content'
+        mock_open.return_value.__enter__.return_value = mock_file_obj
         
         # Mock successful database operation
         mock_cursor = Mock()
