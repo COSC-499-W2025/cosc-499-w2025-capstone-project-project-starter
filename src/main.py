@@ -17,25 +17,6 @@ from tools.cleanup_insights import delete_insights
 consent_manager = ConsentManager(user_id="default_user")
 collab_manager = CollaborativeManager()
 
-def display_error(result):
-    """Display error information to user."""
-    print("\n" + "="*70)
-    print("ERROR")
-    print("="*70)
-    
-    if hasattr(result, 'error_type') and result.error_type:
-        print(f"Error Type: {result.error_type}")
-    
-    if hasattr(result, 'message') and result.message:
-        print(f"Message: {result.message}")
-    
-    if hasattr(result, 'data') and result.data:
-        print("\nDetails:")
-        for key, value in result.data.items():
-            print(f"  {key}: {value}")
-    
-    print("="*70 + "\n")
-
 def ensure_user_preferences_schema():
     """Debug version to check why git_username is not being added."""
     try:
@@ -143,25 +124,6 @@ def display_error(result):
         print("\nDetails:")
         for key, value in result.data.items():
             print(f"  • {key}: {value}")
-    print("="*60 + "\n")
-
-def display_success(result):
-    """Format and display success information"""
-    print("\n" + "="*60)
-    print("SUCCESS")
-    print("="*60)
-    print(f"Message: {result.message}")
-    if result.data:
-        print("\nDetails:")
-        for key, value in result.data.items():
-            if key != "files":  # files list is too long, handle separately
-                print(f"  • {key}: {value}")
-        if "files" in result.data and result.data["files"]:
-            print(f"\nContains {len(result.data['files'])} files:")
-            for i, file in enumerate(result.data['files'][:5], 1):
-                print(f"  {i}. {file}")
-            if len(result.data['files']) > 5:
-                print(f"  ... and {len(result.data['files']) - 5} more files")
     print("="*60 + "\n")
 
 def ask_user_preferences(is_start):
