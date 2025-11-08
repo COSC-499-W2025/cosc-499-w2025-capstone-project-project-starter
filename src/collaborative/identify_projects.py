@@ -11,37 +11,18 @@ nd = NameDataset()
 import re
 from names_dataset import NameDataset
 
+import unicodedata
+from functools import lru_cache
+from names_dataset import NameDataset
+
 nd = NameDataset()
+
+RANK_THRESHOLD = 25  # "Top 100" cutoff
 
 def _normalize_name(s: str) -> str:
     # NFKC handles width/compatibility; casefold() for case-insensitive match
     return unicodedata.normalize("NFKC", s).casefold().strip()
 
-# Precompute top lists once (guarded for version differences)
-try:
-    TOP_FIRST_1000 = nd.get_top_names(n=100, use_first_names=True)
-except Exception:
-    TOP_FIRST_1000 = set()
-
-try:
-    TOP_LAST_500 = nd.get_top_names(n=10, use_first_names=False)
-except Exception:
-    TOP_LAST_500 = set()
-
-TOP_FIRST_SET = {
-    _normalize_name(name)
-    for country in TOP_FIRST_1000.values()
-    for gender_list in country.values()
-    for name in gender_list
-}
-
-TOP_LAST_SET = {
-    _normalize_name(name)
-    for names in TOP_LAST_500.values()
-    for name in names
-
-}
-    
 def _letters_only_unicode(s: str) -> str:
     # Keep all Unicode letters + space/'/’/-
     kept = []
@@ -50,21 +31,59 @@ def _letters_only_unicode(s: str) -> str:
             kept.append(ch)
     return "".join(kept).strip()
 
-def is_top_common_name(word: str):
+@lru_cache(maxsize=10_000)
+def _search_name_cached(key: str):
+    # nd.search expects the original casing; use the original token later
+    # but de-dupe work with cache on the normalized key
+    # We'll pass the original key (title() is fine) to nd.search for better hit rates
+    try:
+        # Using title-cased form tends to align with dataset entries
+        return nd.search(key.title())
+    except Exception:
+        return None
+
+def _rank_below_threshold(search_block: dict, kind: str, threshold: int) -> bool:
     """
-    Return title-cased word if it's in the top first/last-name sets; else None.
-    Handles Unicode letters, accents, and multi-word names.
+    search_block: full result from nd.search(...)
+    kind: "first_name" or "last_name"
+    Returns True if any rank value < threshold for that kind.
+    """
+    if not search_block or kind not in search_block:
+        return False
+    kinfo = search_block[kind] or {}
+    ranks = kinfo.get("rank") or {}
+    # ranks is a dict: {CountryName: rank_int}
+    for _country, rank in ranks.items():
+        try:
+            if rank is not None and int(rank) < threshold:
+                return True
+        except (TypeError, ValueError):
+            continue
+    return False
+
+def is_top_common_name(word: str, threshold: int = RANK_THRESHOLD):
+    """
+    Return title-cased `word` if it's top-ranked (< threshold) as a first or last name
+    in ANY country according to nd.search(); else None.
+
+    - Handles Unicode letters, accents, and multi-word names.
+    - Uses caching for speed on repeated lookups.
     """
     token = _letters_only_unicode(word)
     if not token:
         return None
 
     key = _normalize_name(token)
-    if key in TOP_FIRST_SET or key in TOP_LAST_SET:
-        # Title-case heuristically; for better results you could return the canonical
-        # form from the dataset instead of .title()
+    result = _search_name_cached(key)
+    if not result:
+        return None
+
+    if (_rank_below_threshold(result, "first_name", threshold) or
+        _rank_below_threshold(result, "last_name", threshold)):
         return token.title()
+
     return None
+
 
 
 def _count_git_files(file_contents: List[Dict[str, Any]]) -> int:

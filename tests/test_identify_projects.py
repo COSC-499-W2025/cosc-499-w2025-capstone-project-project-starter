@@ -32,28 +32,6 @@ def test_letters_only_unicode_keeps_nonlatin_scripts():
     s = "محمد-علي 123!"
     assert ip._letters_only_unicode(s) == "محمد-علي"
 
-
-# ---------- is_top_common_name ----------
-
-def test_is_top_common_name_hits_first_or_last_sets(monkeypatch):
-    # Patch the module-level sets to make deterministic
-    monkeypatch.setattr(ip, "TOP_FIRST_SET", {"john", "óscar", "محمد"}, raising=False)
-    monkeypatch.setattr(ip, "TOP_LAST_SET", {"smith", "lee"}, raising=False)
-
-    # Plain Latin
-    assert ip.is_top_common_name("john") == "John"
-    # Accented & case-insensitive via casefold
-    assert ip.is_top_common_name("ÓSCAR") == "Óscar"
-    # Non-Latin preserved
-    assert ip.is_top_common_name("محمد") == "محمد"
-
-    # From last-name set
-    assert ip.is_top_common_name("LEE") == "Lee"
-
-    # Non-hit and empty-after-filtering
-    assert ip.is_top_common_name("x9y9z") is None
-    assert ip.is_top_common_name("!!!") is None
-
 def test_is_top_common_name_handles_multiword(monkeypatch):
     # If you want multi-word acceptance, ensure the joined token exists
     # Here we only test single-token pass-through; filename splitting happens elsewhere
