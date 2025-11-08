@@ -38,7 +38,7 @@ class TestProjectSummarizerEdgeCases:
         # Use a dummy project_id that corresponds to no file / empty zip
         dummy_project_id = 0  # Adjust if your test DB has a specific ID for empty project
 
-        collaboration = self.summarizer._analyze_collaboration([], dummy_project_id)
+        collaboration = self.summarizer._analyze_collaboration( dummy_project_id)
         
         # If repo extraction fails (because zip doesn't exist), the method may return None
         if collaboration is None:

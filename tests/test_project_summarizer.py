@@ -155,7 +155,7 @@ class TestProjectSummarizer:
     
     def test_collaboration_analysis_individual(self):
         """Test collaboration analysis for individual projects"""
-        collaboration = self.summarizer._analyze_collaboration(self.sample_file_contents, 0)
+        collaboration = self.summarizer._analyze_collaboration( 0)
         
         assert 'collaboration_level' in collaboration
         assert 'indicators' in collaboration
@@ -163,20 +163,49 @@ class TestProjectSummarizer:
         assert collaboration['indicators']['collaboration_score'] >= 0
         assert collaboration['indicators']['collaboration_score'] <= 100
     
-    def test_collaboration_analysis_team_project(self):
-        """Test collaboration analysis for team projects"""
-        team_files = [
-            {'file_name': '.gitignore'},
-            {'file_name': 'team_utils.py'},
-            {'file_name': 'shared_config.py'},
-            {'file_name': 'common_helpers.py'}
+    @patch('src.project_summarizer.get_file_contents_by_upload_id')
+    @patch('collaborative.identify_projects.identify_contributors')
+    @patch('collaborative.identify_projects.get_zip_file')
+    def test_collaboration_analysis_team_project(self, mock_get_zip, mock_identify_contributors, mock_get_files):
+        """Test collaboration analysis when project data shows a team project"""
+        # 1 Mock what would come from the database via get_file_contents_by_upload_id()
+        mock_get_files.return_value = [
+            {'file_name': '.gitignore', 'file_path': '.gitignore'},
+            {'file_name': 'team_utils.py', 'file_path': 'src/team_utils.py'},
+            {'file_name': 'shared_config.py', 'file_path': 'src/shared_config.py'},
+            {'file_name': 'common_helpers.py', 'file_path': 'src/common_helpers.py'},
         ]
+
+        # 2 Pretend a ZIP file exists in storage
+        mock_get_zip.return_value = b'fake-zip-bytes'
+
+        # 3 Fake identify_contributors() object with multiple commit authors
+        fake_ic = Mock()
+        fake_ic.extract_repo.return_value = '/tmp/fake_repo'
+        fake_ic.get_commit_counts.return_value = {
+            'Alice <alice@example.com>': 5,
+            'Bob <bob@example.com>': 3,
+        }
+        fake_ic.cleanup.return_value = None
+        mock_identify_contributors.return_value = fake_ic
+
+        # 4 Call the method using a dummy project_id that triggers the mocks
+        project_id = 99
+        collaboration = self.summarizer._analyze_collaboration(project_id)
+
+        # 5 Assertions – high collaboration score and multiple indicators
+        assert collaboration['indicators']['git_files'] > 0
+        assert collaboration['indicators']['team_structure']
+        assert collaboration['indicators']['collaboration_score'] >= 70
+        assert collaboration['collaboration_level'] in {
+            'Likely team project', 'Definitely collaborative'
+        }
+
+        # 6 Optional: verify analysis mentions both contributors
+        analysis_text = collaboration['analysis']
+        assert 'Alice' in analysis_text
+        assert 'Bob' in analysis_text
         
-        collaboration = self.summarizer._analyze_collaboration(team_files, 0)
-        
-        # Should have higher collaboration score due to Git files and team indicators
-        assert collaboration['indicators']['collaboration_score'] > 40
-    
     def test_time_analysis_basic(self):
         """Test basic time analysis functionality"""
         time_analysis = self.summarizer._analyze_time_patterns(self.sample_file_contents)
