@@ -16,7 +16,7 @@ def check_zip_file(file):
 def unzip_file(file):
 
     # get the parent folder name to extract to
-    extract_dir = os.path.dirname(file)
+    extract_dir = os.path.splitext(file)[0]
 
     with zipfile.ZipFile(file,'r') as unzipf:
         unzipf.extractall(extract_dir)
