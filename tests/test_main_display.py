@@ -7,7 +7,7 @@ from unittest.mock import patch
 
 # Adjust the path to import from src
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'src')))
-from src.main import display_error, display_success
+from src.cli.display import display_error, display_success
 from src.upload_file import UploadResult
 
 
