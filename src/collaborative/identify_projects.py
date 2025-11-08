@@ -2,20 +2,20 @@
 from names_dataset import NameDataset
 import re
 import unicodedata
-import re
 from typing import Dict, List, Set, Tuple, Any
 from parsing.file_contents_manager import get_zip_file
 from collaborative.identify_contributors import identify_contributors
-
-nd = NameDataset()
-import re
-from names_dataset import NameDataset
-
-import unicodedata
 from functools import lru_cache
-from names_dataset import NameDataset
 
-nd = NameDataset()
+# Lazy-loaded NameDataset instance
+_name_dataset = None
+
+def _get_name_dataset():
+    """Lazy-load NameDataset only when needed."""
+    global _name_dataset
+    if _name_dataset is None:
+        _name_dataset = NameDataset()
+    return _name_dataset
 
 RANK_THRESHOLD = 25  # "Top 100" cutoff
 
@@ -38,6 +38,7 @@ def _search_name_cached(key: str):
     # We'll pass the original key (title() is fine) to nd.search for better hit rates
     try:
         # Using title-cased form tends to align with dataset entries
+        nd = _get_name_dataset()
         return nd.search(key.title())
     except Exception:
         return None
