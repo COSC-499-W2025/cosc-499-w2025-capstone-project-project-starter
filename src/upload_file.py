@@ -64,10 +64,10 @@ def init_uploaded_files_table():
                     SET last_modified_at = COALESCE(last_modified_at, created_at)
                     WHERE last_modified_at IS NULL;
                 """)
-            # 这里可以打印一行 debug，不打印也没事
+            # commented out to reduce noise
             # print(" uploaded_files table migrated (last_modified_at ensured & initialized)")
         except Exception as e:
-            # 如果迁移失败，不影响主流程，只给一个警告
+            # If migration fails, log but continue
             print(f" [WARN] Skipping last_modified_at migration: {e}")
         
         # Also initialize the file contents table
