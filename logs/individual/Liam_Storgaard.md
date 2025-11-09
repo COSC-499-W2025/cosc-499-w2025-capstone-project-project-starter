@@ -110,3 +110,17 @@ The ML classification model (using PyTorch and the-stack for training)
 Universal ML Classification Model #72
 - Among these tasks, which have you completed/in progress in the last 2 weeks?
 That one I completed this week. The model is set up and was tested and it works great (testing against our own code, it correctly classifies our Docker code under the "containerization" skillset). In the coming weeks I will add more training data and refine the categories since the current ones are just random ones for testing.
+
+## Week 10
+- Applicable date range
+November 3 - November 9
+- Type of tasks you worked on (screenshot from Peer Eval question)
+![Alt text](./imgs/liam_storgaard_w10.png)
+- Recap on your week's goals
+Keep fine tuning the ML model and link up all the individual parts so we can have a full pipeline.
+- Which features were yours in the project plan for this milestone?
+Improving the categories for the ML model.
+- Which tasks from the project board are associated with these features?
+Retrain ML model with new categories #89 
+- Among these tasks, which have you completed/in progress in the last 2 weeks?
+I completed the above task, the ML model now has 54 categories which are more language agnostic and comprehensive.
