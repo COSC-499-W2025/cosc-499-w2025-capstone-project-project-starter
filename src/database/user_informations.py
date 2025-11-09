@@ -308,3 +308,81 @@ def get_user_count() -> int:
     except Exception as e:
         print(f"Error getting user count: {e}")
         return 0
+
+
+def update_password(user_name: str, old_password: str, new_password: str) -> bool:
+    """
+    Update a user's password after verifying the current password.
+    
+    Args:
+        user_name (str): The username
+        old_password (str): The current plain text password for verification
+        new_password (str): The new plain text password
+        
+    Returns:
+        bool: True if password updated successfully, False otherwise
+    """
+    try:
+        # First verify the current password
+        if not verify_password(user_name, old_password):
+            print("Current password is incorrect.")
+            return False
+        
+        # Hash the new password
+        hashed_new_password = hash_password(new_password)
+        
+        with get_connection() as conn, conn.cursor() as cur:
+            cur.execute("""
+                UPDATE user_informations
+                SET password = %s
+                WHERE user_name = %s;
+            """, (hashed_new_password, user_name))
+            
+            if cur.rowcount > 0:
+                conn.commit()
+                print(f"Password updated successfully for user '{user_name}'.")
+                return True
+            else:
+                print(f"User '{user_name}' not found.")
+                return False
+                
+    except Exception as e:
+        print(f"Error updating password: {e}")
+        return False
+
+
+def delete_user(user_name: str, password: str) -> bool:
+    """
+    Delete a user account after password verification.
+    Note: This is a permanent action that cannot be undone.
+    
+    Args:
+        user_name (str): The username to delete
+        password (str): The plain text password for verification
+        
+    Returns:
+        bool: True if user deleted successfully, False otherwise
+    """
+    try:
+        # First verify the password for security
+        if not verify_password(user_name, password):
+            print("Password verification failed. Cannot delete user.")
+            return False
+        
+        with get_connection() as conn, conn.cursor() as cur:
+            cur.execute("""
+                DELETE FROM user_informations
+                WHERE user_name = %s;
+            """, (user_name,))
+            
+            if cur.rowcount > 0:
+                conn.commit()
+                print(f"User '{user_name}' deleted successfully.")
+                return True
+            else:
+                print(f"User '{user_name}' not found.")
+                return False
+                
+    except Exception as e:
+        print(f"Error deleting user: {e}")
+        return False

@@ -201,6 +201,44 @@ def test_get_user_count(mock_conn_cursor):
     result = user_informations.get_user_count()
     assert result == 5
 
+@pytest.mark.parametrize("password_correct", [True, False])
+@patch('database.user_informations.verify_password')
+def test_update_password(mock_verify_password, mock_conn_cursor, password_correct):
+    """Test password update for correct and incorrect old password."""
+    mock_cursor, mock_conn = mock_conn_cursor
+    mock_verify_password.return_value = password_correct
+    
+    if password_correct:
+        mock_cursor.rowcount = 1
+        result = user_informations.update_password("test_user", "old_pass", "new_pass")
+        assert result is True
+        mock_cursor.execute.assert_called_once()
+        mock_conn.commit.assert_called_once()
+    else:
+        result = user_informations.update_password("test_user", "wrong_old", "new_pass")
+        assert result is False
+        mock_cursor.execute.assert_not_called()
+        mock_conn.commit.assert_not_called()
+
+@pytest.mark.parametrize("password_correct", [True, False])
+@patch('database.user_informations.verify_password')
+def test_delete_user(mock_verify_password, mock_conn_cursor, password_correct):
+    """Test user deletion for correct and incorrect password."""
+    mock_cursor, mock_conn = mock_conn_cursor
+    mock_verify_password.return_value = password_correct
+    
+    if password_correct:
+        mock_cursor.rowcount = 1
+        result = user_informations.delete_user("test_user", "correct_password")
+        assert result is True
+        mock_cursor.execute.assert_called_once()
+        mock_conn.commit.assert_called_once()
+    else:
+        result = user_informations.delete_user("test_user", "wrong_password")
+        assert result is False
+        mock_cursor.execute.assert_not_called()
+        mock_conn.commit.assert_not_called()
+
 # ----------------------------
 # Error Handling Tests (Consolidated)
 # ----------------------------
@@ -213,7 +251,9 @@ def test_get_user_count(mock_conn_cursor):
     ("get_all_users", (), []),
     ("get_logged_in_users", (), []),
     ("is_username_available", ("user",), False),
-    ("get_user_count", (), 0)
+    ("get_user_count", (), 0),
+    ("update_password", ("user", "old_pass", "new_pass"), False),
+    ("delete_user", ("user", "pass"), False)
 ])
 def test_database_errors(mock_conn_cursor, function_name, args, expected_return):
     """Test database error handling across multiple functions."""
