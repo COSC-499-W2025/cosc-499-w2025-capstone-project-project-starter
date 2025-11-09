@@ -19,10 +19,6 @@ def unzip_file(file, extract_dir=None):
     if extract_dir is None:
         extract_dir = os.path.splitext(file)[0]
 
-    # verify the zip file first
-    if not zipfile.is_zipfile(file):
-        return f"{file} is not a valid zip file"
-
     # if folder exists and is non-empty, raise an error
     if os.path.exists(extract_dir):
         if os.listdir(extract_dir):  # folder not empty
