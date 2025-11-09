@@ -4,7 +4,7 @@ from project_display import select_project_interactive, list_projects_menu
 from project_summarizer import summarize_project
 from project_analyzer import analyze_project_by_id
 from analysis.key_metrics import analyze_project_from_db
-from analysis.project_ranking import rank_all_projects, display_rankings
+from analysis.project_ranking import rank_all_projects, display_rankings, rank_and_summarize_top_projects
 from external_services.external_service_prompt import request_external_service_permission, ExternalServicePrompt
 from external_services.permission_manager import ExternalServicePermission
 from collaborative.identify_contributors import identify_contributors
@@ -189,6 +189,12 @@ def handle_rank_projects():
     print("\nRanking all projects...")
     ranked = rank_all_projects()
     display_rankings(ranked)
+    input("\nPress Enter to continue...")
+
+
+def handle_rank_and_summarize_projects():
+    """Handle rank and summarize top 3 projects menu option."""
+    rank_and_summarize_top_projects()
     input("\nPress Enter to continue...")
 
 

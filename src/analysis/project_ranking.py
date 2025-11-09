@@ -5,6 +5,7 @@ Ranks projects using database Key Metrics that are pulled rom uploaded files and
 from typing import Dict, List, Any
 from config.db_config import get_connection
 from analysis.key_metrics import analyze_project_from_db
+from project_summarizer import summarize_project
 import os
 
 
@@ -129,7 +130,7 @@ def rank_local_project(project_path: str) -> Dict[str, Any]:
 
 def display_rankings(ranked_projects: List[Dict[str, Any]]):
     """
-    Display ranked projects in a readable format.
+    Display ranked projects in a simple format showing only project names and scores.
     
     Args:
         ranked_projects: List of ranked project dictionaries
@@ -141,41 +142,46 @@ def display_rankings(ranked_projects: List[Dict[str, Any]]):
     print("\n" + "="*80)
     print("PROJECT RANKINGS")
     print("="*80)
-    print(f"{'Rank':<6} {'Score':<10} {'Filename':<40} {'Project ID':<12}")
+    print(f"{'Rank':<6} {'Score':<10} {'Project Name':<60}")
     print("-"*80)
     
     for i, project in enumerate(ranked_projects, 1):
-        filename = project["filename"][:38] + ".." if len(project["filename"]) > 40 else project["filename"]
-        print(f"{i:<6} {project['score']:<10} {filename:<40} {project['project_id']:<12}")
+        filename = project["filename"][:58] + ".." if len(project["filename"]) > 60 else project["filename"]
+        print(f"{i:<6} {project['score']:<10} {filename:<60}")
     
     print("="*80)
+
+
+def rank_and_summarize_top_projects() -> None:
+    """
+    Rank all projects and summarize the top 3 projects (without displaying rankings).
+    """
+    print("\nRanking all projects...")
+    ranked_projects = rank_all_projects()
     
-    # Show top project detailed analysis
-    if len(ranked_projects) >= 1:
-        print("\nTOP PROJECT ANALYSIS:")
-        print("-"*80)
-        top_project = ranked_projects[0]
+    if not ranked_projects:
+        print("\nNo projects to rank.")
+        return
+    
+    # Summarize top 3 projects
+    top_count = min(3, len(ranked_projects))
+    if top_count > 0:
+        print(f"\n{'='*80}")
+        print(f"SUMMARIZING TOP {top_count} PROJECTS")
+        print("="*80)
         
-        # Key-metrics summary
-        if "by_activity" in top_project["analysis"]:
-            print(f"Files: {top_project['analysis']['totals']['files']}")
-            print(f"Lines: {top_project['analysis']['totals']['lines']}")
-            print("\nBy Activity Type:")
-            for activity, data in sorted(top_project["analysis"]["by_activity"].items(), 
-                                        key=lambda x: x[1].get("count", 0), reverse=True):
-                print(f"  {activity}: {data['count']} files, {data['bytes']} bytes")
-        # Back-compat for any local dicts
-        elif "structure" in top_project["analysis"]:
-            metrics = top_project["analysis"].get("metrics", {})
-            structure = top_project["analysis"].get("structure", {})
-            print(f"Total LOC: {metrics.get('total_lines_of_code', 0)}")
-            print(f"Languages: {', '.join(top_project['analysis'].get('languages', {}).get('languages_detected', [])[:5])}")
-            print(f"Frameworks: {', '.join(top_project['analysis'].get('frameworks', [])[:5])}")
-            print(f"Skills: {len(top_project['analysis'].get('skills', []))} detected")
-            if structure.get("has_tests"):
-                print("Has tests")
-            if structure.get("has_docs"):
-                print("Has documentation")
-            if structure.get("has_config"):
-                print("Has configuration")
+        for i in range(top_count):
+            project = ranked_projects[i]
+            print(f"\n{'='*80}")
+            print(f"TOP {i+1} PROJECT: {project['filename']} (Score: {project['score']})")
+            print("="*80)
+            print("\nGenerating summary...")
+            try:
+                summary = summarize_project(project['project_id'])
+                print(summary)
+            except Exception as e:
+                print(f"Error generating summary for project {project['project_id']}: {e}")
+            
+            if i < top_count - 1:
+                print("\n" + "-"*80)
 
