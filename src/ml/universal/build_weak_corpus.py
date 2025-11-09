@@ -12,32 +12,289 @@ OUT_DIR = "data/shards"
 os.makedirs(OUT_DIR, exist_ok=True)
 
 SKILLS = [
-    "React","Express","Django","Flask","Spring","Rails","Laravel","DotNet",
-    "SQL-DML","SQL-DDL","REST","Testing","CI","Containerization","Concurrency",
-    "CryptoSec","DataWrangling","Numerics","ML-PyTorch","ML-TF","ML-Sklearn",
+    # Core engineering practices
+    "Testing",
+    "CI",
+    "Containerization",
+    "Concurrency",
+    "Performance-Optimization",
+    "Security-Cryptography",
+    "Security-Application",
+    "Security-Network",
+    "Logging",
+    "Metrics-Monitoring",
+    "Tracing",
+    "Infrastructure-as-Code",
+    "Build-Systems",
+    "Package-Management",
+    "Scripting-Automation",
+    "CLI-Tooling",
+
+    # Web / backend / services
+    "Web-Frontend",
+    "Web-Backend",
+    "Web-Fullstack",
+    "Web-API",
+    "Authentication-Authorization",
+    "Microservices",
+    "Messaging-Queueing",
+    "Streaming-Processing",
+
+    # Data storage / databases / caching
+    "SQL-DML",
+    "SQL-DDL",
+    "Database-ORM",
+    "Database-NoSQL",
+    "Database-Graph",
+    "Caching",
+
+    # Cloud / DevOps
+    "Cloud-AWS",
+    "Cloud-GCP",
+    "Cloud-Azure",
+    "Orchestration-Kubernetes",
+    "BigData",
+
+    # Systems / low-level
+    "Systems-Programming",
+    "Embedded",
+    "Networking-LowLevel",
+    "Parallel-Computing",
+    "GPU-Computing",
+
+    # Data / ML / AI
+    "Data-Wrangling",
+    "Data-Engineering",
+    "Data-Visualization",
+    "Numerics",
+    "ML-Classic",
+    "ML-DeepLearning",
+    "ML-NLP",
+    "ML-Vision",
+    "ML-Recommendation",
+    "MLOps",
+    "Probabilistic-Programming",
+
+    # Other domains
+    "Game-Development",
+    "Functional-Programming",
+    "Serialization",
 ]
+
 LFs = [
-    ("React",       re.compile(r"\bfrom\s+['\"]react['\"]|\bReact\.")),
-    ("Express",     re.compile(r"require\(['\"]express['\"]\)|from\s+['\"]express['\"]")),
-    ("Django",      re.compile(r"\bimport\s+django\b|\bfrom\s+django\b")),
-    ("Flask",       re.compile(r"\bfrom\s+flask\b|\bimport\s+flask\b")),
-    ("Spring",      re.compile(r"\borg\.springframework\b")),
-    ("Rails",       re.compile(r"\brequire\s+['\"]rails['\"]|\bActiveRecord\b")),
-    ("Laravel",     re.compile(r"\bIlluminate\\|\buse\s+Laravel\\")),
-    ("DotNet",      re.compile(r"\busing\s+System\.")),
-    ("SQL-DML",     re.compile(r"\bSELECT\b|\bINSERT\b|\bUPDATE\b|\bDELETE\b", re.I)),
-    ("SQL-DDL",     re.compile(r"\bCREATE\s+TABLE\b|\bALTER\s+TABLE\b|\bDROP\s+TABLE\b", re.I)),
-    ("REST",        re.compile(r"\b(GET|POST|PUT|DELETE)\s+\/[A-Za-z0-9_\-\/]+")),
-    ("Testing",     re.compile(r"\bpytest\b|\bjunit\b|\bunittest\b|\bdescribe\(|\bit\(")),
-    ("CI",          re.compile(r"\.github\/workflows|Jenkinsfile|\.gitlab-ci\.yml")),
-    ("Containerization", re.compile(r"\bFROM\s+[\w\/:\-\.]+(\s+AS\s+\w+)?\b", re.I)),
-    ("Concurrency", re.compile(r"\bstd::thread\b|\bsynchronized\b|\bjava\.util\.concurrent\b|\basync\b|\bawait\b")),
-    ("CryptoSec",   re.compile(r"\bhashlib\b|\bjavax\.crypto\b|\bOpenSSL\b|\bcrypt\(")),
-    ("DataWrangling", re.compile(r"\bpandas\b|\bDataFrame\b")),
-    ("Numerics",    re.compile(r"\bnumpy\b|\bnumpy\.|np\.")),
-    ("ML-PyTorch",  re.compile(r"\bimport\s+torch\b|\bfrom\s+torch\b")),
-    ("ML-TF",       re.compile(r"\bimport\s+tensorflow\b|\bfrom\s+tensorflow\b|\bkeras\b")),
-    ("ML-Sklearn",  re.compile(r"\bimport\s+sklearn\b|\bfrom\s+sklearn\b")),
+    ("Testing", re.compile(
+        r"\bpytest\b|\bjunit\b|\bunittest\b|\bRSpec\b|\bMocha\b|\bJest\b|\bdescribe\(|\bit\(|\bTestCase\b|\b@test\b|\b@Test\b|\[Test\]|\bGTest\b|\bEXPECT_[A-Z]+\(|\bCatch2\b|\bdoctest\b"
+    )),
+    ("CI", re.compile(
+        r"\.github\/workflows|Jenkinsfile|\.gitlab-ci\.yml|\.circleci\/config\.yml|\.travis\.yml|azure-pipelines\.yml|teamcity\.version|\.drone\.yml"
+    )),
+    ("Containerization", re.compile(
+        r"^\s*FROM\s+[\w\/:\-\.]+(\s+AS\s+\w+)?\s*$|docker-compose\.yml|\bdocker\s+build\b|\bdocker\s+run\b|\bimage:\s*[\w\-\/]+(:[\w\-\.]+)?",
+        re.I | re.M
+    )),
+    ("Concurrency", re.compile(
+        r"\bstd::thread\b|\bsynchronized\b|\bjava\.util\.concurrent\b|\bCompletableFuture\b|\basync\b|\bawait\b|\bPromise<|\bTask\.Run\(|\bgo\s+func\b|\bspawn\(|\bchannel\s*<-\s*|\bpthread_create\b|\bmutex\b|\bstd::async\b"
+    )),
+    ("Performance-Optimization", re.compile(
+        r"\bbenchmark\(|\bBencher\b|\bCriterion::default\(\)|\bJMH\b|\b@Benchmark\b|\bpytest-benchmark\b|\bperf\s+record\b|\bvalgrind\b|\bgprof\b|\bpprof\b|\bProfileMiddleware\b|\bTIMEIT\b|\btimeit\.default_timer\b",
+        re.I
+    )),
+    ("Security-Cryptography", re.compile(
+        r"\bhashlib\b|\bjavax\.crypto\b|\bOpenSSL\b|\bcrypt\(|\bCrypto\.Cipher\b|\bPyNaCl\b|\blibsodium\b|\bBouncyCastle\b|\bRSA_new\b|\bcrypto\/aes\b|\bcrypto\/rsa\b|\bcrypto\/sha256\b|\bNaCl::CryptoBox\b|\bargon2\b|\bscrypt\b",
+        re.I
+    )),
+    ("Security-Application", re.compile(
+        r"\bOWASP\b|\bCSRF\b|\bXSS\b|\bCORS\b|\bhelmet\(\)|\bdjango\.middleware\.security\b|\bContent-Security-Policy\b|\bx-frame-options\b|\bsanitize_html\b|\bescapeHtml\b|\bvalidateAntiForgeryToken\b|\b@RolesAllowed\b|\b@Secured\b",
+        re.I
+    )),
+    ("Security-Network", re.compile(
+        r"\biptables\b|\bfirewalld\b|\bnftables\b|\bnmap\b|\bssl_certificate\b|\bssl_protocols\b|\bTLSv1_[0-3]\b|\bOpenVPN\b|\bstunnel\b|\bfail2ban\b|\bssh\-dss\b|\bAllowUsers\b",
+        re.I
+    )),
+    ("Logging", re.compile(
+        r"\blogging\.getLogger\b|\bLogManager\.getLogger\b|\bSLF4J\b|\blog4j\b|\blogback\b|\bwinston\.createLogger\b|\blogrus\.New\(\)|\bzap\.New\b|\bStructuredLogging\b|\bserilog\b",
+        re.I
+    )),
+    ("Metrics-Monitoring", re.compile(
+        r"\bPrometheus\b|\bprometheus_client\b|\bmicrometer\b|\bStatsD\b|\bdropwizard\.metrics\b|\bGraphite\b|\bNewRelic\b|\bDatadog\b|\bAppMetrics\b|\bMeterRegistry\b",
+        re.I
+    )),
+    ("Tracing", re.compile(
+        r"\bOpenTelemetry\b|\bopentelemetry\b|\bJaeger\b|\bZipkin\b|\btracer\.start_span\b|\bSpanContext\b|\bTraceId\b|\botel\.trace\b",
+        re.I
+    )),
+    ("Infrastructure-as-Code", re.compile(
+        r"\bterraform\b|\bvariable\s+\"[A-Za-z0-9_]+\"\s*{\s*|\bresource\s+\"[A-Za-z0-9_]+\"\s+\"[A-Za-z0-9_]+\"\s*{|\bansible-playbook\b|\bhosts:\s*all\b|\bcloudformation\b|\bAWSTemplateFormatVersion\b|\bpulumi\.runtime\b",
+        re.I
+    )),
+    ("Build-Systems", re.compile(
+        r"\bcmake_minimum_required\b|\badd_executable\(|\badd_library\(|^all:\s|^\.PHONY:|\bgradle\b|\bbuild\.gradle\b|\bpom\.xml\b|\bsbt\.sbt\b|\bbazel\b|\bWORKSPACE\b|\bwebpack\.config\.js\b|\bgulpfile\.js\b|\bGruntfile\.js\b|\bninja\.build\b",
+        re.I | re.M
+    )),
+    ("Package-Management", re.compile(
+        r"\bpackage\.json\b|\brequirements\.txt\b|\bPipfile\b|\bpyproject\.toml\b|\bsetup\.py\b|\bGemfile\b|\bgemspec\b|\bCargo\.toml\b|\bgo\.mod\b|\bcomposer\.json\b|\bpackages\.config\b|\bpackage-lock\.json\b|\byarn\.lock\b|\bpnpm-lock\.yaml\b|\bpubspec\.yaml\b",
+        re.I
+    )),
+    ("Scripting-Automation", re.compile(
+        r"^#!\/usr\/bin\/env\s+(bash|sh|python|node)|^#!\/bin\/(bash|sh)|\bsubprocess\.Popen\b|\bos\.system\(|\bfabric\.api\b|\bInvoke-Task\b|\bansible\b|\bparamiko\.SSHClient\b",
+        re.I | re.M
+    )),
+    ("CLI-Tooling", re.compile(
+        r"\bargparse\b|\b@click\.command\b|\btyper\.Typer\b|\bcobra\.Command\b|\bcommander\.option\b|\byargs\(process\.argv\b|\burfave\/cli\b|\bclap::App\b|\bdocopt\b|\bflag\.Parse\(\)",
+        re.I
+    )),
+    ("Web-Frontend", re.compile(
+        r"\bfrom\s+['\"]react['\"]|\bReactDOM\.render\b|\bReact\.useState\b|\bfrom\s+['\"]vue['\"]|\bVue\.component\b|\b@angular\/core\b|\bNgModule\b|\bSvelteComponent\b|\bfrom\s+['\"]svelte['\"]|\bNextApiRequest\b|\bNuxt\.extend\b|\bdocument\.querySelector\(|\bwindow\.addEventListener\('load'",
+        re.I
+    )),
+    ("Web-Backend", re.compile(
+        r"\bExpress\(\)|require\(['\"]express['\"]\)|\bKoa\(\)|\bHapi\.server\(|\bfrom\s+django\b|\bfrom\s+flask\b|\bFastAPI\(\)|\bAPIRouter\(|\bRails\.application\b|\bActiveRecord::Base\b|\bIlluminate\\Routing\\|\borg\.springframework\.web\.bind\.annotation\b|\busing\s+Microsoft\.AspNetCore\b|\bPhoenix\.Endpoint\b|\bSinatra::Application\b",
+        re.I
+    )),
+    ("Web-Fullstack", re.compile(
+        r"\bNextApiHandler\b|\bRemixBrowser\b|\bBlitzApiRequest\b|\bRedwoodJS\b|\bMeteor\.isServer\b|\bMeteor\.isClient\b|\btrpc\.router\b|\bApolloServer\b",
+        re.I
+    )),
+    ("Web-API", re.compile(
+        r"\b@RestController\b|\b@RequestMapping\b|\b@GetMapping\b|\bPostMapping\b|\b@api\.route\b|\b@app\.route\(|\brouter\.get\(|\brouter\.post\(|\bRoute::get\(|\b@ApiOperation\b|\bNSwag\b|\bOpenAPI\b|\bswagger-ui\b|\bfastify\.get\(",
+        re.I
+    )),
+    ("Authentication-Authorization", re.compile(
+        r"\bJWT\b|\bJsonWebToken\b|\boauth2\b|\bOAuth2\b|\bOpenID\s+Connect\b|\bpassport\.use\(|\bDevise\.secret_key\b|\bdjango\.contrib\.auth\b|\bKeycloak\b|\bAuth0\b|\bOkta\b|\baccess_token\b|\brefresh_token\b",
+        re.I
+    )),
+    ("Microservices", re.compile(
+        r"\bmicroservice\b|\bmicro-services\b|\bgrpc::Server\b|\bServerBuilder::Create\b|\bio\.grpc\b|\b@LoadBalanced\b|\bSpringCloudApplication\b|\bEurekaClient\b|\bconsul\.agent\b|\bIstio\b|\bsidecar\b|\bservice mesh\b",
+        re.I
+    )),
+    ("Messaging-Queueing", re.compile(
+        r"\bRabbitMQ\b|\bamqp:\/\/|\bkafka\b|\bKafkaProducer\b|\bKafkaConsumer\b|\bPulsarClient\b|\bNATS\.connect\b|\bnsqlookupd\b|\bSQSClient\b|\bSNSClient\b|\bCelery\(|\b@shared_task\b|\bSidekiq::Worker\b|\bResque\.enqueue\b|\bBullMQ\b|\bKombu\b",
+        re.I
+    )),
+    ("Streaming-Processing", re.compile(
+        r"\bSparkSession\.builder\b.*readStream\b|\bStreamingContext\b|\bFlinkKafkaConsumer\b|\bDataStream\b|\bKafkaStreams\b|\bapache_beam\b|\bbeam\.Pipeline\b|\bStormSubmitter\b|\bSamza\b",
+        re.I
+    )),
+    ("SQL-DML", re.compile(
+        r"\bSELECT\b|\bINSERT\b|\bUPDATE\b|\bDELETE\b",
+        re.I
+    )),
+    ("SQL-DDL", re.compile(
+        r"\bCREATE\s+TABLE\b|\bALTER\s+TABLE\b|\bDROP\s+TABLE\b|\bCREATE\s+INDEX\b|\bALTER\s+COLUMN\b",
+        re.I
+    )),
+    ("Database-ORM", re.compile(
+        r"\bSQLAlchemy\b|\bdeclarative_base\(\)|\bsessionmaker\(|\bHibernate\b|\b@Entity\b|\bJpaRepository\b|\bDoctrine\\ORM\\|\bActiveRecord::Base\b|\bEntityFramework\b|\bDbContext\b|\bEcto\.Schema\b",
+        re.I
+    )),
+    ("Database-NoSQL", re.compile(
+        r"\bMongoClient\b|\bmongoose\.model\b|\bDynamoDBClient\b|\bCqlSession\b|\bCassandra\.cluster\b|\bredis\.Redis\b|\bJedis\b|\bCouchDB\b|\bPouchDB\b|\bFirebaseDatabase\b|\bFirestore\b|\bRethinkDB\b",
+        re.I
+    )),
+    ("Database-Graph", re.compile(
+        r"\bNeo4j\b|\bGraphDatabase\.driver\b|\bCypher\b|\bMATCH\s+\(n\)\s+RETURN\b|\bgremlin\.GroovyShell\b|\bJanusGraph\b|\bTinkerGraph\b",
+        re.I
+    )),
+    ("Caching", re.compile(
+        r"\bmemcached\b|\bMemcacheClient\b|\bredis\.Redis\b|\bJedis\b|\b@Cacheable\b|\bCacheManager\b|\bEhcache\b|\bGuavaCache\b|\bCaffeine\.newBuilder\b|\bInMemoryCache\b",
+        re.I
+    )),
+    ("Cloud-AWS", re.compile(
+        r"\bboto3\b|\baws\-sdk\b|\bAWSLambda\b|\bAmazonS3Client\b|\bAWS::S3::Bucket\b|\bAWSTemplateFormatVersion\b|\baws_access_key_id\b|\baws_secret_access_key\b|\bAmazonDynamoDB\b|\bAmazonEC2\b",
+        re.I
+    )),
+    ("Cloud-GCP", re.compile(
+        r"\bgoogle\.cloud\b|\bBigQueryClient\b|\bCloudStorage\b|\bGCS_BUCKET\b|\bpubsub_v1\b|\bDataflowRunner\b|\bDataproc\b|\bFirestore\b",
+        re.I
+    )),
+    ("Cloud-Azure", re.compile(
+        r"\bazure\.storage\b|\bazure\-storage\b|\bMicrosoft\.Azure\b|\bBlobServiceClient\b|\bQueueServiceClient\b|\bServiceBusClient\b|\bTableServiceClient\b",
+        re.I
+    )),
+    ("Orchestration-Kubernetes", re.compile(
+        r"\bapiVersion:\s+apps\/v1\b|\bkind:\s+(Deployment|StatefulSet|DaemonSet|Pod)\b|\bkubectl\s+apply\b|\bk8s\.io\/client-go\b|\bhelm\s+install\b|\bHelmRelease\b|\bNamespace:\s+default\b",
+        re.I
+    )),
+    ("BigData", re.compile(
+        r"\borg\.apache\.spark\b|\bpyspark\b|\bSparkContext\b|\bhadoop\b|\bmapreduce\b|\bFileSystem\.get\(|\bHdfsConfiguration\b|\bhive\-exec\b|\bHiveContext\b|\bPigServer\b|\bPrestoConnection\b|\bTrinoConnection\b",
+        re.I
+    )),
+    ("Systems-Programming", re.compile(
+        r"#include\s+<sys\/types\.h>|#include\s+<sys\/stat\.h>|#include\s+<unistd\.h>|#include\s+<fcntl\.h>|\bfork\(\)|\bexecve\(\)|\bmmap\(|\bmunmap\(|\bptrace\(|\berrno\b|\bstrerror\(",
+        re.I
+    )),
+    ("Embedded", re.compile(
+        r"#include\s+<avr\/io\.h>|#include\s+<stm32f[0-9a-z_]*\.h>|#include\s+<FreeRTOS\.h>|\bTaskHandle_t\b|\bvTaskDelay\(|\bISR\(|\bNVIC_\w+|\bATmega(8|16|32|128)\b|\barm\-none\-eabi\-gcc\b|#include\s+<mbed\.h>|#include\s+<Arduino\.h>|\bdigitalWrite\(|\bpinMode\(",
+        re.I
+    )),
+    ("Networking-LowLevel", re.compile(
+        r"#include\s+<sys\/socket\.h>|#include\s+<netinet\/in\.h>|#include\s+<arpa\/inet\.h>|\bsocket\(AF_|\bbind\(.*SOCK_|\blisten\(|\baccept\(|\bselect\(|\bpoll\(|\bepoll_wait\(|\bboost::asio\b|\bTcpListener::bind\b|\bjava\.net\.Socket\b|\basyncio\.open_connection\b",
+        re.I
+    )),
+    ("Parallel-Computing", re.compile(
+        r"\b#pragma\s+omp\b|\bOpenMP\b|\bMPI_Init\b|\bMPI_Comm_rank\b|\bMPI_Comm_size\b|\btbb::parallel_for\b|\bParallel\.For\(|\bparfor\b",
+        re.I | re.M
+    )),
+    ("GPU-Computing", re.compile(
+        r"\bcudaMalloc\b|\bcudaMemcpy\b|\b__global__\b|<<<\s*\d+,\s*\d+\s*>>>|\bthrust::\b|\bclEnqueueNDRangeKernel\b|\bCUdevice\b|\btorch\.cuda\b|\bcupy\.\w+\(|\btf\.device\('/GPU|\bhipLaunchKernelGGL\b",
+        re.I
+    )),
+    ("Data-Wrangling", re.compile(
+        r"\bpandas\b|\bDataFrame\b|\bdplyr\b|\bdata\.table\b|\btidyverse\b|\bread_csv\(|\bgroup_by\(|\bpivot_table\(|\bmutate\(|\b(join|merge)\(",
+        re.I
+    )),
+    ("Data-Engineering", re.compile(
+        r"\bairflow\b|\bDAG\(\s*dag_id=|\b@dag\b|\bLuigiTask\b|\bluigi\.Task\b|\bfrom\s+luigi\s+import\b|\bPrefect\b|\b@task\b.*@flow|\bdbt\b|\bETL\b|\bextract[_\-]?transform[_\-]?load\b",
+        re.I
+    )),
+    ("Data-Visualization", re.compile(
+        r"\bmatplotlib\b|\bplt\.plot\b|\bseaborn\b|\bsns\.scatterplot\b|\bplotly\b|\bgo\.Figure\b|\bggplot2\b|\bgeom_line\b|\bd3\.select\b|\bChart\.js\b|\bVegaLite\b",
+        re.I
+    )),
+    ("Numerics", re.compile(
+        r"\bnumpy\b|\bnp\.\w+|\bnumpy\.\w+|\bscipy\.\w+|\bjnp\.\w+|\bEigen::Matrix\b|\barmadillo::Mat\b|\bxtensor::xarray\b|\bBLAS\b|\bLAPACK\b|\bgsl_matrix\b",
+        re.I
+    )),
+    ("ML-Classic", re.compile(
+        r"\bimport\s+sklearn\b|\bfrom\s+sklearn\b|\bRandomForestClassifier\b|\bGradientBoostingClassifier\b|\bSVC\b|\bKNeighborsClassifier\b|\bXGBClassifier\b|\bxgboost\b|\blightgbm\b|\bLGBMClassifier\b|\bCatBoostClassifier\b|\bstatsmodels\.api\b|\bOLS\(",
+        re.I
+    )),
+    ("ML-DeepLearning", re.compile(
+        r"\bimport\s+torch\b|\bfrom\s+torch\b|\bimport\s+tensorflow\b|\bfrom\s+tensorflow\b|\bkeras\b|\btf\.keras\b|\bmxnet\b|\bchainer\b|\bpaddle\.fluid\b|\bimport\s+jax\b|\bflax\.linen\b|\bnn\.Module\b|\bConv2D\(|\bLinear\(|\bLSTM\(",
+        re.I
+    )),
+    ("ML-NLP", re.compile(
+        r"\bfrom\s+transformers\b|\btransformers\.AutoModel\b|\bBertModel\b|\bGPT2LMHeadModel\b|\bT5ForConditionalGeneration\b|\btokenizer\.encode\b|\bspacy\.load\b|\bnltk\.\w+|\bword_tokenize\b|\bgensim\.models\b|\bfastText\b|\bSentencePieceProcessor\b|\bBPETokenizer\b",
+        re.I
+    )),
+    ("ML-Vision", re.compile(
+        r"\btorchvision\b|\bcv2\.imread\b|\bPIL\.Image\.open\b|\bImageDataGenerator\b|\bResNet50\b|\bUNet\b|\bFasterRCNN\b|\bYOLOv[1-9]\b|\bSSDDetector\b|\bMTCNN\b",
+        re.I
+    )),
+    ("ML-Recommendation", re.compile(
+        r"\bAlternatingLeastSquares\b|\bfrom\s+implicit\b|\bimport\s+implicit\b|\bsurprise\.SVD\b|\bKNNBaseline\b|\bMatrixFactorization\b|\buser_item_matrix\b|\brecommendation\b.*engine\b|\btop_k_recommendations\b",
+        re.I
+    )),
+    ("MLOps", re.compile(
+        r"\bmlflow\.\w+|\bMLFlowClient\b|\bwandb\.init\b|\bimport\s+wandb\b|\bkfp\.dsl\b|\bKubeflow\b|\bTFX\b|\bimport\s+dvc\b|\bdvc\.yaml\b|\bSageMaker\b|\bVertexAI\b|\bNeptune\.init\b|\bclearml\b",
+        re.I
+    )),
+    ("Probabilistic-Programming", re.compile(
+        r"\bpymc3\b|\bimport\s+pymc\b|\bimport\s+pymc3\b|\bstan_model\b|\bpystan\b|\bCmdStanPy\b|\bpyro\.sample\b|\bpyro\.plate\b|\bnumpyro\.sample\b|\bnumpyro\.plate\b|\bInfer\.MCMC\b",
+        re.I
+    )),
+    ("Game-Development", re.compile(
+        r"\bUnityEngine\b|\bMonoBehaviour\b|\bOnCollisionEnter\b|\bAActor\b|\bUCLASS\(|\bGodot\b|\bKinematicBody\b|\bNode2D\b|\bpygame\.init\(\)|\bThree\.Scene\b|\bPhaser\.Game\b|\bSpriteBatch\b",
+        re.I
+    )),
+    ("Functional-Programming", re.compile(
+        r"\bmodule\s+Main\s+where\b|\bimport\s+Prelude\b|\bdata\s+[A-Z][a-zA-Z0-9_]*\s*=\s*|\bMonad\b|\bFunctor\b|\bApplicative\b|\bOption<|\bF#\b|\bList\.map\b|\bList\.fold\b|\bResult<|\bEither\b|\bIO\b\s*->\s*IO\b",
+        re.I
+    )),
+    ("Serialization", re.compile(
+        r"\bjson\.dumps\b|\bjson\.loads\b|\bJSON\.stringify\b|\byaml\.safe_load\b|\byaml\.dump\b|\bmessage\s+[A-Z][a-zA-Z0-9_]*\s*{\s*$|\bsyntax\s*=\s*\"proto3\"|\bSerialize\(\)|\bDeserialize\(\)|\bAvroSchema\b|\bthrift_protocol\b|\bserde::Serialize\b",
+        re.I | re.M
+    )),
 ]
 
 def weak_labels(example):
