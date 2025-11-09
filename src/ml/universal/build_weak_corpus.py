@@ -156,7 +156,7 @@ LFs = [
         re.I
     )),
     ("Web-API", re.compile(
-        r"\b@RestController\b|\b@RequestMapping\b|\b@GetMapping\b|\bPostMapping\b|\b@api\.route\b|\b@app\.route\(|\brouter\.get\(|\brouter\.post\(|\bRoute::get\(|\b@ApiOperation\b|\bNSwag\b|\bOpenAPI\b|\bswagger-ui\b|\bfastify\.get\(",
+        r"\b@RestController\b|\b@RequestMapping\b|\b@GetMapping\b|\b@PostMapping\b|\b@api\.route\b|\b@app\.route\(|\brouter\.get\(|\brouter\.post\(|\bRoute::get\(|\b@ApiOperation\b|\bNSwag\b|\bOpenAPI\b|\bswagger-ui\b|\bfastify\.get\(",
         re.I
     )),
     ("Authentication-Authorization", re.compile(
