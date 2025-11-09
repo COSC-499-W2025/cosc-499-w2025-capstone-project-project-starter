@@ -176,8 +176,12 @@ LFs = [
         re.I
     )),
     ("SQL-DML", re.compile(
-        r"\bSELECT\b|\bINSERT\b|\bUPDATE\b|\bDELETE\b",
-        re.I
+    	r"\bSELECT\b.+?\bFROM\b"
+    	r"|\bINSERT\s+(?:OR\s+REPLACE\s+)?INTO\b"
+    	r"|\bREPLACE\s+INTO\b"
+    	r"|\bUPDATE\s+\w+\s+SET\b"
+    	r"|\bDELETE\s+FROM\b",
+    	re.I | re.S
     )),
     ("SQL-DDL", re.compile(
         r"\bCREATE\s+TABLE\b|\bALTER\s+TABLE\b|\bDROP\s+TABLE\b|\bCREATE\s+INDEX\b|\bALTER\s+COLUMN\b",
