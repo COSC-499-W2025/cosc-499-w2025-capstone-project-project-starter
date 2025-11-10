@@ -1,3 +1,33 @@
+# Personal Log for Rylan Millar (33334400) Week 10 (November 3 - November 9)
+
+## Features from the project plan this week
+- Update zip validator to account for some edge cases and hosue cleaning
+- Extract Metadata from the files within the zip
+
+## Tasks from the project board associated with these features
+- Update zipvalidation.py to account for edge cases
+- Begin metadata extraction module/functions 
+
+## Completed and In Progress
+- Update zipvalidation.py to account for edge cases (**Completed**)
+
+## What went well
+- The team left some PR's for me to review and merge as I work all weekend when a lot of the merging happens
+
+## What did not go well
+- Nothing, I think the team is locked in and making solid progress
+
+## Reflections
+- I have been putting in a lot of work to understand the code and different modules of our project. This upcoming week I am going to focus on adding some physical content to the project rather than personal knowledge
+
+## Plans for next sprint
+- Complete metadata extraction
+- Work on connecting pipeline
+- Housekeeping and adding comments
+
+## Peer evaluation screenshot Week 10
+
+![alt text](<imgs/rylan_millar_w10.png>)
 
 ---
 ---
