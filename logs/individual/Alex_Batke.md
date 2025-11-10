@@ -1,4 +1,26 @@
 # Personal Log of Alex Batke
+# Week 10
+
+## Applicable Date Range
+- Monday, November 3rd to Sunday, November 9th
+
+## Peer Evaluation Screenshot
+![alt text](<imgs/alex_batke_w10.png>)
+
+
+### Recap On Your Weeks Goals
+- Which Features Were Yours in the Project Plan for this Milestone?
+  I was assigned to start work the exporting our reports made by our model to pdf, one of the last unstarted pieces of the 1st milestone
+- Which Tasks from the Project Board are Associated with these Features?
+  The relevant issue is #92, which have sub issues #93 and #101 with just myself assigned. These sub issues are to break up the implementation for easier integration later on.
+- Among these tasks, which have you completed/in progress in the last 2 weeks?
+  The first part of the exporter was completed successfully this week by getting the basic functionality implemented and tested.
+- Planning for next sprint: 
+  Next sprint will focus on getting the functional exporter I implemented this week integrated with the rest of the project via the ML model already integrated.
+- Optional text: additional context that we should be aware of:
+  No further context to comment on. On to next week.
+
+
 # Week 9
 
 ## Applicable Date Range
@@ -139,4 +161,4 @@
 - fine tune requirements as necessary as planning continues
 
 ### Peer Evaluation screenshot
-![alt text](imgs/alex_batke_w3.png) 
+![alt text](imgs/alex_batke_w3.png)
