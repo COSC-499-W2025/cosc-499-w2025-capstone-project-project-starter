@@ -24,6 +24,10 @@
 
      None for this week, group feels good, I think we'll have a bit of a busies few weeks after reading week just getting everything pulled together for milestone 1 but I think that this team will work well together towards getting everything put together on time. I'm looking forward to the challenge.
 
+- Working on in the next sprint
+
+    - I'll be working together with the whole team to piece together our pipeline and get it working to a point where we can run containers, upload a zip, pass to the parser and then the ML... etc. basically getting all of the individual components working together to a point where we can feel reasonably close to being complete milestone 1.
+
 # Personal log of Will Tilden (from Week 8) as per the personal log format outlined in lecture slides
 
 ## Applicable date range
