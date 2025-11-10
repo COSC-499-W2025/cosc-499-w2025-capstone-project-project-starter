@@ -1,3 +1,29 @@
+# Personal log of Will Tilden (from Week 10) as per the personal log format outlined in lecture slides
+
+## Applicable date range
+- Monday, November 3rd to Sunday, November 9th
+
+## Type of tasks I worked on
+![Alt text](imgs/will_tilden_w10.png)
+
+## Recap on your weeks goals
+
+- Which features were yours in the project plan for this milestone?
+
+    I had issue 76 which was the updates to the docker files which I mostly compelted last week but forgot to update the read me doc as well as move the environment variable into an env as opposed to uploading them into the repo, so that is the switch that I made for this week were those two things which now that they are finished makes the issue closed and completed.
+
+- Which tasks from the project board are associated with these features?
+
+    From the project board issue #76 titled docker setup improvements.
+
+- Among these tasks, which have you completed / in progress in the last 2 weeks?
+
+    This issue was created last week and mostly completed last week but as I mentioned I forgot these two things and so now it is all done and can be marked closed and I'll be looking for my next task this following week. 
+
+- Optional text: additional context that we should be aware of
+
+     None for this week, group feels good, I think we'll have a bit of a busies few weeks after reading week just getting everything pulled together for milestone 1 but I think that this team will work well together towards getting everything put together on time. I'm looking forward to the challenge.
+
 # Personal log of Will Tilden (from Week 8) as per the personal log format outlined in lecture slides
 
 ## Applicable date range
