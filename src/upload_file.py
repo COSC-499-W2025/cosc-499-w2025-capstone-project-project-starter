@@ -48,6 +48,27 @@ def init_uploaded_files_table():
             );
         """)
         print(" Uploaded files table initialized")
+
+        # Add last_modified_at column if it doesn't exist
+        try:
+            with with_db_cursor() as cursor:
+                # Add the column if it doesn't exist
+                cursor.execute("""
+                    ALTER TABLE uploaded_files
+                    ADD COLUMN IF NOT EXISTS last_modified_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP;
+                """)
+
+                # Initialize existing records' last_modified_at to created_at if NULL
+                cursor.execute("""
+                    UPDATE uploaded_files
+                    SET last_modified_at = COALESCE(last_modified_at, created_at)
+                    WHERE last_modified_at IS NULL;
+                """)
+            # commented out to reduce noise
+            # print(" uploaded_files table migrated (last_modified_at ensured & initialized)")
+        except Exception as e:
+            # If migration fails, log but continue
+            print(f" [WARN] Skipping last_modified_at migration: {e}")
         
         # Also initialize the file contents table
         init_file_contents_table()
@@ -115,10 +136,23 @@ def add_file_to_db(filepath) -> UploadResult:
             zip_bytes = f.read()
         with with_db_cursor() as cursor:
             cursor.execute("""
-                INSERT INTO uploaded_files (filename, filepath, status, metadata, file_data)
-                VALUES (%s, %s, %s, %s, %s)
+                INSERT INTO uploaded_files (
+                    filename,
+                    filepath,
+                    status,
+                    metadata,
+                    file_data,
+                    last_modified_at
+                )
+                VALUES (%s, %s, %s, %s, %s, CURRENT_TIMESTAMP)
                 RETURNING id
-            """, (filename, dest_path, "uploaded", json.dumps({"files": file_contents}), zip_bytes))
+            """, (
+                filename,
+                dest_path,
+                "uploaded",
+                json.dumps({"files": file_contents}),
+                zip_bytes,
+            ))
             uploaded_file_id = cursor.fetchone()[0]
 
         print("Extracting file contents...")
@@ -166,7 +200,14 @@ def list_uploaded_files():
     try:
         with with_db_cursor() as cursor:
             cursor.execute("""
-                SELECT id, filename, filepath, status, metadata, created_at
+                SELECT
+                    id,
+                    filename,
+                    filepath,
+                    status,
+                    metadata,
+                    created_at,
+                    last_modified_at
                 FROM uploaded_files
                 ORDER BY created_at DESC
             """)
@@ -181,7 +222,8 @@ def list_uploaded_files():
                 "filepath": row[2],
                 "status": row[3],
                 "metadata": row[4],
-                "created_at": row[6]
+                "created_at": row[5],
+                "last_modified_at": row[6],
             })
         
         return files
