@@ -9,6 +9,7 @@ from .menus import (
     summarize_project_menu,
     analyze_project_menu,
     handle_rank_projects,
+    handle_rank_and_summarize_projects,
     manage_external_services_menu,
     handle_cleanup_insights,
     ask_user_preferences
@@ -27,19 +28,20 @@ def run_main_menu(consent_manager, collab_manager):
         print("4. Summarize a project (basic summary)")
         print("5. Analyze a project (detailed analysis with local fallback)")
         print("6. Rank all projects")
-        print("7. Manage external service settings")
-        print("8. Cleanup insights for a project")
-        print("9. Change User Preferences")
-        print("10. Exit")
+        print("7. Rank and summarize top 3 projects")
+        print("8. Manage external service settings")
+        print("9. Cleanup insights for a project")
+        print("10. Change User Preferences")
+        print("11. Exit")
         print("="*70) 
         
         if os.getenv("GITHUB_ACTIONS") == "true" or not sys.stdin.isatty():
-            choice = "10"
+            choice = "11"
         else:
             try:
-                choice = input("Choose an option (1-10): ").strip()
+                choice = input("Choose an option (1-11): ").strip()
             except EOFError:
-                choice = "10"
+                choice = "11"
         
         if choice == '1':
             handle_upload_file()
@@ -60,18 +62,21 @@ def run_main_menu(consent_manager, collab_manager):
             handle_rank_projects()
             
         elif choice == '7':
-            manage_external_services_menu()
+            handle_rank_and_summarize_projects()
             
         elif choice == '8':
+            manage_external_services_menu()
+            
+        elif choice == '9':
             handle_cleanup_insights()
                 
-        elif choice == '9':
+        elif choice == '10':
             ask_user_preferences(consent_manager, collab_manager, False)
 
-        elif choice == '10':
+        elif choice == '11':
             print("Goodbye!")
             break
             
         else:
-            print("Invalid choice. Please enter 1-10.")
+            print("Invalid choice. Please enter 1-11.")
 
