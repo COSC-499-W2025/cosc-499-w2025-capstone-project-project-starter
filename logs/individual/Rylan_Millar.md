@@ -11,6 +11,11 @@
 ## Completed and In Progress
 - Update zipvalidation.py to account for edge cases (**Completed**)
 
+## Plans for next sprint
+- Complete metadata extraction
+- Work on connecting pipeline
+- Housekeeping and adding comments
+
 ## Peer evaluation screenshot Week 10
 
 ![alt text](<imgs/rylan_millar_w10.png>)
