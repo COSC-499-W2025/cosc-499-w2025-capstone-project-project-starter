@@ -11,6 +11,15 @@
 ## Completed and In Progress
 - Update zipvalidation.py to account for edge cases (**Completed**)
 
+## What went well
+- The team left some PR's for me to review and merge as I work all weekend when a lot of the merging happens
+
+## What did not go well
+- Nothing, I think the team is locked in and making solid progress
+
+## Reflections
+- I have been putting in a lot of work to understand the code and different modules of our project. This upcoming week I am going to focus on adding some physical content to the project rather than personal knowledge
+
 ## Plans for next sprint
 - Complete metadata extraction
 - Work on connecting pipeline
