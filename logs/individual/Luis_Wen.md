@@ -1,3 +1,34 @@
+# Personal log of Luis Wen (from Week 10)
+
+## Features in this milestone
+
+- Started working on getting regression testing set up
+- Testing and reviewing code
+
+## Project board tasks
+
+- Issue #98 (in-progress)
+
+## Work done in last week
+
+- Added a test case to check output matches input for regression testing
+- Started setting up regression testing for the develop branch
+- Team log
+
+## Peer evaluation screenshot week 10
+
+![alt text](</logs/individual/imgs/LuisWen_Week10.png>)
+
+## Additional context
+
+- Without planning ahead, I could not get regression testing done in a week
+- I believe Actions are enabled but cannot check the repository options
+
+## Next Cycle
+
+- Establish the regression testing pipeline through actions
+- Work on implementing an external service
+
 # Personal log of Luis Wen (from Week 9)
 
 ## Features in this milestone
@@ -18,7 +49,7 @@
 - Included implications on data privacy
 - Manually tested code to ensure functionality (steps in the PR)
 
-## Peer evaluation screenshot week 8
+## Peer evaluation screenshot week 9
 
 ![alt text](</logs/individual/imgs/LuisWen_Week9.png>)
 
