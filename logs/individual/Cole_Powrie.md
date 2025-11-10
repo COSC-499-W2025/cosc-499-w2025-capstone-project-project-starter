@@ -1,3 +1,34 @@
+# Personal log of Cole Powrie (from Week 10)
+## Applicable Date Range
+- Monday, November 3rd to Sunday, November 9th
+
+## Peer evaluation screenshot
+![alt text](<imgs/ColePowrieW10.png>)
+
+## This Milestone
+- Improved database schema with better **cascading rules** and **unique constraints**
+- Updated table structures to ensure referential integrity and automatic handling of record updates/deletions  
+- Started work on verifying the successful setup and execution of the schema using **Docker Compose** with PostgreSQL and Python containers  
+
+## Tasks
+- Modified and tested schema setup scripts to include:  
+  - `ON DELETE CASCADE` and `ON UPDATE CASCADE` relationships  
+  - `UNIQUE` constraints to prevent duplicate entries  
+- Verified successful database initialization and connection within the Docker environment  
+
+## Progress from the Last Two Weeks
+- Fixed/still working on setup issues with Docker and PostgreSQL integration  
+- Enhanced data reliability through refined constraint and timestamp implementation  
+
+## In Progress Tasks
+- Testing backend CRUD operations under new cascading and constraint logic  
+- Validating data persistence and behaviour on updates and deletions  
+
+## Next Cycle Activities
+- Connect backend endpoints to the updated schema  
+- Integrate backend database operations with the ML pipeline and frontend  
+- Continue expanding relationships and improving schema performance and maintainability  
+
 # Personal log of Cole Powrie (from Week 9)
 ## Applicable Date Range
 - Monday, October 27th to Sunday, November 2nd
