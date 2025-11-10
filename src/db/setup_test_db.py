@@ -1,10 +1,8 @@
 import psycopg2
-from connect import connect_to_postgres
-
 
 def create_tables():
     try:
-        # Connect to the PostgreSQL database
+        # Connect to PostgreSQL
         connection = psycopg2.connect(
             host="localhost",
             port="5432",
@@ -14,37 +12,54 @@ def create_tables():
         )
         cursor = connection.cursor()
 
-        # Drop existing tables (optional but helps reset structure)
+        # Drop tables in dependency order
         cursor.execute("DROP TABLE IF EXISTS artifacts CASCADE;")
-        cursor.execute("DROP TABLE IF EXISTS users CASCADE;")
         cursor.execute("DROP TABLE IF EXISTS category CASCADE;")
+        cursor.execute("DROP TABLE IF EXISTS users CASCADE;")
 
-        # Create users table
+        # Users table
         create_users_table = '''
-        CREATE TABLE IF NOT EXISTS users (
+        CREATE TABLE users (
             id SERIAL PRIMARY KEY,
             username VARCHAR(50) UNIQUE NOT NULL,
-            password_hash TEXT NOT NULL
+            password_hash TEXT NOT NULL,
+            email VARCHAR(100) UNIQUE, -- optional but common
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         );
         '''
 
-        # Create category table
+        # Category table
         create_category_table = '''
-        CREATE TABLE IF NOT EXISTS category (
+        CREATE TABLE category (
             id SERIAL PRIMARY KEY,
-            main_category VARCHAR(100) UNIQUE NOT NULL
+            main_category VARCHAR(100) UNIQUE NOT NULL,
+            description TEXT DEFAULT 'No description provided.'
         );
         '''
 
-        # Create artifacts table (linked to users + category)
+        # Artifacts table
         create_artifacts_table = '''
-        CREATE TABLE IF NOT EXISTS artifacts (
+        CREATE TABLE artifacts (
             id SERIAL PRIMARY KEY,
-            user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
-            category_id INTEGER REFERENCES category(id) ON DELETE SET NULL,
+            user_id INTEGER NOT NULL,
+            category_id INTEGER,
             file_name VARCHAR(255) NOT NULL,
             file_path TEXT NOT NULL,
-            file_type VARCHAR(50)
+            file_type VARCHAR(50),
+            uploaded_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+
+            CONSTRAINT fk_user
+                FOREIGN KEY (user_id)
+                REFERENCES users (id)
+                ON DELETE CASCADE,
+
+            CONSTRAINT fk_category
+                FOREIGN KEY (category_id)
+                REFERENCES category (id)
+                ON DELETE SET NULL,
+
+            CONSTRAINT uq_user_file
+                UNIQUE (user_id, file_name) -- prevents duplicate filenames per user
         );
         '''
 
@@ -53,7 +68,7 @@ def create_tables():
         cursor.execute(create_category_table)
         cursor.execute(create_artifacts_table)
 
-        # Insert 10 default categories (only if empty)
+        # Insert default categories if none exist
         cursor.execute("SELECT COUNT(*) FROM category;")
         count = cursor.fetchone()[0]
 
@@ -61,23 +76,16 @@ def create_tables():
             cursor.executemany(
                 "INSERT INTO category (main_category) VALUES (%s);",
                 [
-                   ("General Cat 1",), 
-                   ("General Cat 2",), 
-                   ("General Cat 3",), 
-                   ("General Cat 4",), 
-                   ("General Cat 5",), 
-                   ("General Cat 6",), 
-                   ("General Cat 7",), 
-                   ("General Cat 8",), 
-                   ("General Cat 9",), 
-                   ("General Cat 10",)
+                    ("General Cat 1",), ("General Cat 2",), ("General Cat 3",),
+                    ("General Cat 4",), ("General Cat 5",), ("General Cat 6",),
+                    ("General Cat 7",), ("General Cat 8",), ("General Cat 9",),
+                    ("General Cat 10",)
                 ]
             )
-            print("Inserted 10 default categories into 'category' table.")
+            print("Inserted 10 default categories.")
         else:
-            print("Category table already has data. Skipping insertion.")
+            print("Categories already exist, skipping insert.")
 
-        # Commit all changes
         connection.commit()
         print("Tables and relationships created successfully!")
 
