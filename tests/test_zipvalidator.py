@@ -39,6 +39,61 @@ def test_non_zip_file():
     finally:
         os.remove(non_zip_file)
 
+def test_unzip_creates_new_folder():
+    # create a temporary directory and zip file
+    with tempfile.TemporaryDirectory() as tmpdir:
+        zip_file = os.path.join(tmpdir, "dummy.zip")
+        extract_dir = os.path.join(tmpdir, "extracted")
+
+        # create a dummy zip
+        with zipfile.ZipFile(zip_file, "w") as zf:
+            zf.writestr("file.txt", "content")
+
+        # unzip should create the folder and extract successfully
+        result = zipvalidation.unzip_file(zip_file, extract_dir=extract_dir)
+
+        assert "extraction successful" in result
+        assert os.path.exists(os.path.join(extract_dir, "file.txt"))
+
+
+def test_unzip_existing_empty_folder():
+    with tempfile.TemporaryDirectory() as tmpdir:
+        zip_file = os.path.join(tmpdir, "dummy.zip")
+        extract_dir = os.path.join(tmpdir, "extracted")
+
+        # create dummy zip
+        with zipfile.ZipFile(zip_file, "w") as zf:
+            zf.writestr("file.txt", "content")
+
+        # create the folder ahead of time (empty)
+        os.makedirs(extract_dir)
+
+        # unzip should succeed since folder is empty
+        result = zipvalidation.unzip_file(zip_file, extract_dir=extract_dir)
+
+        assert "extraction successful" in result
+        assert os.path.exists(os.path.join(extract_dir, "file.txt"))
+
+
+def test_unzip_existing_nonempty_folder():
+    with tempfile.TemporaryDirectory() as tmpdir:
+        zip_file = os.path.join(tmpdir, "dummy.zip")
+        extract_dir = os.path.join(tmpdir, "extracted")
+
+        # create dummy zip
+        with zipfile.ZipFile(zip_file, "w") as zf:
+            zf.writestr("file.txt", "content")
+
+        # create folder with an unrelated file inside
+        os.makedirs(extract_dir)
+        with open(os.path.join(extract_dir, "old.txt"), "w") as f:
+            f.write("old data")
+
+        # expect error or safe handling
+        import pytest
+        with pytest.raises(FileExistsError):
+            zipvalidation.unzip_file(zip_file, extract_dir=extract_dir)
+
 # --- New tests for consent in main() ---
 
 def test_main_user_consents(tmp_path):
