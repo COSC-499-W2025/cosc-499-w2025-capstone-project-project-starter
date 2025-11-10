@@ -1,3 +1,19 @@
+# Personal Log for Rylan Millar (33334400) Week 10 (November 3 - November 9)
+
+## Features from the project plan this week
+- Update zip validator to account for some edge cases and hosue cleaning
+- Extract Metadata from the files within the zip
+
+## Tasks from the project board associated with these features
+- Update zipvalidation.py to account for edge cases
+- Begin metadata extraction module/functions 
+
+## Completed and In Progress
+- Update zipvalidation.py to account for edge cases (**Completed**)
+
+## Peer evaluation screenshot Week 10
+
+![alt text](<imgs/rylan_millar_w10.png>)
 
 ---
 ---
