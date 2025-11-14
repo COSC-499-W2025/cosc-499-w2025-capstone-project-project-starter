@@ -150,14 +150,15 @@ class TestLocalAnalyzer:
         assert 'metrics' in result
         assert 'skills' in result
         assert 'file_breakdown' in result
+        assert 'deep_analysis' in result
     
-    # Verify nested data
         assert result['structure']['has_tests'] == True
         assert 'Python' in result['languages']['languages_detected']
         assert 'Flask' in result['frameworks']
         assert result['metrics']['code_files'] > 0
         assert result['metrics']['document_files'] > 0
         assert len(result['skills']) > 0
+        assert isinstance(result['deep_analysis'], dict)
     
     def test_analyze_nonexistent_path(self, analyzer):
         """Test analysis of nonexistent path raises error."""

@@ -130,7 +130,13 @@ class ProjectAnalyzer:
             'file_statistics': self._calculate_file_statistics(file_contents),
             'contribution_metrics': self._calculate_contribution_metrics(file_contents)
         }
-        
+        try:
+            deep_analysis = self.local_analyzer.analyze_files_from_db(file_contents)
+            if deep_analysis:
+                analysis['deep_analysis'] = deep_analysis
+        except Exception as e:
+            print(f"Warning: Deep analysis failed: {e}")
+            analysis['deep_analysis'] = {}
         return analysis
     
     def _get_project_info(self, uploaded_file_id):
@@ -381,86 +387,41 @@ class ProjectAnalyzer:
             conn.close()
     
     def display_analysis_results(self, analysis_results):
-        """
-        Display analysis results in a formatted way.
-        Issue #10: Provides feedback to user.
-        
-        Args:
-            analysis_results (dict): Analysis results to display
-        """
         if not analysis_results.get('success', False):
             print(f"\nAnalysis failed: {analysis_results.get('error', 'Unknown error')}\n")
             return
-        
-        print("\n" + "="*70)
-        print("ANALYSIS RESULTS")
-        print("="*70)
-        
-        # Project Info
         proj = analysis_results.get('project_info', {})
-        print(f"\nProject: {proj.get('filename', 'Unknown')}")
-        print(f"  ID: {proj.get('id', 'N/A')}")
-        print(f"  Created: {proj.get('created_at', 'Unknown')}")
-        
-        # File Statistics
-        stats = analysis_results.get('file_statistics', {})
-        print(f"\nFile Statistics:")
-        print(f"  Total Files: {stats.get('total_files', 0)}")
-        print(f"  Total Size: {stats.get('total_size_mb', 0)} MB")
-        print(f"  Text Files: {stats.get('text_files', 0)}")
-        print(f"  Binary Files: {stats.get('binary_files', 0)}")
-        print(f"  Lines of Code: {stats.get('total_lines_of_code', 0)}")
-        
-        # Languages
+        print("\n" + "="*70)
+        print(f"ANALYSIS: {proj.get('filename', 'Unknown')}")
+        print("="*70)
         langs = analysis_results.get('languages', {})
-        print(f"\nProgramming Languages:")
-        print(f"  Primary: {langs.get('primary_language', 'Unknown')}")
-        if langs.get('language_percentages'):
-            print(f"  Distribution:")
-            for lang, pct in langs['language_percentages'].items():
-                print(f"    - {lang}: {pct}%")
-        
-        # Frameworks
+        stats = analysis_results.get('file_statistics', {})
+        print(f"\nOverview:")
+        print(f"  Language: {langs.get('primary_language', 'Unknown')}")
+        print(f"  Files: {stats.get('total_files', 0)} ({stats.get('total_size_mb', 0)} MB)")
         frameworks = analysis_results.get('frameworks', [])
         if frameworks:
-            print(f"\nFrameworks & Technologies:")
-            for fw in frameworks:
-                print(f"  - {fw}")
-        
-        # Skills
+            print(f"  Frameworks: {', '.join(frameworks[:5])}")
         skills = analysis_results.get('skills', [])
         if skills:
-            print(f"\nSkills Identified:")
-            for skill in skills:
-                print(f"  - {skill}")
-        
-        # Structure
+            print(f"  Skills: {', '.join(skills[:8])}")
         structure = analysis_results.get('project_structure', {})
-        print(f"\nProject Structure:")
-        print(f"  Folders: {structure.get('total_folders', 0)}")
-        print(f"  Max Depth: {structure.get('max_depth', 0)}")
-        print(f"  Has Tests: {structure.get('has_tests', False)}")
-        print(f"  Has Documentation: {structure.get('has_docs', False)}")
-        print(f"  Has Config: {structure.get('has_config', False)}")
-        
-        # Contribution Metrics
-        metrics = analysis_results.get('contribution_metrics', {})
-        print(f"\nContribution Metrics:")
-        print(f"  Code Files: {metrics.get('code_files', 0)}")
-        print(f"  Test Files: {metrics.get('test_files', 0)}")
-        print(f"  Documentation Files: {metrics.get('documentation_files', 0)}")
-        print(f"  Configuration Files: {metrics.get('configuration_files', 0)}")
-        
-        dist = metrics.get('activity_distribution', {})
-        if dist:
-            print(f"  Activity Distribution:")
-            print(f"    - Code: {dist.get('code', 0)}%")
-            print(f"    - Testing: {dist.get('testing', 0)}%")
-            print(f"    - Documentation: {dist.get('documentation', 0)}%")
-            print(f"    - Configuration: {dist.get('configuration', 0)}%")
-        
-        print("\n" + "="*70)
-        print(f"Analysis Strategy Used: {analysis_results.get('analysis_strategy', 'local').upper()}")
+        if structure.get('has_tests') or structure.get('has_docs'):
+            features = []
+            if structure.get('has_tests'):
+                features.append("Tests")
+            if structure.get('has_docs'):
+                features.append("Docs")
+            print(f"  Features: {', '.join(features)}")
+        if 'deep_analysis' in analysis_results and analysis_results['deep_analysis']:
+            deep = analysis_results['deep_analysis']
+            quality = deep.get('code_quality_summary', {})
+            if quality.get('average_quality_score', 0) > 0:
+                print(f"  Code Quality: {quality.get('average_quality_score', 0):.1f}/100")
+            oop = deep.get('oop_principles_summary', {})
+            oop_count = sum(oop.get(k, {}).get('count', 0) for k in ['abstraction', 'encapsulation', 'polymorphism', 'inheritance'])
+            if oop_count > 0:
+                print(f"  OOP Principles: {oop_count} instance(s) detected")
         print("="*70 + "\n")
 
 

@@ -224,7 +224,6 @@ class TestProjectAnalyzerIntegration:
             analyzer = ProjectAnalyzer(user_id='test_user_integration')
             results = analyzer.analyze_uploaded_project(1)
         
-        # Verify results
         assert results['success'] == True
         assert results['uploaded_file_id'] == 1
         assert 'project_info' in results
@@ -234,6 +233,8 @@ class TestProjectAnalyzerIntegration:
         assert 'skills' in results
         assert 'project_structure' in results
         assert 'contribution_metrics' in results
+        assert 'deep_analysis' in results
+        assert isinstance(results['deep_analysis'], dict)
     
     @patch('project_analyzer.ProjectAnalyzer._get_project_info')
     def test_analyze_uploaded_project_not_found(self, mock_info):
@@ -351,9 +352,9 @@ class TestDisplayAnalysisResults:
         try:
             analyzer.display_analysis_results(mock_results)
             captured = capsys.readouterr()
-            # Check that output contains expected information
-            assert 'ANALYSIS RESULTS' in captured.out
-            assert 'test.zip' in captured.out
+            assert 'ANALYSIS: test.zip' in captured.out
+            assert 'Overview:' in captured.out
+            assert 'Language:' in captured.out
         except Exception as e:
             pytest.fail(f"display_analysis_results raised exception: {e}")
     

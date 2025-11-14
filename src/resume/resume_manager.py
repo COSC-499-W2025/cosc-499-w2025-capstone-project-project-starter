@@ -200,13 +200,13 @@ class ResumeManager:
                     summary = summarizer.generate_project_summary(project['project_id'])
                     
                     if summary and 'error' not in summary:
-                        project_skills = summary.get('languages', {}).get('detected_languages', [])
+                        project_skills = summary.get('languages', {}).get('languages', [])
                         all_skills.update(project_skills)
                         
                         project_summaries.append({
                             'project_name': project['filename'],
                             'score': project['score'],
-                            'project_type': summary.get('project_description', {}).get('project_type', 'general'),
+                            'primary_language': summary.get('languages', {}).get('primary_language', 'Unknown'),
                             'skills': project_skills[:3]
                         })
                 
