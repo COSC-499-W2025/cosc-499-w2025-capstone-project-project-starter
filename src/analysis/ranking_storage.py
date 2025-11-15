@@ -46,11 +46,19 @@ def init_ranking_storage_table():
 def save_rankings_to_db(ranked_projects: List[Dict[str, Any]], summaries: Optional[Dict[int, str]] = None) -> bool:
     """
     Save ranked projects and their summaries to the database.
+    Preserves existing summaries if new summary is not provided or is empty.
     """
     try:
         init_ranking_storage_table()
         
         with with_db_cursor() as cursor:
+            # Get existing summaries before clearing (to preserve them if needed)
+            existing_summaries = {}
+            cursor.execute("SELECT project_id, summary FROM project_rankings")
+            for row in cursor.fetchall():
+                if row[1]:  # If summary exists and is not None/empty
+                    existing_summaries[row[0]] = row[1]
+            
             # Clear existing rankings for a fresh save
             cursor.execute("DELETE FROM project_rankings")
             
@@ -58,7 +66,17 @@ def save_rankings_to_db(ranked_projects: List[Dict[str, Any]], summaries: Option
             for rank_pos, project in enumerate(ranked_projects, start=1):
                 project_id = project.get("project_id")
                 score = project.get("score", 0.0)
-                summary = summaries.get(project_id, "") if summaries else project.get("summary", "")
+                
+                # Use new summary if provided and not empty, otherwise preserve existing
+                if summaries and project_id in summaries and summaries[project_id]:
+                    summary = summaries[project_id]
+                elif project.get("summary"):
+                    summary = project.get("summary")
+                elif project_id in existing_summaries:
+                    summary = existing_summaries[project_id]
+                else:
+                    summary = ""
+                
                 ranking_data = json.dumps({
                     "analysis": project.get("analysis", {}),
                     "filename": project.get("filename", ""),
