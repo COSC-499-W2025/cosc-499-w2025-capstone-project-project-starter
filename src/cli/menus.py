@@ -294,9 +294,9 @@ def handle_view_edit_rankings():
                 try:
                     score_float = float(new_score)
                     if update_ranking_score(int(project_id), score_float):
-                        print(f"\n✓ Successfully updated score for project {project_id} to {score_float}")
+                        print(f"\n Successfully updated score for project {project_id} to {score_float}")
                     else:
-                        print(f"\n✗ Failed to update score. Project {project_id} may not exist in stored rankings.")
+                        print(f"\n Failed to update score. Project {project_id} may not exist in stored rankings.")
                 except ValueError:
                     print("Invalid score. Please enter a number.")
             else:
@@ -327,9 +327,9 @@ def handle_view_edit_rankings():
                     if new_summary_lines and new_summary_lines[0].strip().lower() != 'cancel':
                         new_summary = "\n".join(new_summary_lines)
                         if update_ranking_summary(int(project_id), new_summary):
-                            print(f"\n✓ Successfully updated summary for project {project_id}")
+                            print(f"\n Successfully updated summary for project {project_id}")
                         else:
-                            print(f"\n✗ Failed to update summary.")
+                            print(f"\n Failed to update summary.")
                 else:
                     print(f"\nNo stored ranking found for project ID {project_id}")
             else:
@@ -346,9 +346,9 @@ def handle_view_edit_rankings():
                         print("Rank position must be at least 1.")
                     else:
                         if update_ranking_position(int(project_id), pos_int):
-                            print(f"\n✓ Successfully updated rank position for project {project_id} to {pos_int}")
+                            print(f"\n Successfully updated rank position for project {project_id} to {pos_int}")
                         else:
-                            print(f"\n✗ Failed to update rank position. Project {project_id} may not exist in stored rankings.")
+                            print(f"\n Failed to update rank position. Project {project_id} may not exist in stored rankings.")
                 except ValueError:
                     print("Invalid position. Please enter a number.")
             else:

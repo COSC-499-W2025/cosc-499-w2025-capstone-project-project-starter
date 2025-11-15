@@ -199,13 +199,7 @@ def rank_and_summarize_top_projects() -> None:
 def save_rankings_with_summaries(ranked_projects: List[Dict[str, Any]], generate_summaries: bool = True) -> bool:
     """
     Save ranked projects and their summaries to the database.
-    
-    Args:
-        ranked_projects: List of ranked project dictionaries
-        generate_summaries: If True, generate summaries for all projects. If False, only save rankings.
-    
-    Returns:
-        bool: True if successful, False otherwise
+
     """
     if not ranked_projects:
         print("\nNo projects to save.")
@@ -237,11 +231,11 @@ def save_rankings_with_summaries(ranked_projects: List[Dict[str, Any]], generate
     success = save_rankings_to_db(ranked_projects, summaries if summaries else None)
     
     if success:
-        print(f"\n✓ Successfully saved {len(ranked_projects)} project rankings to database.")
+        print(f"\nSuccessfully saved {len(ranked_projects)} project rankings to database.")
         if summaries:
-            print(f"✓ Successfully saved {len(summaries)} project summaries to database.")
+            print(f"Successfully saved {len(summaries)} project summaries to database.")
     else:
-        print("\n✗ Failed to save rankings to database.")
+        print("\nFailed to save rankings to database.")
     
     return success
 
