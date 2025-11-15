@@ -2,10 +2,11 @@
 Project Ranking Module
 Ranks projects using database Key Metrics that are pulled rom uploaded files and file contents from other features
 """
-from typing import Dict, List, Any
+from typing import Dict, List, Any, Optional
 from config.db_config import get_connection
 from analysis.key_metrics import analyze_project_from_db
 from project_summarizer import summarize_project
+from analysis.ranking_storage import save_rankings_to_db, get_stored_ranking_by_project_id
 import os
 
 
@@ -184,4 +185,47 @@ def rank_and_summarize_top_projects() -> None:
             
             if i < top_count - 1:
                 print("\n" + "-"*80)
+
+
+def save_rankings_with_summaries(ranked_projects: List[Dict[str, Any]], generate_summaries: bool = True) -> bool:
+    """
+    Save ranked projects and their summaries to the database.
+    
+    Args:
+        ranked_projects: List of ranked project dictionaries
+        generate_summaries: If True, generate summaries for all projects. If False, only save rankings.
+    
+    Returns:
+        bool: True if successful, False otherwise
+    """
+    if not ranked_projects:
+        print("\nNo projects to save.")
+        return False
+    
+    summaries = {}
+    
+    if generate_summaries:
+        print("\nGenerating summaries for all projects...")
+        for i, project in enumerate(ranked_projects, 1):
+            project_id = project['project_id']
+            filename = project['filename']
+            print(f"  [{i}/{len(ranked_projects)}] Generating summary for: {filename}")
+            try:
+                summary = summarize_project(project_id)
+                summaries[project_id] = summary
+            except Exception as e:
+                print(f"    Error generating summary: {e}")
+                summaries[project_id] = f"Error generating summary: {e}"
+    
+    print("\nSaving rankings and summaries to database...")
+    success = save_rankings_to_db(ranked_projects, summaries if summaries else None)
+    
+    if success:
+        print(f"\n✓ Successfully saved {len(ranked_projects)} project rankings to database.")
+        if summaries:
+            print(f"✓ Successfully saved {len(summaries)} project summaries to database.")
+    else:
+        print("\n✗ Failed to save rankings to database.")
+    
+    return success
 
