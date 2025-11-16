@@ -120,8 +120,8 @@ class TestResumeOperations:
         ]
         
         mock_summarizer.generate_project_summary.return_value = {
-            'languages': {'detected_languages': ['Python', 'JavaScript']},
-            'project_description': {'project_type': 'web'}
+            'languages': {'primary_language': 'Python', 'languages': ['Python', 'JavaScript']},
+            'code_analysis': {}
         }
         
         result = ResumeManager.generate_user_resume("test_user", top_projects_count=2)

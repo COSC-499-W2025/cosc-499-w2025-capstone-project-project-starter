@@ -48,11 +48,16 @@ class DeepCodeAnalyzer:
             for node in ast.walk(tree):
                 if isinstance(node, ast.ClassDef):
                     has_abstract = any(
-                        isinstance(base, ast.Name) and 'Abstract' in base.id
+                        isinstance(base, ast.Name) and ('Abstract' in base.id or base.id == 'ABC')
                         for base in node.bases
                     ) or any(
                         isinstance(dec, ast.Name) and dec.id == 'abstractmethod'
                         for dec in node.decorator_list
+                    ) or any(
+                        isinstance(method, ast.FunctionDef) and any(
+                            isinstance(d, ast.Name) and d.id == 'abstractmethod'
+                            for d in method.decorator_list
+                        ) for method in node.body if isinstance(method, ast.FunctionDef)
                     )
                     if has_abstract:
                         results['oop_principles']['abstraction'].append({
