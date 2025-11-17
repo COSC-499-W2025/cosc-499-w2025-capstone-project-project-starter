@@ -26,22 +26,27 @@ jobs:
       - name: Install system dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y libpq-dev reportlab
+          sudo apt-get install -y libpq-dev
+          # Remove the reportlab installation here, as it's a Python package installed via pip
+          sudo apt-get install -y build-essential libjpeg8-dev zlib1g-dev
 
       - name: Set up virtual environment
         run: |
           python -m venv venv
           . venv/bin/activate  # Activating the virtual environment
 
-      - name: Install dependencies
+      - name: Install Python dependencies
         run: |
-          . venv/bin/activate  # Ensure virtualenv is activated
+          . venv/bin/activate  # Activate virtualenv
           python -m pip install --upgrade pip
           pip install pytest
           if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
+          # Install reportlab with pip, not apt
+          pip install reportlab
 
       - name: Set PYTHONPATH to include src directory
-        run: echo "PYTHONPATH=$(pwd)/src" >> $GITHUB_ENV
+        run: |
+          echo "PYTHONPATH=$(pwd)/src" >> $GITHUB_ENV
 
       - name: Run regression tests
         run: |
