@@ -1,6 +1,6 @@
 # tests/test_analyzer.py
 import pytest
-from codeparser.analyzer import analyze_project
+from analyzer import analyze_project
 from pathlib import Path
 
 def test_analyze_project_empty(tmp_path):
