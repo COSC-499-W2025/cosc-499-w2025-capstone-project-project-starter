@@ -1,7 +1,98 @@
 """User account menu handlers for CLI interactions."""
 import os
-import getpass
+import sys
 from account.user_manager import AuthManager
+
+# Password display configuration
+# Set to True for asterisks (*), False for visible password
+SHOW_PASSWORD_AS_ASTERISK = True
+
+
+def get_password_input(prompt="Password: ", show_asterisk=None):
+    """
+    Get password input with visual feedback.
+    
+    Args:
+        prompt (str): The prompt to display
+        show_asterisk (bool): If True, show asterisks; if False, show actual characters;
+                             if None, use global setting
+    
+    Returns:
+        str: The entered password
+    """
+    if show_asterisk is None:
+        show_asterisk = SHOW_PASSWORD_AS_ASTERISK
+        
+    print(prompt, end="", flush=True)
+    password = ""
+    
+    try:
+        import msvcrt  # Windows
+        
+        while True:
+            char = msvcrt.getch()
+            
+            # Handle Enter key
+            if char == b'\r':
+                print()  # New line
+                break
+            # Handle Backspace
+            elif char == b'\x08':
+                if password:
+                    password = password[:-1]
+                    print('\b \b', end="", flush=True)
+            # Handle Ctrl+C
+            elif char == b'\x03':
+                print()
+                raise KeyboardInterrupt
+            # Handle normal characters
+            else:
+                try:
+                    char_str = char.decode('utf-8')
+                    if char_str.isprintable():
+                        password += char_str
+                        if show_asterisk:
+                            print('*', end="", flush=True)
+                        else:
+                            print(char_str, end="", flush=True)
+                except UnicodeDecodeError:
+                    pass
+                    
+    except ImportError:
+        # Unix/Linux/Mac fallback - show visible input with warning
+        print("\n[Note: Password will be visible on this system]")
+        password = input(prompt)
+    
+    return password
+
+
+def set_password_display_mode():
+    """Allow user to choose password display mode."""
+    global SHOW_PASSWORD_AS_ASTERISK
+    
+    print("\n" + "-"*40)
+    print("PASSWORD DISPLAY SETTINGS")
+    print("-"*40)
+    print("Current mode:", "Asterisks (*)" if SHOW_PASSWORD_AS_ASTERISK else "Visible characters")
+    print("\nChoose password display mode:")
+    print("1. Show asterisks (*) when typing")
+    print("2. Show actual characters when typing")
+    print("3. Keep current setting")
+    
+    choice = input("\nChoose an option (1-3): ").strip()
+    
+    if choice == '1':
+        SHOW_PASSWORD_AS_ASTERISK = True
+        print("✓ Password display set to asterisks (*)")
+    elif choice == '2':
+        SHOW_PASSWORD_AS_ASTERISK = False
+        print("✓ Password display set to visible characters")
+    elif choice == '3':
+        print("✓ Keeping current setting")
+    else:
+        print("Invalid choice. Keeping current setting.")
+    
+    input("\nPress Enter to continue...")
 
 
 def user_account_menu():
@@ -26,36 +117,42 @@ def user_account_menu():
             
             print("\nOptions:")
             print("1. Logout")
-            print("2. Back to main menu")
-            print("="*50)
-            
-            choice = input("Choose an option (1-2): ").strip()
-            
-            if choice == '1':
-                handle_user_logout()
-            elif choice == '2':
-                break
-            else:
-                print("Invalid choice. Please enter 1 or 2.")
-        else:
-            # User is not logged in - show login and register options
-            print("You are not currently logged in.")
-            print("\nOptions:")
-            print("1. Login to existing account")
-            print("2. Create new account")
+            print("2. Password display settings")
             print("3. Back to main menu")
             print("="*50)
             
             choice = input("Choose an option (1-3): ").strip()
             
             if choice == '1':
-                handle_user_login()
+                handle_user_logout()
             elif choice == '2':
-                handle_user_registration()
+                set_password_display_mode()
             elif choice == '3':
                 break
             else:
                 print("Invalid choice. Please enter 1, 2, or 3.")
+        else:
+            # User is not logged in - show login and register options
+            print("You are not currently logged in.")
+            print("\nOptions:")
+            print("1. Login to existing account")
+            print("2. Create new account")
+            print("3. Password display settings")
+            print("4. Back to main menu")
+            print("="*50)
+            
+            choice = input("Choose an option (1-4): ").strip()
+            
+            if choice == '1':
+                handle_user_login()
+            elif choice == '2':
+                handle_user_registration()
+            elif choice == '3':
+                set_password_display_mode()
+            elif choice == '4':
+                break
+            else:
+                print("Invalid choice. Please enter 1, 2, 3, or 4.")
 
 
 def handle_user_login():
@@ -70,13 +167,10 @@ def handle_user_login():
         return
     
     try:
-        password = getpass.getpass("Password: ")
+        password = get_password_input("Password: ")
     except KeyboardInterrupt:
         print("\nLogin cancelled.")
         return
-    except Exception:
-        # Fallback to regular input if getpass fails
-        password = input("Password: ").strip()
     
     if not password:
         print("Password cannot be empty.")
@@ -123,26 +217,20 @@ def handle_user_registration():
         return
     
     try:
-        password = getpass.getpass("Choose a password (minimum 6 characters): ")
+        password = get_password_input("Choose a password (minimum 6 characters): ")
     except KeyboardInterrupt:
         print("\nRegistration cancelled.")
         return
-    except Exception:
-        # Fallback to regular input if getpass fails
-        password = input("Choose a password (minimum 6 characters): ").strip()
     
     if not password:
         print("Password cannot be empty.")
         return
     
     try:
-        confirm_password = getpass.getpass("Confirm password: ")
+        confirm_password = get_password_input("Confirm password: ")
     except KeyboardInterrupt:
         print("\nRegistration cancelled.")
         return
-    except Exception:
-        # Fallback to regular input if getpass fails
-        confirm_password = input("Confirm password: ").strip()
     
     if password != confirm_password:
         print("Passwords do not match.")
