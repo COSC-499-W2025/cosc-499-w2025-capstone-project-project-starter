@@ -56,4 +56,4 @@ jobs:
 
       - name: Post Set up Python 3.11
         run: echo "Running post-setup tasks"
-        if: always()  # Ensure this step runs even if tests fail
+        if: ${{ always() }}  # Correct syntax for always() condition
