@@ -51,8 +51,8 @@ jobs:
       - name: Run regression tests with PYTHONPATH
         run: |
           . venv/bin/activate  # Ensure virtualenv is activated
-          PYTHONPATH=$(pwd)/src pytest -v  # Explicitly set PYTHONPATH when running pytest
-        continue-on-error: true  # Allow the workflow to continue even if pytest fails
+          export PYTHONPATH=$(pwd)/src  # Explicitly set PYTHONPATH
+          pytest -v  # Run the tests with verbose output
 
       - name: Post Set up Python 3.11
         run: echo "Running post-setup tasks"
