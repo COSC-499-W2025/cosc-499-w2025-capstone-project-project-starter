@@ -1,11 +1,36 @@
 version: "3.9"
 
 services:
+  db:
+    image: postgres:16
+    container_name: postgres_db
+    restart: always
+    environment:
+      - POSTGRES_USER=${POSTGRES_USER}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+      - POSTGRES_DB=${POSTGRES_DB}
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      retries: 5
+
   app:
-    build: .
-    container_name: artifact-miner
-    # command: python main.py - commented for now while we are still buidling the app
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: python_app
+    working_dir: /app
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      - PYTHONUNBUFFERED=1
     volumes:
       - .:/app
-    ports:
-      - "5001:5000"
+
+volumes:
+  pgdata:
