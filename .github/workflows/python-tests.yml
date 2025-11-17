@@ -27,7 +27,6 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y libpq-dev
-          # Remove the reportlab installation here, as it's a Python package installed via pip
           sudo apt-get install -y build-essential libjpeg8-dev zlib1g-dev
 
       - name: Set up virtual environment
@@ -37,16 +36,26 @@ jobs:
 
       - name: Install Python dependencies
         run: |
-          . venv/bin/activate  # Activate virtualenv
+          . venv/bin/activate  # Ensure virtualenv is activated
           python -m pip install --upgrade pip
           pip install pytest
           if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
-          # Install reportlab with pip, not apt
-          pip install reportlab
+          pip install reportlab  # Install reportlab with pip
+
+      - name: Debug: Print the PYTHONPATH
+        run: echo $PYTHONPATH
+
+      - name: Debug: Print the current directory
+        run: pwd  # Print the current working directory
 
       - name: Set PYTHONPATH to include src directory
         run: |
-          echo "PYTHONPATH=$(pwd)/src" >> $GITHUB_ENV
+          echo "PYTHONPATH=$(pwd)/src" >> $GITHUB_ENV  # Set PYTHONPATH for tests
+          echo "PYTHONPATH is now: $(pwd)/src"  # Debugging output
+
+      - name: Debug: Verify PYTHONPATH environment variable
+        run: |
+          echo "PYTHONPATH: $PYTHONPATH"  # Verify PYTHONPATH is set correctly
 
       - name: Run regression tests
         run: |
