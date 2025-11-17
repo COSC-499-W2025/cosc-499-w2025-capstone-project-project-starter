@@ -61,7 +61,7 @@ def get_password_input(prompt="Password: ", show_asterisk=None):
     except ImportError:
         # Unix/Linux/Mac fallback - show visible input with warning
         print("\n[Note: Password will be visible on this system]")
-        password = input(prompt)
+        password = input("")  # Empty prompt since we already printed the prompt above
     
     return password
 

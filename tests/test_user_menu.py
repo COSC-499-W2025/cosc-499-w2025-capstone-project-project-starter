@@ -268,47 +268,99 @@ class TestPasswordDisplaySettings:
 class TestPasswordInput:
     """Test the custom password input functionality"""
     
-    @patch('msvcrt.getch', side_effect=[b'a', b'b', b'c', b'\r'])  # 'abc' + Enter
-    def test_get_password_input_asterisks(self, mock_getch):
-        """Test password input with asterisks (Windows)"""
+    def test_get_password_input_asterisks(self):
+        """Test password input with asterisks (cross-platform)"""
         from cli.user_menus import get_password_input
         
-        with patch('sys.stdout', new_callable=StringIO) as mock_stdout:
-            password = get_password_input("Test: ", show_asterisk=True)
-            
-        assert password == "abc"
-        output = mock_stdout.getvalue()
-        assert "Test: ***" in output  # Should show three asterisks
+        # Try Windows path first
+        try:
+            import msvcrt
+            # Windows - test with mocked msvcrt.getch
+            with patch('msvcrt.getch', side_effect=[b'a', b'b', b'c', b'\r']):
+                with patch('sys.stdout', new_callable=StringIO) as mock_stdout:
+                    password = get_password_input("Test: ", show_asterisk=True)
+                    
+                assert password == "abc"
+                output = mock_stdout.getvalue()
+                assert "Test: ***" in output  # Should show three asterisks
+                
+        except ImportError:
+            # Linux/Mac - test fallback behavior
+            with patch('builtins.input', return_value='abc'):
+                with patch('sys.stdout', new_callable=StringIO) as mock_stdout:
+                    password = get_password_input("Test: ", show_asterisk=True)
+                    
+                assert password == "abc"
+                output = mock_stdout.getvalue()
+                assert "Password will be visible" in output  # Should show fallback message
     
-    @patch('msvcrt.getch', side_effect=[b'a', b'b', b'c', b'\r'])  # 'abc' + Enter
-    def test_get_password_input_visible(self, mock_getch):
-        """Test password input with visible characters (Windows)"""
+    def test_get_password_input_visible(self):
+        """Test password input with visible characters (cross-platform)"""
         from cli.user_menus import get_password_input
         
-        with patch('sys.stdout', new_callable=StringIO) as mock_stdout:
-            password = get_password_input("Test: ", show_asterisk=False)
-            
-        assert password == "abc"
-        output = mock_stdout.getvalue()
-        assert "Test: abc" in output  # Should show actual characters
+        # Try Windows path first
+        try:
+            import msvcrt
+            # Windows - test with mocked msvcrt.getch
+            with patch('msvcrt.getch', side_effect=[b'a', b'b', b'c', b'\r']):
+                with patch('sys.stdout', new_callable=StringIO) as mock_stdout:
+                    password = get_password_input("Test: ", show_asterisk=False)
+                    
+                assert password == "abc"
+                output = mock_stdout.getvalue()
+                assert "Test: abc" in output  # Should show actual characters
+                
+        except ImportError:
+            # Linux/Mac - test fallback behavior
+            with patch('builtins.input', return_value='abc'):
+                with patch('sys.stdout', new_callable=StringIO) as mock_stdout:
+                    password = get_password_input("Test: ", show_asterisk=False)
+                    
+                assert password == "abc"
+                output = mock_stdout.getvalue()
+                assert "Password will be visible" in output  # Should show fallback message
     
-    @patch('msvcrt.getch', side_effect=[b'a', b'b', b'\x08', b'c', b'\r'])  # 'ab' backspace 'c' + Enter
-    def test_get_password_input_backspace(self, mock_getch):
-        """Test backspace functionality in password input"""
+    def test_get_password_input_backspace(self):
+        """Test backspace functionality in password input (cross-platform)"""
         from cli.user_menus import get_password_input
         
-        with patch('sys.stdout', new_callable=StringIO) as mock_stdout:
-            password = get_password_input("Test: ", show_asterisk=True)
-            
-        assert password == "ac"  # 'ab' with 'b' removed by backspace, then 'c'
+        # Try Windows path first
+        try:
+            import msvcrt
+            # Windows - test with mocked msvcrt.getch with backspace sequence
+            with patch('msvcrt.getch', side_effect=[b'a', b'b', b'\x08', b'c', b'\r']):
+                with patch('sys.stdout', new_callable=StringIO) as mock_stdout:
+                    password = get_password_input("Test: ", show_asterisk=True)
+                    
+                assert password == "ac"  # 'ab' with 'b' removed by backspace, then 'c'
+                
+        except ImportError:
+            # Linux/Mac - test fallback behavior (backspace not applicable in fallback)
+            with patch('builtins.input', return_value='ac'):
+                with patch('sys.stdout', new_callable=StringIO) as mock_stdout:
+                    password = get_password_input("Test: ", show_asterisk=True)
+                    
+                assert password == "ac"
+                output = mock_stdout.getvalue()
+                assert "Password will be visible" in output
     
-    @patch('msvcrt.getch', side_effect=[b'a', b'b', b'\x03'])  # 'ab' + Ctrl+C
-    def test_get_password_input_keyboard_interrupt(self, mock_getch):
-        """Test Ctrl+C handling in password input"""
+    def test_get_password_input_keyboard_interrupt(self):
+        """Test Ctrl+C handling in password input (cross-platform)"""
         from cli.user_menus import get_password_input
         
-        with pytest.raises(KeyboardInterrupt):
-            get_password_input("Test: ", show_asterisk=True)
+        # Try Windows path first
+        try:
+            import msvcrt
+            # Windows - test with mocked msvcrt.getch with Ctrl+C
+            with patch('msvcrt.getch', side_effect=[b'a', b'b', b'\x03']):
+                with pytest.raises(KeyboardInterrupt):
+                    get_password_input("Test: ", show_asterisk=True)
+                    
+        except ImportError:
+            # Linux/Mac - test fallback KeyboardInterrupt behavior
+            with patch('builtins.input', side_effect=KeyboardInterrupt):
+                with pytest.raises(KeyboardInterrupt):
+                    get_password_input("Test: ", show_asterisk=True)
 
 
 if __name__ == '__main__':
