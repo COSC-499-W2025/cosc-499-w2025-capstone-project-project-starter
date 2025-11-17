@@ -25,7 +25,7 @@ class TestUserAccountMenu:
         """Clean up after each test"""
         AuthManager.clear_session()
     
-    @patch('builtins.input', side_effect=['3'])  # Back to main menu
+    @patch('builtins.input', side_effect=['4'])  # Back to main menu (option 4 now)
     @patch('sys.stdout', new_callable=StringIO)
     def test_user_account_menu_not_logged_in(self, mock_stdout, mock_input):
         """Test user account menu when not logged in"""
@@ -35,9 +35,10 @@ class TestUserAccountMenu:
         assert "You are not currently logged in" in output
         assert "1. Login to existing account" in output
         assert "2. Create new account" in output
-        assert "3. Back to main menu" in output
+        assert "3. Password display settings" in output
+        assert "4. Back to main menu" in output
     
-    @patch('builtins.input', side_effect=['2'])  # Back to main menu
+    @patch('builtins.input', side_effect=['3'])  # Back to main menu (option 3 for logged in)
     @patch('sys.stdout', new_callable=StringIO)
     def test_user_account_menu_logged_in(self, mock_stdout, mock_input):
         """Test user account menu when logged in"""
@@ -55,7 +56,8 @@ class TestUserAccountMenu:
         assert "Currently logged in as: testuser" in output
         assert "User ID: 1" in output
         assert "1. Logout" in output
-        assert "2. Back to main menu" in output
+        assert "2. Password display settings" in output
+        assert "3. Back to main menu" in output
 
 
 class TestUserLoginRegistration:
@@ -79,9 +81,9 @@ class TestUserLoginRegistration:
         assert "Username cannot be empty" in output
     
     @patch('builtins.input', side_effect=['testuser', ''])  # Username and empty "Press Enter"
-    @patch('getpass.getpass', return_value='')  # Empty password
+    @patch('cli.user_menus.get_password_input', return_value='')  # Empty password
     @patch('sys.stdout', new_callable=StringIO)
-    def test_handle_user_login_empty_password(self, mock_stdout, mock_getpass, mock_input):
+    def test_handle_user_login_empty_password(self, mock_stdout, mock_password_input, mock_input):
         """Test login with empty password"""
         handle_user_login()
         
@@ -98,9 +100,9 @@ class TestUserLoginRegistration:
         assert "Username cannot be empty" in output
     
     @patch('builtins.input', side_effect=['testuser', ''])  # Username and empty "Press Enter"
-    @patch('getpass.getpass', return_value='')  # Empty password
+    @patch('cli.user_menus.get_password_input', return_value='')  # Empty password
     @patch('sys.stdout', new_callable=StringIO)
-    def test_handle_user_registration_empty_password(self, mock_stdout, mock_getpass, mock_input):
+    def test_handle_user_registration_empty_password(self, mock_stdout, mock_password_input, mock_input):
         """Test registration with empty password"""
         handle_user_registration()
         
@@ -108,9 +110,9 @@ class TestUserLoginRegistration:
         assert "Password cannot be empty" in output
     
     @patch('builtins.input', side_effect=['testuser', ''])  # Username and empty "Press Enter"
-    @patch('getpass.getpass', side_effect=['password123', 'different'])  # Different passwords
+    @patch('cli.user_menus.get_password_input', side_effect=['password123', 'different'])  # Different passwords
     @patch('sys.stdout', new_callable=StringIO)
-    def test_handle_user_registration_password_mismatch(self, mock_stdout, mock_getpass, mock_input):
+    def test_handle_user_registration_password_mismatch(self, mock_stdout, mock_password_input, mock_input):
         """Test registration with mismatched passwords"""
         handle_user_registration()
         
@@ -119,9 +121,9 @@ class TestUserLoginRegistration:
     
     @patch('account.user_manager.AuthManager.login')
     @patch('builtins.input', side_effect=['testuser', ''])  # Username and empty "Press Enter"
-    @patch('getpass.getpass', return_value='password123')
+    @patch('cli.user_menus.get_password_input', return_value='password123')
     @patch('sys.stdout', new_callable=StringIO)
-    def test_handle_user_login_success(self, mock_stdout, mock_getpass, mock_input, mock_login):
+    def test_handle_user_login_success(self, mock_stdout, mock_password_input, mock_input, mock_login):
         """Test successful login"""
         mock_login.return_value = {
             'success': True,
@@ -137,9 +139,9 @@ class TestUserLoginRegistration:
     
     @patch('account.user_manager.AuthManager.login')
     @patch('builtins.input', side_effect=['testuser', ''])  # Username and empty "Press Enter"
-    @patch('getpass.getpass', return_value='wrongpassword')
+    @patch('cli.user_menus.get_password_input', return_value='wrongpassword')
     @patch('sys.stdout', new_callable=StringIO)
-    def test_handle_user_login_failure(self, mock_stdout, mock_getpass, mock_input, mock_login):
+    def test_handle_user_login_failure(self, mock_stdout, mock_password_input, mock_input, mock_login):
         """Test failed login"""
         mock_login.return_value = {
             'success': False,
@@ -194,6 +196,119 @@ class TestLogoutHandler:
         
         # Function should return without doing anything when cancelled
         # Just make sure no error occurs
+
+
+class TestPasswordDisplaySettings:
+    """Test password display settings functionality"""
+    
+    def setup_method(self):
+        """Reset the AuthManager state before each test"""
+        AuthManager.clear_session()
+        # Reset password display setting to default
+        import cli.user_menus
+        cli.user_menus.SHOW_PASSWORD_AS_ASTERISK = True
+    
+    def teardown_method(self):
+        """Clean up after each test"""
+        AuthManager.clear_session()
+    
+    @patch('builtins.input', side_effect=['1', ''])  # Choose asterisks and press enter
+    @patch('sys.stdout', new_callable=StringIO)
+    def test_set_password_display_mode_asterisks(self, mock_stdout, mock_input):
+        """Test setting password display to asterisks"""
+        from cli.user_menus import set_password_display_mode, SHOW_PASSWORD_AS_ASTERISK
+        
+        set_password_display_mode()
+        
+        output = mock_stdout.getvalue()
+        assert "Password display set to asterisks (*)" in output
+        
+        # Import again to check the updated value
+        import cli.user_menus
+        assert cli.user_menus.SHOW_PASSWORD_AS_ASTERISK is True
+    
+    @patch('builtins.input', side_effect=['2', ''])  # Choose visible characters and press enter
+    @patch('sys.stdout', new_callable=StringIO)
+    def test_set_password_display_mode_visible(self, mock_stdout, mock_input):
+        """Test setting password display to visible characters"""
+        from cli.user_menus import set_password_display_mode
+        
+        set_password_display_mode()
+        
+        output = mock_stdout.getvalue()
+        assert "Password display set to visible characters" in output
+        
+        # Import again to check the updated value
+        import cli.user_menus
+        assert cli.user_menus.SHOW_PASSWORD_AS_ASTERISK is False
+    
+    @patch('builtins.input', side_effect=['3', ''])  # Keep current setting and press enter
+    @patch('sys.stdout', new_callable=StringIO)
+    def test_set_password_display_mode_keep_current(self, mock_stdout, mock_input):
+        """Test keeping current password display setting"""
+        from cli.user_menus import set_password_display_mode
+        
+        set_password_display_mode()
+        
+        output = mock_stdout.getvalue()
+        assert "Keeping current setting" in output
+    
+    @patch('builtins.input', side_effect=['invalid', '3', ''])  # Invalid then keep current
+    @patch('sys.stdout', new_callable=StringIO)
+    def test_set_password_display_mode_invalid_choice(self, mock_stdout, mock_input):
+        """Test invalid choice in password display settings"""
+        from cli.user_menus import set_password_display_mode
+        
+        set_password_display_mode()
+        
+        output = mock_stdout.getvalue()
+        assert "Invalid choice. Keeping current setting." in output
+
+
+class TestPasswordInput:
+    """Test the custom password input functionality"""
+    
+    @patch('msvcrt.getch', side_effect=[b'a', b'b', b'c', b'\r'])  # 'abc' + Enter
+    def test_get_password_input_asterisks(self, mock_getch):
+        """Test password input with asterisks (Windows)"""
+        from cli.user_menus import get_password_input
+        
+        with patch('sys.stdout', new_callable=StringIO) as mock_stdout:
+            password = get_password_input("Test: ", show_asterisk=True)
+            
+        assert password == "abc"
+        output = mock_stdout.getvalue()
+        assert "Test: ***" in output  # Should show three asterisks
+    
+    @patch('msvcrt.getch', side_effect=[b'a', b'b', b'c', b'\r'])  # 'abc' + Enter
+    def test_get_password_input_visible(self, mock_getch):
+        """Test password input with visible characters (Windows)"""
+        from cli.user_menus import get_password_input
+        
+        with patch('sys.stdout', new_callable=StringIO) as mock_stdout:
+            password = get_password_input("Test: ", show_asterisk=False)
+            
+        assert password == "abc"
+        output = mock_stdout.getvalue()
+        assert "Test: abc" in output  # Should show actual characters
+    
+    @patch('msvcrt.getch', side_effect=[b'a', b'b', b'\x08', b'c', b'\r'])  # 'ab' backspace 'c' + Enter
+    def test_get_password_input_backspace(self, mock_getch):
+        """Test backspace functionality in password input"""
+        from cli.user_menus import get_password_input
+        
+        with patch('sys.stdout', new_callable=StringIO) as mock_stdout:
+            password = get_password_input("Test: ", show_asterisk=True)
+            
+        assert password == "ac"  # 'ab' with 'b' removed by backspace, then 'c'
+    
+    @patch('msvcrt.getch', side_effect=[b'a', b'b', b'\x03'])  # 'ab' + Ctrl+C
+    def test_get_password_input_keyboard_interrupt(self, mock_getch):
+        """Test Ctrl+C handling in password input"""
+        from cli.user_menus import get_password_input
+        
+        with pytest.raises(KeyboardInterrupt):
+            get_password_input("Test: ", show_asterisk=True)
 
 
 if __name__ == '__main__':
