@@ -4,6 +4,7 @@ from pathlib import Path
 from typing import Dict, List, Optional
 from datetime import datetime
 from common.constants import LANGUAGE_EXTENSIONS, DOCUMENT_EXTENSIONS, DESIGN_EXTENSIONS
+from analysis.deep_code_analyzer import DeepCodeAnalyzer
 
 
 class LocalAnalyzer:
@@ -34,7 +35,7 @@ class LocalAnalyzer:
     
     def __init__(self):
         """Initialize the local analyzer."""
-        self.analysis_cache = {}
+        self.deep_analyzer = DeepCodeAnalyzer()
     
     def analyze_project(self, project_path: str) -> Dict:
         """
@@ -61,7 +62,11 @@ class LocalAnalyzer:
             'skills': self.extract_skills(project_path),
             'file_breakdown': self.get_file_breakdown(project_path),
         }
-        
+        try:
+            analysis_results['deep_analysis'] = self.perform_deep_analysis(project_path)
+        except Exception as e:
+            print(f"Warning: Deep analysis failed: {e}")
+            analysis_results['deep_analysis'] = {}
         return analysis_results
     
     def analyze_structure(self, project_path: str) -> Dict:
@@ -335,3 +340,47 @@ class LocalAnalyzer:
                     breakdown['by_category']['other'] += 1
         
         return breakdown
+    
+    def perform_deep_analysis(self, project_path: str) -> Dict:
+        file_analyses = []
+        for root, _, files in os.walk(project_path):
+            for file in files:
+                file_path = os.path.join(root, file)
+                ext = Path(file).suffix.lower()
+                if ext in self.LANGUAGE_EXTENSIONS:
+                    language = self.LANGUAGE_EXTENSIONS[ext]
+                    try:
+                        with open(file_path, 'r', encoding='utf-8', errors='ignore') as f:
+                            content = f.read()
+                        file_analysis = self.deep_analyzer.analyze_code_file(file_path, content, language)
+                        if file_analysis:
+                            file_analyses.append(file_analysis)
+                    except Exception:
+                        continue
+        return self.deep_analyzer.aggregate_analysis(file_analyses) if file_analyses else {}
+    
+    def analyze_files_from_db(self, file_contents: List[Dict]) -> Dict:
+        file_analyses = []
+        for file_info in file_contents:
+            if file_info.get('is_binary', False):
+                continue
+            file_path = file_info.get('file_path', '')
+            extension = file_info.get('file_extension', '').lower()
+            content = file_info.get('file_content', '')
+            language = file_info.get('content_type', '')
+            if not language and extension in self.LANGUAGE_EXTENSIONS:
+                language = self.LANGUAGE_EXTENSIONS[extension]
+            if not language or not content:
+                continue
+            if isinstance(content, bytes):
+                try:
+                    content = content.decode('utf-8', errors='ignore')
+                except Exception:
+                    continue
+            try:
+                file_analysis = self.deep_analyzer.analyze_code_file(file_path, content, language)
+                if file_analysis:
+                    file_analyses.append(file_analysis)
+            except Exception:
+                continue
+        return self.deep_analyzer.aggregate_analysis(file_analyses) if file_analyses else {}
