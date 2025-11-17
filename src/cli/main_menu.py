@@ -14,6 +14,8 @@ from .menus import (
     handle_cleanup_insights,
     ask_user_preferences
 )
+from .user_menus import user_account_menu
+from account.user_manager import AuthManager
 
 
 def run_main_menu(consent_manager, collab_manager):
@@ -32,16 +34,24 @@ def run_main_menu(consent_manager, collab_manager):
         print("8. Manage external service settings")
         print("9. Cleanup insights for a project")
         print("10. Change User Preferences")
-        print("11. Exit")
+        
+        # Display user account option with current user info
+        if AuthManager.is_user_logged_in():
+            current_user = AuthManager.get_current_username()
+            print(f"11. User Account ({current_user})")
+        else:
+            print("11. User Account (Login/Register)")
+        
+        print("12. Exit")
         print("="*70) 
         
         if os.getenv("GITHUB_ACTIONS") == "true" or not sys.stdin.isatty():
-            choice = "11"
+            choice = "12"
         else:
             try:
-                choice = input("Choose an option (1-11): ").strip()
+                choice = input("Choose an option (1-12): ").strip()
             except EOFError:
-                choice = "11"
+                choice = "12"
         
         if choice == '1':
             handle_upload_file()
@@ -72,11 +82,14 @@ def run_main_menu(consent_manager, collab_manager):
                 
         elif choice == '10':
             ask_user_preferences(consent_manager, collab_manager, False)
-
+            
         elif choice == '11':
+            user_account_menu()
+
+        elif choice == '12':
             print("Goodbye!")
             break
             
         else:
-            print("Invalid choice. Please enter 1-11.")
+            print("Invalid choice. Please enter 1-12.")
 
