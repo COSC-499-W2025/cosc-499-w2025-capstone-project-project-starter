@@ -89,9 +89,9 @@ def extract_and_store_file_contents(uploaded_file_id, zip_file_path, max_files=1
                         file_info = zip_ref.getinfo(file_path)
                         file_size = file_info.file_size
 
-                        # 关键：从 ZipInfo.date_time 取出“源时间”
+                        # Key: Retrieve the "source time" from ZipInfo.date_time
                         try:
-                            # date_time 是 (year, month, day, hour, minute, second)
+                            # date_time is (year, month, day, hour, minute, second)
                             src_ts = datetime(*file_info.date_time)
                         except Exception:
                             src_ts = None

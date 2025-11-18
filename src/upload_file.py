@@ -35,7 +35,7 @@ def ensure_upload_dir() -> str | None:
 def init_uploaded_files_table():
     """Create the uploaded_files table if it doesn't exist, and ensure new columns exist."""
     try:
-        # 1) 建表（仅在不存在时创建）
+        # 1) Create the table (create it only if it does not exist)
         with with_db_cursor() as cursor:
             cursor.execute("""
                 CREATE TABLE IF NOT EXISTS uploaded_files (
@@ -50,22 +50,22 @@ def init_uploaded_files_table():
             """)
         print(" Uploaded files table initialized")
 
-        # 2) 迁移：给旧表自动加上缺失的列（避免你同学的 DB 崩掉）
+        # 2) Migration: Automatically add missing columns to the old table
         try:
             with with_db_cursor() as cursor:
-                # 老 DB 里可能没有 file_data
+                # The old database may not have file_data.
                 cursor.execute("""
                     ALTER TABLE uploaded_files
                     ADD COLUMN IF NOT EXISTS file_data BYTEA;
                 """)
 
-                # 老 DB 里可能没有 last_modified_at
+                # The old database may not have last_modified_at.
                 cursor.execute("""
                     ALTER TABLE uploaded_files
                     ADD COLUMN IF NOT EXISTS last_modified_at TIMESTAMP;
                 """)
 
-                # 把历史记录的 last_modified_at 初始化为 created_at（只填 NULL 的）
+                # Initialize the history's last_modified_at to created_at (only accept NULL).
                 cursor.execute("""
                     UPDATE uploaded_files
                     SET last_modified_at = COALESCE(last_modified_at, created_at)
@@ -73,10 +73,10 @@ def init_uploaded_files_table():
                 """)
 
         except Exception as e:
-            # 如果迁移失败，不让程序崩，只打印警告
+            # If the migration fails, only print a warning to prevent the program from crashing.
             print(f" [WARN] Skipping uploaded_files migration: {e}")
 
-        # 3) 初始化 / 迁移 file_contents 表
+        # 3) Initialize / migrate the file_contents table
         init_file_contents_table()
 
     except ConnectionError:
