@@ -33,51 +33,58 @@ def ensure_upload_dir() -> str | None:
         return f"Failed to create upload directory: {e}"
 
 def init_uploaded_files_table():
-    """Create the uploaded_files table if it doesn't exist."""
+    """Create the uploaded_files table if it doesn't exist, and ensure new columns exist."""
     try:
+        # 1) 建表（仅在不存在时创建）
         with with_db_cursor() as cursor:
             cursor.execute("""
-            CREATE TABLE IF NOT EXISTS uploaded_files (
-                id SERIAL PRIMARY KEY,
-                filename VARCHAR(255) NOT NULL,
-                filepath VARCHAR(500) NOT NULL,
-                status VARCHAR(50) DEFAULT 'uploaded',
-                metadata JSONB,
-                file_data BYTEA,
-                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-            );
-        """)
+                CREATE TABLE IF NOT EXISTS uploaded_files (
+                    id SERIAL PRIMARY KEY,
+                    filename VARCHAR(255) NOT NULL,
+                    filepath VARCHAR(500) NOT NULL,
+                    status VARCHAR(50) DEFAULT 'uploaded',
+                    metadata JSONB,
+                    file_data BYTEA,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                );
+            """)
         print(" Uploaded files table initialized")
 
-        # Add last_modified_at column if it doesn't exist
+        # 2) 迁移：给旧表自动加上缺失的列（避免你同学的 DB 崩掉）
         try:
             with with_db_cursor() as cursor:
-                # Add the column if it doesn't exist
+                # 老 DB 里可能没有 file_data
                 cursor.execute("""
                     ALTER TABLE uploaded_files
-                    ADD COLUMN IF NOT EXISTS last_modified_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP;
+                    ADD COLUMN IF NOT EXISTS file_data BYTEA;
                 """)
 
-                # Initialize existing records' last_modified_at to created_at if NULL
+                # 老 DB 里可能没有 last_modified_at
+                cursor.execute("""
+                    ALTER TABLE uploaded_files
+                    ADD COLUMN IF NOT EXISTS last_modified_at TIMESTAMP;
+                """)
+
+                # 把历史记录的 last_modified_at 初始化为 created_at（只填 NULL 的）
                 cursor.execute("""
                     UPDATE uploaded_files
                     SET last_modified_at = COALESCE(last_modified_at, created_at)
                     WHERE last_modified_at IS NULL;
                 """)
-            # commented out to reduce noise
-            # print(" uploaded_files table migrated (last_modified_at ensured & initialized)")
+
         except Exception as e:
-            # If migration fails, log but continue
-            print(f" [WARN] Skipping last_modified_at migration: {e}")
-        
-        # Also initialize the file contents table
+            # 如果迁移失败，不让程序崩，只打印警告
+            print(f" [WARN] Skipping uploaded_files migration: {e}")
+
+        # 3) 初始化 / 迁移 file_contents 表
         init_file_contents_table()
-        
+
     except ConnectionError:
         raise Exception("Failed to connect to database")
     except Exception as e:
         print(f" Error initializing uploaded_files table: {e}")
         raise
+
 
 def add_file_to_db(filepath) -> UploadResult:
     # 1. Check if file exists
