@@ -42,7 +42,7 @@ jobs:
           if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
           pip install reportlab  # Install reportlab with pip
 
-      - name: Debug: Print PYTHONPATH and test directory
+      - name: Debug Print PYTHONPATH and test directory
         run: |
           echo "PYTHONPATH: $(pwd)/src"
           echo "Current Directory: $(pwd)"
