@@ -44,16 +44,19 @@ jobs:
 
       - name: Debug Print PYTHONPATH and test directory
         run: |
-          echo "PYTHONPATH: $(pwd)/src"
-          echo "Current Directory: $(pwd)"
+          echo "Current directory: $(pwd)"
+          echo "PYTHONPATH: $(pwd)"
+          echo "Listing contents of src directory:"
+          ls -l src  # List the files in the src directory to verify it exists
+          echo "Listing contents of tests directory:"
           ls -l tests  # List the files in the tests directory to verify they exist
 
       - name: Run regression tests with PYTHONPATH
         run: |
           . venv/bin/activate  # Ensure virtualenv is activated
-          export PYTHONPATH=$(pwd)/src  # Explicitly set PYTHONPATH
+          export PYTHONPATH=$(pwd)  # Set PYTHONPATH to the root of the project
           pytest -v  # Run the tests with verbose output
 
       - name: Post Set up Python 3.11
         run: echo "Running post-setup tasks"
-        if: ${{ always() }}  # Correct syntax for always() condition
+        if: ${{ always() }}
