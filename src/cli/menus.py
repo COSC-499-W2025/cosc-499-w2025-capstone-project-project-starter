@@ -4,7 +4,14 @@ from project_display import select_project_interactive, list_projects_menu
 from project_summarizer import summarize_project
 from project_analyzer import analyze_project_by_id
 from analysis.key_metrics import analyze_project_from_db
-from analysis.project_ranking import rank_all_projects, display_rankings, rank_and_summarize_top_projects
+from analysis.project_ranking import rank_all_projects, display_rankings, rank_and_summarize_top_projects, save_rankings_with_summaries
+from analysis.ranking_storage import (
+    get_stored_rankings, 
+    get_stored_ranking_by_project_id,
+    update_ranking_score,
+    update_ranking_summary,
+    update_ranking_position
+)
 from external_services.external_service_prompt import request_external_service_permission, ExternalServicePrompt
 from external_services.permission_manager import ExternalServicePermission
 from collaborative.identify_contributors import identify_contributors
@@ -189,13 +196,169 @@ def handle_rank_projects():
     print("\nRanking all projects...")
     ranked = rank_all_projects()
     display_rankings(ranked)
+    
+    if ranked:
+        print("\n" + "-"*80)
+        save_choice = input("Would you like to save these rankings to the database? (y/n): ").strip().lower()
+        if save_choice in ['y', 'yes']:
+            generate_summaries = input("Generate and save summaries for all projects? (y/n): ").strip().lower()
+            save_rankings_with_summaries(ranked, generate_summaries in ['y', 'yes'])
+    
     input("\nPress Enter to continue...")
 
 
 def handle_rank_and_summarize_projects():
     """Handle rank and summarize top 3 projects menu option."""
     rank_and_summarize_top_projects()
+    
+    # Ask if user wants to save results
+    print("\n" + "-"*80)
+    save_choice = input("Would you like to save these rankings and summaries to the database? (y/n): ").strip().lower()
+    if save_choice in ['y', 'yes']:
+        ranked = rank_all_projects()
+        if ranked:
+            # Generate summaries for all projects (not just top 3)
+            generate_all = input("Generate summaries for ALL projects (not just top 3)? (y/n): ").strip().lower()
+            save_rankings_with_summaries(ranked, generate_all in ['y', 'yes'])
+    
     input("\nPress Enter to continue...")
+
+
+def handle_view_edit_rankings():
+    """Handle view and edit stored rankings menu option."""
+    print("\n" + "="*80)
+    print("VIEW AND EDIT STORED RANKINGS")
+    print("="*80)
+    
+    stored_rankings = get_stored_rankings()
+    
+    if not stored_rankings:
+        print("\nNo stored rankings found. Please rank projects first and save them.")
+        input("\nPress Enter to continue...")
+        return
+    
+    # Display stored rankings
+    print("\n" + "-"*80)
+    print(f"{'Rank':<6} {'Project ID':<12} {'Score':<10} {'Project Name':<50}")
+    print("-"*80)
+    
+    for ranking in stored_rankings:
+        filename = ranking.get('ranking_data', {}).get('filename', 'Unknown')
+        filename = filename[:48] + ".." if len(filename) > 50 else filename
+        print(f"{ranking['rank_position']:<6} {ranking['project_id']:<12} {ranking['score']:<10} {filename:<50}")
+    
+    print("-"*80)
+    
+    # Menu for editing
+    while True:
+        print("\nOptions:")
+        print("1. View full details for a project")
+        print("2. Edit score for a project")
+        print("3. Edit summary for a project")
+        print("4. Change rank position for a project")
+        print("5. Back to main menu")
+        
+        choice = input("\nChoose an option (1-5): ").strip()
+        
+        if choice == '1':
+            # View full details
+            project_id = input("Enter project ID to view: ").strip()
+            if project_id.isdigit():
+                ranking = get_stored_ranking_by_project_id(int(project_id))
+                if ranking:
+                    print("\n" + "="*80)
+                    print(f"PROJECT RANKING DETAILS")
+                    print("="*80)
+                    print(f"Project ID: {ranking['project_id']}")
+                    print(f"Rank Position: {ranking['rank_position']}")
+                    print(f"Score: {ranking['score']}")
+                    print(f"Created At: {ranking['created_at']}")
+                    print(f"Updated At: {ranking['updated_at']}")
+                    print("\nSummary:")
+                    print("-"*80)
+                    if ranking['summary']:
+                        print(ranking['summary'])
+                    else:
+                        print("(No summary available)")
+                    print("="*80)
+                else:
+                    print(f"\nNo stored ranking found for project ID {project_id}")
+            else:
+                print("Invalid project ID.")
+        
+        elif choice == '2':
+            # Edit score
+            project_id = input("Enter project ID to edit score: ").strip()
+            if project_id.isdigit():
+                new_score = input("Enter new score: ").strip()
+                try:
+                    score_float = float(new_score)
+                    if update_ranking_score(int(project_id), score_float):
+                        print(f"\n Successfully updated score for project {project_id} to {score_float}")
+                    else:
+                        print(f"\n Failed to update score. Project {project_id} may not exist in stored rankings.")
+                except ValueError:
+                    print("Invalid score. Please enter a number.")
+            else:
+                print("Invalid project ID.")
+        
+        elif choice == '3':
+            # Edit summary
+            project_id = input("Enter project ID to edit summary: ").strip()
+            if project_id.isdigit():
+                ranking = get_stored_ranking_by_project_id(int(project_id))
+                if ranking:
+                    print("\nCurrent summary:")
+                    print("-"*80)
+                    print(ranking['summary'] if ranking['summary'] else "(No summary)")
+                    print("-"*80)
+                    print("\nEnter new summary (press Enter on empty line to finish, or 'cancel' to cancel):")
+                    new_summary_lines = []
+                    while True:
+                        line = input()
+                        if line.strip().lower() == 'cancel':
+                            print("Cancelled.")
+                            break
+                        if line == "" and new_summary_lines:
+                            # Empty line after content means done
+                            break
+                        new_summary_lines.append(line)
+                    
+                    if new_summary_lines and new_summary_lines[0].strip().lower() != 'cancel':
+                        new_summary = "\n".join(new_summary_lines)
+                        if update_ranking_summary(int(project_id), new_summary):
+                            print(f"\n Successfully updated summary for project {project_id}")
+                        else:
+                            print(f"\n Failed to update summary.")
+                else:
+                    print(f"\nNo stored ranking found for project ID {project_id}")
+            else:
+                print("Invalid project ID.")
+        
+        elif choice == '4':
+            # Change rank position
+            project_id = input("Enter project ID to change rank: ").strip()
+            if project_id.isdigit():
+                new_position = input("Enter new rank position: ").strip()
+                try:
+                    pos_int = int(new_position)
+                    if pos_int < 1:
+                        print("Rank position must be at least 1.")
+                    else:
+                        if update_ranking_position(int(project_id), pos_int):
+                            print(f"\n Successfully updated rank position for project {project_id} to {pos_int}")
+                        else:
+                            print(f"\n Failed to update rank position. Project {project_id} may not exist in stored rankings.")
+                except ValueError:
+                    print("Invalid position. Please enter a number.")
+            else:
+                print("Invalid project ID.")
+        
+        elif choice == '5':
+            break
+        
+        else:
+            print("Invalid choice. Please enter 1-5.")
 
 
 def handle_cleanup_insights():

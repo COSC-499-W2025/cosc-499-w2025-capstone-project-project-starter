@@ -2,27 +2,17 @@
 Project Ranking Module
 Ranks projects using database Key Metrics that are pulled rom uploaded files and file contents from other features
 """
-from typing import Dict, List, Any
+from typing import Dict, List, Any, Optional
 from config.db_config import get_connection
 from analysis.key_metrics import analyze_project_from_db
 from project_summarizer import summarize_project
+from analysis.ranking_storage import save_rankings_to_db, get_stored_ranking_by_project_id, get_stored_rankings
 import os
 
 
 def calculate_project_score(analysis_data: Dict[str, Any]) -> float:
     """
     this is a function to calculate the score of a project based on the analysis data
-    the score is calculated based on the following factors:
-    - total lines of code
-    - number of files
-    - number of languages
-    - number of frameworks
-    - number of skills
-    - number of tests
-    - number of documentation
-    - number of configuration
-    - number of code files
-    - number of document files
     """
     score = 0.0
     
@@ -91,6 +81,7 @@ def calculate_project_score(analysis_data: Dict[str, Any]) -> float:
 def rank_all_projects() -> List[Dict[str, Any]]:
     """
     Rank all uploaded projects in the database by composite score using key_metrics.
+    Uses stored scores from database if available, otherwise calculates new scores.
     """
     try:
         with get_connection() as conn, conn.cursor() as cur:
@@ -100,11 +91,22 @@ def rank_all_projects() -> List[Dict[str, Any]]:
         if not projects:
             return []
 
+        # Get all stored rankings to check for existing scores
+        stored_rankings = get_stored_rankings()
+        stored_scores = {r['project_id']: r['score'] for r in stored_rankings}
+
         ranked_projects: List[Dict[str, Any]] = []
         for project_id, filename, created_at in projects:
             try:
-                analysis = analyze_project_from_db(project_id)
-                score = calculate_project_score(analysis)
+                # Use stored score if available, otherwise calculate
+                if project_id in stored_scores:
+                    score = stored_scores[project_id]
+                    # Still need analysis data for other purposes, but use stored score
+                    analysis = analyze_project_from_db(project_id, silent=True)
+                else:
+                    analysis = analyze_project_from_db(project_id, silent=True)
+                    score = calculate_project_score(analysis)
+                
                 ranked_projects.append({
                     "project_id": project_id,
                     "filename": filename,
@@ -172,16 +174,68 @@ def rank_and_summarize_top_projects() -> None:
         
         for i in range(top_count):
             project = ranked_projects[i]
+            project_id = project['project_id']
             print(f"\n{'='*80}")
             print(f"TOP {i+1} PROJECT: {project['filename']} (Score: {project['score']})")
             print("="*80)
-            print("\nGenerating summary...")
-            try:
-                summary = summarize_project(project['project_id'])
-                print(summary)
-            except Exception as e:
-                print(f"Error generating summary for project {project['project_id']}: {e}")
+            
+            # Check if summary exists in database
+            stored_ranking = get_stored_ranking_by_project_id(project_id)
+            if stored_ranking and stored_ranking.get('summary'):
+                print("\nUsing stored summary from database...")
+                print(stored_ranking['summary'])
+            else:
+                print("\nGenerating summary...")
+                try:
+                    summary = summarize_project(project_id)
+                    print(summary)
+                except Exception as e:
+                    print(f"Error generating summary for project {project_id}: {e}")
             
             if i < top_count - 1:
                 print("\n" + "-"*80)
+
+
+def save_rankings_with_summaries(ranked_projects: List[Dict[str, Any]], generate_summaries: bool = True) -> bool:
+    """
+    Save ranked projects and their summaries to the database.
+
+    """
+    if not ranked_projects:
+        print("\nNo projects to save.")
+        return False
+    
+    summaries = {}
+    
+    if generate_summaries:
+        print("\nProcessing summaries for all projects...")
+        for i, project in enumerate(ranked_projects, 1):
+            project_id = project['project_id']
+            filename = project['filename']
+            
+            # Check if summary exists in database first
+            stored_ranking = get_stored_ranking_by_project_id(project_id)
+            if stored_ranking and stored_ranking.get('summary'):
+                print(f"  [{i}/{len(ranked_projects)}] Using stored summary for: {filename}")
+                summaries[project_id] = stored_ranking['summary']
+            else:
+                print(f"  [{i}/{len(ranked_projects)}] Generating summary for: {filename}")
+                try:
+                    summary = summarize_project(project_id)
+                    summaries[project_id] = summary
+                except Exception as e:
+                    print(f"    Error generating summary: {e}")
+                    summaries[project_id] = f"Error generating summary: {e}"
+    
+    print("\nSaving rankings and summaries to database...")
+    success = save_rankings_to_db(ranked_projects, summaries if summaries else None)
+    
+    if success:
+        print(f"\nSuccessfully saved {len(ranked_projects)} project rankings to database.")
+        if summaries:
+            print(f"Successfully saved {len(summaries)} project summaries to database.")
+    else:
+        print("\nFailed to save rankings to database.")
+    
+    return success
 

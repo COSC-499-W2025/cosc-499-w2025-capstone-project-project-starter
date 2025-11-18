@@ -185,10 +185,14 @@ def _compute_timeline_metrics(timestamps: List[datetime]) -> Dict[str, Any]:
         "active_days": active_days,
     }
 
-def analyze_project_from_db(project_id: int) -> Dict[str, Any]:
+def analyze_project_from_db(project_id: int, silent: bool = False) -> Dict[str, Any]:
     """
     Analyze project metrics: language breakdown, activity type breakdown,
     totals, and simple timeline stats (Feature #10).
+    
+    Args:
+        project_id: The project ID to analyze
+        silent: If True, suppress printing of key metrics summary
     """
     rows = fetch_records_from_db(project_id)
     by_lang = aggregate_by_language(rows)
@@ -213,7 +217,9 @@ def analyze_project_from_db(project_id: int) -> Dict[str, Any]:
         },
         "timeline": timeline,  # new for Feature #10
     }
-    print_summary(f"project:{project_id}", result)
+    
+    if not silent:
+        print_summary(f"project:{project_id}", result)
 
     # Update last_modified_at to now() for this project
     _touch_project_last_modified(project_id)
