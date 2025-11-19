@@ -1,13 +1,17 @@
-import json, numpy as np, torch, argparse
+import json, numpy as np, torch, argparse, os
 from transformers import AutoTokenizer, AutoModel
 import joblib
 
-ARTI_DIR = "artifacts"
-MODEL_PATH = "models/ovr_logreg.joblib"
+
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+
+# Paths relative to predict.py
+ARTI_DIR = os.path.join(BASE_DIR, "artifacts")
+MODEL_PATH = os.path.join(BASE_DIR, "models", "ovr_logreg.joblib")
+
 TRUNC_CHARS = 2000
 MAX_TOK_LEN = 256
 
-# Cached resources for reuse when classifying many files
 _tok = None
 _enc = None
 _device = None
@@ -16,7 +20,8 @@ _skills = None
 
 
 def load_encoder():
-    with open(f"{ARTI_DIR}/encoder.txt") as f:
+    encoder_path = os.path.join(ARTI_DIR, "encoder.txt")
+    with open(encoder_path) as f:
         model_id = f.read().strip()
     tok = AutoTokenizer.from_pretrained(model_id)
     enc = AutoModel.from_pretrained(model_id).eval()
@@ -41,22 +46,18 @@ def embed_texts(texts, tok, enc, device):
 
 
 def _load_resources():
-    """
-    Internal helper to lazily load tokenizer, encoder, classifier, and skills
-    once per process. Safe to call multiple times.
-    """
     global _tok, _enc, _device, _clf, _skills
 
     if _tok is None or _enc is None or _device is None:
         _tok, _enc, _device = load_encoder()
 
     if _skills is None:
-        with open(f"{ARTI_DIR}/label_binarizer.json") as f:
+        lb_path = os.path.join(ARTI_DIR, "label_binarizer.json")
+        with open(lb_path) as f:
             _skills = json.load(f)["classes"]
 
     if _clf is None:
         _clf = joblib.load(MODEL_PATH)
-
 
 def classify_text(text, threshold=0.5):
     """
