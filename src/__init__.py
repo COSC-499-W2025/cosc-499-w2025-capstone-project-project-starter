@@ -1,1 +1,1 @@
-from . import zipvalidation
+from . import validator
