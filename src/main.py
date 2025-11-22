@@ -1,5 +1,6 @@
 import sys
 from validator import zipvalidation
+from codeparser import parse_core
 
 def main():
     # get the file as a command-line argument
@@ -13,11 +14,20 @@ def main():
         print("Consent not given. Exiting.")
         return
 
+    # validate zip
     file = sys.argv[1]
     result = zipvalidation.check_zip_file(file)
-    unzipped = zipvalidation.unzip_file(file)
     print("\n"+ result + "\n")
-    print("\n" + unzipped + "\n")
+
+    # now unzip the zip file
+    unzipped = zipvalidation.unzip_file(file)
+    unzipped = unzipped.split("Extracted to: ")[1]
+    print(unzipped + " unzipped successfully!\n")
+
+    # parse the unzipped folder and summarize results
+    parsed_folder = parse_core.parse_directory(unzipped)
+    parse_core.summarize_results(parsed_folder)
+
     print("\nMain working correctly.\n")
 
 

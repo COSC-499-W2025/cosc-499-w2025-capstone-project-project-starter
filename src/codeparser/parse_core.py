@@ -1,83 +1,81 @@
-import os
-from .file_classification import is_binary_file
+from collections import defaultdict
+
+from . import file_classification
+from ml.universal import predict
 
 
-def parse_directory(directory):
+def parse_directory(root_dir, threshold=0.5):
     """
-    Recursively parse the given directory to classify files as binary or text.
-
-    Args:
-        directory (str): The path to the directory to parse.
-
-    Returns:
-        dict: A summary dictionary with:
-            - total_files (int)
-            - binary_files (list[str])
-            - text_files (list[str])
-
-    Raises:
-        FileNotFoundError: If the specified directory does not exist.
+    Walk `root_dir`, classify each non-binary file, and return a list of:
+      { "file": <path>, "predictions": [(skill, prob), ...] }
     """
-    if not os.path.isdir(directory):
-        raise FileNotFoundError(f"Directory not found: {directory}")
+    results = []
 
-    binary_files = []
-    text_files = []
+    text_files = file_classification.list_text_files(root_dir)
 
-    for file_path in _yield_all_files(directory):
+    for path in text_files:
         try:
-            if is_binary_file(file_path):
-                binary_files.append(file_path)
-            else:
-                text_files.append(file_path)
-        except Exception as e:
-            # Log or handle unreadable files if needed
-            print(f"Warning: could not classify file '{file_path}': {e}")
-            binary_files.append(file_path)  # Treat as binary by default
+            with open(path, "r", encoding="utf-8", errors="ignore") as f:
+                content = f.read()
+        except Exception:
+            # Skip unreadable files
+            continue
 
-    return {
-        "total_files": len(binary_files) + len(text_files),
-        "binary_files": binary_files,
-        "text_files": text_files
-    }
+        preds = predict.classify_text(content, threshold=threshold)
+        results.append({"file": path, "predictions": preds})
+
+    return results
 
 
-def _yield_all_files(directory):
+def summarize_results(results):
     """
-    Recursively yield all files and symlinks to files under the given directory.
-
-    Args:
-        directory (str): Root directory to walk.
-
-    Yields:
-        str: Full path to each file or symlinked file found.
+    Aggregate predictions across all files and print a summary.
+    Returns a list of dicts with keys:
+        - "skill"
+        - "count" (# files where skill appears)
+        - "avg_prob"
+        - "max_prob"
+    sorted by max_prob descending.
     """
-    with os.scandir(directory) as it:
-        for entry in it:
-            path = entry.path
-            if entry.is_symlink():
-                # If it's a symlink, check if it points to a file
-                try:
-                    if os.path.isfile(os.readlink(path)) or os.path.isfile(path):
-                        yield path
-                except OSError:
-                    # Broken symlink or permission error — skip or treat as needed
-                    continue
-            elif entry.is_file():
-                yield path
-            elif entry.is_dir(follow_symlinks=False):
-                yield from _yield_all_files(path)
+    skill_scores = defaultdict(list)
 
+    for item in results:
+        for skill, prob in item.get("predictions", []):
+            skill_scores[skill].append(prob)
 
-def summarize_results(summary):
-    """
-    Print a readable summary of the parsed results.
+    summary = []
+    for skill, probs in skill_scores.items():
+        if not probs:
+            continue
+        count = len(probs)
+        avg_prob = sum(probs) / count
+        max_prob = max(probs)
+        summary.append(
+            {
+                "skill": skill,
+                "count": count,
+                "avg_prob": avg_prob,
+                "max_prob": max_prob,
+            }
+        )
 
-    Args:
-        summary (dict): Dictionary returned by `parse_directory()`.
-    """
-    print("\n📊 Scan Summary")
-    print("------------------")
-    print(f"Total files scanned: {summary['total_files']}")
-    print(f"Binary files       : {len(summary['binary_files'])}")
-    print(f"Text files         : {len(summary['text_files'])}")
+    summary.sort(key=lambda x: x["max_prob"], reverse=True)
+
+    print("=== Skill summary across all non-binary files ===")
+    for entry in summary:
+        print(
+            f"{entry['skill']}: "
+            f"files={entry['count']}, "
+            f"avg_prob={entry['avg_prob']:.3f}, "
+            f"max_prob={entry['max_prob']:.3f}"
+        )
+
+    print("\n=== Per-file predictions (non-empty) ===")
+    for item in results:
+        if not item["predictions"]:
+            continue
+        print(f"\nFile: {item['file']}")
+        for skill, prob in item["predictions"]:
+            print(f"  {skill}: {prob:.3f}")
+
+    return summary
