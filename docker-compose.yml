@@ -1,11 +1,29 @@
-version: "3.9"
+#version: "3.9"
 
 services:
+  db:
+    image: postgres:16
+    container_name: postgres_db
+    restart: always
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: postgres
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+
   app:
     build: .
     container_name: artifact-miner
-    # command: python main.py - commented for now while we are still buidling the app
+    command: tail -f /dev/null   # keeps the container running while you develop
     volumes:
       - .:/app
     ports:
       - "5001:5000"
+    depends_on:
+      - db
+
+volumes:
+  pgdata:
