@@ -1,3 +1,38 @@
+# Personal log of Cole Powrie (Week 12)  
+
+## Applicable Date Range
+- Monday, November 17th to Sunday, November 23rd
+
+## Peer evaluation screenshot
+![alt text](<imgs/ColePowrieW12.png>)
+
+## This Milestone
+- Successfully configured **Docker Compose** environment with Python and PostgreSQL containers
+- Connected backend to PostgreSQL container and verified proper database initialization
+- Developed and tested `create_tables.py` script to set up tables and insert default data
+- Resolved local and remote branch conflicts, ensuring working code is synced across devices
+
+## Tasks
+- Updated `docker-compose.yml` and Dockerfile for proper backend-container to database communication
+- Verified credentials, hostnames, and ports for containerized PostgreSQL access
+- Ran `create_tables.py` in Docker to successfully create `users`, `category`, and `artifacts` tables with default data
+- Resolved Git branch issues and pushed restored working branch to GitHub
+
+## Progress from the Last Two Weeks
+- Fully containerized backend and database environment for consistent development across devices
+- Ensured working Docker workflow for initializing and testing database tables
+- Improved Git workflow and branch management to avoid conflicts with old branches
+
+## In Progress Tasks
+- Testing CRUD operations in the backend with the new database schema
+- Validating data persistence and relationships within containerized environment
+- Preparing environment for ML pipeline integration with backend and database
+
+## Next Cycle Activities
+- Connect backend API endpoints to the updated schema
+- Continue integration testing with ML pipeline and frontend components
+- Expand automated tests for database operations within Docker containers
+- Refine Docker and Git workflows for smooth multi-device development
 # Personal log of Cole Powrie (from Week 10)
 ## Applicable Date Range
 - Monday, November 3rd to Sunday, November 9th
