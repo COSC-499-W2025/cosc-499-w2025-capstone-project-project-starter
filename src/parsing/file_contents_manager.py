@@ -42,6 +42,20 @@ def init_file_contents_table():
         except Exception as e:
             print(f"[WARN] Skipping file_contents source_* migration: {e}")
 
+        # 3. Add indexes for performance
+        try:
+            with with_db_cursor() as cursor:
+                cursor.execute("""
+                    CREATE INDEX IF NOT EXISTS idx_file_contents_upload_source_ts
+                    ON file_contents (uploaded_file_id, source_created_at, source_modified_at);
+                """)
+                cursor.execute("""
+                    CREATE INDEX IF NOT EXISTS idx_file_contents_uploaded_file_id
+                    ON file_contents (uploaded_file_id);
+                """)
+        except Exception as e:
+            print(f"[WARN] Skipping index creation: {e}")
+
     except ConnectionError:
         raise Exception("Failed to connect to database")
     except Exception as e:
