@@ -124,3 +124,18 @@ Improving the categories for the ML model.
 Retrain ML model with new categories #89 
 - Among these tasks, which have you completed/in progress in the last 2 weeks?
 I completed the above task, the ML model now has 54 categories which are more language agnostic and comprehensive.
+
+
+## Week 11
+- Applicable date range
+November 17 - November 23
+- Type of tasks you worked on (screenshot from Peer Eval question)
+![Alt text](./imgs/liam_storgaard_w11.png)
+- Recap on your week's goals
+Connect all the independent parts of the project into a CLI interface.
+- Which features were yours in the project plan for this milestone?
+The CLI interface.
+- Which tasks from the project board are associated with these features?
+Command Pipeline #108
+- Among these tasks, which have you completed/in progress in the last 2 weeks?
+The above one. There is now a complete end to end command that takes in any zip folder and returns classification results.
