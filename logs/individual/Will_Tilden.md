@@ -1,4 +1,4 @@
-# Personal log of Will Tilden (from Week 12) as per the personal log format outlined in lecture slides
+# Personal logs of Will Tilden (from Week 12) as per the personal log format outlined in lecture slides
 
 ## Applicable date range
 - Monday, November 17th to Sunday, November 23rd
