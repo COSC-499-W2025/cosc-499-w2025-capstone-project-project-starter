@@ -13,13 +13,23 @@ def check_zip_file(file):
     else:
         return f"{file} is not a zip file"
     
-def unzip_file(file):
+def unzip_file(file, extract_dir=None):
 
-    # get the parent folder name to extract to
-    extract_dir = os.path.dirname(file)
+    # extracts the directory from the zipfile with the same name (without .zip)
+    if extract_dir is None:
+        extract_dir = os.path.splitext(file)[0]
 
-    with zipfile.ZipFile(file,'r') as unzipf:
-        unzipf.extractall(extract_dir)
+    # if folder exists and is non-empty, raise an error
+    if os.path.exists(extract_dir):
+        if os.listdir(extract_dir):  # folder not empty
+            raise FileExistsError(f"Folder '{extract_dir}' already exists and is not empty.")
+    else:
+        # create folder if it doesn't exist
+        os.makedirs(extract_dir)
 
-    
-    return f"{file} extraction successful!"
+    # perform extraction
+    with zipfile.ZipFile(file, "r") as zf:
+        zf.extractall(extract_dir)
+
+    return f"{file} extraction successful! Extracted to: {extract_dir}"
+

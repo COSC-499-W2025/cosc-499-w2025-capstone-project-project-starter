@@ -1,2 +1,13 @@
 __pycache__/
 src/ml/.python-version
+.venv
+.env
+# Ignore trained model artifacts
+models/
+*.joblib
+*.pkl
+*.pt
+*.bin
+*.npz
+src/ml/universal/data/
+src/ml/universal/artifacts/

@@ -1,5 +1,4 @@
 import psycopg2
-from connect import connect_to_postgres
 
 
 def create_tables():
