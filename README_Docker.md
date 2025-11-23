@@ -89,16 +89,11 @@ docker compose run app python --version
 
 ---
 
-## 🚀 Next Steps
+**To build the containers and see tables added to the DB, do the following:**
+```bash
+docker compose build
+docker compose up -d
+docker compose exec db psql -U postgres -d postgres
 
-Once your full project code is ready, update the final line of the `Dockerfile` to run your main application:
-
-```dockerfile
-CMD ["python", "src/main.py"]
+\dt
 ```
-
-This will make the container launch your actual application instead of the temporary test script.
-
----
-
-> 💡 **Tip:** If you ever encounter issues, run `docker system prune` to clean up unused containers and images before rebuilding.

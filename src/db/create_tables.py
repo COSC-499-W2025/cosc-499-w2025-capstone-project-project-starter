@@ -9,7 +9,7 @@ def create_tables():
             host="postgres_db",
             port="5432",
             user="postgres",
-            password="postgres",
+            password="password",
             database="postgres"
         )
         cursor = connection.cursor()
