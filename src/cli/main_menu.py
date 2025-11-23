@@ -10,6 +10,7 @@ from .menus import (
     analyze_project_menu,
     handle_rank_projects,
     handle_rank_and_summarize_projects,
+    handle_view_edit_rankings,
     manage_external_services_menu,
     handle_cleanup_insights,
     ask_user_preferences
@@ -31,27 +32,26 @@ def run_main_menu(consent_manager, collab_manager):
         print("5. Analyze a project (detailed analysis with local fallback)")
         print("6. Rank all projects")
         print("7. Rank and summarize top 3 projects")
-        print("8. Manage external service settings")
-        print("9. Cleanup insights for a project")
-        print("10. Change User Preferences")
-        
+        print("8. View and edit stored rankings")
+        print("9. Manage external service settings")
+        print("10. Cleanup insights for a project")
+        print("11. Change User Preferences")
         # Display user account option with current user info
         if AuthManager.is_user_logged_in():
             current_user = AuthManager.get_current_username()
-            print(f"11. User Account ({current_user})")
+            print(f"12. User Account ({current_user})")
         else:
-            print("11. User Account (Login/Register)")
-        
-        print("12. Exit")
+            print("12. User Account (Login/Register)")
+        print("13. Exit")
         print("="*70) 
         
         if os.getenv("GITHUB_ACTIONS") == "true" or not sys.stdin.isatty():
-            choice = "12"
+            choice = "13"
         else:
             try:
-                choice = input("Choose an option (1-12): ").strip()
+                choice = input("Choose an option (1-13): ").strip()
             except EOFError:
-                choice = "12"
+                choice = "13"
         
         if choice == '1':
             handle_upload_file()
@@ -75,21 +75,24 @@ def run_main_menu(consent_manager, collab_manager):
             handle_rank_and_summarize_projects()
             
         elif choice == '8':
-            manage_external_services_menu()
+            handle_view_edit_rankings()
             
         elif choice == '9':
+            manage_external_services_menu()
+            
+        elif choice == '10':
             handle_cleanup_insights()
                 
-        elif choice == '10':
+        elif choice == '11':
             ask_user_preferences(consent_manager, collab_manager, False)
             
-        elif choice == '11':
+        elif choice == '12':
             user_account_menu()
 
-        elif choice == '12':
+        elif choice == '13':
             print("Goodbye!")
             break
             
         else:
-            print("Invalid choice. Please enter 1-12.")
+            print("Invalid choice. Please enter 1-13.")
 
