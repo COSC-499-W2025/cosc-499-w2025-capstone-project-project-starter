@@ -469,7 +469,8 @@ class TestDeepCodeAnalysisIntegration:
     @patch('analysis.project_ranking.LocalAnalyzer')
     def test_all_deep_analysis_components_scoring(self, mock_local_analyzer_class, mock_get_files):
         """Test that all deep analysis components (OOP, data structures, complexity, optimizations, code quality) contribute to score"""
-        mock_get_files.return_value = []
+        # Return a non-empty list so _perform_deep_code_analysis doesn't return early
+        mock_get_files.return_value = [{"file_path": "test.py", "file_content": "code", "is_binary": False}]
         
         mock_analyzer = mock_local_analyzer_class.return_value
         # Test with comprehensive deep analysis results covering all components
