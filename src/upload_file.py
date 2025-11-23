@@ -7,7 +7,7 @@ from parsing.file_validator import validate_uploaded_file, WrongFormatError
 from parsing.file_contents_manager import init_file_contents_table, extract_and_store_file_contents, get_file_contents_by_upload_id
 from pathlib import Path
 
-UPLOAD_FOLDER = UPLOAD_FOLDER = Path(os.getenv("UPLOAD_FOLDER", "uploads"))
+UPLOAD_FOLDER = Path(os.getenv("UPLOAD_FOLDER", "uploads"))
 
 class UploadResult:
     """Encapsulates the result of an upload operation"""
@@ -30,7 +30,8 @@ def ensure_upload_dir() -> str | None:
         UPLOAD_FOLDER.mkdir(parents=True, exist_ok=True)
         return None
     except Exception as e:
-        return f"Failed to create upload directory: {e}"
+        # Return a user-friendly error message
+        return f"Failed to create upload directory '{UPLOAD_FOLDER}': {e}"
 
 def init_uploaded_files_table():
     """Create the uploaded_files table if it doesn't exist, and ensure new columns exist."""
@@ -88,16 +89,58 @@ def init_uploaded_files_table():
 
 def add_file_to_db(filepath) -> UploadResult:
     # 1. Check if file exists
+    # Return detailed error if not found
     if not os.path.exists(filepath):
-        return UploadResult(False, f"File does not exist: {filepath}", "FILE_NOT_FOUND")
+        return UploadResult(
+            success=False,
+            message=(
+                f"File does not exist: {filepath}. "
+                "Please double-check the path and try again."
+            ),
+            error_type="FILE_NOT_FOUND",
+            data={"filepath": filepath},
+        )
 
-    # 2. Validate file format
+    # Obtain the filename in advance for easier use in error messages.
+    filename = os.path.basename(filepath)
+
+    # 2. Validate file format (extension, size, etc.)
     try:
         validate_uploaded_file(filepath)
     except WrongFormatError as e:
-        return UploadResult(False, f"Invalid file format: {str(e)}", "INVALID_FORMAT", {"filepath": filepath})
+        # Customized more user-friendly prompts based on error content.
+        raw_msg = str(e)
+        lower_msg = raw_msg.lower()
 
-    filename = os.path.basename(filepath)
+        # If the validator tells us "not a valid zip", provide specific guidance.
+        if "not a valid zip archive" in lower_msg or "not a valid zip" in lower_msg:
+            friendly_msg = (
+                f"File '{filename}' has a .zip extension but is not a valid ZIP archive. "
+                "This often happens when a RAR/7z file is renamed to .zip. "
+                "Please re-compress your project using the standard ZIP format "
+                "(for example, Windows 'Send to → Compressed (zipped) folder' "
+                "or macOS 'Compress') and upload again."
+            )
+            return UploadResult(
+                success=False,
+                message=friendly_msg,
+                error_type="INVALID_ZIP",
+                data={"filepath": filepath},
+            )
+        
+    # String together the validator information to let the user know which formats are supported.、
+    # For other types of WrongFormatError, retain the original message "Invalid file format + specific reason".
+        return UploadResult(
+            success=False,
+            message=(
+                "Invalid file format. "
+                f"{str(e)}"
+            ),
+            error_type="INVALID_FORMAT",
+            data={"filepath": filepath},
+        )
+
+    # Prepare destination path
     dest_path = str(UPLOAD_FOLDER / filename)   # keep as str if the rest of your code expects str
 
     # 3. Create upload directory (via helper)
@@ -115,26 +158,50 @@ def add_file_to_db(filepath) -> UploadResult:
         shutil.copy(filepath, dest_path)
         print(f"File copied to {dest_path}")
     except Exception as e:
+        # More user-friendly error message
         return UploadResult(
             success=False,
-            message=f"File copy failed: {str(e)}",
+            message=(
+                f"File copy failed: {e}. "
+                "Please make sure you have read permission on the source file "
+                "and write permission to the uploads folder."
+            ),
             error_type="COPY_ERROR",
-            data={"source": filepath, "destination": dest_path}
+            data={"source": filepath, "destination": dest_path},
         )
 
+    # 4.5 Key Change
+    # To prevent RAR/7z files from crashing after simply changing the extension to .zip.
+    if not zipfile.is_zipfile(dest_path):
+        return UploadResult(
+            success=False,
+            message=(
+                f"File '{filename}' has a .zip extension but is not a valid ZIP archive. "
+                "Please re-compress your project using the standard ZIP format "
+                "and upload again."
+            ),
+            error_type="INVALID_ZIP",
+            data={"filepath": dest_path},
+        )
+    
     # 5. Extract metadata from zip
     file_contents = []
     try:
-        if zipfile.is_zipfile(dest_path):
+        # This has already been confirmed as a valid ZIP file, so the is_zipfile check will not be performed again.
             with zipfile.ZipFile(dest_path, 'r') as zip_ref:
                 file_contents = zip_ref.namelist()
             print(f"Files inside zip: {file_contents}")
     except Exception as e:
+        # More user-friendly error message
         return UploadResult(
             success=False,
-            message=f"ZIP file extraction failed: {str(e)}",
+            message=(
+                f"ZIP file extraction failed for '{filename}': {e}. "
+                "The archive might be corrupted. "
+                "Please re-create the ZIP file and try uploading again."
+            ),
             error_type="ZIP_EXTRACTION_ERROR",
-            data={"filepath": dest_path}
+            data={"filepath": dest_path},
         )
 
     # 6. Save to database
@@ -179,9 +246,27 @@ def add_file_to_db(filepath) -> UploadResult:
         )
 
     except ConnectionError:
-        return UploadResult(False, "Could not connect to database", "DATABASE_CONNECTION_ERROR")
+        # Provide a separate database connection error message
+        return UploadResult(
+            success=False,
+            message=(
+                "Could not connect to the database while saving the uploaded file. "
+                "Please try again later or contact the system administrator."
+            ),
+            error_type="DATABASE_CONNECTION_ERROR",
+            data={"filename": filename},
+        )
     except Exception as e:
-        return UploadResult(False, f"Database save failed: {str(e)}", "DATABASE_SAVE_ERROR", {"filename": filename})
+        # Generalized DB save error message
+        return UploadResult(
+            success=False,
+            message=(
+                f"Database save failed for '{filename}': {e}. "
+                "The file was copied to the uploads folder but could not be recorded in the database."
+            ),
+            error_type="DATABASE_SAVE_ERROR",
+            data={"filename": filename},
+        )
 
 
 def get_uploaded_file_contents(uploaded_file_id):
