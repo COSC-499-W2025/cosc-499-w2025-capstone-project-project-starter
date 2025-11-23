@@ -176,7 +176,14 @@ def handle_upload_file():
     """Handle file upload menu option."""
     filepath = input("Enter the path to your zip file: ")
     from upload_file import add_file_to_db
-    add_file_to_db(filepath)
+    result = add_file_to_db(filepath)
+    print("\n----------------------------------------")
+    if result.success:
+        print(f"Successful! {result.message}")
+    else:
+        print(f"Failed! Upload failed: {result.message}")
+    print("----------------------------------------\n")
+
 
 
 def handle_list_projects():
