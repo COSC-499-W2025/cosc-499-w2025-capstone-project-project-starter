@@ -134,7 +134,7 @@ class TestUserLoginRegistration:
         handle_user_login()
         
         output = mock_stdout.getvalue()
-        assert "✓ Login successful" in output
+        assert "[SUCCESS] Login successful" in output
         assert "Welcome back, testuser!" in output
     
     @patch('account.user_manager.AuthManager.login')
@@ -152,7 +152,7 @@ class TestUserLoginRegistration:
         handle_user_login()
         
         output = mock_stdout.getvalue()
-        assert "✗ Invalid username or password" in output
+        assert "[ERROR] Invalid username or password" in output
 
 
 class TestLogoutHandler:
@@ -182,7 +182,7 @@ class TestLogoutHandler:
         handle_user_logout()
         
         output = mock_stdout.getvalue()
-        assert "✓ Logout successful" in output
+        assert "[SUCCESS] Logout successful" in output
         assert "You have been logged out" in output
     
     @patch('builtins.input', return_value='n')  # Don't confirm logout

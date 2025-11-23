@@ -83,12 +83,12 @@ def set_password_display_mode():
     
     if choice == '1':
         SHOW_PASSWORD_AS_ASTERISK = True
-        print("✓ Password display set to asterisks (*)")
+        print("Password display set to asterisks (*)")
     elif choice == '2':
         SHOW_PASSWORD_AS_ASTERISK = False
-        print("✓ Password display set to visible characters")
+        print("Password display set to visible characters")
     elif choice == '3':
-        print("✓ Keeping current setting")
+        print("Keeping current setting")
     else:
         print("Invalid choice. Keeping current setting.")
     
@@ -179,11 +179,11 @@ def handle_user_login():
     result = AuthManager.login(username, password)
     
     if result['success']:
-        print(f"\n✓ {result['message']}")
+        print(f"\n[SUCCESS] {result['message']}")
         print(f"Welcome back, {username}!")
         input("\nPress Enter to continue...")
     else:
-        print(f"\n✗ {result['message']}")
+        print(f"\n[ERROR] {result['message']}")
         input("\nPress Enter to continue...")
 
 
@@ -197,10 +197,10 @@ def handle_user_logout():
         result = AuthManager.logout()
         
         if result['success']:
-            print(f"\n✓ {result['message']}")
+            print(f"\n[SUCCESS] {result['message']}")
             print("You have been logged out.")
         else:
-            print(f"\n✗ {result['message']}")
+            print(f"\n[ERROR] {result['message']}")
         
         input("\nPress Enter to continue...")
 
@@ -239,7 +239,7 @@ def handle_user_registration():
     result = AuthManager.register(username, password)
     
     if result['success']:
-        print(f"\n✓ {result['message']}")
+        print(f"\n[SUCCESS] {result['message']}")
         print(f"Account created successfully! User ID: {result['user_id']}")
         
         # Ask if user wants to login immediately
@@ -247,9 +247,9 @@ def handle_user_registration():
         if login_now in ('y', 'yes'):
             login_result = AuthManager.login(username, password)
             if login_result['success']:
-                print(f"\n✓ {login_result['message']}")
+                print(f"\n[SUCCESS] {login_result['message']}")
                 print(f"Welcome, {username}!")
     else:
-        print(f"\n✗ {result['message']}")
+        print(f"\n[ERROR] {result['message']}")
     
     input("\nPress Enter to continue...")
