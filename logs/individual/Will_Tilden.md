@@ -1,3 +1,33 @@
+# Personal log of Will Tilden (from Week 12) as per the personal log format outlined in lecture slides
+
+## Applicable date range
+- Monday, November 17th to Sunday, November 23rd
+
+## Type of tasks I worked on
+![Alt text](imgs/will_tilden_w12.png)
+
+## Recap on your weeks goals
+
+- Which features were yours in the project plan for this milestone?
+
+    This week my contribution and associated issue was finding a way to automatically get the DB tables added to the DB container upon setup of the container. This required editing the docker-compose.yml and adding a script that would wait until the DB container was successfully running and ready for a connection, and then having the yml file trigger the create_tables script in order to have them added automatically upon building the containers. This brings us one step closer to a fully connect pipeline.
+
+- Which tasks from the project board are associated with these features?
+
+    The associated issue is issue [COSC-499-W2025/capstone-project-team-15#115](https://github.com/COSC-499-W2025/capstone-project-team-15/issues/115)
+
+- Among these tasks, which have you completed / in progress in the last 2 weeks?
+
+    This issue was completed and closed this week by me with some help from Cole.
+
+- Optional text: additional context that we should be aware of
+
+     N/A
+
+- Working on in the next sprint
+
+    I'll be working together with the guys to go over the whole pipeline, make sure that all the indiviual components are working properly, being well tested, and are connecting properly to create a full pipeline. Basically with it being the last week before milestone #1 is due, we will essentially be checking over everything to make sure it is all working properly and that nothing was missed, etc. So it will be a busy but fun week.
+
 # Personal log of Will Tilden (from Week 10) as per the personal log format outlined in lecture slides
 
 ## Applicable date range
