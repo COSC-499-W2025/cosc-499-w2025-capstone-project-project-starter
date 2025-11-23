@@ -33,51 +33,58 @@ def ensure_upload_dir() -> str | None:
         return f"Failed to create upload directory: {e}"
 
 def init_uploaded_files_table():
-    """Create the uploaded_files table if it doesn't exist."""
+    """Create the uploaded_files table if it doesn't exist, and ensure new columns exist."""
     try:
+        # 1) Create the table (create it only if it does not exist)
         with with_db_cursor() as cursor:
             cursor.execute("""
-            CREATE TABLE IF NOT EXISTS uploaded_files (
-                id SERIAL PRIMARY KEY,
-                filename VARCHAR(255) NOT NULL,
-                filepath VARCHAR(500) NOT NULL,
-                status VARCHAR(50) DEFAULT 'uploaded',
-                metadata JSONB,
-                file_data BYTEA,
-                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-            );
-        """)
+                CREATE TABLE IF NOT EXISTS uploaded_files (
+                    id SERIAL PRIMARY KEY,
+                    filename VARCHAR(255) NOT NULL,
+                    filepath VARCHAR(500) NOT NULL,
+                    status VARCHAR(50) DEFAULT 'uploaded',
+                    metadata JSONB,
+                    file_data BYTEA,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                );
+            """)
         print(" Uploaded files table initialized")
 
-        # Add last_modified_at column if it doesn't exist
+        # 2) Migration: Automatically add missing columns to the old table
         try:
             with with_db_cursor() as cursor:
-                # Add the column if it doesn't exist
+                # The old database may not have file_data.
                 cursor.execute("""
                     ALTER TABLE uploaded_files
-                    ADD COLUMN IF NOT EXISTS last_modified_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP;
+                    ADD COLUMN IF NOT EXISTS file_data BYTEA;
                 """)
 
-                # Initialize existing records' last_modified_at to created_at if NULL
+                # The old database may not have last_modified_at.
+                cursor.execute("""
+                    ALTER TABLE uploaded_files
+                    ADD COLUMN IF NOT EXISTS last_modified_at TIMESTAMP;
+                """)
+
+                # Initialize the history's last_modified_at to created_at (only accept NULL).
                 cursor.execute("""
                     UPDATE uploaded_files
                     SET last_modified_at = COALESCE(last_modified_at, created_at)
                     WHERE last_modified_at IS NULL;
                 """)
-            # commented out to reduce noise
-            # print(" uploaded_files table migrated (last_modified_at ensured & initialized)")
+
         except Exception as e:
-            # If migration fails, log but continue
-            print(f" [WARN] Skipping last_modified_at migration: {e}")
-        
-        # Also initialize the file contents table
+            # If the migration fails, only print a warning to prevent the program from crashing.
+            print(f" [WARN] Skipping uploaded_files migration: {e}")
+
+        # 3) Initialize / migrate the file_contents table
         init_file_contents_table()
-        
+
     except ConnectionError:
         raise Exception("Failed to connect to database")
     except Exception as e:
         print(f" Error initializing uploaded_files table: {e}")
         raise
+
 
 def add_file_to_db(filepath) -> UploadResult:
     # 1. Check if file exists
