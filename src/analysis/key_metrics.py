@@ -1,10 +1,126 @@
 from __future__ import annotations
-from typing import Dict, Any, List, Tuple
+from typing import Dict, Any, List, Tuple, Set
 from datetime import datetime, date
+from collections import defaultdict
 
+from collaborative.identify_projects import _identify_authors_from_zip
+from collaborative.identify_contributors import identify_contributors
 from config.db_config import get_connection
 from analysis.activity_classifier import aggregate as agg_by_activity
+from parsing.file_contents_manager import get_zip_file
 
+def choose_author_from_zip(uploaded_file_id: int):
+    """
+    Calls _identify_authors_from_zip(uploaded_file_id),
+    prints authors with numbered options,
+    and adds an option to select ALL authors.
+    """
+
+    authors = _identify_authors_from_zip(uploaded_file_id)
+
+    if not authors:
+        return None
+
+    authors = sorted(list(authors))  # ordered for consistency
+
+    print("\nDetected Authors:")
+    for idx, name in enumerate(authors, start=1):
+        print(f"  {idx}. {name}")
+    print(f"  {len(authors) + 1}. [Not a collaboarative project]")
+
+    # get user choice
+    while True:
+        try:
+            choice = int(input("\nSelect an option: "))
+
+            # user selected all authors
+            if choice == len(authors) + 1:
+                print("\nYou selected: ALL authors")
+                return None
+
+            # user selected a specific author
+            if 1 <= choice <= len(authors):
+                selected = authors[choice - 1]
+                return selected
+
+            print(f"Please enter a number between 1 and {len(authors) + 1}.")
+        except ValueError:
+            print("Invalid input. Enter a number.")
+
+def get_author_file_contributions_from_zip(project_id: int, author_name: str) -> Dict[str, Set[str]]:
+    """
+    For a given project_id and author_name, return all files that the author
+    created, modified, or deleted, based on the Git history inside the uploaded ZIP.
+
+    Return format:
+        {
+            "created": { "file1.py", "file2.txt", ... },
+            "modified": { "file3.py", ... },
+            "deleted": { "old_file.txt", ... }
+        }
+
+    If anything fails (no zip, no repo, author not found, etc.), returns
+    empty sets for each category.
+    """
+    # Default empty structure
+    empty_result: Dict[str, Set[str]] = {
+        "created": set(),
+        "modified": set(),
+        "deleted": set(),
+    }
+
+    if project_id <= 0:
+        return empty_result
+
+    # Get the raw ZIP bytes from your storage/DB
+    zip_data = get_zip_file(project_id)
+    if not (zip_data and isinstance(zip_data, (bytes, bytearray))):
+        # No usable zip attached to this project
+        return empty_result
+
+    ic = None
+    try:
+        ic = identify_contributors(zip_bytes=zip_data)
+        repo_path = ic.extract_repo()
+        if repo_path is None:
+            return empty_result
+
+        # Use your existing method on the class
+        file_contribs = ic.get_file_contributions()
+        if not file_contribs:
+            return empty_result
+
+        # Try exact match first
+        author_contrib = file_contribs.get(author_name)
+
+        # If not found, fall back to case-insensitive match
+        if author_contrib is None:
+            for author_key, contrib in file_contribs.items():
+                if author_key.casefold() == author_name.casefold():
+                    author_contrib = contrib
+                    break
+
+        if author_contrib is None:
+            # Author not present in Git history
+            return empty_result
+
+        # Ensure we always return sets (not whatever internal type)
+        return {
+            "created": set(author_contrib.get("created", {}).get("files", set())),
+            "modified": set(author_contrib.get("modified", {}).get("files", set())),
+            "deleted": set(author_contrib.get("deleted", {}).get("files", set())),
+        }
+
+    except Exception:
+        # If anything about the archive/repo fails, return empty
+        return empty_result
+    finally:
+        if ic is not None:
+            ic.cleanup()
+
+def get_all_files_for_author_from_zip(project_id: int, author_name: str) -> Set[str]:
+    contribs = get_author_file_contributions_from_zip(project_id, author_name)
+    return contribs["created"] | contribs["modified"] | contribs["deleted"]
 
 def fetch_records_from_db(project_id: int) -> List[Tuple[str, int, str, int]]:
     """
@@ -16,6 +132,9 @@ def fetch_records_from_db(project_id: int) -> List[Tuple[str, int, str, int]]:
     but they are not exposed in the returned tuple to keep the public
     contract simple and compatible with tests.  
     """
+    author = choose_author_from_zip(project_id)
+    user_files = get_all_files_for_author_from_zip(project_id, author)
+    
     with get_connection() as conn, conn.cursor() as cur:
         # Original query for file contents
         cur.execute(
@@ -62,7 +181,22 @@ def fetch_records_from_db(project_id: int) -> List[Tuple[str, int, str, int]]:
                     num_lines = 0
 
         results.append((str(file_path), int(size_bytes or 0), str(language or "Unknown"), int(num_lines)))
-    
+
+    if(len(user_files)>0):
+        filtered_results = []
+        for file_path, size_bytes, language, num_lines in results:
+            keep = False
+            # 1. Keep if file matches any suffix in user_files
+            for suffix in user_files:
+                if file_path.endswith(suffix):
+                    keep = True
+                    break
+            # 2. Keep if it is inside a .git folder
+            if "/.git/" in file_path:
+                keep = True
+            if keep:
+                filtered_results.append((file_path, size_bytes, language, num_lines))
+        results = filtered_results
     return results
 
 
