@@ -46,8 +46,28 @@ def request_consent():
 
 def run_ollama_analysis(prompt: str) -> str:
     """
-    Run Ollama locally with given prompt. Returns output string.
+    Run Ollama locally with given prompt. Returns concise output string.
     """
+
+    # Enforce short structured response
+    concise_prompt = f"""
+Analyze the following code and respond in this exact format:
+
+1. Skill level of the author:
+2. Code design patterns:
+3. Use of data structures & algorithms:
+4. Performance considerations:
+5. Evidence of optimization or reasoning maturity:
+
+Rules:
+- Maximum 2 sentences per point
+- Be direct and concise
+- No extra commentary or explanations
+
+Code to analyze:
+{prompt}
+"""
+
     try:
         process = subprocess.Popen(
             ["ollama", "run", "mistral"],
@@ -56,10 +76,13 @@ def run_ollama_analysis(prompt: str) -> str:
             stderr=subprocess.PIPE,
             text=True
         )
-        output, error = process.communicate(prompt)
+        output, error = process.communicate(concise_prompt)
+
         if process.returncode != 0:
             return f"❌ Ollama error: {error.strip()}"
+
         return output.strip()
+
     except FileNotFoundError:
         return "❌ Ollama not installed or not running."
 
