@@ -11,6 +11,7 @@ from config.db_config import with_db_cursor
 from project_manager import get_project_by_id
 from parsing.file_contents_manager import get_file_contents_by_upload_id, get_file_statistics
 from collaborative.identify_projects import _identify_authors_from_zip, _count_git_files, _compute_collab_score, _extract_common_names_from_filenames, _detect_team_structure
+from database.user_preferences import get_user_collaboration
 from common.constants import LANGUAGE_EXTENSIONS
 from typing import Dict, List, Set, Any
 
@@ -102,6 +103,7 @@ class ProjectSummarizer:
         Returns:
             dict: Collaboration analysis
         """
+
         file_contents = get_file_contents_by_upload_id(project_id)
 
         indicators = {
@@ -111,6 +113,13 @@ class ProjectSummarizer:
             'has_common_names': False,
             'collaboration_score': 0
         }
+        
+        if get_user_collaboration() and not get_user_collaboration()[0]:
+            return {
+                "collaboration_level": "collaboration not granted",
+                "indicators": indicators,
+                "analysis": "collaboration not granted",
+            }
 
         common_names_found = _extract_common_names_from_filenames(file_contents)
         if common_names_found:
