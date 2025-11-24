@@ -59,9 +59,53 @@ def get_password_input(prompt="Password: ", show_asterisk=None):
                     pass
                     
     except ImportError:
-        # Unix/Linux/Mac fallback - show visible input with warning
-        print("\n[Note: Password will be visible on this system]")
-        password = input("")  # Empty prompt since we already printed the prompt above
+        # Unix/Linux/Mac fallback
+        try:
+            import termios
+            import tty
+            
+            fd = sys.stdin.fileno()
+            old_settings = termios.tcgetattr(fd)
+            
+            try:
+                tty.setraw(fd)
+                
+                while True:
+                    char = sys.stdin.read(1)
+                    
+                    # Handle Enter key (newline)
+                    if char == '\n' or char == '\r':
+                        print()  # New line
+                        break
+                    # Handle Backspace (DEL key in terminal)
+                    elif ord(char) == 127 or ord(char) == 8:
+                        if password:
+                            password = password[:-1]
+                            print('\b \b', end="", flush=True)
+                    # Handle Ctrl+C
+                    elif ord(char) == 3:
+                        print()
+                        raise KeyboardInterrupt
+                    # Handle normal printable characters
+                    elif char.isprintable():
+                        password += char
+                        if show_asterisk:
+                            print('*', end="", flush=True)
+                        else:
+                            print(char, end="", flush=True)
+                            
+            finally:
+                termios.tcsetattr(fd, termios.TCSADRAIN, old_settings)
+                
+        except (ImportError, AttributeError):
+            # Final fallback for systems without termios
+            try:
+                import getpass
+                print("\n[Using secure input - no visual feedback]")
+                password = getpass.getpass("")
+            except (ImportError, Exception):
+                print("\n[Note: Password will be visible on this system]")
+                password = input("")
     
     return password
 

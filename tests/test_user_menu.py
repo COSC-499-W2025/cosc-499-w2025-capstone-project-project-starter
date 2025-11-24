@@ -285,14 +285,15 @@ class TestPasswordInput:
                 assert "Test: ***" in output  # Should show three asterisks
                 
         except ImportError:
-            # Linux/Mac - test fallback behavior
-            with patch('builtins.input', return_value='abc'):
-                with patch('sys.stdout', new_callable=StringIO) as mock_stdout:
-                    password = get_password_input("Test: ", show_asterisk=True)
-                    
-                assert password == "abc"
-                output = mock_stdout.getvalue()
-                assert "Password will be visible" in output  # Should show fallback message
+            # Linux/Mac - test termios fallback behavior
+            with patch('sys.stdin.read', side_effect=['a', 'b', 'c', '\r']):
+                with patch('termios.tcgetattr'), patch('termios.tcsetattr'), patch('tty.setraw'):
+                    with patch('sys.stdout', new_callable=StringIO) as mock_stdout:
+                        password = get_password_input("Test: ", show_asterisk=True)
+                        
+                    assert password == "abc"
+                    output = mock_stdout.getvalue()
+                    assert "Test: ***" in output  # Should show three asterisks
     
     def test_get_password_input_visible(self):
         """Test password input with visible characters (cross-platform)"""
@@ -311,14 +312,15 @@ class TestPasswordInput:
                 assert "Test: abc" in output  # Should show actual characters
                 
         except ImportError:
-            # Linux/Mac - test fallback behavior
-            with patch('builtins.input', return_value='abc'):
-                with patch('sys.stdout', new_callable=StringIO) as mock_stdout:
-                    password = get_password_input("Test: ", show_asterisk=False)
-                    
-                assert password == "abc"
-                output = mock_stdout.getvalue()
-                assert "Password will be visible" in output  # Should show fallback message
+            # Linux/Mac - test termios fallback behavior
+            with patch('sys.stdin.read', side_effect=['a', 'b', 'c', '\r']):
+                with patch('termios.tcgetattr'), patch('termios.tcsetattr'), patch('tty.setraw'):
+                    with patch('sys.stdout', new_callable=StringIO) as mock_stdout:
+                        password = get_password_input("Test: ", show_asterisk=False)
+                        
+                    assert password == "abc"
+                    output = mock_stdout.getvalue()
+                    assert "Test: abc" in output  # Should show actual characters
     
     def test_get_password_input_backspace(self):
         """Test backspace functionality in password input (cross-platform)"""
@@ -335,14 +337,14 @@ class TestPasswordInput:
                 assert password == "ac"  # 'ab' with 'b' removed by backspace, then 'c'
                 
         except ImportError:
-            # Linux/Mac - test fallback behavior (backspace not applicable in fallback)
-            with patch('builtins.input', return_value='ac'):
-                with patch('sys.stdout', new_callable=StringIO) as mock_stdout:
-                    password = get_password_input("Test: ", show_asterisk=True)
-                    
-                assert password == "ac"
-                output = mock_stdout.getvalue()
-                assert "Password will be visible" in output
+            # Linux/Mac - test termios fallback with backspace (DEL key = 127)
+            backspace_char = chr(127)  # DEL key on Linux
+            with patch('sys.stdin.read', side_effect=['a', 'b', backspace_char, 'c', '\r']):
+                with patch('termios.tcgetattr'), patch('termios.tcsetattr'), patch('tty.setraw'):
+                    with patch('sys.stdout', new_callable=StringIO) as mock_stdout:
+                        password = get_password_input("Test: ", show_asterisk=True)
+                        
+                    assert password == "ac"  # 'ab' with 'b' removed by backspace, then 'c'
     
     def test_get_password_input_keyboard_interrupt(self):
         """Test Ctrl+C handling in password input (cross-platform)"""
@@ -357,10 +359,12 @@ class TestPasswordInput:
                     get_password_input("Test: ", show_asterisk=True)
                     
         except ImportError:
-            # Linux/Mac - test fallback KeyboardInterrupt behavior
-            with patch('builtins.input', side_effect=KeyboardInterrupt):
-                with pytest.raises(KeyboardInterrupt):
-                    get_password_input("Test: ", show_asterisk=True)
+            # Linux/Mac - test termios fallback KeyboardInterrupt behavior
+            ctrl_c_char = chr(3)  # Ctrl+C
+            with patch('sys.stdin.read', side_effect=['a', 'b', ctrl_c_char]):
+                with patch('termios.tcgetattr'), patch('termios.tcsetattr'), patch('tty.setraw'):
+                    with pytest.raises(KeyboardInterrupt):
+                        get_password_input("Test: ", show_asterisk=True)
 
 
 if __name__ == '__main__':
