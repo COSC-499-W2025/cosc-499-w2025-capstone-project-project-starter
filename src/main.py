@@ -30,12 +30,6 @@ def main():
 
     # 5. Unzip
     try:
-        # extraction_message = unzip_file(zip_path)
-        # print(extraction_message)
-
-        # unzipped_dir = extraction_message.split("Extracted to: ")[1]
-        # print(unzipped_dir + " unzipped successfully!\n")
-        
         unzipped_dir = unzip_file(zip_path)
         print(f"✅ Extracted to: {unzipped_dir}")
         print(unzipped_dir + " unzipped successfully!\n")
