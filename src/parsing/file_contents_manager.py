@@ -147,7 +147,7 @@ def get_zip_file(uploaded_file_id):
     try:
         with with_db_cursor() as cursor:
             cursor.execute("""
-                SELECT metadata
+                SELECT file_data
                 FROM uploaded_files
                 WHERE id = %s
             """, (uploaded_file_id,))
