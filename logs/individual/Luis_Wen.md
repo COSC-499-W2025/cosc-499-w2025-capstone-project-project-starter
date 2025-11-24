@@ -1,3 +1,37 @@
+# Personal log of Luis Wen (from Week 12)
+
+## Features in this milestone
+
+- Setting up LLM for requirement 4 from milestone 1
+- Testing and reviewing code
+- Refactoring code and tests
+
+## Project board tasks
+
+- Issue #105
+
+## Work done in last week
+
+- Added LLM into the project
+- Includes dependencies that has to be installed
+- Team log
+
+## Peer evaluation screenshot week 12
+
+![alt text](</logs/individual/imgs/LuisWen_Week12.png>)
+
+## Additional context
+
+- I did not know whether we are allowed a budget to use
+- Some LLM API's are not free to use
+- I wonder why team logs are not counted as contribution
+
+## Next Cycle
+
+- Implement the local analysis fallback
+- Midterm 2
+- Video demo/presentation
+
 # Personal log of Luis Wen (from Week 10)
 
 ## Features in this milestone
