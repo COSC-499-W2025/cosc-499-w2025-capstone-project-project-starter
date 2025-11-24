@@ -1,3 +1,4 @@
+import sys
 from validator.LLM_permission import display_privacy_notice, request_consent, run_ollama_analysis
 from validator.zipvalidation import check_zip_file, unzip_file
 from codeparser import parse_core
@@ -10,11 +11,14 @@ def main():
     # 2. Ask for consent
     consent = request_consent()
     if not consent:
-        print("Program terminated. No data was processed.")
+        print("Consent not given. Exiting.")
         return
 
-    # 3. Now ask for ZIP file path
-    zip_path = input("\nEnter the path to your ZIP file: ").strip()
+    # 3. Get ZIP file path (command line argument preferred)
+    if len(sys.argv) > 1:
+        zip_path = sys.argv[1]
+    else:
+        zip_path = input("\nEnter the path to your ZIP file: ").strip()
 
     # 4. Validate ZIP
     result = check_zip_file(zip_path)

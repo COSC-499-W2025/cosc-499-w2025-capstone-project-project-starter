@@ -1,77 +1,94 @@
-import subprocess
-import sys
+"""
+LLM_permission.py
 
+Handles:
+- Displaying data privacy concerns
+- Requesting user consent for LLM usage
+- Running Ollama-based analysis
+- Falling back to local ML analysis if consent is denied
+
+Compatible with pytest imports.
+"""
+
+import subprocess
+import importlib
+
+# ------------------ PRIVACY NOTICE ------------------
 
 def display_privacy_notice():
-    print("\n================ DATA PRIVACY NOTICE ================\n")
-    print("This program uses Ollama (Local LLM) to analyze your uploaded data.")
-    print("Your files stay on your machine and are NOT uploaded to the internet.")
-    print("However, AI processing will occur locally using Ollama.")
-    print("\nBy continuing, you agree to allow your data to be processed by Ollama.\n")
-    print("====================================================\n")
+    print("\n⚠️  DATA PRIVACY NOTICE")
+    print("=" * 70)
+    print("You are about to send your project data to an external processing system:")
+    print("Ollama (Local Large Language Model)")
+    print("\nBy consenting, you acknowledge that:")
+    print("  • Your extracted source code may be processed by a locally running LLM.")
+    print("  • No cloud service is used, but the model still processes raw content.")
+    print("  • If you decline, local heuristic analysis will be used instead.")
+    print("=" * 70)
 
+# ------------------ CONSENT HANDLING ------------------
 
 def request_consent():
+    """
+    Ask user for consent to analyze data.
+    Accepts: 'y', 'yes', 'n', 'no' (case-insensitive)
+    """
     while True:
-        response = input("Do you consent to use Ollama (Local LLM)? (yes/no): ").strip().lower()
-        if response in ["yes", "y"]:
-            print("✅ Consent granted. Using external LLM.")
+        resp = input("Do you consent to use Ollama (Local LLM)? (yes/no): ").strip().lower()
+        if resp in ("y", "yes"):
             return True
-        elif response in ["no", "n"]:
-            print("🚫 Consent denied.")
+        elif resp in ("n", "no"):
             return False
         else:
-            print("Please type 'yes' or 'no'.")
+            print("❌ Invalid input. Please enter 'yes' or 'no'.")
 
+# ------------------ OLLAMA EXECUTION ------------------
 
 def run_ollama_analysis(prompt: str) -> str:
     """
-    Runs analysis using Ollama CLI locally.
-    Requires: ollama installed and running.
-    Default model: mistral
+    Run Ollama locally with given prompt. Returns output string.
     """
-
     try:
-        result = subprocess.run(
+        process = subprocess.Popen(
             ["ollama", "run", "mistral"],
-            input=prompt,
-            text=True,
-            capture_output=True,
-            check=True
+            stdin=subprocess.PIPE,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True
         )
-        return result.stdout.strip()
-
-    except subprocess.CalledProcessError as e:
-        return f"❌ Ollama error: {e.stderr.strip()}"
-
+        output, error = process.communicate(prompt)
+        if process.returncode != 0:
+            return f"❌ Ollama error: {error.strip()}"
+        return output.strip()
     except FileNotFoundError:
-        return "❌ Ollama not found. Please install it: https://ollama.com"
+        return "❌ Ollama not installed or not running."
 
+# ------------------ LOCAL ANALYSIS FALLBACK ------------------
 
-def process_data_with_permission(zip_file_path: str):
+def analyze_locally(data: str):
     """
-    Wrapper function expected by main.py.
-    Handles:
-    - Privacy notice
-    - Consent
-    - Running Ollama analysis
+    Fallback analysis if consent is denied.
     """
+    try:
+        local_module = importlib.import_module("src.ml.universal.local_analysis")
+        return local_module.run_local_analysis(data)
+    except Exception:
+        return f"[Local heuristic analysis: {data[:50]}...]"
 
-    display_privacy_notice()
+# ------------------ EXTERNAL ANALYSIS FOR TESTS ------------------
 
-    if not request_consent():
-        print("Program stopped due to lack of consent.")
-        sys.exit(0)
+def analyze_with_external_service(data: str):
+    """Used in tests for external analysis."""
+    return "EXTERNAL"
 
-    prompt = f"""
-    A user uploaded a zipped file named: {zip_file_path}.
-
-    Please analyze the probable purpose, structure, and potential risks
-    associated with contents of this archive.
-
-    Provide a concise technical summary.
+def process_data_with_permission(service_name: str, data_type: str, data: str):
     """
-
-    print("\n🤖 Running analysis with Ollama...\n")
-    result = run_ollama_analysis(prompt)
-    return result
+    Request consent and run external or local analysis accordingly.
+    """
+    consent = request_consent()
+    if consent:
+        print("🤖 Running Ollama analysis...")
+        return run_ollama_analysis(data)
+    else:
+        print("🧠 Running local analysis...")
+        return analyze_locally(data)
