@@ -1,29 +1,61 @@
 import os
 import zipfile
 import json
+from datetime import datetime 
 from psycopg import Binary
 from config.db_config import with_db_cursor, with_db_connection
 
 
 def init_file_contents_table():
-    """Create the file_contents table if it doesn't exist."""
+    """Create the file_contents table if it doesn't exist, and ensure source_* columns exist."""
     try:
+        # Create table if not exists
         with with_db_cursor() as cursor:
             cursor.execute("""
-            CREATE TABLE IF NOT EXISTS file_contents (
-                id SERIAL PRIMARY KEY,
-                uploaded_file_id INTEGER REFERENCES uploaded_files(id) ON DELETE CASCADE,
-                file_path VARCHAR(1000) NOT NULL,
-                file_name VARCHAR(255) NOT NULL,
-                file_extension VARCHAR(50),
-                file_size BIGINT,
-                file_content BYTEA,
-                content_type VARCHAR(100),
-                is_binary BOOLEAN DEFAULT FALSE,
-                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-            );
-        """)
+                CREATE TABLE IF NOT EXISTS file_contents (
+                    id SERIAL PRIMARY KEY,
+                    uploaded_file_id INTEGER REFERENCES uploaded_files(id) ON DELETE CASCADE,
+                    file_path VARCHAR(1000) NOT NULL,
+                    file_name VARCHAR(255) NOT NULL,
+                    file_extension VARCHAR(50),
+                    file_size BIGINT,
+                    file_content BYTEA,
+                    content_type VARCHAR(100),
+                    is_binary BOOLEAN DEFAULT FALSE,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                );
+            """)
         print("File contents table initialized")
+
+        # schema migration: ensure source_created_at and source_modified_at columns exist
+        try:
+            with with_db_cursor() as cursor:
+                cursor.execute("""
+                    ALTER TABLE file_contents
+                    ADD COLUMN IF NOT EXISTS source_created_at TIMESTAMP NULL;
+                """)
+                cursor.execute("""
+                    ALTER TABLE file_contents
+                    ADD COLUMN IF NOT EXISTS source_modified_at TIMESTAMP NULL;
+                """)
+            # print("file_contents table migrated: source_* columns ensured")
+        except Exception as e:
+            print(f"[WARN] Skipping file_contents source_* migration: {e}")
+
+        # 3. Add indexes for performance
+        try:
+            with with_db_cursor() as cursor:
+                cursor.execute("""
+                    CREATE INDEX IF NOT EXISTS idx_file_contents_upload_source_ts
+                    ON file_contents (uploaded_file_id, source_created_at, source_modified_at);
+                """)
+                cursor.execute("""
+                    CREATE INDEX IF NOT EXISTS idx_file_contents_uploaded_file_id
+                    ON file_contents (uploaded_file_id);
+                """)
+        except Exception as e:
+            print(f"[WARN] Skipping index creation: {e}")
+
     except ConnectionError:
         raise Exception("Failed to connect to database")
     except Exception as e:
@@ -71,11 +103,18 @@ def extract_and_store_file_contents(uploaded_file_id, zip_file_path, max_files=1
                         file_info = zip_ref.getinfo(file_path)
                         file_size = file_info.file_size
 
+                        # Key: Retrieve the "source time" from ZipInfo.date_time
+                        try:
+                            # date_time is (year, month, day, hour, minute, second)
+                            src_ts = datetime(*file_info.date_time)
+                        except Exception:
+                            src_ts = None
+
                         is_binary = _is_binary_file(file_extension)
                         content_type = _get_content_type(file_extension)
 
                         file_bytes = zip_ref.read(file_path)
-                        # Always store raw bytes in BYTEA for binary files
+                        # Always store raw bytes in BYTEA
                         file_content = Binary(file_bytes)
 
                         batch_data.append((
@@ -86,7 +125,9 @@ def extract_and_store_file_contents(uploaded_file_id, zip_file_path, max_files=1
                             file_size,
                             file_content,
                             content_type,
-                            is_binary
+                            is_binary,
+                            src_ts,  # source_created_at
+                            src_ts,  # source_modified_at
                         ))
 
                         extracted_files.append({
@@ -106,6 +147,7 @@ def extract_and_store_file_contents(uploaded_file_id, zip_file_path, max_files=1
                     except Exception as e:
                         errors.append(f"Error processing {file_path}: {str(e)}")
                         print(f"Error processing {file_path}: {str(e)}")
+
 
                 if batch_data:
                     _insert_batch(cursor, batch_data)
@@ -136,8 +178,9 @@ def _insert_batch(cursor, batch_data):
         cursor.executemany("""
             INSERT INTO file_contents 
             (uploaded_file_id, file_path, file_name, file_extension, 
-             file_size, file_content, content_type, is_binary)
-            VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+             file_size, file_content, content_type, is_binary,
+             source_created_at, source_modified_at)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
         """, batch_data)
     except Exception as e:
         print(f"Error inserting batch: {e}")

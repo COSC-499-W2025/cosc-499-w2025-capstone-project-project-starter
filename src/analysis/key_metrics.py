@@ -114,13 +114,49 @@ def _add_activity_percentages(by_activity: Dict[str, Dict[str, Any]]) -> None:
 def _fetch_activity_timestamps(project_id: int) -> List[datetime]:
     """
     Fetch timestamps related to this project.
+    Prioritize using the earliest/latest timestamps of `file_contents.source_created_at` and `source_modified_at`.
+    If neither is available, then fall back to `uploaded_files.created_at` or `last_modified_at`.
 
-    For now we use uploaded_files.created_at as the activity time.
-    If the column or table doesn't exist (e.g., in tests), this
-    gracefully returns an empty list.
+    This way:
+    `Start` is closer to the earliest file time in the project (e.g., 2025/09/26 in JDK).
+    `End` is closer to the latest file time in the project or the most recent analysis time.
     """
     timestamps: List[datetime] = []
 
+    # 1) Look for file_contents's source_created_at / source_modified_at
+    try:
+        with get_connection() as conn, conn.cursor() as cur:
+            cur.execute(
+                """
+                SELECT
+                    MIN(COALESCE(source_created_at, source_modified_at)) AS start_ts,
+                    MAX(COALESCE(source_modified_at, source_created_at)) AS end_ts
+                FROM file_contents
+                WHERE uploaded_file_id = %s
+                  AND (source_created_at IS NOT NULL OR source_modified_at IS NOT NULL);
+                """,
+                (project_id,),
+            )
+            rows = cur.fetchall()
+    except Exception:
+        rows = []
+
+    if rows:
+        row = rows[0]
+        start_ts = row[0] if len(row) >= 1 else None
+        end_ts = row[1] if len(row) >= 2 else None
+
+        for ts in (start_ts, end_ts):
+            if isinstance(ts, datetime):
+                timestamps.append(ts)
+            elif isinstance(ts, date):
+                timestamps.append(datetime.combine(ts, datetime.min.time()))
+
+        # If we found any timestamps here, return them
+        if timestamps:
+            return timestamps
+
+    # 2) Fallback：Use uploaded_files's created_at / last_modified_at
     try:
         with get_connection() as conn, conn.cursor() as cur:
             cur.execute(
@@ -138,20 +174,18 @@ def _fetch_activity_timestamps(project_id: int) -> List[datetime]:
     for row in rows:
         if not row:
             continue
-        try:
-        # rows may have extra columns; we only want the first two
-            created_at, last_modified_at = row
-        except ValueError:
-        # In unit tests, the mock rows are actually file records, and the number of columns is completely incorrect.
-        # In this case, we skip it directly, allowing the timeline logic to gracefully degrade to "no timestamps".
-            continue
+        # Safely extract created_at and last_modified_at
+        if len(row) >= 1:
+            created_at = row[0]
+        else:
+            created_at = None
+        last_modified_at = row[1] if len(row) >= 2 else None
 
         for ts in (created_at, last_modified_at):
             if isinstance(ts, datetime):
                 timestamps.append(ts)
             elif isinstance(ts, date):
                 timestamps.append(datetime.combine(ts, datetime.min.time()))
-            # Other types are ignored
 
     return timestamps
 
@@ -272,7 +306,7 @@ def print_summary(name: str, metrics: Dict[str, Any]) -> None:
 def _touch_project_last_modified(project_id: int) -> None:
     """
     Update uploaded_files.last_modified_at to now() for this project.
-    This is a lightweight way to record that we just did some activity.
+    Record that we analyzed it just now.
     """
     try:
         with get_connection() as conn, conn.cursor() as cur:
