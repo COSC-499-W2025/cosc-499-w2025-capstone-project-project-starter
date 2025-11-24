@@ -15,7 +15,7 @@ from .menus import (
     handle_cleanup_insights,
     ask_user_preferences
 )
-from .user_menus import user_account_menu
+from cli.user_menus import user_account_menu
 from account.user_manager import AuthManager
 
 
