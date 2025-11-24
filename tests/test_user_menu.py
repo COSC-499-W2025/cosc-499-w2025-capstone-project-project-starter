@@ -10,7 +10,7 @@ from io import StringIO
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "../src")))
 
 # Import the modules to test
-from cli.user_menus import user_account_menu, handle_user_login, handle_user_logout, handle_user_registration
+from cli.user_menus import user_account_menu, handle_user_login, handle_user_logout, handle_user_registration, login_menu
 from account.user_manager import AuthManager
 
 
@@ -365,6 +365,97 @@ class TestPasswordInput:
                 with patch('termios.tcgetattr'), patch('termios.tcsetattr'), patch('tty.setraw'):
                     with pytest.raises(KeyboardInterrupt):
                         get_password_input("Test: ", show_asterisk=True)
+
+
+class TestLoginMenu:
+    """Test class for login menu functionality"""
+    
+    def setup_method(self):
+        """Reset the AuthManager state before each test"""
+        AuthManager.clear_session()
+    
+    def teardown_method(self):
+        """Clean up after each test"""
+        AuthManager.clear_session()
+    
+    @patch('builtins.input', side_effect=['4'])  # Exit option
+    @patch('sys.stdout', new_callable=StringIO)
+    def test_login_menu_exit(self, mock_stdout, mock_input):
+        """Test login menu exit option"""
+        result = login_menu()
+        
+        assert result is False
+        output = mock_stdout.getvalue()
+        assert "MINING DIGITAL WORK ARTIFACTS - Login Required" in output
+        assert "1. Login to existing account" in output
+        assert "2. Create new account" in output
+        assert "3. Password display settings" in output
+        assert "4. Exit" in output
+        assert "Goodbye!" in output
+    
+    @patch('account.user_manager.AuthManager.login')
+    @patch('builtins.input', side_effect=['1', 'testuser', ''])  # Choose login, then username and "Press Enter"
+    @patch('cli.user_menus.get_password_input', return_value='password123')
+    @patch('sys.stdout', new_callable=StringIO)
+    def test_login_menu_successful_login(self, mock_stdout, mock_password_input, mock_input, mock_login):
+        """Test login menu with successful login"""
+        # Mock successful login
+        mock_login.return_value = {
+            'success': True,
+            'message': 'Login successful',
+            'user_info': {'user_name': 'testuser'}
+        }
+        
+        # Set up the user as logged in after successful login
+        AuthManager._current_user = {
+            'user_id': 1,
+            'user_name': 'testuser',
+            'create_time': '2024-01-01 10:00:00',
+            'last_login_time': '2024-01-01 12:00:00'
+        }
+        
+        result = login_menu()
+        
+        assert result is True
+        output = mock_stdout.getvalue()
+        assert "MINING DIGITAL WORK ARTIFACTS - Login Required" in output
+        assert "[SUCCESS] Login successful" in output
+    
+    @patch('account.user_manager.AuthManager.register')
+    @patch('account.user_manager.AuthManager.login')
+    @patch('builtins.input', side_effect=['2', 'newuser', 'y', ''])  # Choose register, username, login now, Press Enter
+    @patch('cli.user_menus.get_password_input', side_effect=['password123', 'password123', 'password123'])  # password, confirm, login password
+    @patch('sys.stdout', new_callable=StringIO)
+    def test_login_menu_successful_registration(self, mock_stdout, mock_password_input, mock_input, mock_login, mock_register):
+        """Test login menu with successful registration and immediate login"""
+        # Mock successful registration
+        mock_register.return_value = {
+            'success': True,
+            'message': 'Registration successful',
+            'user_id': 1
+        }
+        
+        # Mock successful login after registration
+        mock_login.return_value = {
+            'success': True,
+            'message': 'Login successful',
+            'user_info': {'user_name': 'newuser'}
+        }
+        
+        # Set up the user as logged in after successful registration and login
+        AuthManager._current_user = {
+            'user_id': 1,
+            'user_name': 'newuser',
+            'create_time': '2024-01-01 10:00:00',
+            'last_login_time': '2024-01-01 12:00:00'
+        }
+        
+        result = login_menu()
+        
+        assert result is True
+        output = mock_stdout.getvalue()
+        assert "MINING DIGITAL WORK ARTIFACTS - Login Required" in output
+        assert "[SUCCESS] Registration successful" in output
 
 
 if __name__ == '__main__':
