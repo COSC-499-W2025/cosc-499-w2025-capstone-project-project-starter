@@ -65,16 +65,3 @@ def export(data, filename="report.pdf"):
 
 
 
-# ------------------------
-# Example usage with mock predictions
-# ------------------------
-if __name__ == "__main__":
-    mock_data = {
-        "predictions": [
-            ["Flask", 0.93],
-            ["SQL", 0.71],
-            ["React", 0.62]
-        ]
-    }
-
-    export(mock_data, filename="report.pdf")
