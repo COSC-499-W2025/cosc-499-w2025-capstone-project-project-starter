@@ -2,6 +2,34 @@
 # Week 10
 
 ## Applicable Date Range
+- Monday, November 10th to Sunday, November 23rd
+
+## Peer Evaluation Screenshot
+was unable to access the peer evaluation and thus do not have a screenshot to show for this week, however, I did do the following:
+  - Researching / Learning new things
+  - Coding
+  - Team Meetings
+  - Figuring out a problem on my own
+  - Testing for my code
+
+
+### Recap On Your Weeks Goals
+- Which Features Were Yours in the Project Plan for this Milestone?
+  I was assigned to continue working on the exporter
+- Which Tasks from the Project Board are Associated with these Features?
+  The relevant issue is #92, which have sub issues #93 and#101 with just myself assigned. These sub issues are to break up the implementation for easier integration later on.
+- Among these tasks, which have you completed/in progress in the last 2 weeks?
+  Integration with the model was successful, but was inconsistent on my machine due to training constraints on the model due to limited memory
+- Planning for next sprint: 
+  Next sprint will focus on refining the integration and getting assistancw with ensuring it is consistent on more powerful machines
+- Optional text: additional context that we should be aware of:
+  I was struggling this week on getting the integration working due to the less powerful nature of my laptop not allowing for full training of our model. I believe the integration is in a working (non-breaking) state, but I am uncertain due to my own inconsistent results. It may be an issue further along in the project. Will have to monitor and possibly shift tasks if it poses problems again.
+
+
+
+# Week 10
+
+## Applicable Date Range
 - Monday, November 3rd to Sunday, November 9th
 
 ## Peer Evaluation Screenshot
