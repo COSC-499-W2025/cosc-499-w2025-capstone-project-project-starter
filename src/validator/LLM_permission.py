@@ -46,26 +46,28 @@ def request_consent():
 
 def run_ollama_analysis(prompt: str) -> str:
     """
-    Run Ollama locally with given prompt. Returns concise output string.
+    Run Ollama locally with given prompt.
+    Optimized to prioritize code over instructions.
     """
 
-    # Enforce short structured response
+    MAX_INPUT_CHARS = 2000  # Safe under Ollama's window
+
+    trimmed_prompt = prompt[:MAX_INPUT_CHARS]
+    if len(prompt) > MAX_INPUT_CHARS:
+        trimmed_prompt += "\n[Truncated]"
+
     concise_prompt = f"""
-Analyze the following code and respond in this exact format:
+Analyze this code. Respond EXACTLY in this format
+(max 2 sentences per point):
 
 1. Skill level of the author:
 2. Code design patterns:
-3. Use of data structures & algorithms:
+3. Data structures & algorithms:
 4. Performance considerations:
-5. Evidence of optimization or reasoning maturity:
+5. Optimization / reasoning maturity:
 
-Rules:
-- Maximum 2 sentences per point
-- Be direct and concise
-- No extra commentary or explanations
-
-Code to analyze:
-{prompt}
+Code:
+{trimmed_prompt}
 """
 
     try:
@@ -76,6 +78,7 @@ Code to analyze:
             stderr=subprocess.PIPE,
             text=True
         )
+
         output, error = process.communicate(concise_prompt)
 
         if process.returncode != 0:
