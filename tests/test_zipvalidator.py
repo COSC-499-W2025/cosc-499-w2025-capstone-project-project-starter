@@ -1,15 +1,15 @@
-import pytest
-import zipfile
-import tempfile
 import os
-from src.main import main
+import zipfile
+import pytest
+
 from src.validator import zipvalidation
-from unittest.mock import patch
 
 def test_nonexistent_file():
     file = "missing.zip"
     result = zipvalidation.check_zip_file(file)
     assert "does not exist" in result
+    assert str(missing) in result
+
 
 def test_zip_file():
     with tempfile.NamedTemporaryFile(suffix=".zip", delete=False) as tmp:

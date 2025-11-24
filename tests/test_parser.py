@@ -1,67 +1,84 @@
-import os
 import pytest
-from pathlib import Path
-from src.codeparser.parse_core import parse_directory, summarize_results
-from src.codeparser import parse_core as parser
+
+from codeparser import parse_core
 
 
-def test_parse_directory_empty(tmp_path):
-    """Test parsing an empty directory."""
-    summary = parse_directory(str(tmp_path))
-    assert summary["total_files"] == 0
-    assert len(summary["binary_files"]) == 0
-    assert len(summary["text_files"]) == 0
+def test_parse_directory_basic(monkeypatch, tmp_path):
+    # Create two simple text files
+    f1 = tmp_path / "file1.txt"
+    f1.write_text("content one", encoding="utf-8")
+    f2 = tmp_path / "file2.txt"
+    f2.write_text("content two", encoding="utf-8")
+
+    # Mock list_text_files to return these files
+    def fake_list_text_files(root_dir):
+        assert root_dir == tmp_path
+        return [str(f1), str(f2)]
+
+    # Mock classify_text to return deterministic predictions
+    def fake_classify_text(text, threshold=0.5):
+        if "one" in text:
+            return [("skill_a", 0.9)]
+        return [("skill_a", 0.8)]
+
+    monkeypatch.setattr(
+        parse_core.file_classification, "list_text_files", fake_list_text_files
+    )
+    monkeypatch.setattr(parse_core.predict, "classify_text", fake_classify_text)
+
+    results = parse_core.parse_directory(tmp_path, threshold=0.5)
+
+    assert results == [
+        {"file": str(f1), "predictions": [("skill_a", 0.9)]},
+        {"file": str(f2), "predictions": [("skill_a", 0.8)]},
+    ]
 
 
-def test_parse_directory_with_unreadable_file(tmp_path, monkeypatch):
-    text_file = tmp_path / "readable.txt"
-    bad_file = tmp_path / "badfile.txt"
-    text_file.write_text("normal text")
-    bad_file.write_text("bad content")
+def test_summarize_results_and_output(capsys):
+    results = [
+        {
+            "file": "a.py",
+            "predictions": [("python", 0.9), ("ml", 0.6)],
+        },
+        {
+            "file": "b.py",
+            "predictions": [("python", 0.7)],
+        },
+        {
+            "file": "c.py",
+            "predictions": [],
+        },
+    ]
 
-    # Patch is_binary_file to raise an exception on the bad file
-    def fake_is_binary_file(path):
-        if "badfile" in path:
-            raise RuntimeError("Simulated read error")
-        return False
+    summary = parse_core.summarize_results(results)
 
-    monkeypatch.setattr(parser, "is_binary_file", fake_is_binary_file)
+    # Summary structure and aggregation
+    assert len(summary) == 2
 
-    summary = parse_directory(str(tmp_path))
-    assert summary["total_files"] == 2
-    assert any("badfile.txt" in f for f in summary["binary_files"])
-    assert any("readable.txt" in f for f in summary["text_files"])
+    # Sorted by max_prob descending: "python" first
+    python_entry = summary[0]
+    ml_entry = summary[1]
 
-def test_yield_all_files(tmp_path):
-    # Setup files, subdir, and symlink
-    file1 = tmp_path / "file1.txt"
-    file2 = tmp_path / "file2.bin"
-    subdir = tmp_path / "subdir"
-    subdir.mkdir()
-    file3 = subdir / "file3.txt"
-    file1.write_text("hello")
-    file2.write_bytes(b"\x00\x01")
-    file3.write_text("world")
+    assert python_entry["skill"] == "python"
+    assert python_entry["count"] == 2
+    assert python_entry["avg_prob"] == pytest.approx(0.8)
+    assert python_entry["max_prob"] == pytest.approx(0.9)
 
-    symlink = tmp_path / "link_to_file3.txt"
-    try:
-        symlink.symlink_to(file3)
-        symlink_created = True
-    except (NotImplementedError, OSError):
-        symlink_created = False
+    assert ml_entry["skill"] == "ml"
+    assert ml_entry["count"] == 1
+    assert ml_entry["avg_prob"] == pytest.approx(0.6)
+    assert ml_entry["max_prob"] == pytest.approx(0.6)
 
-    yielded_files = [os.path.abspath(f) for f in parser._yield_all_files(str(tmp_path))]
-    expected_files = [os.path.abspath(str(f)) for f in [file1, file2, file3]]
-    if symlink_created:
-        expected_files.append(os.path.abspath(str(symlink)))
-
-    for f in expected_files:
-        assert f in yielded_files
-
-def test_summarize_results_empty(capsys):
-    summary = {"total_files": 0, "binary_files": [], "text_files": []}
-    summarize_results(summary)
+    # Check printed output contains key sections and values
     captured = capsys.readouterr()
-    assert "Total files scanned: 0" in captured.out
-    assert "Binary files       : 0" in captured.out
-    assert "Text files         : 0" in captured.out
+    out = captured.out
+
+    assert "=== Skill summary across all non-binary files ===" in out
+    assert "python: files=2, avg_prob=0.800, max_prob=0.900" in out
+    assert "ml: files=1, avg_prob=0.600, max_prob=0.600" in out
+    assert "\n=== Per-file predictions (non-empty) ===" in out
+    assert "File: a.py" in out
+    assert "File: b.py" in out
+    assert "python: 0.900" in out
+    assert "python: 0.700" in out
+    assert "ml: 0.600" in out
