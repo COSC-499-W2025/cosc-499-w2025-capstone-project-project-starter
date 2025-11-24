@@ -17,6 +17,7 @@ from external_services.permission_manager import ExternalServicePermission
 from collaborative.identify_contributors import identify_contributors
 from database.user_preferences import get_user_git_username, update_user_git_username
 from tools.cleanup_insights import delete_insights
+from portfolio.portfolio_display import portfolio_menu
 
 
 def summarize_project_menu():
