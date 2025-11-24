@@ -4,7 +4,7 @@ import pytest
 
 # Add src folder to Python path
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "src")))
-from exporter.pdf_exporter import export
+from src.exporter.pdf_exporter import export, collect_predictions
 
 @pytest.fixture
 def tmp_pdf(tmp_path):
@@ -51,3 +51,57 @@ def test_pdf_export_predictions_not_list(tmp_pdf):
     export(mock_data, filename=str(tmp_pdf))
     assert tmp_pdf.exists()
     assert tmp_pdf.stat().st_size > 0
+
+def test_collect_predictions_basic():
+    parsed = [
+        {"file": "a.txt", "skills": [["Python", 0.9]]},
+        {"file": "b.txt", "skills": [["SQL", 0.8]]},
+    ]
+    result = collect_predictions(parsed)
+    assert result == [
+        ["a.txt: Python", 0.9],
+        ["b.txt: SQL", 0.8],
+    ]
+
+
+def test_collect_predictions_uses_predictions_key():
+    parsed = [
+        {"file": "code.py", "predictions": [["Flask", 0.7]]}
+    ]
+    result = collect_predictions(parsed)
+    assert result == [["code.py: Flask", 0.7]]
+
+
+def test_collect_predictions_skips_invalid_entries():
+    parsed = [
+        {
+            "file": "bad.json",
+            "skills": [
+                ["Valid", 0.99],
+                ["MissingProb"],
+                ["Too", "Many", "Values"],
+                "not even a list",
+            ]
+        }
+    ]
+    result = collect_predictions(parsed)
+    assert result == [["bad.json: Valid", 0.99]]
+
+
+def test_collect_predictions_non_list_skills():
+    parsed = [{"file": "test", "skills": "not a list"}]
+    result = collect_predictions(parsed)
+    assert result == []
+
+
+def test_collect_predictions_non_list_folder():
+    parsed = {"not": "a list"}
+    result = collect_predictions(parsed)
+    assert result == []
+
+
+def test_collect_predictions_missing_filename():
+    parsed = [{"skills": [["C++", 0.55]]}]
+    result = collect_predictions(parsed)
+    assert result == [["Unknown file: C++", 0.55]]
+

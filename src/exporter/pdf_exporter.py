@@ -64,4 +64,33 @@ def export(data, filename="report.pdf"):
     print(f"✅ PDF successfully created: {filename}")
 
 
+def collect_predictions(parsed_folder):
+    all_predictions = []
+
+    if isinstance(parsed_folder, list):
+        for file_summary in parsed_folder:
+            file_name = file_summary.get("file", "Unknown file")
+
+            # Accept both "skills" and "predictions"
+            skills = (
+                file_summary.get("skills")
+                or file_summary.get("predictions")
+                or []
+            )
+
+            if not isinstance(skills, list):
+                continue
+
+            for item in skills:
+                if isinstance(item, (list, tuple)) and len(item) == 2:
+                    skill, prob = item
+                    all_predictions.append([f"{file_name}: {skill}", prob])
+                else:
+                    print(f"⚠️ Skipping invalid skill entry in {file_name}: {item}")
+    else:
+        print("⚠️ Unexpected parsed_folder structure. PDF will be empty.")
+
+    return all_predictions
+
+
 
