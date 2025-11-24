@@ -191,7 +191,10 @@ class ProjectSummarizer:
         
         if 'code_analysis' in summary and summary['code_analysis']:
             output.append(f"\n{'='*80}")
-            output.append("CODE ANALYSIS & TECHNICAL INSIGHTS")
+            if collab.get("collaboration_level", "Unknown") != "Likely individual project":
+                output.append("CODE ANALYSIS & TECHNICAL INSIGHTS")
+            else:
+                output.append("CODE ANALYSIS & TECHNICAL INSIGHTS   (Analysis is on whole project not just the portion you worked on)")
             output.append("="*80)
             deep = summary['code_analysis']
             oop = deep.get('oop_principles_summary', {})

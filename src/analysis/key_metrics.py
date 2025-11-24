@@ -3,11 +3,12 @@ from typing import Dict, Any, List, Tuple, Set
 from datetime import datetime, date
 from collections import defaultdict
 
-from collaborative.identify_projects import _identify_authors_from_zip
+from collaborative.identify_projects import _identify_authors_from_zip, _extract_common_names_from_filenames
 from collaborative.identify_contributors import identify_contributors
 from config.db_config import get_connection
 from analysis.activity_classifier import aggregate as agg_by_activity
-from parsing.file_contents_manager import get_zip_file
+from parsing.file_contents_manager import get_zip_file, get_file_contents_by_upload_id
+from database.user_preferences import get_user_git_username
 
 def choose_author_from_zip(uploaded_file_id: int):
     """
@@ -15,15 +16,19 @@ def choose_author_from_zip(uploaded_file_id: int):
     prints authors with numbered options,
     and adds an option to select ALL authors.
     """
-
-    authors = _identify_authors_from_zip(uploaded_file_id)
+    file_contents = get_file_contents_by_upload_id(uploaded_file_id)
+    authors = _identify_authors_from_zip(uploaded_file_id) | _extract_common_names_from_filenames(file_contents)
 
     if not authors:
         return None
 
+    git_username = get_user_git_username()
+    if git_username in authors:
+        return git_username
+
     authors = sorted(list(authors))  # ordered for consistency
 
-    print("\nDetected Authors:")
+    print(f"\nDetected Authors for Project {uploaded_file_id}:")
     for idx, name in enumerate(authors, start=1):
         print(f"  {idx}. {name}")
     print(f"  {len(authors) + 1}. [Not a collaboarative project]")
