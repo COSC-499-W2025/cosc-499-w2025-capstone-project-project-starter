@@ -1,3 +1,39 @@
+# Personal Log for Rylan Millar (33334400) Week 11/12 (November 10 - November 23)
+
+## Features from the project plan this week
+- Update README
+- continue working on metadata extraction module/functions
+
+## Tasks from the project board associated with these features
+- Update README
+- Metadata extraction module 
+
+## Completed and In Progress
+- Update README (**In Progress**)
+- Metadata extraction module (**In Progress**)
+
+## What went well
+- I was able to contribute some physical code
+- I feel like my contributions are useful to project even if it is very small
+
+## What did not go well
+- Nothing, I think the team is locked in and making solid progress
+
+## Reflections
+- I updated our README to be more professional and contain some useful information. This will help make our repository look more professional and clean. I also began working on a metadata extraction module for extracting useful metadata that we can use to analyze data more thoroughly. I am putting in a lot of effort despite working a lot and going to the gym, but I think I can contribute a little more than I have been.
+
+## Plans for next sprint
+- Complete metadata extraction
+- Work on connecting pipeline
+- Housekeeping and adding comments
+
+## Peer evaluation screenshot Week 11/12
+
+![alt text](<imgs/rylan_millar_w12.png>)
+
+---
+---
+
 # Personal Log for Rylan Millar (33334400) Week 10 (November 3 - November 9)
 
 ## Features from the project plan this week
