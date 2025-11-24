@@ -185,7 +185,6 @@ def fetch_records_from_db(project_id: int) -> List[Tuple[str, int, str, int]]:
 
         results.append((str(file_path), int(size_bytes or 0), str(language or "Unknown"), int(num_lines)))
 
-    user_files = Set()
     if get_user_collaboration() and get_user_collaboration()[0]:
         author = choose_author_from_zip(project_id)
         user_files = get_all_files_for_author_from_zip(project_id, author)
