@@ -8,7 +8,7 @@ from collaborative.identify_contributors import identify_contributors
 from config.db_config import get_connection
 from analysis.activity_classifier import aggregate as agg_by_activity
 from parsing.file_contents_manager import get_zip_file, get_file_contents_by_upload_id
-from database.user_preferences import get_user_git_username
+from database.user_preferences import get_user_git_username, get_user_collaboration
 
 def choose_author_from_zip(uploaded_file_id: int):
     """
@@ -137,8 +137,6 @@ def fetch_records_from_db(project_id: int) -> List[Tuple[str, int, str, int]]:
     but they are not exposed in the returned tuple to keep the public
     contract simple and compatible with tests.  
     """
-    author = choose_author_from_zip(project_id)
-    user_files = get_all_files_for_author_from_zip(project_id, author)
     
     with get_connection() as conn, conn.cursor() as cur:
         # Original query for file contents
@@ -187,21 +185,25 @@ def fetch_records_from_db(project_id: int) -> List[Tuple[str, int, str, int]]:
 
         results.append((str(file_path), int(size_bytes or 0), str(language or "Unknown"), int(num_lines)))
 
-    if(len(user_files)>0):
-        filtered_results = []
-        for file_path, size_bytes, language, num_lines in results:
-            keep = False
-            # 1. Keep if file matches any suffix in user_files
-            for suffix in user_files:
-                if file_path.endswith(suffix):
+    if get_user_collaboration() and get_user_collaboration()[0]:
+        author = choose_author_from_zip(project_id)
+        user_files = get_all_files_for_author_from_zip(project_id, author)
+
+        if len(user_files)>0:
+            filtered_results = []
+            for file_path, size_bytes, language, num_lines in results:
+                keep = False
+                # 1. Keep if file matches any suffix in user_files
+                for suffix in user_files:
+                    if file_path.endswith(suffix):
+                        keep = True
+                        break
+                # 2. Keep if it is inside a .git folder
+                if "/.git/" in file_path:
                     keep = True
-                    break
-            # 2. Keep if it is inside a .git folder
-            if "/.git/" in file_path:
-                keep = True
-            if keep:
-                filtered_results.append((file_path, size_bytes, language, num_lines))
-        results = filtered_results
+                if keep:
+                    filtered_results.append((file_path, size_bytes, language, num_lines))
+            results = filtered_results
     return results
 
 
