@@ -23,7 +23,9 @@ class PortfolioFormatter:
             Formatted text string or None if error
         """
         try:
-            if not portfolio_data or 'error' in portfolio_data:
+            if not portfolio_data or not isinstance(portfolio_data, dict):
+                return "ERROR: Invalid portfolio data"
+            if 'error' in portfolio_data:
                 return f"ERROR: {portfolio_data.get('error', 'Unknown error')}"
             
             lines = []
@@ -164,7 +166,9 @@ class PortfolioFormatter:
             Formatted Markdown string or None if error
         """
         try:
-            if not portfolio_data or 'error' in portfolio_data:
+            if not portfolio_data or not isinstance(portfolio_data, dict):
+                return "# ERROR\n\nInvalid portfolio data"
+            if 'error' in portfolio_data:
                 return f"# ERROR\n\n{portfolio_data.get('error', 'Unknown error')}"
             
             lines = []
