@@ -56,7 +56,7 @@ pip install -r requirements.txt
 
 ## Running the Application
 
-Paste the following input into the command line or powershell and subsitute \<path to zip file\> with the local path to a zip file on your computer
+Paste the following input into the command line or powershell and subsitute `<path to zip file>` with the local path to a zip file on your device.
 
 ```bash
 python main.py <path to zip file>
@@ -73,7 +73,7 @@ If you see this error:
 running scripts is disabled on this system
 ```
 
-Run:
+Run the following in the command line or powershell:
 
 ```powershell
 Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass
