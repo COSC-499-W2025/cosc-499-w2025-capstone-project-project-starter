@@ -22,9 +22,23 @@ from account.user_manager import AuthManager
 def run_main_menu(consent_manager, collab_manager):
     """Run the main menu loop."""
     while True:
+        # Check if user is still logged in (in case of session timeout or logout)
+        if not AuthManager.is_user_logged_in():
+            print("\nSession expired or user logged out. Please log in again.")
+            from cli.user_menus import login_menu
+            if not login_menu():
+                # User chose to exit
+                return
+        
         print("\n" + "="*70)
         print("MINING DIGITAL WORK ARTIFACTS - Main Menu")
         print("="*70)
+        
+        # Show user info
+        current_user = AuthManager.get_current_username()
+        print(f"Logged in as: {current_user}")
+        print("="*70)
+        
         print("1. Upload a ZIP file")
         print("2. List stored projects")
         print("3. Analyze project metrics")
@@ -36,12 +50,7 @@ def run_main_menu(consent_manager, collab_manager):
         print("9. Manage external service settings")
         print("10. Cleanup insights for a project")
         print("11. Change User Preferences")
-        # Display user account option with current user info
-        if AuthManager.is_user_logged_in():
-            current_user = AuthManager.get_current_username()
-            print(f"12. User Account ({current_user})")
-        else:
-            print("12. User Account (Login/Register)")
+        print(f"12. User Account ({current_user})")
         print("13. Exit")
         print("="*70) 
         
@@ -53,6 +62,11 @@ def run_main_menu(consent_manager, collab_manager):
             except EOFError:
                 choice = "13"
         
+        # Check authentication before processing any choice
+        if not AuthManager.is_user_logged_in():
+            print("Error: User session invalid. Please log in again.")
+            continue
+            
         if choice == '1':
             handle_upload_file()
             
@@ -88,8 +102,20 @@ def run_main_menu(consent_manager, collab_manager):
             
         elif choice == '12':
             user_account_menu()
+            # Check if user logged out from the account menu
+            if not AuthManager.is_user_logged_in():
+                print("\nYou have been logged out. Returning to login screen...")
+                from cli.user_menus import login_menu
+                if not login_menu():
+                    # User chose to exit
+                    break
 
         elif choice == '13':
+            # Log out user before exiting
+            if AuthManager.is_user_logged_in():
+                current_user = AuthManager.get_current_username()
+                AuthManager.logout()
+                print(f"Logging out {current_user}...")
             print("Goodbye!")
             break
             

@@ -297,3 +297,38 @@ def handle_user_registration():
         print(f"\n[ERROR] {result['message']}")
     
     input("\nPress Enter to continue...")
+
+
+def login_menu():
+    """Display login menu for unauthenticated users."""
+    while True:
+        print("\n" + "="*70)
+        print("MINING DIGITAL WORK ARTIFACTS - Login Required")
+        print("="*70)
+        print("Welcome! Please log in or create an account to continue.")
+        print("\nOptions:")
+        print("1. Login to existing account")
+        print("2. Create new account")
+        print("3. Password display settings")
+        print("4. Exit")
+        print("="*70)
+        
+        choice = input("Choose an option (1-4): ").strip()
+        
+        if choice == '1':
+            handle_user_login()
+            # If login was successful, return True to continue to main menu
+            if AuthManager.is_user_logged_in():
+                return True
+        elif choice == '2':
+            handle_user_registration()
+            # If registration was successful and user logged in, return True
+            if AuthManager.is_user_logged_in():
+                return True
+        elif choice == '3':
+            set_password_display_mode()
+        elif choice == '4':
+            print("Goodbye!")
+            return False
+        else:
+            print("Invalid choice. Please enter 1-4.")
