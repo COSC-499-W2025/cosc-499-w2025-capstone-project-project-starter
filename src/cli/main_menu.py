@@ -1,4 +1,3 @@
-
 """Main CLI menu loop and routing."""
 import os
 import sys
@@ -18,6 +17,9 @@ from .menus import (
     handle_view_resume,
     handle_delete_resume
 )
+from cli.user_menus import user_account_menu
+from account.user_manager import AuthManager
+
 
 def run_main_menu(consent_manager, collab_manager):
     """Run the main menu loop."""
@@ -36,19 +38,25 @@ def run_main_menu(consent_manager, collab_manager):
         print("9. Manage external service settings")
         print("10. Cleanup insights for a project")
         print("11. Change User Preferences")
-        print("12. Generate Resume")
-        print("13. View Resume")
-        print("14. Delete Resume")
-        print("15. Exit")
+        # Display user account option with current user info
+        if AuthManager.is_user_logged_in():
+            current_user = AuthManager.get_current_username()
+            print(f"12. User Account ({current_user})")
+        else:
+            print("12. User Account (Login/Register)")
+        print("13. Generate Resume")
+        print("14. View Resume")
+        print("15. Delete Resume")
+        print("16. Exit")
         print("="*70) 
         
         if os.getenv("GITHUB_ACTIONS") == "true" or not sys.stdin.isatty():
-            choice = "15"
+            choice = "16"
         else:
             try:
-                choice = input("Choose an option (1-15): ").strip()
+                choice = input("Choose an option (1-16): ").strip()
             except EOFError:
-                choice = "15"
+                choice = "16"
         
         if choice == '1':
             handle_upload_file()
@@ -82,19 +90,22 @@ def run_main_menu(consent_manager, collab_manager):
                 
         elif choice == '11':
             ask_user_preferences(consent_manager, collab_manager, False)
-
+            
         elif choice == '12':
-            handle_generate_resume()
-
+            user_account_menu()
+            
         elif choice == '13':
-            handle_view_resume()
-
+            handle_generate_resume()
+            
         elif choice == '14':
-            handle_delete_resume()
-
+            handle_view_resume()
+            
         elif choice == '15':
+            handle_delete_resume()
+            
+        elif choice == '16':
             print("Goodbye!")
             break
             
         else:
-            print("Invalid choice. Please enter 1-15.")
+            print("Invalid choice. Please enter 1-16.")

@@ -7,14 +7,48 @@ from config.db_config import get_connection
 from analysis.key_metrics import analyze_project_from_db
 from project_summarizer import summarize_project
 from analysis.ranking_storage import save_rankings_to_db, get_stored_ranking_by_project_id, get_stored_rankings
+from analysis.local_analyzer import LocalAnalyzer
+from parsing.file_contents_manager import get_file_contents_by_upload_id
 import os
 
 
-def calculate_project_score(analysis_data: Dict[str, Any]) -> float:
+def _perform_deep_code_analysis(project_id: int) -> Dict[str, Any]:
     """
-    this is a function to calculate the score of a project based on the analysis data
+    Perform deep code analysis on a project using file contents from database.
+    
+    Args:
+        project_id: The project ID to analyze
+        
+    Returns:
+        dict: Aggregated deep code analysis results
     """
-    score = 0.0
+    try:
+        file_contents = get_file_contents_by_upload_id(project_id)
+        if not file_contents:
+            return {}
+        
+        local_analyzer = LocalAnalyzer()
+        deep_analysis = local_analyzer.analyze_files_from_db(file_contents)
+        return deep_analysis
+    except Exception as e:
+        print(f"Warning: Deep code analysis failed for project {project_id}: {e}")
+        return {}
+
+
+def calculate_project_score(analysis_data: Dict[str, Any], project_id: Optional[int] = None) -> float:
+    """
+    Calculate the score of a project based on the analysis data.
+    Score is normalized to be out of 100 for easier understanding.
+    
+    Args:
+        analysis_data: Analysis data from key_metrics or local analyzer
+        project_id: Optional project ID for deep code analysis
+        
+    Returns:
+        float: Project score out of 100
+    """
+    base_score = 0.0
+    deep_analysis_score = 0.0
     
     # Database key_metrics result
     if "by_activity" in analysis_data:
@@ -29,18 +63,18 @@ def calculate_project_score(analysis_data: Dict[str, Any]) -> float:
             weight = activity_weights.get(activity_type, 1)
             
             # File count contribution
-            score += file_count * weight * 10
+            base_score += file_count * weight * 10
             
             # Size contribution (normalized, smaller impact than count)
-            score += total_bytes / 1000 * weight * 0.1
+            base_score += total_bytes / 1000 * weight * 0.1
 
         # Overall size/complexity signal
         total_lines = analysis_data.get("totals", {}).get("lines", 0)
-        score += total_lines * 0.1
+        base_score += total_lines * 0.1
 
         # Language diversity bonus
         by_language = analysis_data.get("by_language", [])
-        score += len(by_language) * 10
+        base_score += len(by_language) * 10
 
     # Backward-compatible support if a local analyzer dict is passed
     elif "structure" in analysis_data:
@@ -50,22 +84,22 @@ def calculate_project_score(analysis_data: Dict[str, Any]) -> float:
         
         # Lines of code bonus
         total_loc = metrics.get("total_lines_of_code", 0)
-        score += total_loc * 0.1
+        base_score += total_loc * 0.1
         
         # Structure bonuses
         if structure.get("has_tests"):
-            score += 50  # Tests are important!
+            base_score += 50  # Tests are important!
         if structure.get("has_docs"):
-            score += 30  # Documentation is valuable
+            base_score += 30  # Documentation is valuable
         if structure.get("has_config"):
-            score += 20  # Configuration shows maturity
+            base_score += 20  # Configuration shows maturity
         
         # Skills diversity
-        score += len(skills) * 15
+        base_score += len(skills) * 15
         
         # Framework detection bonus
         frameworks = analysis_data.get("frameworks", [])
-        score += len(frameworks) * 25
+        base_score += len(frameworks) * 25
         
         # Code file ratio (more code = better for portfolio)
         code_files = metrics.get("code_files", 0)
@@ -73,9 +107,73 @@ def calculate_project_score(analysis_data: Dict[str, Any]) -> float:
                       metrics.get("design_files", 0) + metrics.get("other_files", 0)
         if total_files > 0:
             code_ratio = code_files / total_files
-            score += code_ratio * 100
+            base_score += code_ratio * 100
     
-    return round(score, 2)
+    # Perform deep code analysis if project_id is provided
+    if project_id is not None:
+        deep_analysis = _perform_deep_code_analysis(project_id)
+        if deep_analysis:
+            # OOP Principles scoring (max 15 points)
+            oop_summary = deep_analysis.get("oop_principles_summary", {})
+            oop_score = 0.0
+            for principle in ["abstraction", "encapsulation", "polymorphism", "inheritance"]:
+                principle_data = oop_summary.get(principle, {})
+                count = principle_data.get("count", 0) if isinstance(principle_data, dict) else 0
+                oop_score += min(count * 1.5, 3.75)  # Cap each principle at 3.75 points
+            deep_analysis_score += min(oop_score, 15.0)
+            
+            # Data Structures scoring (max 10 points)
+            ds_summary = deep_analysis.get("data_structure_summary", {})
+            if isinstance(ds_summary, dict):
+                total_structures = sum(ds_summary.values())
+                deep_analysis_score += min(total_structures * 0.5, 10.0)
+            
+            # Complexity awareness scoring (max 10 points)
+            complexity_summary = deep_analysis.get("complexity_summary", {})
+            complexity_score = 0.0
+            if complexity_summary.get("complexity_awareness", False):
+                complexity_score += 5.0
+            nested_loops = complexity_summary.get("nested_loops", 0)
+            recursive_functions = complexity_summary.get("recursive_functions", 0)
+            complexity_score += min((nested_loops + recursive_functions) * 0.5, 5.0)
+            deep_analysis_score += min(complexity_score, 10.0)
+            
+            # Optimization evidence scoring (max 10 points)
+            optimization_summary = deep_analysis.get("optimization_summary", [])
+            if optimization_summary:
+                deep_analysis_score += min(len(optimization_summary) * 2.5, 10.0)
+            
+            # Code quality scoring (max 15 points)
+            quality_summary = deep_analysis.get("code_quality_summary", {})
+            avg_quality = quality_summary.get("average_quality_score", 0)
+            if avg_quality > 0:
+                # Normalize quality score (0-100) to 0-15 points
+                deep_analysis_score += min(avg_quality * 0.15, 15.0)
+            
+            # Strengths bonus (max 5 points)
+            strengths = quality_summary.get("strengths", [])
+            deep_analysis_score += min(len(strengths) * 1.0, 5.0)
+    
+    # Normalize to 0-100 scale
+    # Base score can vary widely, so we normalize it separately
+    # Deep analysis score is already capped at ~55 points, so we treat it as a percentage
+    
+    # Normalize base score (typical range: 0-500 for small projects, up to 2000+ for large projects)
+    # We'll use a more dynamic approach: normalize base score to 0-60 points
+    max_base_score = 2000.0  # Reasonable maximum for base score normalization
+    normalized_base = min(60.0, (base_score / max_base_score) * 60.0)
+    
+    # Deep analysis score is already in a reasonable range (0-55), normalize to 0-40 points
+    # This gives deep analysis 40% weight and base metrics 60% weight
+    normalized_deep = min(40.0, (deep_analysis_score / 55.0) * 40.0) if deep_analysis_score > 0 else 0.0
+    
+    # Combine normalized scores
+    total_normalized_score = normalized_base + normalized_deep
+    
+    # Ensure score is between 0 and 100
+    total_normalized_score = max(0.0, min(100.0, total_normalized_score))
+    
+    return round(total_normalized_score, 2)
 
 
 def rank_all_projects() -> List[Dict[str, Any]]:
@@ -105,7 +203,7 @@ def rank_all_projects() -> List[Dict[str, Any]]:
                     analysis = analyze_project_from_db(project_id, silent=True)
                 else:
                     analysis = analyze_project_from_db(project_id, silent=True)
-                    score = calculate_project_score(analysis)
+                    score = calculate_project_score(analysis, project_id=project_id)
                 
                 ranked_projects.append({
                     "project_id": project_id,
