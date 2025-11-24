@@ -13,9 +13,11 @@ from .menus import (
     handle_view_edit_rankings,
     manage_external_services_menu,
     handle_cleanup_insights,
-    ask_user_preferences
+    ask_user_preferences,
+    handle_generate_resume,
+    handle_view_resume,
+    handle_delete_resume
 )
-
 
 def run_main_menu(consent_manager, collab_manager):
     """Run the main menu loop."""
@@ -34,16 +36,19 @@ def run_main_menu(consent_manager, collab_manager):
         print("9. Manage external service settings")
         print("10. Cleanup insights for a project")
         print("11. Change User Preferences")
-        print("12. Exit")
+        print("12. Generate Resume")
+        print("13. View Resume")
+        print("14. Delete Resume")
+        print("15. Exit")
         print("="*70) 
         
         if os.getenv("GITHUB_ACTIONS") == "true" or not sys.stdin.isatty():
-            choice = "12"
+            choice = "15"
         else:
             try:
-                choice = input("Choose an option (1-12): ").strip()
+                choice = input("Choose an option (1-15): ").strip()
             except EOFError:
-                choice = "12"
+                choice = "15"
         
         if choice == '1':
             handle_upload_file()
@@ -79,9 +84,17 @@ def run_main_menu(consent_manager, collab_manager):
             ask_user_preferences(consent_manager, collab_manager, False)
 
         elif choice == '12':
+            handle_generate_resume()
+
+        elif choice == '13':
+            handle_view_resume()
+
+        elif choice == '14':
+            handle_delete_resume()
+
+        elif choice == '15':
             print("Goodbye!")
             break
             
         else:
-            print("Invalid choice. Please enter 1-12.")
-
+            print("Invalid choice. Please enter 1-15.")
