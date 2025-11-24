@@ -39,6 +39,8 @@ def test_analyze_project_from_db(monkeypatch):
         ("data/users.csv", 90, "CSV", False, b"line1\nline2\nline3\nline4\nline5"),
     ]
     _mock_db(monkeypatch, rows)
+    monkeypatch.setattr("builtins.input", lambda _: "3")
+
     result = key_metrics.analyze_project_from_db(project_id=1)
     assert result["totals"]["files"] == 3
     assert result["totals"]["lines"] == 30
