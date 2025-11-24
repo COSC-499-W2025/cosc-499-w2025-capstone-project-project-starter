@@ -12,7 +12,7 @@
 
 ## 📖 Overview
 
-This project focuses on analyzing digital work artifacts such as code, documents, and media files from a student or early professional’s computer. The goal is to help users understand the projects they've worked on over the course of their degrees or professional careers in order to build a resume by extracting useful insights like skills learned and contribution levels from a given directory.
+This project focuses on analyzing digital work artifacts such as code and documents from a student or early professional’s computer. The goal is to help users understand the projects they've contributed to over the course of their degrees or professional careers, and build a resume by extracting useful insights like skills learned and contribution levels from a given directory.
 
 For this milestone, the system can parse a zipped folder, identify project details, extract key metrics, handle permissions and privacy concerns, and output the results in simple text-based formats. This lays the groundwork for future development of an API and a visual dashboard.
 
