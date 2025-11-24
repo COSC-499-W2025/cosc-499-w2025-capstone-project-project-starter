@@ -137,6 +137,7 @@ def fetch_records_from_db(project_id: int) -> List[Tuple[str, int, str, int]]:
     but they are not exposed in the returned tuple to keep the public
     contract simple and compatible with tests.  
     """
+    user_files = Set()
     if get_user_collaboration() and get_user_collaboration()[0]:
         author = choose_author_from_zip(project_id)
         user_files = get_all_files_for_author_from_zip(project_id, author)
@@ -188,7 +189,7 @@ def fetch_records_from_db(project_id: int) -> List[Tuple[str, int, str, int]]:
 
         results.append((str(file_path), int(size_bytes or 0), str(language or "Unknown"), int(num_lines)))
 
-    if get_user_collaboration() and get_user_collaboration()and len(user_files)>0:
+    if get_user_collaboration() and get_user_collaboration() and user_files and len(user_files)>0:
         filtered_results = []
         for file_path, size_bytes, language, num_lines in results:
             keep = False
