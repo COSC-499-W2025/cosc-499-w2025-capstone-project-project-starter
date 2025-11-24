@@ -36,6 +36,29 @@ def test_calculate_score_key_metrics():
     score = calculate_project_score(analysis_data)
     assert score > 0
     assert isinstance(score, float)
+    # Score should be normalized to 0-100
+    assert 0 <= score <= 100
+
+
+def test_score_normalized_to_100():
+    """Test that scores are normalized to 0-100 range"""
+    analysis_data = {
+        "by_activity": {
+            "code": {"count": 100, "bytes": 50000},
+            "doc": {"count": 20, "bytes": 10000}
+        },
+        "totals": {"files": 120, "lines": 5000},
+        "by_language": [
+            {"language": "Python"},
+            {"language": "JavaScript"},
+            {"language": "Java"}
+        ]
+    }
+    
+    score = calculate_project_score(analysis_data)
+    # Score should be between 0 and 100
+    assert 0 <= score <= 100
+    assert isinstance(score, float)
 
 
 def test_score_increases_with_tests():
@@ -69,13 +92,13 @@ class TestDisplayRankings:
             {
                 "project_id": 1,
                 "filename": "project1.zip",
-                "score": 150.5,
+                "score": 85.5,  # Normalized score (0-100)
                 "created_at": datetime(2024, 1, 1)
             },
             {
                 "project_id": 2,
                 "filename": "project2.zip",
-                "score": 120.3,
+                "score": 72.3,  # Normalized score (0-100)
                 "created_at": datetime(2024, 1, 2)
             }
         ]
@@ -304,7 +327,7 @@ class TestRankingStorage:
         mock_get_stored.return_value = [
             {
                 "project_id": 1,
-                "score": 999.99,  # Edited score (different from calculated)
+                "score": 85.5,  # Edited score (normalized to 0-100)
                 "rank_position": 1
             }
         ]
@@ -329,11 +352,258 @@ class TestRankingStorage:
         
         # Verify stored score was used
         assert len(ranked) == 1
-        assert ranked[0]["score"] == 999.99  # Should use stored score, not calculated
+        assert ranked[0]["score"] == 85.5  # Should use stored score, not calculated
+        # Verify score is in valid range
+        assert 0 <= ranked[0]["score"] <= 100
         # Verify analysis was still called (needed for other data)
         mock_analyze.assert_called_once_with(1, silent=True)
         # Verify get_stored_rankings was called to check for stored scores
         mock_get_stored.assert_called_once()
+    
+    @patch('analysis.project_ranking.get_stored_rankings')
+    @patch('analysis.project_ranking.calculate_project_score')
+    @patch('analysis.project_ranking.analyze_project_from_db')
+    @patch('analysis.project_ranking.get_connection')
+    def test_rank_all_projects_calls_deep_analysis(self, mock_conn, mock_analyze, mock_calculate, mock_get_stored):
+        """Test that rank_all_projects passes project_id to calculate_project_score for deep analysis"""
+        # Mock no stored rankings (so calculate_project_score will be called)
+        mock_get_stored.return_value = []
+        
+        # Mock database connection
+        mock_connection = mock_conn.return_value.__enter__.return_value
+        mock_cursor = mock_connection.cursor.return_value.__enter__.return_value
+        mock_cursor.execute.return_value = None
+        mock_cursor.fetchall.return_value = [
+            (1, "project1.zip", datetime(2024, 1, 1))
+        ]
+        
+        # Mock analysis
+        mock_analyze.return_value = {
+            "by_activity": {"code": {"count": 10, "bytes": 1000}},
+            "totals": {"lines": 500},
+            "by_language": []
+        }
+        
+        # Mock calculate_project_score to return normalized score
+        mock_calculate.return_value = 75.5
+        
+        ranked = rank_all_projects()
+        
+        # Verify calculate_project_score was called with project_id
+        mock_calculate.assert_called_once()
+        call_args = mock_calculate.call_args
+        # project_id should be passed as keyword argument
+        assert call_args.kwargs['project_id'] == 1
+        # Verify score is normalized
+        assert len(ranked) == 1
+        assert 0 <= ranked[0]["score"] <= 100
+
+
+class TestDeepCodeAnalysisIntegration:
+    """Tests for deep code analysis integration in ranking system"""
+    
+    @patch('analysis.project_ranking.get_file_contents_by_upload_id')
+    @patch('analysis.project_ranking.LocalAnalyzer')
+    def test_deep_code_analysis_integration(self, mock_local_analyzer_class, mock_get_files):
+        """Test that deep code analysis is integrated into scoring"""
+        # Mock file contents
+        mock_get_files.return_value = [
+            {
+                "file_path": "main.py",
+                "file_name": "main.py",
+                "file_extension": ".py",
+                "file_content": "class Test:\n    def method(self):\n        pass",
+                "content_type": "Python",
+                "is_binary": False
+            }
+        ]
+        
+        # Mock LocalAnalyzer
+        mock_analyzer = mock_local_analyzer_class.return_value
+        mock_analyzer.analyze_files_from_db.return_value = {
+            "oop_principles_summary": {
+                "abstraction": {"count": 2, "examples": []},
+                "encapsulation": {"count": 1, "examples": []},
+                "polymorphism": {"count": 1, "examples": []},
+                "inheritance": {"count": 0, "examples": []}
+            },
+            "data_structure_summary": {"hash_map": 5, "list": 3},
+            "complexity_summary": {
+                "nested_loops": 2,
+                "recursive_functions": 1,
+                "complexity_awareness": True
+            },
+            "optimization_summary": [
+                {"type": "Caching/Memoization", "evidence": "Uses caching"}
+            ],
+            "code_quality_summary": {
+                "average_quality_score": 75.0,
+                "strengths": ["Uses abstraction", "Demonstrates encapsulation"]
+            }
+        }
+        
+        analysis_data = {
+            "by_activity": {
+                "code": {"count": 10, "bytes": 5000}
+            },
+            "totals": {"files": 10, "lines": 500},
+            "by_language": [{"language": "Python"}]
+        }
+        
+        # Test with project_id (should trigger deep analysis)
+        score_with_deep = calculate_project_score(analysis_data, project_id=1)
+        
+        # Test without project_id (no deep analysis)
+        score_without_deep = calculate_project_score(analysis_data)
+        
+        # Score with deep analysis should be higher
+        assert score_with_deep > score_without_deep
+        # Both should be normalized to 0-100
+        assert 0 <= score_with_deep <= 100
+        assert 0 <= score_without_deep <= 100
+        # Verify deep analysis was called
+        mock_get_files.assert_called_once_with(1)
+        mock_analyzer.analyze_files_from_db.assert_called_once()
+    
+    @patch('analysis.project_ranking.get_file_contents_by_upload_id')
+    @patch('analysis.project_ranking.LocalAnalyzer')
+    def test_all_deep_analysis_components_scoring(self, mock_local_analyzer_class, mock_get_files):
+        """Test that all deep analysis components (OOP, data structures, complexity, optimizations, code quality) contribute to score"""
+        # Return a non-empty list so _perform_deep_code_analysis doesn't return early
+        mock_get_files.return_value = [{"file_path": "test.py", "file_content": "code", "is_binary": False}]
+        
+        mock_analyzer = mock_local_analyzer_class.return_value
+        # Test with comprehensive deep analysis results covering all components
+        mock_analyzer.analyze_files_from_db.return_value = {
+            "oop_principles_summary": {
+                "abstraction": {"count": 5, "examples": []},
+                "encapsulation": {"count": 4, "examples": []},
+                "polymorphism": {"count": 3, "examples": []},
+                "inheritance": {"count": 2, "examples": []}
+            },
+            "data_structure_summary": {"hash_map": 10, "list": 8, "set": 5},
+            "complexity_summary": {
+                "nested_loops": 5,
+                "recursive_functions": 3,
+                "complexity_awareness": True
+            },
+            "optimization_summary": [
+                {"type": "Caching/Memoization"},
+                {"type": "Lazy Loading/Async"},
+                {"type": "Early Returns"},
+                {"type": "String Optimization"}
+            ],
+            "code_quality_summary": {
+                "average_quality_score": 90.0,
+                "strengths": ["Uses abstraction", "Demonstrates encapsulation", "Shows complexity awareness", "Implements optimizations"]
+            }
+        }
+        
+        # Use a larger base score so the difference is more noticeable
+        analysis_data = {
+            "by_activity": {
+                "code": {"count": 20, "bytes": 50000},
+                "doc": {"count": 5, "bytes": 10000}
+            },
+            "totals": {"files": 25, "lines": 2000},
+            "by_language": [
+                {"language": "Python"},
+                {"language": "JavaScript"}
+            ]
+        }
+        
+        # Test with deep analysis
+        score_with_deep = calculate_project_score(analysis_data, project_id=1)
+        # Test without deep analysis for comparison
+        score_without_deep = calculate_project_score(analysis_data)
+        
+        # Both should be normalized to 0-100
+        assert 0 <= score_with_deep <= 100
+        assert 0 <= score_without_deep <= 100
+        assert isinstance(score_with_deep, float)
+        # Score with deep analysis should be higher (with larger base score, difference should be noticeable)
+        assert score_with_deep > score_without_deep
+        # Verify deep analysis was called
+        mock_get_files.assert_called_once_with(1)
+        mock_analyzer.analyze_files_from_db.assert_called_once()
+    
+    @patch('analysis.project_ranking.get_file_contents_by_upload_id')
+    @patch('analysis.project_ranking.LocalAnalyzer')
+    def test_deep_analysis_edge_cases_and_capping(self, mock_local_analyzer_class, mock_get_files):
+        """Test edge cases: empty results, no files, exceptions, and score capping"""
+        analysis_data = {
+            "by_activity": {"code": {"count": 5, "bytes": 1000}},
+            "totals": {"files": 5, "lines": 100},
+            "by_language": []
+        }
+        
+        # Test 1: Empty deep analysis results
+        mock_get_files.return_value = []
+        mock_analyzer = mock_local_analyzer_class.return_value
+        mock_analyzer.analyze_files_from_db.return_value = {}
+        score_empty = calculate_project_score(analysis_data, project_id=1)
+        assert 0 <= score_empty <= 100
+        assert isinstance(score_empty, float)
+        
+        # Test 2: No files returned
+        mock_get_files.return_value = []
+        score_no_files = calculate_project_score(analysis_data, project_id=1)
+        assert 0 <= score_no_files <= 100
+        assert isinstance(score_no_files, float)
+        
+        # Test 3: Exception handling
+        mock_get_files.side_effect = Exception("Database error")
+        score_exception = calculate_project_score(analysis_data, project_id=1)
+        assert 0 <= score_exception <= 100
+        assert isinstance(score_exception, float)
+        
+        # Test 4: Maximum scores (should be properly capped)
+        mock_get_files.side_effect = None
+        mock_get_files.return_value = []
+        mock_analyzer.analyze_files_from_db.return_value = {
+            "oop_principles_summary": {
+                "abstraction": {"count": 100, "examples": []},  # Should cap at 3.75 per principle
+                "encapsulation": {"count": 100, "examples": []},
+                "polymorphism": {"count": 100, "examples": []},
+                "inheritance": {"count": 100, "examples": []}
+            },
+            "data_structure_summary": {"hash_map": 100, "list": 100},  # Should cap at 10
+            "complexity_summary": {
+                "nested_loops": 100,
+                "recursive_functions": 100,
+                "complexity_awareness": True
+            },
+            "optimization_summary": [
+                {"type": "Caching"}, {"type": "Lazy"}, {"type": "Early"}, {"type": "String"}, {"type": "Extra"}
+            ],
+            "code_quality_summary": {
+                "average_quality_score": 100.0,
+                "strengths": ["Strength1", "Strength2", "Strength3", "Strength4", "Strength5", "Strength6"]
+            }
+        }
+        score_max = calculate_project_score(analysis_data, project_id=1)
+        # Score should still be normalized to 0-100 even with maximum values
+        assert 0 <= score_max <= 100
+    
+    def test_score_without_project_id(self):
+        """Test that scoring works without project_id (no deep analysis)"""
+        analysis_data = {
+            "by_activity": {
+                "code": {"count": 10, "bytes": 5000},
+                "doc": {"count": 5, "bytes": 2000}
+            },
+            "totals": {"files": 15, "lines": 1000},
+            "by_language": [
+                {"language": "Python"},
+                {"language": "JavaScript"}
+            ]
+        }
+        
+        # Should work without project_id
+        score = calculate_project_score(analysis_data)
+        assert 0 <= score <= 100
+        assert isinstance(score, float)
+        assert score > 0
 
 
 if __name__ == "__main__":
