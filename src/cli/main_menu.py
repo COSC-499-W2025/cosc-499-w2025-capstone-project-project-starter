@@ -1,4 +1,3 @@
-
 """Main CLI menu loop and routing."""
 import os
 import sys
@@ -14,7 +13,10 @@ from .menus import (
     manage_external_services_menu,
     handle_cleanup_insights,
     ask_user_preferences,
-    portfolio_menu
+    portfolio_menu,
+    handle_generate_resume,
+    handle_view_resume,
+    handle_delete_resume
 )
 from cli.user_menus import user_account_menu
 from account.user_manager import AuthManager
@@ -43,17 +45,20 @@ def run_main_menu(consent_manager, collab_manager):
             print(f"12. User Account ({current_user})")
         else:
             print("12. User Account (Login/Register)")
-        print("13. View Portfolio")
-        print("14. Exit")
+        print("13. Generate Resume")
+        print("14. View Resume")
+        print("15. Delete Resume")
+        print("16. View Portfolio")
+        print("17. Exit")
         print("="*70) 
         
         if os.getenv("GITHUB_ACTIONS") == "true" or not sys.stdin.isatty():
-            choice = "14"
+            choice = "17"
         else:
             try:
-                choice = input("Choose an option (1-14): ").strip()
+                choice = input("Choose an option (1-17): ").strip()
             except EOFError:
-                choice = "14"
+                choice = "17"
         
         if choice == '1':
             handle_upload_file()
@@ -90,14 +95,22 @@ def run_main_menu(consent_manager, collab_manager):
             
         elif choice == '12':
             user_account_menu()
-
+            
         elif choice == '13':
-            portfolio_menu()
+            handle_generate_resume()
             
         elif choice == '14':
+            handle_view_resume()
+            
+        elif choice == '15':
+            handle_delete_resume()
+        
+        elif choice == '16':
+            portfolio_menu()
+            
+        elif choice == '17':
             print("Goodbye!")
             break
             
         else:
-            print("Invalid choice. Please enter 1-14.")
-
+            print("Invalid choice. Please enter 1-17.")

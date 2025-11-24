@@ -139,25 +139,29 @@ def test_identify_authors_from_zip_handles_exception(_mock_get_zip, _mock_identi
 
 def test_compute_collab_score_various_combinations():
     # No signals
-    ind = {"git_files": 0, "team_structure": False}
+    ind = {"git_files": 0, "team_structure": False, "has_common_names": False}
     assert ip._compute_collab_score(ind, set()) == 0
 
     # Git only
-    ind = {"git_files": 1, "team_structure": False}
+    ind = {"git_files": 1, "team_structure": False, "has_common_names": False}
     assert ip._compute_collab_score(ind, {"Solo"}) == 50
 
     # Team indicator only
-    ind = {"git_files": 0, "team_structure": True}
+    ind = {"git_files": 0, "team_structure": True, "has_common_names": False}
     assert ip._compute_collab_score(ind, {"Solo"}) == 25
 
     # Multiple authors only
-    ind = {"git_files": 0, "team_structure": False}
+    ind = {"git_files": 0, "team_structure": False, "has_common_names": False}
     assert ip._compute_collab_score(ind, {"A", "B"}) == 50
 
     # Git + team
-    ind = {"git_files": 1, "team_structure": True}
+    ind = {"git_files": 1, "team_structure": True, "has_common_names": False}
     assert ip._compute_collab_score(ind, {"Solo"}) == 75  # 50 + 25
 
     # Git + team + multi-authors (cap at 100)
-    ind = {"git_files": 1, "team_structure": True}
+    ind = {"git_files": 1, "team_structure": True, "has_common_names": False}
     assert ip._compute_collab_score(ind, {"A", "B"}) == 100
+
+    # Has common names
+    ind = {"git_files": 0, "team_structure": False, "has_common_names": True}
+    assert ip._compute_collab_score(ind, set()) == 40

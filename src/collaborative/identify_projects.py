@@ -159,4 +159,6 @@ def _compute_collab_score(indicators: Dict[str, Any], authors: Set[str]) -> int:
         score += 25
     if len(authors) > 1:
         score += 50
+    if indicators['has_common_names']:
+        score += 40
     return min(score, 100)
