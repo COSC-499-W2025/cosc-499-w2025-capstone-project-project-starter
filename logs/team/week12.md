@@ -47,3 +47,5 @@
 
 - Connecting everything in the project/repository
 - Checking environment works after doing so
+- Midterm
+- Video demo/presentation
