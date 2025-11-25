@@ -13,6 +13,7 @@ from .menus import (
     manage_external_services_menu,
     handle_cleanup_insights,
     ask_user_preferences,
+    portfolio_menu,
     handle_generate_resume,
     handle_view_resume,
     handle_delete_resume
@@ -47,16 +48,17 @@ def run_main_menu(consent_manager, collab_manager):
         print("13. Generate Resume")
         print("14. View Resume")
         print("15. Delete Resume")
-        print("16. Exit")
+        print("16. View Portfolio")
+        print("17. Exit")
         print("="*70) 
         
         if os.getenv("GITHUB_ACTIONS") == "true" or not sys.stdin.isatty():
-            choice = "16"
+            choice = "17"
         else:
             try:
-                choice = input("Choose an option (1-16): ").strip()
+                choice = input("Choose an option (1-17): ").strip()
             except EOFError:
-                choice = "16"
+                choice = "17"
         
         if choice == '1':
             handle_upload_file()
@@ -102,10 +104,13 @@ def run_main_menu(consent_manager, collab_manager):
             
         elif choice == '15':
             handle_delete_resume()
-            
+        
         elif choice == '16':
+            portfolio_menu()
+            
+        elif choice == '17':
             print("Goodbye!")
             break
             
         else:
-            print("Invalid choice. Please enter 1-16.")
+            print("Invalid choice. Please enter 1-17.")

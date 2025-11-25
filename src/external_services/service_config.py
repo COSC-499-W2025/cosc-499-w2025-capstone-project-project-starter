@@ -64,6 +64,6 @@ class ServiceConfig:
             
         except ConnectionError:
             return None
-        except Exception as e:
-            print(f"✗ Error retrieving service permission: {e}")
+        except Exception:
+            # Silently return None if table doesn't exist or other error occurs
             return None

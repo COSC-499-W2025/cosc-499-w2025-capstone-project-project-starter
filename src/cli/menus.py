@@ -384,6 +384,12 @@ def handle_cleanup_insights():
     else:
         print("Invalid project ID.")
 
+
+def portfolio_menu():
+    """Wrapper function that imports and calls portfolio_menu from portfolio.portfolio_display."""
+    from portfolio.portfolio_display import portfolio_menu as _portfolio_menu
+    _portfolio_menu()
+    
 def handle_generate_resume():
     """Handle resume generation menu option."""
     from resume.resume_manager import ResumeManager
