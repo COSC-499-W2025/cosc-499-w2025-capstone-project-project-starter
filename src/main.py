@@ -1,7 +1,7 @@
 import sys
 from validator import zipvalidation
 from codeparser import parse_core
-from exporter.pdf_exporter import export
+from exporter.pdf_exporter import export, collect_predictions
 
 
 def main():
@@ -31,7 +31,10 @@ def main():
     parse_core.summarize_results(parsed_folder)
 
     # Collect predictions for PDF
-    
+    all_predictions = collect_predictions(parsed_folder)
+
+    # Then export as before
+    export({"predictions": all_predictions}, filename="report.pdf")
 
 
     
