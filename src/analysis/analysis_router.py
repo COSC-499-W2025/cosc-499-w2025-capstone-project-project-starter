@@ -40,10 +40,10 @@ class AnalysisRouter:
         has_external_permission = self.should_use_external_service()
         
         if has_external_permission:
-            print(f"ℹ️  Using enhanced analysis (local + external) for {analysis_type}")
+            print(f" Using enhanced analysis (local + external) for {analysis_type}")
             return 'enhanced'
         else:
-            print(f"ℹ️  Using local analysis only for {analysis_type}")
+            print(f" Using local analysis only for {analysis_type}")
             return 'local'
     
     def route_analysis(self, data, analysis_type='project'):

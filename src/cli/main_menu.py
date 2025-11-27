@@ -1,4 +1,3 @@
-
 """Main CLI menu loop and routing."""
 import os
 import sys
@@ -13,7 +12,11 @@ from .menus import (
     handle_view_edit_rankings,
     manage_external_services_menu,
     handle_cleanup_insights,
-    ask_user_preferences
+    ask_user_preferences,
+    portfolio_menu,
+    handle_generate_resume,
+    handle_view_resume,
+    handle_delete_resume
 )
 from cli.user_menus import user_account_menu
 from account.user_manager import AuthManager
@@ -51,16 +54,20 @@ def run_main_menu(consent_manager, collab_manager):
         print("10. Cleanup insights for a project")
         print("11. Change User Preferences")
         print(f"12. User Account ({current_user})")
-        print("13. Exit")
+        print("13. Generate Resume")
+        print("14. View Resume")
+        print("15. Delete Resume")
+        print("16. View Portfolio")
+        print("17. Exit")
         print("="*70) 
         
         if os.getenv("GITHUB_ACTIONS") == "true" or not sys.stdin.isatty():
-            choice = "13"
+            choice = "17"
         else:
             try:
-                choice = input("Choose an option (1-13): ").strip()
+                choice = input("Choose an option (1-17): ").strip()
             except EOFError:
-                choice = "13"
+                choice = "17"
         
         # Check authentication before processing any choice
         if not AuthManager.is_user_logged_in():
@@ -116,9 +123,28 @@ def run_main_menu(consent_manager, collab_manager):
                 current_user = AuthManager.get_current_username()
                 AuthManager.logout()
                 print(f"Logging out {current_user}...")
+
+            
+        elif choice == '13':
+            handle_generate_resume()
+            
+        elif choice == '14':
+            handle_view_resume()
+            
+        elif choice == '15':
+            handle_delete_resume()
+        
+        elif choice == '16':
+            portfolio_menu()
+            
+        elif choice == '17':
+            if AuthManager.is_user_logged_in():
+                current_user = AuthManager.get_current_username()
+                AuthManager.logout()
+                print(f"Logging out {current_user}...")
+
             print("Goodbye!")
             break
             
         else:
-            print("Invalid choice. Please enter 1-13.")
-
+            print("Invalid choice. Please enter 1-17.")
