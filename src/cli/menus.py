@@ -18,23 +18,6 @@ from collaborative.identify_contributors import identify_contributors
 from database.user_preferences import get_user_git_username, update_user_git_username
 from tools.cleanup_insights import delete_insights
 
-
-def summarize_project_menu():
-    """Handle the project summarization menu."""
-    print("\n" + "-"*50)
-    print("Project Summarization")
-    print("-"*50)
-    
-    selected_project = select_project_interactive("Project Summarization")
-    if not selected_project:
-        return
-    print(f"\nGenerating summary for: {selected_project['filename']}")
-    print("Please wait...")
-    summary = summarize_project(selected_project['id'])
-    print(summary)
-    input("\nPress Enter to continue...")
-
-
 def analyze_project_menu():
     """
     Handle the project analysis menu.
@@ -47,6 +30,8 @@ def analyze_project_menu():
     
     print(f"\nAnalyzing: {selected_project['filename']}")
     print("Please wait...")
+    # Tell user the analysis mode
+    print("Analysis Mode: PRIVACY MODE (local fallback if external services declined)")
     
     # Perform analysis (respects user's external service permission)
     analyze_project_by_id(selected_project['id'])
@@ -191,12 +176,30 @@ def handle_list_projects():
     list_projects_menu()
 
 
-def handle_analyze_metrics():
-    """Handle analyze project metrics menu option."""
-    selected_project = select_project_interactive("Analyze project metrics")
-    if selected_project:
-        analyze_project_from_db(int(selected_project['id']))
+def handle_analyze_metrics_and_summary():
+    """Combined key metrics + project summary flow."""
+    print("\n" + "-"*50)
+    print("Analyze project (metrics + summary)")
+    print("-"*50)
+    selected_project = select_project_interactive("Analyze project (metrics + summary)")
+    if not selected_project:
+        return
 
+    project_id = int(selected_project['id'])
+    filename = selected_project['filename']
+
+    print(f"\nAnalyzing: {filename}")
+    print("Please wait...")
+    # Tell user the analysis mode, different from analyze_project_menu
+    print("Analysis Mode: FULL (metrics + summary)")
+
+    # print Key Metrics (original option 3)
+    analyze_project_from_db(project_id)
+
+    summary_text = summarize_project(project_id)
+    print(summary_text)
+
+    input("\nPress Enter to continue...")
 
 def handle_rank_projects():
     """Handle rank all projects menu option."""
