@@ -4,8 +4,7 @@ import sys
 from .menus import (
     handle_upload_file,
     handle_list_projects,
-    handle_analyze_metrics,
-    summarize_project_menu,
+    handle_analyze_metrics_and_summary,
     analyze_project_menu,
     handle_rank_projects,
     handle_rank_and_summarize_projects,
@@ -30,35 +29,34 @@ def run_main_menu(consent_manager, collab_manager):
         print("="*70)
         print("1. Upload a ZIP file")
         print("2. List stored projects")
-        print("3. Analyze project metrics")
-        print("4. Summarize a project (basic summary)")
-        print("5. Analyze a project (detailed analysis with local fallback)")
-        print("6. Rank all projects")
-        print("7. Rank and summarize top 3 projects")
-        print("8. View and edit stored rankings")
-        print("9. Manage external service settings")
-        print("10. Cleanup insights for a project")
-        print("11. Change User Preferences")
+        print("3. Analyze a project (FULL MODE: metrics + summary)")
+        print("4. Analyze a project (PRIVACY MODE: analysis with local fallback)")
+        print("5. Rank all projects")
+        print("6. Rank and summarize top 3 projects")
+        print("7. View and edit stored rankings")
+        print("8. Manage external service settings")
+        print("9. Cleanup insights for a project")
+        print("10. Change User Preferences")
         # Display user account option with current user info
         if AuthManager.is_user_logged_in():
             current_user = AuthManager.get_current_username()
-            print(f"12. User Account ({current_user})")
+            print(f"11. User Account ({current_user})")
         else:
-            print("12. User Account (Login/Register)")
-        print("13. Generate Resume")
-        print("14. View Resume")
-        print("15. Delete Resume")
-        print("16. View Portfolio")
-        print("17. Exit")
+            print("11. User Account (Login/Register)")
+        print("12. Generate Resume")
+        print("13. View Resume")
+        print("14. Delete Resume")
+        print("15. View Portfolio")
+        print("16. Exit")
         print("="*70) 
         
         if os.getenv("GITHUB_ACTIONS") == "true" or not sys.stdin.isatty():
-            choice = "17"
+            choice = "16"
         else:
             try:
-                choice = input("Choose an option (1-17): ").strip()
+                choice = input("Choose an option (1-16): ").strip()
             except EOFError:
-                choice = "17"
+                choice = "16"
         
         if choice == '1':
             handle_upload_file()
@@ -67,50 +65,47 @@ def run_main_menu(consent_manager, collab_manager):
             handle_list_projects()
             
         elif choice == '3':
-            handle_analyze_metrics()
-                
-        elif choice == '4':
-            summarize_project_menu()
+            handle_analyze_metrics_and_summary()
             
-        elif choice == '5':
+        elif choice == '4':
             analyze_project_menu()
             
-        elif choice == '6':
+        elif choice == '5':
             handle_rank_projects()
             
-        elif choice == '7':
+        elif choice == '6':
             handle_rank_and_summarize_projects()
             
-        elif choice == '8':
+        elif choice == '7':
             handle_view_edit_rankings()
             
-        elif choice == '9':
+        elif choice == '8':
             manage_external_services_menu()
             
-        elif choice == '10':
+        elif choice == '9':
             handle_cleanup_insights()
                 
-        elif choice == '11':
+        elif choice == '10':
             ask_user_preferences(consent_manager, collab_manager, False)
             
-        elif choice == '12':
+        elif choice == '11':
             user_account_menu()
             
-        elif choice == '13':
+        elif choice == '12':
             handle_generate_resume()
             
-        elif choice == '14':
+        elif choice == '13':
             handle_view_resume()
             
-        elif choice == '15':
+        elif choice == '14':
             handle_delete_resume()
         
-        elif choice == '16':
+        elif choice == '15':
             portfolio_menu()
             
-        elif choice == '17':
+        elif choice == '16':
             print("Goodbye!")
             break
             
         else:
-            print("Invalid choice. Please enter 1-17.")
+            print("Invalid choice. Please enter 1-16.")

@@ -14,6 +14,7 @@ from collaborative.identify_projects import _identify_authors_from_zip, _count_g
 from database.user_preferences import get_user_collaboration
 from common.constants import LANGUAGE_EXTENSIONS
 from typing import Dict, List, Set, Any
+from analysis.key_metrics import _fetch_activity_timestamps, _compute_timeline_metrics
 
 def _collab_level_from_score(score: int) -> str:
     """Map score to high-level label."""
@@ -68,7 +69,7 @@ class ProjectSummarizer:
             },
             "languages": self._detect_languages(file_contents),
             "collaboration_analysis": self._analyze_collaboration(project_id),
-            "time_analysis": self._analyze_time_patterns(file_contents),
+            "time_analysis": self._analyze_time_patterns(project_id),
             "file_statistics": file_stats
         }
         try:
@@ -140,27 +141,85 @@ class ProjectSummarizer:
             "analysis": analysis,
         }
 
-    def _analyze_time_patterns(self, file_contents):
-        if not file_contents:
+    def _analyze_time_patterns(self, arg):
+        """
+        Time analysis helper.
+
+        - Backwards compatible mode (used in tests):
+          If `arg` is a list of file dicts with 'created_at', use the original
+          implementation that computes duration from created_at timestamps.
+
+        - New mode (used in real CLI flow):
+          If `arg` looks like a project_id (int / str), reuse the same
+          timeline logic as key_metrics so that Duration matches the
+          Key Metrics section.
+        """
+
+        # --- Case 1: old behavior for tests (arg is file_contents list) ---
+        if isinstance(arg, list) and (not arg or isinstance(arg[0], dict)):
+            file_contents = arg
+            if not file_contents:
+                return {}
+
+            creation_times = [
+                f["created_at"] for f in file_contents if f.get("created_at")
+            ]
+            if not creation_times:
+                return {}
+
+            creation_times.sort()
+            time_span = creation_times[-1] - creation_times[0]
+
+            if time_span.days == 0:
+                intensity = "Single day"
+            elif time_span.days <= 7:
+                intensity = "Short-term (≤1 week)"
+            elif time_span.days <= 30:
+                intensity = "Medium-term (≤1 month)"
+            else:
+                intensity = "Long-term (>1 month)"
+
+            return {
+                "duration_days": time_span.days,
+                "intensity": intensity,
+                "first_file": creation_times[0].strftime("%Y-%m-%d"),
+                "last_file": creation_times[-1].strftime("%Y-%m-%d"),
+            }
+
+        # --- Case 2: new behavior for real project_id usage ---
+        # here arg is expected to be project_id
+        try:
+            project_id = int(arg)
+        except Exception:
             return {}
-        creation_times = [f['created_at'] for f in file_contents if f.get('created_at')]
-        if not creation_times:
+
+        timestamps = _fetch_activity_timestamps(project_id)
+        if not timestamps:
             return {}
-        creation_times.sort()
-        time_span = creation_times[-1] - creation_times[0]
-        if time_span.days == 0:
+
+        timeline = _compute_timeline_metrics(timestamps)
+        duration_days = timeline.get("duration_days", 0)
+
+        # Determine intensity label
+        if duration_days == 0:
             intensity = "Single day"
-        elif time_span.days <= 7:
+        elif duration_days <= 7:
             intensity = "Short-term (≤1 week)"
-        elif time_span.days <= 30:
+        elif duration_days <= 30:
             intensity = "Medium-term (≤1 month)"
         else:
             intensity = "Long-term (>1 month)"
+
+        start_str = timeline.get("start")
+        end_str = timeline.get("end")
+        first_file = start_str.split("T")[0] if isinstance(start_str, str) else None
+        last_file = end_str.split("T")[0] if isinstance(end_str, str) else None
+
         return {
-            "duration_days": time_span.days,
+            "duration_days": duration_days,
             "intensity": intensity,
-            "first_file": creation_times[0].strftime("%Y-%m-%d"),
-            "last_file": creation_times[-1].strftime("%Y-%m-%d")
+            "first_file": first_file,
+            "last_file": last_file,
         }
     
     def format_summary_for_display(self, summary):
