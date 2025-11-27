@@ -1,4 +1,5 @@
 """User account menu handlers for CLI interactions."""
+import io
 import os
 import sys
 from account.user_manager import AuthManager
@@ -60,52 +61,58 @@ def get_password_input(prompt="Password: ", show_asterisk=None):
                     
     except ImportError:
         # Unix/Linux/Mac fallback
+        # Helper function to read password character by character
+        def read_password_chars():
+            """Read password characters, handling both TTY and non-TTY stdin."""
+            nonlocal password
+            while True:
+                char = sys.stdin.read(1)
+                if not char:  # EOF
+                    break
+                if char == '\n' or char == '\r':
+                    print()  # New line
+                    break
+                elif ord(char) == 127 or ord(char) == 8:
+                    if password:
+                        password = password[:-1]
+                        print('\b \b', end="", flush=True)
+                elif ord(char) == 3:
+                    print()
+                    raise KeyboardInterrupt
+                elif char.isprintable():
+                    password += char
+                    if show_asterisk:
+                        print('*', end="", flush=True)
+                    else:
+                        print(char, end="", flush=True)
+        
         try:
             import termios
             import tty
             
-            fd = sys.stdin.fileno()
-            old_settings = termios.tcgetattr(fd)
-            
+            # Try to use termios for raw mode (only works with real TTY)
             try:
-                tty.setraw(fd)
+                # Check if stdin is a TTY
+                if not sys.stdin.isatty():
+                    raise io.UnsupportedOperation("Not a TTY")
                 
-                while True:
-                    char = sys.stdin.read(1)
+                fd = sys.stdin.fileno()
+                old_settings = termios.tcgetattr(fd)
+                
+                try:
+                    tty.setraw(fd)
+                    read_password_chars()
+                finally:
+                    termios.tcsetattr(fd, termios.TCSADRAIN, old_settings)
                     
-                    # Handle Enter key (newline)
-                    if char == '\n' or char == '\r':
-                        print()  # New line
-                        break
-                    # Handle Backspace (DEL key in terminal)
-                    elif ord(char) == 127 or ord(char) == 8:
-                        if password:
-                            password = password[:-1]
-                            print('\b \b', end="", flush=True)
-                    # Handle Ctrl+C
-                    elif ord(char) == 3:
-                        print()
-                        raise KeyboardInterrupt
-                    # Handle normal printable characters
-                    elif char.isprintable():
-                        password += char
-                        if show_asterisk:
-                            print('*', end="", flush=True)
-                        else:
-                            print(char, end="", flush=True)
-                            
-            finally:
-                termios.tcsetattr(fd, termios.TCSADRAIN, old_settings)
+            except (io.UnsupportedOperation, AttributeError, OSError):
+                # Stdin is redirected (e.g., in tests) or termios failed
+                # Use read() directly - this works with mocked stdin in tests
+                read_password_chars()
                 
-        except (ImportError, AttributeError):
-            # Final fallback for systems without termios
-            try:
-                import getpass
-                print("\n[Using secure input - no visual feedback]")
-                password = getpass.getpass("")
-            except (ImportError, Exception):
-                print("\n[Note: Password will be visible on this system]")
-                password = input("")
+        except ImportError:
+            # termios not available, use read() directly
+            read_password_chars()
     
     return password
 
