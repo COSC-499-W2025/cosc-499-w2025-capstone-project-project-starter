@@ -123,7 +123,11 @@ def set_password_display_mode():
     print("2. Show actual characters when typing")
     print("3. Keep current setting")
     
-    choice = input("\nChoose an option (1-3): ").strip()
+    try:
+        choice = input("\nChoose an option (1-3): ").strip()
+    except EOFError:
+        print("\nEOF detected. Keeping current setting.")
+        return
     
     if choice == '1':
         SHOW_PASSWORD_AS_ASTERISK = True
@@ -136,7 +140,10 @@ def set_password_display_mode():
     else:
         print("Invalid choice. Keeping current setting.")
     
-    input("\nPress Enter to continue...")
+    try:
+        input("\nPress Enter to continue...")
+    except EOFError:
+        pass
 
 
 def user_account_menu():
@@ -205,7 +212,11 @@ def handle_user_login():
     print("USER LOGIN")
     print("-"*40)
     
-    username = input("Username: ").strip()
+    try:
+        username = input("Username: ").strip()
+    except EOFError:
+        print("\nEOF detected. Login cancelled.")
+        return
     if not username:
         print("Username cannot be empty.")
         return
@@ -225,10 +236,16 @@ def handle_user_login():
     if result['success']:
         print(f"\n[SUCCESS] {result['message']}")
         print(f"Welcome back, {username}!")
-        input("\nPress Enter to continue...")
+        try:
+            input("\nPress Enter to continue...")
+        except EOFError:
+            pass
     else:
         print(f"\n[ERROR] {result['message']}")
-        input("\nPress Enter to continue...")
+        try:
+            input("\nPress Enter to continue...")
+        except EOFError:
+            pass
 
 
 def handle_user_logout():
@@ -255,7 +272,11 @@ def handle_user_registration():
     print("CREATE NEW ACCOUNT")
     print("-"*40)
     
-    username = input("Choose a username: ").strip()
+    try:
+        username = input("Choose a username: ").strip()
+    except EOFError:
+        print("\nEOF detected. Registration cancelled.")
+        return
     if not username:
         print("Username cannot be empty.")
         return
@@ -287,7 +308,10 @@ def handle_user_registration():
         print(f"Account created successfully! User ID: {result['user_id']}")
         
         # Ask if user wants to login immediately
-        login_now = input("\nWould you like to login now? (y/n): ").strip().lower()
+        try:
+            login_now = input("\nWould you like to login now? (y/n): ").strip().lower()
+        except EOFError:
+            login_now = 'n'
         if login_now in ('y', 'yes'):
             login_result = AuthManager.login(username, password)
             if login_result['success']:
@@ -296,7 +320,10 @@ def handle_user_registration():
     else:
         print(f"\n[ERROR] {result['message']}")
     
-    input("\nPress Enter to continue...")
+    try:
+        input("\nPress Enter to continue...")
+    except EOFError:
+        pass
 
 
 def login_menu():
@@ -313,7 +340,11 @@ def login_menu():
         print("4. Exit")
         print("="*70)
         
-        choice = input("Choose an option (1-4): ").strip()
+        try:
+            choice = input("Choose an option (1-4): ").strip()
+        except EOFError:
+            print("\nEOF detected. Exiting...")
+            return False
         
         if choice == '1':
             handle_user_login()
