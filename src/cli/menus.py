@@ -384,3 +384,153 @@ def handle_cleanup_insights():
     else:
         print("Invalid project ID.")
 
+
+def portfolio_menu():
+    """Wrapper function that imports and calls portfolio_menu from portfolio.portfolio_display."""
+    from portfolio.portfolio_display import portfolio_menu as _portfolio_menu
+    _portfolio_menu()
+    
+def handle_generate_resume():
+    """Handle resume generation menu option."""
+    from resume.resume_manager import ResumeManager
+    
+    print("\n" + "-"*70)
+    print("Generate Resume")
+    print("-"*70)
+    
+    user_id = "default_user"
+    
+    # Check if resume already exists
+    if ResumeManager.resume_exists(user_id):
+        print("\nA resume already exists for your account.")
+        regenerate = input("Would you like to regenerate it? (y/n): ").strip().lower()
+        if regenerate not in ('y', 'yes'):
+            print("Cancelled.")
+            return
+    
+    # Ask how many top projects to include
+    while True:
+        top_count = input("\nHow many top projects to include in resume? (1-10, default 5): ").strip()
+        if not top_count:
+            top_count = 5
+            break
+        if top_count.isdigit() and 1 <= int(top_count) <= 10:
+            top_count = int(top_count)
+            break
+        print("Please enter a number between 1 and 10.")
+    
+    print(f"\nGenerating resume with top {top_count} projects...")
+    print("This may take a moment...")
+    
+    # Generate resume
+    resume_data = ResumeManager.generate_user_resume(user_id, top_projects_count=top_count)
+    
+    if not resume_data:
+        print("\nFailed to generate resume. Please ensure you have uploaded projects.")
+        input("\nPress Enter to continue...")
+        return
+    
+    # Store resume
+    success = ResumeManager.store_user_resume(user_id, resume_data)
+    
+    if success:
+        print("\n" + "="*70)
+        print("Resume generated successfully!")
+        print("="*70)
+        print(f"Total projects analyzed: {resume_data['total_projects_analyzed']}")
+        print(f"Top projects included: {resume_data['top_projects_displayed']}")
+        print(f"Skills identified: {len(resume_data['all_skills'])}")
+        print("\nUse 'View Resume' option to see the full resume.")
+    else:
+        print("\nFailed to save resume to database.")
+    
+    input("\nPress Enter to continue...")
+
+
+def handle_view_resume():
+    """Handle resume viewing menu option."""
+    from resume.resume_manager import ResumeManager
+    from resume.resume_formatter import ResumeFormatter
+    
+    print("\n" + "-"*70)
+    print("View Resume")
+    print("-"*70)
+    
+    user_id = "default_user"
+    
+    # Check if resume exists
+    if not ResumeManager.resume_exists(user_id):
+        print("\nNo resume found. Please generate a resume first.")
+        input("\nPress Enter to continue...")
+        return
+    
+    # Retrieve resume
+    resume_record = ResumeManager.get_user_resume(user_id)
+    
+    if not resume_record:
+        print("\nFailed to retrieve resume from database.")
+        input("\nPress Enter to continue...")
+        return
+    
+    resume_data = resume_record['resume_data']
+    
+    # Ask for format
+    print("\nAvailable formats:")
+    print("1. Text (default)")
+    print("2. Markdown")
+    print("3. JSON")
+    
+    format_choice = input("\nSelect format (1-3, default 1): ").strip()
+    
+    format_map = {
+        '1': 'text',
+        '2': 'markdown',
+        '3': 'json',
+        '': 'text'
+    }
+    
+    selected_format = format_map.get(format_choice, 'text')
+    
+    # Format and display resume
+    formatted_resume = ResumeFormatter.get_formatted_resume(resume_data, selected_format)
+    
+    if formatted_resume:
+        print("\n" + "="*70)
+        print(formatted_resume)
+        print("="*70)
+    else:
+        print("\nFailed to format resume.")
+    
+    input("\nPress Enter to continue...")
+
+
+def handle_delete_resume():
+    """Handle resume deletion menu option."""
+    from resume.resume_manager import ResumeManager
+    
+    print("\n" + "-"*70)
+    print("Delete Resume")
+    print("-"*70)
+    
+    user_id = "default_user"
+    
+    # Check if resume exists
+    if not ResumeManager.resume_exists(user_id):
+        print("\nNo resume found.")
+        input("\nPress Enter to continue...")
+        return
+    
+    # Confirm deletion
+    confirm = input("\nAre you sure you want to delete your resume? This cannot be undone. (y/n): ").strip().lower()
+    
+    if confirm in ('y', 'yes'):
+        success = ResumeManager.delete_user_resume(user_id)
+        
+        if success:
+            print("\nResume deleted successfully.")
+        else:
+            print("\nFailed to delete resume.")
+    else:
+        print("\nCancelled.")
+    
+    input("\nPress Enter to continue...")
