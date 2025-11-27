@@ -207,7 +207,6 @@ class ProjectSummarizer:
             intensity = "Short-term (≤1 week)"
         elif duration_days <= 30:
             intensity = "Medium-term (≤1 month)"
-            intensity = "Medium-term (≤1 month)"
         else:
             intensity = "Long-term (>1 month)"
 
