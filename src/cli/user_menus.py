@@ -1,4 +1,5 @@
 """User account menu handlers for CLI interactions."""
+import io
 import os
 import sys
 from account.user_manager import AuthManager
@@ -60,52 +61,58 @@ def get_password_input(prompt="Password: ", show_asterisk=None):
                     
     except ImportError:
         # Unix/Linux/Mac fallback
+        # Helper function to read password character by character
+        def read_password_chars():
+            """Read password characters, handling both TTY and non-TTY stdin."""
+            nonlocal password
+            while True:
+                char = sys.stdin.read(1)
+                if not char:  # EOF
+                    break
+                if char == '\n' or char == '\r':
+                    print()  # New line
+                    break
+                elif ord(char) == 127 or ord(char) == 8:
+                    if password:
+                        password = password[:-1]
+                        print('\b \b', end="", flush=True)
+                elif ord(char) == 3:
+                    print()
+                    raise KeyboardInterrupt
+                elif char.isprintable():
+                    password += char
+                    if show_asterisk:
+                        print('*', end="", flush=True)
+                    else:
+                        print(char, end="", flush=True)
+        
         try:
             import termios
             import tty
             
-            fd = sys.stdin.fileno()
-            old_settings = termios.tcgetattr(fd)
-            
+            # Try to use termios for raw mode (only works with real TTY)
             try:
-                tty.setraw(fd)
+                # Check if stdin is a TTY
+                if not sys.stdin.isatty():
+                    raise io.UnsupportedOperation("Not a TTY")
                 
-                while True:
-                    char = sys.stdin.read(1)
+                fd = sys.stdin.fileno()
+                old_settings = termios.tcgetattr(fd)
+                
+                try:
+                    tty.setraw(fd)
+                    read_password_chars()
+                finally:
+                    termios.tcsetattr(fd, termios.TCSADRAIN, old_settings)
                     
-                    # Handle Enter key (newline)
-                    if char == '\n' or char == '\r':
-                        print()  # New line
-                        break
-                    # Handle Backspace (DEL key in terminal)
-                    elif ord(char) == 127 or ord(char) == 8:
-                        if password:
-                            password = password[:-1]
-                            print('\b \b', end="", flush=True)
-                    # Handle Ctrl+C
-                    elif ord(char) == 3:
-                        print()
-                        raise KeyboardInterrupt
-                    # Handle normal printable characters
-                    elif char.isprintable():
-                        password += char
-                        if show_asterisk:
-                            print('*', end="", flush=True)
-                        else:
-                            print(char, end="", flush=True)
-                            
-            finally:
-                termios.tcsetattr(fd, termios.TCSADRAIN, old_settings)
+            except (io.UnsupportedOperation, AttributeError, OSError):
+                # Stdin is redirected (e.g., in tests) or termios failed
+                # Use read() directly - this works with mocked stdin in tests
+                read_password_chars()
                 
-        except (ImportError, AttributeError):
-            # Final fallback for systems without termios
-            try:
-                import getpass
-                print("\n[Using secure input - no visual feedback]")
-                password = getpass.getpass("")
-            except (ImportError, Exception):
-                print("\n[Note: Password will be visible on this system]")
-                password = input("")
+        except ImportError:
+            # termios not available, use read() directly
+            read_password_chars()
     
     return password
 
@@ -123,7 +130,11 @@ def set_password_display_mode():
     print("2. Show actual characters when typing")
     print("3. Keep current setting")
     
-    choice = input("\nChoose an option (1-3): ").strip()
+    try:
+        choice = input("\nChoose an option (1-3): ").strip()
+    except EOFError:
+        print("\nEOF detected. Keeping current setting.")
+        return
     
     if choice == '1':
         SHOW_PASSWORD_AS_ASTERISK = True
@@ -136,7 +147,10 @@ def set_password_display_mode():
     else:
         print("Invalid choice. Keeping current setting.")
     
-    input("\nPress Enter to continue...")
+    try:
+        input("\nPress Enter to continue...")
+    except EOFError:
+        pass
 
 
 def user_account_menu():
@@ -205,7 +219,11 @@ def handle_user_login():
     print("USER LOGIN")
     print("-"*40)
     
-    username = input("Username: ").strip()
+    try:
+        username = input("Username: ").strip()
+    except EOFError:
+        print("\nEOF detected. Login cancelled.")
+        return
     if not username:
         print("Username cannot be empty.")
         return
@@ -225,10 +243,16 @@ def handle_user_login():
     if result['success']:
         print(f"\n[SUCCESS] {result['message']}")
         print(f"Welcome back, {username}!")
-        input("\nPress Enter to continue...")
+        try:
+            input("\nPress Enter to continue...")
+        except EOFError:
+            pass
     else:
         print(f"\n[ERROR] {result['message']}")
-        input("\nPress Enter to continue...")
+        try:
+            input("\nPress Enter to continue...")
+        except EOFError:
+            pass
 
 
 def handle_user_logout():
@@ -255,7 +279,11 @@ def handle_user_registration():
     print("CREATE NEW ACCOUNT")
     print("-"*40)
     
-    username = input("Choose a username: ").strip()
+    try:
+        username = input("Choose a username: ").strip()
+    except EOFError:
+        print("\nEOF detected. Registration cancelled.")
+        return
     if not username:
         print("Username cannot be empty.")
         return
@@ -287,7 +315,10 @@ def handle_user_registration():
         print(f"Account created successfully! User ID: {result['user_id']}")
         
         # Ask if user wants to login immediately
-        login_now = input("\nWould you like to login now? (y/n): ").strip().lower()
+        try:
+            login_now = input("\nWould you like to login now? (y/n): ").strip().lower()
+        except EOFError:
+            login_now = 'n'
         if login_now in ('y', 'yes'):
             login_result = AuthManager.login(username, password)
             if login_result['success']:
@@ -296,4 +327,46 @@ def handle_user_registration():
     else:
         print(f"\n[ERROR] {result['message']}")
     
-    input("\nPress Enter to continue...")
+    try:
+        input("\nPress Enter to continue...")
+    except EOFError:
+        pass
+
+
+def login_menu():
+    """Display login menu for unauthenticated users."""
+    while True:
+        print("\n" + "="*70)
+        print("MINING DIGITAL WORK ARTIFACTS - Login Required")
+        print("="*70)
+        print("Welcome! Please log in or create an account to continue.")
+        print("\nOptions:")
+        print("1. Login to existing account")
+        print("2. Create new account")
+        print("3. Password display settings")
+        print("4. Exit")
+        print("="*70)
+        
+        try:
+            choice = input("Choose an option (1-4): ").strip()
+        except EOFError:
+            print("\nEOF detected. Exiting...")
+            return False
+        
+        if choice == '1':
+            handle_user_login()
+            # If login was successful, return True to continue to main menu
+            if AuthManager.is_user_logged_in():
+                return True
+        elif choice == '2':
+            handle_user_registration()
+            # If registration was successful and user logged in, return True
+            if AuthManager.is_user_logged_in():
+                return True
+        elif choice == '3':
+            set_password_display_mode()
+        elif choice == '4':
+            print("Goodbye!")
+            return False
+        else:
+            print("Invalid choice. Please enter 1-4.")
