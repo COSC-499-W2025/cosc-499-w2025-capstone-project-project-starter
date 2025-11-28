@@ -14,16 +14,30 @@ def ensure_user_preferences_schema():
     """
     try:
         with get_connection() as conn, conn.cursor() as cur:
-            # Add git_username column if missing (idempotent operation)
+            # Check if table exists first
+            cur.execute("""
+                SELECT EXISTS (
+                    SELECT 1
+                    FROM information_schema.tables
+                    WHERE table_schema = 'public' AND table_name = 'user_preferences'
+                );
+            """)
+            table_exists = cur.fetchone()[0]
+            
+            if not table_exists:
+                # Table doesn't exist - this is a real problem, not just a missing column
+                raise Exception("user_preferences table does not exist. Table must be initialized first.")
+            
+            # Table exists, safely add column if missing (idempotent operation)
             cur.execute("""
                 ALTER TABLE user_preferences
                 ADD COLUMN IF NOT EXISTS git_username VARCHAR(255);
             """)
             conn.commit()
     except Exception as e:
-        # Log warning but don't fail initialization if table doesn't exist yet
-        # (it may be created by other initialization functions)
-        print(f"[WARN] Could not update user_preferences schema: {e}")
+        # Re-raise exception to surface real migration problems
+        print(f"[ERROR] Failed to update user_preferences schema: {e}")
+        raise
 
 
 def initialize_app():
@@ -42,11 +56,12 @@ def initialize_app():
         print(f"Failed to initialize database tables: {e}")
         return None
     
-    ensure_user_preferences_schema()
-    
-    # Initialize managers
+    # Initialize managers (this also initializes user_preferences table)
     consent_manager = ConsentManager(user_id="default_user")
     collab_manager = CollaborativeManager()
+    
+    # Now ensure schema is up to date (table should exist after manager initialization)
+    ensure_user_preferences_schema()
     
     consent_manager.initialize()
     
