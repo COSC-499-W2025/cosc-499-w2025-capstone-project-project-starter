@@ -1,0 +1,91 @@
+{
+  "categories": {
+    "source_code": [
+      ".py", ".js", ".ts", ".java", ".cpp", ".c", ".cs", ".rb", ".go", ".rs", ".swift", ".kt"
+    ],
+    "web_code": [
+      ".html", ".htm", ".css", ".scss", ".sass", ".less", ".jsx", ".tsx", ".vue", ".php"
+    ],
+    "documentation": [
+      ".md", ".txt", ".rst", ".pdf", ".docx"
+    ],
+    "configuration": [
+      ".json", ".yaml", ".yml", ".ini", ".env", ".toml", ".cfg", ".xml"
+    ],
+    "assets": [
+      ".png", ".jpg", ".jpeg", ".svg", ".gif", ".bmp", ".tiff", ".ico"
+    ],
+    "datasets": [
+      ".csv", ".xlsx", ".xml", ".parquet", ".tsv"
+    ],
+    "binaries": [
+      ".exe", ".dll", ".bin", ".so", ".dylib"
+    ],
+    "notebooks": [
+      ".ipynb"
+    ],
+    "git_metadata": [
+       ".gitignore",
+       ".gitattributes",
+       ".gitmodules",
+        ".gitkeep" 
+  ],
+  "repository": [
+    ".git",
+    ".hg",
+    ".svn"
+  ]
+
+
+  },
+
+  "languages": {
+  ".py": "python",
+  ".js": "javascript",
+  ".jsx": "javascript",
+  ".ts": "typescript",
+  ".tsx": "typescript",
+  ".java": "java",
+  ".cpp": "cpp",
+  ".c": "c",
+  ".cs": "csharp",
+  ".rb": "ruby",
+  ".go": "go",
+  ".rs": "rust",
+  ".swift": "swift",
+  ".kt": "kotlin",
+  ".html": "html",
+  ".htm": "html",
+  ".css": "css",
+  ".scss": "scss",
+  ".sass": "sass",
+  ".less": "less",
+  ".vue": "vue",
+  ".php": "php"
+},
+
+"frameworks": [
+    "requirements.txt",
+    "environment.yml",
+    "Pipfile",
+    "package.json",
+    "package-lock.json",
+    "yarn.lock",
+    "pom.xml",
+    "build.gradle",
+    "settings.gradle",
+    "gradlew",
+    "gradlew.bat",
+    "Cargo.toml",
+    "Cargo.lock",
+    "go.mod",
+    "go.sum",
+    "pyproject.toml",
+    "Gemfile",
+    "Dockerfile",
+    "docker-compose.yml",
+    "composer.json",
+    "composer.lock"
+]
+
+}
