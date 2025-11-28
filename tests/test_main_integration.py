@@ -7,7 +7,7 @@ from io import StringIO
 
 # Adjust the path to import from src
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'src')))
-from src.cli.menus import summarize_project_menu
+from src.cli.menus import handle_analyze_metrics_and_summary
 
 
 class TestProjectSummarizerEdgeCases:
