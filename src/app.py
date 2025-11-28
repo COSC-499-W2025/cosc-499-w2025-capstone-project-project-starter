@@ -5,6 +5,7 @@ from collaborative.collaborative_manager import CollaborativeManager
 from upload_file import init_uploaded_files_table
 from database.user_informations import init_user_informations_table
 from analysis.ranking_storage import init_ranking_storage_table
+from resume.resume_manager import ResumeManager
 
 
 def ensure_user_preferences_schema():
@@ -60,6 +61,7 @@ def initialize_app():
         init_uploaded_files_table()
         init_user_informations_table()
         init_ranking_storage_table()
+        ResumeManager.init_resume_table()
     except Exception as e:
         print(f"Failed to initialize database tables: {e}")
         return None
@@ -95,4 +97,3 @@ def initialize_app():
         return None
     
     return consent_manager, collab_manager
-

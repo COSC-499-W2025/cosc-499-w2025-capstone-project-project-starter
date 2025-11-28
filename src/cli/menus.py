@@ -443,6 +443,14 @@ def handle_generate_resume():
         print(f"Total projects analyzed: {resume_data['total_projects_analyzed']}")
         print(f"Top projects included: {resume_data['top_projects_displayed']}")
         print(f"Skills identified: {len(resume_data['all_skills'])}")
+        
+        summary_stats = resume_data.get('summary_stats', {})
+        if summary_stats:
+            print(f"Total lines of code: {summary_stats.get('total_lines_of_code', 0):,}")
+            print(f"Total files: {summary_stats.get('total_files', 0):,}")
+            print(f"Languages: {summary_stats.get('unique_languages', 0)}")
+            print(f"Frameworks: {summary_stats.get('unique_frameworks', 0)}")
+        
         print("\nUse 'View Resume' option to see the full resume.")
     else:
         print("\nFailed to save resume to database.")
@@ -482,29 +490,92 @@ def handle_view_resume():
     print("1. Text (default)")
     print("2. Markdown")
     print("3. JSON")
+    print("4. Export as PDF")
     
-    format_choice = input("\nSelect format (1-3, default 1): ").strip()
+    format_choice = input("\nSelect format (1-4, default 1): ").strip()
     
-    format_map = {
-        '1': 'text',
-        '2': 'markdown',
-        '3': 'json',
-        '': 'text'
-    }
-    
-    selected_format = format_map.get(format_choice, 'text')
-    
-    # Format and display resume
-    formatted_resume = ResumeFormatter.get_formatted_resume(resume_data, selected_format)
-    
-    if formatted_resume:
-        print("\n" + "="*70)
-        print(formatted_resume)
-        print("="*70)
+    if format_choice == '4':
+        # PDF export
+        _handle_pdf_export(resume_data)
     else:
-        print("\nFailed to format resume.")
+        # Console display formats
+        format_map = {
+            '1': 'text',
+            '2': 'markdown',
+            '3': 'json',
+            '': 'text'
+        }
+        
+        selected_format = format_map.get(format_choice, 'text')
+        
+        # Format and display resume
+        formatted_resume = ResumeFormatter.get_formatted_resume(resume_data, selected_format)
+        
+        if formatted_resume:
+            print("\n" + "="*70)
+            print(formatted_resume)
+            print("="*70)
+        else:
+            print("\nFailed to format resume.")
     
     input("\nPress Enter to continue...")
+
+
+def _handle_pdf_export(resume_data):
+    """
+    Handle PDF export functionality for resume.
+    
+    Args:
+        resume_data: Resume data dictionary to export
+    """
+    from resume.resume_formatter import ResumeFormatter
+    
+    print("\n" + "-"*70)
+    print("Export Resume as PDF")
+    print("-"*70)
+    
+    # Get default filename
+    default_filename = "resume.pdf"
+    
+    # Prompt for filename
+    print(f"\nDefault filename: {default_filename}")
+    print("The file will be saved in the project root directory.")
+    
+    filename = input(f"Enter filename (press Enter for default): ").strip()
+    
+    if not filename:
+        filename = default_filename
+    
+    # Ensure .pdf extension
+    if not filename.lower().endswith('.pdf'):
+        filename += '.pdf'
+    
+    # Determine output path (project root directory)
+    # Get the directory where the script is located and go up to project root
+    current_dir = os.path.dirname(os.path.abspath(__file__))
+    # Go up from cli/ to src/ to project root
+    project_root = os.path.dirname(os.path.dirname(current_dir))
+    output_path = os.path.join(project_root, filename)
+    
+    print(f"\nGenerating PDF...")
+    print(f"Output path: {output_path}")
+    
+    # Generate PDF
+    success = ResumeFormatter.format_pdf(resume_data, output_path)
+    
+    if success:
+        print("\n" + "="*70)
+        print("PDF generated successfully!")
+        print("="*70)
+        print(f"File saved to: {output_path}")
+        
+        # Verify file exists and show size
+        if os.path.exists(output_path):
+            file_size = os.path.getsize(output_path)
+            print(f"File size: {file_size:,} bytes")
+    else:
+        print("\nFailed to generate PDF.")
+        print("Make sure reportlab is installed: pip install reportlab")
 
 
 def handle_delete_resume():
