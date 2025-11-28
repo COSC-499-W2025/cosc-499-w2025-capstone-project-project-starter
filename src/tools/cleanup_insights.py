@@ -33,11 +33,24 @@ def _table_exists(cur, table_name: str) -> bool:
 def delete_insights(project_id: int) -> Tuple[int, int, int]:
     """
     Delete previously generated insights and the uploaded file itself for a project.
-
-    Returns: (deleted_metrics, deleted_files, deleted_projects)
-      - project_metrics: deleted by project_id
-      - file_contents:  deleted by uploaded_file_id (FK -> uploaded_files.id == project_id)
-      - uploaded_files: deleted by id
+    
+    Requirement: Delete previously generated insights and ensure files that are 
+    shared across multiple reports do not get affected.
+    
+    This function safely deletes project-specific data:
+    - file_contents are tied to uploaded_file_id (project_id), so deleting by 
+      project_id only affects files from that specific project
+    - Files from other projects remain untouched, ensuring shared files across 
+      multiple reports are not affected
+    
+    Args:
+        project_id: The ID of the project to delete
+        
+    Returns: 
+        Tuple of (deleted_metrics, deleted_files, deleted_projects)
+          - deleted_metrics: Number of project_metrics records deleted
+          - deleted_files: Number of file_contents records deleted  
+          - deleted_projects: Number of uploaded_files records deleted (should be 1)
     """
     deleted_metrics = 0
     deleted_files = 0

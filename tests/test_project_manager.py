@@ -7,7 +7,7 @@ from unittest.mock import Mock, patch, MagicMock
 
 # Adjust the path to import from src
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'src')))
-from src.project_manager import list_projects, list_project_files, get_project_by_id, get_project_count
+from src.project_manager import list_projects, list_projects_chronologically, list_project_files, get_project_by_id, get_project_count
 
 
 class TestProjectManager:
@@ -178,27 +178,63 @@ class TestProjectManager:
         assert result == []
     
     @patch('src.project_manager.with_db_cursor')
-    # this test will test the get_project_count function
     def test_get_project_count_success(self, mock_with_db_cursor):
         """Test successful project count retrieval"""
-        # Mock database cursor
         mock_cursor = Mock()
         mock_context = MagicMock()
         mock_context.__enter__.return_value = mock_cursor
         mock_with_db_cursor.return_value = mock_context
         
-        # Mock count result
         mock_cursor.fetchone.return_value = (5,)
-        
-        # Call the function
         result = get_project_count()
         
-        # Verify database operations
         mock_cursor.execute.assert_called_once()
-        
-        # Verify return value
         assert result == 5
     
+    @patch('src.project_manager.with_db_cursor')
+    def test_list_projects_chronologically(self, mock_with_db_cursor):
+        """Test chronological project listing"""
+        mock_cursor = Mock()
+        mock_context = MagicMock()
+        mock_context.__enter__.return_value = mock_cursor
+        mock_with_db_cursor.return_value = mock_context
+        
+        mock_projects = [
+            (2, "project_b.zip", "uploaded", '{"files": ["file2.py"]}', datetime(2024, 1, 2, 11, 0, 0)),
+            (1, "project_a.zip", "uploaded", '{"files": ["file1.py"]}', datetime(2024, 1, 1, 10, 0, 0))
+        ]
+        mock_cursor.fetchall.return_value = mock_projects
+        
+        result = list_projects_chronologically()
+        
+        mock_cursor.execute.assert_called_once()
+        assert len(result) == 2
+        assert result[0]['id'] == 2
+        assert result[1]['id'] == 1
+        assert result[0]['created_at'] == datetime(2024, 1, 2, 11, 0, 0)
+        assert result[1]['created_at'] == datetime(2024, 1, 1, 10, 0, 0)
+    
+    @patch('src.project_manager.with_db_cursor')
+    def test_list_projects_chronologically_no_projects(self, mock_with_db_cursor):
+        """Test chronological listing when no projects exist"""
+        mock_cursor = Mock()
+        mock_context = MagicMock()
+        mock_context.__enter__.return_value = mock_cursor
+        mock_with_db_cursor.return_value = mock_context
+        
+        mock_cursor.fetchall.return_value = []
+        result = list_projects_chronologically()
+        
+        assert result == []
+    
+    @patch('src.project_manager.with_db_cursor')
+    def test_list_projects_chronologically_connection_error(self, mock_with_db_cursor):
+        """Test chronological listing with connection error"""
+        mock_with_db_cursor.side_effect = ConnectionError("Connection failed")
+        result = list_projects_chronologically()
+        
+        assert result == []
+
+
 if __name__ == "__main__":
-    # Run tests if executed directly
     pytest.main([__file__, "-v"])

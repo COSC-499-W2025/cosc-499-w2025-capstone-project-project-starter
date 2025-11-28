@@ -8,44 +8,22 @@ from analysis.ranking_storage import init_ranking_storage_table
 
 
 def ensure_user_preferences_schema():
-    """Debug version to check why git_username is not being added."""
+    """
+    Ensure user_preferences table has required schema including git_username column.
+    This function handles schema migrations for the user_preferences table.
+    """
     try:
         with get_connection() as conn, conn.cursor() as cur:
-            
-            # Check if table exists
-            cur.execute("""
-                SELECT EXISTS (
-                    SELECT 1
-                    FROM information_schema.tables
-                    WHERE table_name = 'user_preferences'
-                );
-            """)
-            table_exists = cur.fetchone()[0]
-            print("Table exists:", table_exists)
-            
-            # Add git_username column if missing
-            cur.execute("""
-                SELECT column_name 
-                FROM information_schema.columns
-                WHERE table_name = 'user_preferences' AND column_name = 'git_username';
-            """)
-            column_exists = cur.fetchone()
-            print("git_username column exists before ALTER:", column_exists)
+            # Add git_username column if missing (idempotent operation)
             cur.execute("""
                 ALTER TABLE user_preferences
                 ADD COLUMN IF NOT EXISTS git_username VARCHAR(255);
             """)
-            # Check after
-            cur.execute("""
-                SELECT column_name 
-                FROM information_schema.columns
-                WHERE table_name = 'user_preferences' AND column_name = 'git_username';
-            """)
-            column_exists_after = cur.fetchone()
-            print("git_username column exists after ALTER:", column_exists_after)
             conn.commit()
     except Exception as e:
-        print(f"[WARN] Exception caught: {e}")
+        # Log warning but don't fail initialization if table doesn't exist yet
+        # (it may be created by other initialization functions)
+        print(f"[WARN] Could not update user_preferences schema: {e}")
 
 
 def initialize_app():
