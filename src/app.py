@@ -1,5 +1,4 @@
 """Core application initialization and setup."""
-from config.db_config import get_connection
 from consent.consent_manager import ConsentManager
 from collaborative.collaborative_manager import CollaborativeManager
 from upload_file import init_uploaded_files_table
@@ -8,42 +7,15 @@ from analysis.ranking_storage import init_ranking_storage_table
 
 
 def ensure_user_preferences_schema():
-    """Debug version to check why git_username is not being added."""
+    """Ensure user_preferences table has git_username column."""
     try:
-        with get_connection() as conn, conn.cursor() as cur:
-            
-            # Check if table exists
-            cur.execute("""
-                SELECT EXISTS (
-                    SELECT 1
-                    FROM information_schema.tables
-                    WHERE table_name = 'user_preferences'
-                );
-            """)
-            table_exists = cur.fetchone()[0]
-            print("Table exists:", table_exists)
-            
+        from config.db_config import with_db_cursor
+        with with_db_cursor() as cur:
             # Add git_username column if missing
-            cur.execute("""
-                SELECT column_name 
-                FROM information_schema.columns
-                WHERE table_name = 'user_preferences' AND column_name = 'git_username';
-            """)
-            column_exists = cur.fetchone()
-            print("git_username column exists before ALTER:", column_exists)
             cur.execute("""
                 ALTER TABLE user_preferences
                 ADD COLUMN IF NOT EXISTS git_username VARCHAR(255);
             """)
-            # Check after
-            cur.execute("""
-                SELECT column_name 
-                FROM information_schema.columns
-                WHERE table_name = 'user_preferences' AND column_name = 'git_username';
-            """)
-            column_exists_after = cur.fetchone()
-            print("git_username column exists after ALTER:", column_exists_after)
-            conn.commit()
     except Exception as e:
         print(f"[WARN] Exception caught: {e}")
 
@@ -86,12 +58,12 @@ def initialize_app():
         print("Collaborative granted. Doing collaborative and individual.")
 
     # Test database connection
-    conn = get_connection()
-    if conn:
-        print("Database is connected!")
-        conn.close()
-    else:
-        print("Database is not connected.")
+    try:
+        from config.db_config import with_db_cursor
+        with with_db_cursor() as _:
+            print("Database is connected!")
+    except Exception as e:
+        print(f"Database is not connected: {e}")
         return None
     
     return consent_manager, collab_manager
