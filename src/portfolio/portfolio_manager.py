@@ -8,7 +8,7 @@ Uses ONLY existing functions from the codebase - no new analysis logic.
 from datetime import datetime
 from typing import Dict, List, Set, Any, Optional
 from collections import defaultdict
-from project_manager import get_project_by_id
+from project_manager import get_project_by_id, list_projects_chronologically
 from project_summarizer import ProjectSummarizer
 from analysis.project_ranking import rank_all_projects
 from analysis.key_metrics import analyze_project_from_db
@@ -412,9 +412,6 @@ class PortfolioManager:
             ordered chronologically by first appearance.
         """
         try:
-            from project_manager import list_projects_chronologically
-            from project_analyzer import ProjectAnalyzer
-            
             # Get projects in chronological order
             projects = list_projects_chronologically()
             
