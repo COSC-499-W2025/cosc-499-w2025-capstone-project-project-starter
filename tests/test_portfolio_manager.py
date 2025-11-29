@@ -44,6 +44,62 @@ class TestPortfolioManager:
         assert isinstance(result, str)
         assert len(result) > 0
         assert 'Python' in result
+    
+    @patch('portfolio.portfolio_manager.list_projects_chronologically')
+    @patch('portfolio.portfolio_manager.get_file_contents_by_upload_id')
+    @patch('portfolio.portfolio_manager.ProjectAnalyzer')
+    def test_get_chronological_skills(self, mock_analyzer_class, mock_get_files, mock_list_projects):
+        """Test chronological skills listing"""
+        from datetime import datetime
+        
+        mock_list_projects.return_value = [
+            {
+                'id': 1,
+                'filename': 'project1.zip',
+                'created_at': datetime(2024, 1, 1),
+                'file_count': 5
+            },
+            {
+                'id': 2,
+                'filename': 'project2.zip',
+                'created_at': datetime(2024, 1, 15),
+                'file_count': 3
+            }
+        ]
+        
+        mock_get_files.side_effect = [
+            [{'file_name': 'main.py', 'file_path': 'src/main.py'}],
+            [{'file_name': 'test.py', 'file_path': 'tests/test.py'}]
+        ]
+        
+        mock_analyzer_instance = Mock()
+        mock_analyzer_instance._extract_skills_from_files.side_effect = [
+            ['Python', 'Flask'],
+            ['Python', 'pytest']
+        ]
+        mock_analyzer_class.return_value = mock_analyzer_instance
+        
+        result = self.manager.get_chronological_skills()
+        
+        assert len(result) == 3
+        assert result[0]['skill'] == 'Python'
+        assert result[0]['first_used_date'] == datetime(2024, 1, 1)
+        assert 'Flask' in [s['skill'] for s in result]
+        assert 'pytest' in [s['skill'] for s in result]
+    
+    @patch('portfolio.portfolio_manager.list_projects_chronologically')
+    def test_get_chronological_skills_no_projects(self, mock_list_projects):
+        """Test chronological skills when no projects exist"""
+        mock_list_projects.return_value = []
+        result = self.manager.get_chronological_skills()
+        assert result == []
+    
+    @patch('portfolio.portfolio_manager.list_projects_chronologically')
+    def test_get_chronological_skills_exception(self, mock_list_projects):
+        """Test chronological skills with exception handling"""
+        mock_list_projects.side_effect = Exception("Database error")
+        result = self.manager.get_chronological_skills()
+        assert result == []
 
 
 if __name__ == "__main__":

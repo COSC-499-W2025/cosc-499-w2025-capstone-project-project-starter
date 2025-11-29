@@ -8,44 +8,36 @@ from analysis.ranking_storage import init_ranking_storage_table
 
 
 def ensure_user_preferences_schema():
-    """Debug version to check why git_username is not being added."""
+    """
+    Ensure user_preferences table has required schema including git_username column.
+    This function handles schema migrations for the user_preferences table.
+    """
     try:
         with get_connection() as conn, conn.cursor() as cur:
-            
-            # Check if table exists
+            # Check if table exists first
             cur.execute("""
                 SELECT EXISTS (
                     SELECT 1
                     FROM information_schema.tables
-                    WHERE table_name = 'user_preferences'
+                    WHERE table_schema = 'public' AND table_name = 'user_preferences'
                 );
             """)
             table_exists = cur.fetchone()[0]
-            print("Table exists:", table_exists)
             
-            # Add git_username column if missing
-            cur.execute("""
-                SELECT column_name 
-                FROM information_schema.columns
-                WHERE table_name = 'user_preferences' AND column_name = 'git_username';
-            """)
-            column_exists = cur.fetchone()
-            print("git_username column exists before ALTER:", column_exists)
+            if not table_exists:
+                # Table doesn't exist - this is a real problem, not just a missing column
+                raise Exception("user_preferences table does not exist. Table must be initialized first.")
+            
+            # Table exists, safely add column if missing (idempotent operation)
             cur.execute("""
                 ALTER TABLE user_preferences
                 ADD COLUMN IF NOT EXISTS git_username VARCHAR(255);
             """)
-            # Check after
-            cur.execute("""
-                SELECT column_name 
-                FROM information_schema.columns
-                WHERE table_name = 'user_preferences' AND column_name = 'git_username';
-            """)
-            column_exists_after = cur.fetchone()
-            print("git_username column exists after ALTER:", column_exists_after)
             conn.commit()
     except Exception as e:
-        print(f"[WARN] Exception caught: {e}")
+        # Re-raise exception to surface real migration problems
+        print(f"[ERROR] Failed to update user_preferences schema: {e}")
+        raise
 
 
 def initialize_app():
@@ -64,11 +56,12 @@ def initialize_app():
         print(f"Failed to initialize database tables: {e}")
         return None
     
-    ensure_user_preferences_schema()
-    
-    # Initialize managers
+    # Initialize managers (this also initializes user_preferences table)
     consent_manager = ConsentManager(user_id="default_user")
     collab_manager = CollaborativeManager()
+    
+    # Now ensure schema is up to date (table should exist after manager initialization)
+    ensure_user_preferences_schema()
     
     consent_manager.initialize()
     
