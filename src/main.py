@@ -59,7 +59,7 @@ def main():
     - Evidence of optimization or reasoning maturity
     """
 
-    print("\n🤖 Running analysis with Ollama...\n")
+    print("\nRunning analysis with Ollama...\n")
     response = run_ollama_analysis(prompt)
 
     print("\n================ FINAL ANALYSIS ================\n")
