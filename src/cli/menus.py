@@ -17,6 +17,7 @@ from external_services.permission_manager import ExternalServicePermission
 from collaborative.identify_contributors import identify_contributors
 from database.user_preferences import get_user_git_username, update_user_git_username
 from tools.cleanup_insights import delete_insights
+from cli.display import display_success, display_error
 
 def analyze_project_menu():
     """
@@ -162,12 +163,11 @@ def handle_upload_file():
     filepath = input("Enter the path to your zip file: ")
     from upload_file import add_file_to_db
     result = add_file_to_db(filepath)
-    print("\n----------------------------------------")
+    
     if result.success:
-        print(f"Successful! {result.message}")
+        display_success(result)
     else:
-        print(f"Failed! Upload failed: {result.message}")
-    print("----------------------------------------\n")
+        display_error(result)
 
 
 

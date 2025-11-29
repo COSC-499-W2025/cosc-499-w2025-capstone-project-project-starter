@@ -1,5 +1,9 @@
-# this file will list the projects in the database uploaded_files table. 
-# it will list the projects in alphabetical order.
+"""
+Project Manager Module
+
+Manages project listing and retrieval operations.
+Supports both alphabetical and chronological ordering of projects.
+"""
 import json
 from config.db_config import with_db_cursor
 
@@ -169,3 +173,73 @@ def get_project_count():
     except Exception as e:
         print(f"Error getting project count: {e}")
         return 0
+
+
+def list_projects_chronologically():
+    """
+    List all stored projects (ZIP files) in chronological order by creation date.
+    Requirement: Produce a chronological list of projects.
+    
+    Returns:
+        list: List of project dictionaries with id, filename, created_at, and file_count,
+              ordered by created_at ascending (oldest first).
+    """
+    try:
+        with with_db_cursor() as cursor:
+            cursor.execute("""
+                SELECT id, filename, status, metadata, created_at
+                FROM uploaded_files
+                ORDER BY created_at ASC
+            """)
+            projects = cursor.fetchall()
+        
+        # if there are no projects, return an empty list
+        if not projects:
+            print("No projects found in database.")
+            return []
+        
+        print("-"*80)
+        print("Stored Projects (Chronological Order - Oldest First)")  
+        print("-"*80)
+        
+        project_list = []
+        
+        for project in projects:
+            project_id, filename, status, metadata, created_at = project
+            
+            # Count files in metadata if available
+            file_count = 0
+            if metadata:
+                try:
+                    metadata_dict = json.loads(metadata) if isinstance(metadata, str) else metadata
+                    if 'files' in metadata_dict and metadata_dict['files']:
+                        # Count only actual files (not directories)
+                        actual_files = [f for f in metadata_dict['files'] if not f.endswith('/')]
+                        file_count = len(actual_files)
+                except (json.JSONDecodeError, TypeError):
+                    pass
+            
+            project_list.append({
+                'id': project_id,
+                'filename': filename,
+                'created_at': created_at,
+                'file_count': file_count
+            })
+            
+            # Display project info
+            created_date = created_at.strftime("%Y-%m-%d") if created_at else "Unknown"
+            print(f"\n{len(project_list)}. {filename}")
+            print(f"   ID: {project_id}, Created: {created_date}, Files: {file_count}")
+        
+        print("\n" + "-"*80)
+        print(f"Total projects: {len(project_list)}")
+        print("-"*80)
+        
+        return project_list
+        
+    except ConnectionError:
+        print("Could not connect to database.")
+        return []
+    except Exception as e:
+        print(f"Error retrieving projects chronologically: {e}")
+        return []

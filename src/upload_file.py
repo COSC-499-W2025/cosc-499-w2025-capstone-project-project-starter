@@ -128,8 +128,8 @@ def add_file_to_db(filepath) -> UploadResult:
                 data={"filepath": filepath},
             )
         
-    # String together the validator information to let the user know which formats are supported.、
-    # For other types of WrongFormatError, retain the original message "Invalid file format + specific reason".
+        # For other types of WrongFormatError, retain the original message
+        # String together the validator information to let the user know which formats are supported.
         return UploadResult(
             success=False,
             message=(

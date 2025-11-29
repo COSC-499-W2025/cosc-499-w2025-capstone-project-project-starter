@@ -8,7 +8,7 @@ Uses ONLY existing functions from the codebase - no new analysis logic.
 from datetime import datetime
 from typing import Dict, List, Set, Any, Optional
 from collections import defaultdict
-from project_manager import get_project_by_id
+from project_manager import get_project_by_id, list_projects_chronologically
 from project_summarizer import ProjectSummarizer
 from analysis.project_ranking import rank_all_projects
 from analysis.key_metrics import analyze_project_from_db
@@ -401,3 +401,57 @@ class PortfolioManager:
         parts.append(".")
         
         return "".join(parts)
+    
+    def get_chronological_skills(self) -> List[Dict[str, Any]]:
+        """
+        Produce a chronological list of skills exercised.
+        Requirement: Produce a chronological list of skills exercised.
+        
+        Returns:
+            List of dictionaries with skill name and first_used_date,
+            ordered chronologically by first appearance.
+        """
+        try:
+            # Get projects in chronological order
+            projects = list_projects_chronologically()
+            
+            if not projects:
+                return []
+            
+            # Track skills and their first appearance
+            skill_first_used = {}
+            project_analyzer = ProjectAnalyzer(self.user_id)
+            
+            for project in projects:
+                project_id = project['id']
+                project_date = project['created_at']
+                
+                try:
+                    # Get file contents for this project
+                    file_contents = get_file_contents_by_upload_id(project_id)
+                    
+                    if file_contents:
+                        # Extract skills from this project
+                        skills = project_analyzer._extract_skills_from_files(file_contents)
+                        
+                        # Track first appearance of each skill
+                        for skill in skills:
+                            if skill not in skill_first_used:
+                                skill_first_used[skill] = {
+                                    'skill': skill,
+                                    'first_used_date': project_date,
+                                    'first_project': project['filename']
+                                }
+                except Exception as e:
+                    # Skip projects that fail to analyze
+                    continue
+            
+            # Convert to list and sort by date
+            chronological_skills = list(skill_first_used.values())
+            chronological_skills.sort(key=lambda x: x['first_used_date'])
+            
+            return chronological_skills
+            
+        except Exception as e:
+            print(f"Error generating chronological skills list: {e}")
+            return []

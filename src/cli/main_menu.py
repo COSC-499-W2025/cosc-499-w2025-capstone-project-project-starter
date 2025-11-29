@@ -20,6 +20,24 @@ from .menus import (
 from cli.user_menus import user_account_menu
 from account.user_manager import AuthManager
 
+MENU_ITEMS = [
+    "Upload a ZIP file",                                  # 1
+    "List stored projects",                               # 2
+    "Analyze a project (FULL MODE: metrics + summary)",   # 3
+    "Analyze a project (PRIVACY MODE: analysis with local fallback)",  # 4
+    "Rank all projects",                                  # 5
+    "Rank and summarize top 3 projects",                  # 6
+    "View and edit stored rankings",                      # 7
+    "Manage external service settings",                   # 8
+    "Cleanup insights for a project",                     # 9
+    "Change User Preferences",                            # 10
+    "User Account",                                       # 11
+    "Generate Resume",                                    # 12
+    "View Resume",                                        # 13
+    "Delete Resume",                                      # 14
+    "View Portfolio",                                     # 15
+    "Exit"                                                # 16
+]
 
 def run_main_menu(consent_manager, collab_manager):
     """Run the main menu loop."""
@@ -41,27 +59,17 @@ def run_main_menu(consent_manager, collab_manager):
         print(f"Logged in as: {current_user}")
         print("="*70)
         
-        print("1. Upload a ZIP file")
-        print("2. List stored projects")
-        print("3. Analyze a project (FULL MODE: metrics + summary)")
-        print("4. Analyze a project (PRIVACY MODE: analysis with local fallback)")
-        print("5. Rank all projects")
-        print("6. Rank and summarize top 3 projects")
-        print("7. View and edit stored rankings")
-        print("8. Manage external service settings")
-        print("9. Cleanup insights for a project")
-        print("10. Change User Preferences")
-        # Display user account option with current user info
-        if AuthManager.is_user_logged_in():
-            current_user = AuthManager.get_current_username()
-            print(f"11. User Account ({current_user})")
-        else:
-            print("11. User Account (Login/Register)")
-        print("12. Generate Resume")
-        print("13. View Resume")
-        print("14. Delete Resume")
-        print("15. View Portfolio")
-        print("16. Exit")
+        for idx, label in enumerate(MENU_ITEMS, start=1):
+            if idx == 11:
+                # Dynamically show login status in User Account menu
+                if AuthManager.is_user_logged_in():
+                    current_user = AuthManager.get_current_username()
+                    print(f"{idx}. User Account ({current_user})")
+                else:
+                    print(f"{idx}. User Account (Login/Register)")
+            else:
+                print(f"{idx}. {label}")
+
         print("="*70) 
         
         if os.getenv("GITHUB_ACTIONS") == "true" or not sys.stdin.isatty():
@@ -77,66 +85,37 @@ def run_main_menu(consent_manager, collab_manager):
             print("Error: User session invalid. Please log in again.")
             continue
             
-        if choice == '1':
-            handle_upload_file()
-            
-        elif choice == '2':
-            handle_list_projects()
-            
-        elif choice == '3':
-            handle_analyze_metrics_and_summary()
-            
-        elif choice == '4':
-            analyze_project_menu()
-            
-        elif choice == '5':
-            handle_rank_projects()
-            
-        elif choice == '6':
-            handle_rank_and_summarize_projects()
-            
-        elif choice == '7':
-            handle_view_edit_rankings()
-            
-        elif choice == '8':
-            manage_external_services_menu()
-            
-        elif choice == '9':
-            handle_cleanup_insights()
-                
-        elif choice == '10':
-            ask_user_preferences(consent_manager, collab_manager, False)
-            
-        elif choice == '11':
-            user_account_menu()
-            # Check if user logged out from the account menu
-            if not AuthManager.is_user_logged_in():
-                print("\nYou have been logged out. Returning to login screen...")
-                from cli.user_menus import login_menu
-                if not login_menu():
-                    # User chose to exit
-                    break
-            
-        elif choice == '12':
-            handle_generate_resume()
-            
-        elif choice == '13':
-            handle_view_resume()
-            
-        elif choice == '14':
-            handle_delete_resume()
-        
-        elif choice == '15':
-            portfolio_menu()
-            
-        elif choice == '16':
-            # Log out user before exiting
+        handlers = {
+            "1": lambda: handle_upload_file(),
+            "2": lambda: handle_list_projects(),
+            "3": lambda: handle_analyze_metrics_and_summary(),
+            "4": lambda: analyze_project_menu(),
+            "5": lambda: handle_rank_projects(),
+            "6": lambda: handle_rank_and_summarize_projects(),
+            "7": lambda: handle_view_edit_rankings(),
+            "8": lambda: manage_external_services_menu(),
+            "9": lambda: handle_cleanup_insights(),
+            "10": lambda: ask_user_preferences(consent_manager, collab_manager, False),
+            "11": lambda: user_account_menu(),
+            "12": lambda: handle_generate_resume(),
+            "13": lambda: handle_view_resume(),
+            "14": lambda: handle_delete_resume(),
+            "15": lambda: portfolio_menu(),
+            "16": "EXIT"
+        }
+
+        handler = handlers.get(choice)
+
+        if handler is None:
+            print("Invalid choice. Please enter 1-16.")
+            continue
+
+        if handler == "EXIT":
             if AuthManager.is_user_logged_in():
                 current_user = AuthManager.get_current_username()
                 AuthManager.logout()
                 print(f"Logging out {current_user}...")
             print("Goodbye!")
             break
-            
-        else:
-            print("Invalid choice. Please enter 1-16.")
+
+        handler()
