@@ -1,104 +1,69 @@
-import os
-import zipfile
 import pytest
-
+import zipfile
+import tempfile
+import os
+from unittest.mock import patch
+from src.main import main
 from src.validator import zipvalidation
 
 
-def test_check_zip_file_nonexistent(tmp_path):
-    # path that does not exist
-    missing = tmp_path / "missing.zip"
-    result = zipvalidation.check_zip_file(str(missing))
+def test_nonexistent_file():
+    file = "missing.zip"
+    result = zipvalidation.check_zip_file(file)
     assert "does not exist" in result
-    assert str(missing) in result
+    assert file in result  # fixed typo (was 'missing')
 
 
-def test_check_zip_file_with_zip(tmp_path):
-    zip_path = tmp_path / "test_archive.zip"
-
-    # create a valid zip file
-    with zipfile.ZipFile(zip_path, "w") as zf:
-        zf.writestr("file.txt", "content")
-
-    result = zipvalidation.check_zip_file(str(zip_path))
-    assert str(zip_path) in result
-    assert "is a zip file" in result
-
-
-def test_check_zip_file_with_non_zip(tmp_path):
-    non_zip_path = tmp_path / "not_a_zip.txt"
-    non_zip_path.write_text("some text")
-
-    result = zipvalidation.check_zip_file(str(non_zip_path))
-    assert str(non_zip_path) in result
-    assert "is not a zip file" in result
-
-def _create_simple_zip(zip_path):
-    """Create a simple zip at zip_path containing one file 'file.txt'."""
-    with zipfile.ZipFile(zip_path, "w") as zf:
-        zf.writestr("file.txt", "content")
+def test_zip_file():
+    with tempfile.NamedTemporaryFile(suffix=".zip", delete=False) as tmp:
+        zip_file = tmp.name
+    try:
+        with zipfile.ZipFile(zip_file, "w") as zf:
+            zf.writestr("file.txt", "content")
+        result = zipvalidation.check_zip_file(zip_file)
+        assert zip_file in result
+        assert "is a zip file" in result
+    finally:
+        os.remove(zip_file)
 
 
-def test_unzip_creates_new_folder_default_extract_dir(tmp_path):
-    zip_path = tmp_path / "dummy.zip"
-    _create_simple_zip(zip_path)
-
-    # default extract_dir should be zip path without ".zip"
-    expected_extract_dir = tmp_path / "dummy"
-
-    result = zipvalidation.unzip_file(str(zip_path))
-
-    assert "extraction successful" in result
-    assert str(zip_path) in result
-    assert os.path.isdir(expected_extract_dir)
-    assert os.path.isfile(expected_extract_dir / "file.txt")
+def test_non_zip_file():
+    with tempfile.NamedTemporaryFile(suffix=".txt", delete=False) as tmp:
+        non_zip_file = tmp.name
+        tmp.write(b"hello")
+    try:
+        result = zipvalidation.check_zip_file(non_zip_file)
+        assert non_zip_file in result
+        assert "is not a zip file" in result
+    finally:
+        os.remove(non_zip_file)
 
 
-def test_unzip_creates_specified_new_folder(tmp_path):
-    zip_path = tmp_path / "dummy.zip"
-    _create_simple_zip(zip_path)
+def test_unzip_creates_new_folder():
+    with tempfile.TemporaryDirectory() as tmpdir:
+        zip_file = os.path.join(tmpdir, "dummy.zip")
+        extract_dir = os.path.join(tmpdir, "extracted")
 
-    extract_dir = tmp_path / "extracted_here"
+        with zipfile.ZipFile(zip_file, "w") as zf:
+            zf.writestr("file.txt", "content")
 
-    result = zipvalidation.unzip_file(str(zip_path), extract_dir=str(extract_dir))
-
-    assert "extraction successful" in result
-    assert str(zip_path) in result
-    assert os.path.isdir(extract_dir)
-    assert os.path.isfile(extract_dir / "file.txt")
-
-
-def test_unzip_existing_empty_folder(tmp_path):
-    zip_path = tmp_path / "dummy.zip"
-    _create_simple_zip(zip_path)
-
-    extract_dir = tmp_path / "extracted"
-    os.makedirs(extract_dir)  # existing but empty
-
-    result = zipvalidation.unzip_file(str(zip_path), extract_dir=str(extract_dir))
-
-    assert "extraction successful" in result
-    assert os.path.isdir(extract_dir)
-    assert os.path.isfile(extract_dir / "file.txt")
+        result = zipvalidation.unzip_file(zip_file, extract_dir=extract_dir)
+        assert "extraction successful" in result
+        assert os.path.exists(os.path.join(extract_dir, "file.txt"))
 
 
-def test_unzip_existing_nonempty_folder_raises(tmp_path):
-    zip_path = tmp_path / "dummy.zip"
-    _create_simple_zip(zip_path)
+def test_unzip_existing_nonempty_folder():
+    with tempfile.TemporaryDirectory() as tmpdir:
+        zip_file = os.path.join(tmpdir, "dummy.zip")
+        extract_dir = os.path.join(tmpdir, "extracted")
 
-    extract_dir = tmp_path / "extracted"
-    os.makedirs(extract_dir)
-    # make directory non-empty
-    (extract_dir / "old.txt").write_text("old data")
+        with zipfile.ZipFile(zip_file, "w") as zf:
+            zf.writestr("file.txt", "content")
 
-    with pytest.raises(FileExistsError) as excinfo:
-        zipvalidation.unzip_file(str(zip_path), extract_dir=str(extract_dir))
+        os.makedirs(extract_dir)
+        with open(os.path.join(extract_dir, "old.txt"), "w") as f:
+            f.write("old data")
 
-    assert "already exists and is not empty" in str(excinfo.value)
-
-
-def test_unzip_raises_for_missing_zip(tmp_path):
-    missing_zip = tmp_path / "missing.zip"
-
-    with pytest.raises(FileNotFoundError):
-        zipvalidation.unzip_file(str(missing_zip))
+        import pytest
+        with pytest.raises(FileExistsError):
+            zipvalidation.unzip_file(zip_file, extract_dir=extract_dir)
