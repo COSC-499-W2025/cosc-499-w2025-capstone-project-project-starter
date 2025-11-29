@@ -1,7 +1,10 @@
 from datetime import datetime
 from config.db_config import with_db_cursor
 from analysis.project_ranking import rank_all_projects, calculate_project_score
+from analysis.key_metrics import analyze_project_from_db
 from project_summarizer import ProjectSummarizer
+from parsing.file_contents_manager import get_file_contents_by_upload_id, get_file_statistics
+from portfolio.skill_mapper import SkillMapper
 import json
 
 
@@ -167,6 +170,41 @@ class ResumeManager:
             return False
     
     @staticmethod
+    def _detect_frameworks_from_files(file_contents):
+        """
+        Detect frameworks from file contents.
+        
+        Args:
+            file_contents: List of file content dictionaries
+            
+        Returns:
+            list: Detected frameworks
+        """
+        file_names = [f.get('file_name', '').lower() for f in file_contents]
+        framework_indicators = {
+            'React': ['package.json', 'react', '.jsx', '.tsx'],
+            'Vue': ['vue.config.js', 'vue'],
+            'Angular': ['angular.json'],
+            'Django': ['manage.py', 'settings.py'],
+            'Flask': ['flask'],
+            'Express': ['express'],
+            'Spring': ['pom.xml', 'build.gradle'],
+            'Node.js': ['package.json', 'node_modules'],
+            'Docker': ['dockerfile', 'docker-compose.yml'],
+            'PostgreSQL': ['psycopg', 'postgresql'],
+            'MongoDB': ['mongoose', 'mongodb'],
+            'FastAPI': ['fastapi'],
+        }
+        detected_frameworks = set()
+        for framework, indicators in framework_indicators.items():
+            for indicator in indicators:
+                for name in file_names:
+                    if indicator.lower() in name:
+                        detected_frameworks.add(framework)
+                        break
+        return sorted(list(detected_frameworks))
+    
+    @staticmethod
     def generate_user_resume(user_id, top_projects_count=5):
         """
         Generate a user-aggregated resume from top ranked projects.
@@ -191,34 +229,131 @@ class ResumeManager:
             
             top_projects = ranked_projects[:top_projects_count]
             summarizer = ProjectSummarizer()
+            skill_mapper = SkillMapper()
             
             all_skills = set()
+            all_languages = set()
+            all_frameworks = set()
             project_summaries = []
+            total_lines_of_code = 0
+            total_files = 0
             
             for project in top_projects:
                 try:
-                    summary = summarizer.generate_project_summary(project['project_id'])
+                    project_id = project['project_id']
+                    
+                    # Get comprehensive summary
+                    summary = summarizer.generate_project_summary(project_id)
                     
                     if summary and 'error' not in summary:
-                        project_skills = summary.get('languages', {}).get('languages', [])
+                        # Extract languages
+                        languages_data = summary.get('languages', {})
+                        project_languages = languages_data.get('languages', [])
+                        primary_language = languages_data.get('primary_language', 'Unknown')
+                        all_languages.update(project_languages)
+                        
+                        # Get key metrics
+                        key_metrics = analyze_project_from_db(project_id, silent=True)
+                        totals = key_metrics.get('totals', {})
+                        file_count = totals.get('files', 0)
+                        lines_of_code = totals.get('lines', 0)
+                        total_lines_of_code += lines_of_code
+                        total_files += file_count
+                        
+                        # Get timeline info
+                        time_analysis = summary.get('time_analysis', {})
+                        duration_days = time_analysis.get('duration_days', 0)
+                        intensity = time_analysis.get('intensity', 'Unknown')
+                        
+                        # Get collaboration info
+                        collab_analysis = summary.get('collaboration_analysis', {})
+                        collaboration_level = collab_analysis.get('collaboration_level', 'Unknown')
+                        
+                        # Get code analysis
+                        code_analysis = summary.get('code_analysis', {})
+                        quality_summary = code_analysis.get('code_quality_summary', {})
+                        code_quality_score = quality_summary.get('average_quality_score', 0)
+                        
+                        # Count OOP principles
+                        oop_summary = code_analysis.get('oop_principles_summary', {})
+                        oop_count = 0
+                        for principle in ['abstraction', 'encapsulation', 'polymorphism', 'inheritance']:
+                            principle_data = oop_summary.get(principle, {})
+                            if isinstance(principle_data, dict):
+                                oop_count += principle_data.get('count', 0)
+                        
+                        # Count optimizations
+                        optimization_count = len(code_analysis.get('optimization_summary', []))
+                        
+                        # Get file contents for framework detection
+                        file_contents = get_file_contents_by_upload_id(project_id)
+                        frameworks = ResumeManager._detect_frameworks_from_files(file_contents)
+                        all_frameworks.update(frameworks)
+                        
+                        # Detect if project has tests and docs
+                        has_tests = False
+                        has_docs = False
+                        for f in file_contents:
+                            file_path = f.get('file_path', '').lower()
+                            file_name = f.get('file_name', '').lower()
+                            if 'test' in file_path or file_name.startswith('test_'):
+                                has_tests = True
+                            if 'readme' in file_name or file_name.endswith('.md'):
+                                has_docs = True
+                        
+                        # Extract skills from deep analysis
+                        deep_analysis_skills = skill_mapper.extract_skills_from_deep_analysis(code_analysis)
+                        
+                        # Combine all skills for this project
+                        project_skills = set(project_languages)
+                        project_skills.update(frameworks)
+                        project_skills.update(deep_analysis_skills)
                         all_skills.update(project_skills)
                         
+                        # Build enriched project summary
                         project_summaries.append({
                             'project_name': project['filename'],
+                            'project_id': project_id,
                             'score': project['score'],
-                            'primary_language': summary.get('languages', {}).get('primary_language', 'Unknown'),
-                            'skills': project_skills[:3]
+                            'primary_language': primary_language,
+                            'languages': project_languages,
+                            'frameworks': frameworks,
+                            'skills': sorted(list(project_skills))[:10],
+                            'file_count': file_count,
+                            'lines_of_code': lines_of_code,
+                            'duration_days': duration_days,
+                            'intensity': intensity,
+                            'collaboration_level': collaboration_level,
+                            'code_quality_score': round(code_quality_score, 1),
+                            'oop_principles_count': oop_count,
+                            'optimization_count': optimization_count,
+                            'has_tests': has_tests,
+                            'has_docs': has_docs
                         })
                 
                 except Exception as e:
                     print(f"[ERROR] Failed to summarize project {project['project_id']}: {e}")
                     continue
             
+            # Categorize skills
+            categorized_skills = skill_mapper.categorize_skills(all_skills)
+            
+            # Build comprehensive resume data
             resume_data = {
                 'user_id': user_id,
                 'total_projects_analyzed': len(ranked_projects),
                 'top_projects_displayed': len(project_summaries),
+                'summary_stats': {
+                    'total_lines_of_code': total_lines_of_code,
+                    'total_files': total_files,
+                    'unique_languages': len(all_languages),
+                    'unique_frameworks': len(all_frameworks),
+                    'unique_skills': len(all_skills)
+                },
                 'all_skills': sorted(list(all_skills)),
+                'categorized_skills': categorized_skills,
+                'languages': sorted(list(all_languages)),
+                'frameworks': sorted(list(all_frameworks)),
                 'top_projects': project_summaries,
                 'generated_at': datetime.now().isoformat()
             }
