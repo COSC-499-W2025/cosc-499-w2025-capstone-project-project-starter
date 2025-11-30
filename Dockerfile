@@ -1,39 +1,21 @@
-# Step 1: Start from Alpine Linux
-FROM alpine:3.18
+# Step 1: Start from Python 3.9 slim
+FROM python:3.9-slim
 
-# Step 2: Install system dependencies for Python build, pyenv, and PostgreSQL
-RUN apk add --no-cache \
-    bash \
-    curl \
-    git \
-    build-base \
-    zlib-dev \
-    bzip2-dev \
-    readline-dev \
-    sqlite-dev \
-    openssl-dev \
-    libffi-dev \
-    postgresql postgresql-contrib postgresql-client postgresql-dev \
-    ca-certificates \
-    && update-ca-certificates
-
-# Step 3: Set environment variables for pyenv
-ENV PYENV_ROOT="/root/.pyenv"
-ENV PATH="$PYENV_ROOT/bin:$PYENV_ROOT/shims:$PATH"
-
-# Step 4: Install pyenv
-RUN git clone https://github.com/pyenv/pyenv.git $PYENV_ROOT \
-    && git clone https://github.com/pyenv/pyenv-virtualenv.git $PYENV_ROOT/plugins/pyenv-virtualenv
-
-# Step 5: Copy project files into container
+# Step 2: Set working directory
 WORKDIR /app
+
+# Step 3: Install system dependencies for psycopg2
+RUN apt-get update && apt-get install -y \
+    gcc \
+    libpq-dev \
+    && rm -rf /var/lib/apt/lists/*
+
+# Step 4: Copy requirements and install Python packages
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+
+# Step 5: Copy project files
 COPY . /app
 
-# Step 6: Ensure install script is executable
-RUN chmod +x /app/src/ml/setup.sh
-
-# Step 7: Run install script (which installs Python 3.6.15 and dependencies)
-RUN bash /app/src/ml/setup.sh
-
-# Step 8: Default command to run your Python app
-# CMD ["python", "main.py"]
+# Step 6: Default command
+CMD ["python", "docker_test_entry.py"]

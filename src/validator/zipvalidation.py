@@ -1,35 +1,32 @@
 import os
 import zipfile
 
-def check_zip_file(file):
 
-    # first ensure file exists
-    if not os.path.exists(file):
-        return f"Error: file '{file}' does not exist"
+def check_zip_file(file_path):
+    if not os.path.exists(file_path):
+        return f"{file_path} does not exist"
 
-    # then check if its a zip
-    if zipfile.is_zipfile(file):
-        return f"{file} is a zip file"
+    if zipfile.is_zipfile(file_path):
+        return f"{file_path} is a zip file"
     else:
-        return f"{file} is not a zip file"
-    
-def unzip_file(file, extract_dir=None):
+        return f"{file_path} is not a zip file"
 
-    # extracts the directory from the zipfile with the same name (without .zip)
+
+def unzip_file(zip_path, extract_dir=None):
     if extract_dir is None:
-        extract_dir = os.path.splitext(file)[0]
+        # Safer than replace(".zip", "") in case filename contains ".zip" elsewhere
+        extract_dir = os.path.splitext(zip_path)[0]
 
-    # if folder exists and is non-empty, raise an error
-    if os.path.exists(extract_dir):
-        if os.listdir(extract_dir):  # folder not empty
-            raise FileExistsError(f"Folder '{extract_dir}' already exists and is not empty.")
-    else:
-        # create folder if it doesn't exist
-        os.makedirs(extract_dir)
+    # Prevent accidental overwrite
+    if os.path.exists(extract_dir) and os.listdir(extract_dir):
+        raise FileExistsError("Extraction directory already exists and is not empty.")
 
-    # perform extraction
-    with zipfile.ZipFile(file, "r") as zf:
-        zf.extractall(extract_dir)
+    # Ensure extraction directory exists
+    os.makedirs(extract_dir, exist_ok=True)
 
-    return f"{file} extraction successful! Extracted to: {extract_dir}"
+    # Extract contents
+    with zipfile.ZipFile(zip_path, "r") as zip_ref:
+        zip_ref.extractall(extract_dir)
 
+    # Return ONLY the real directory path
+    return extract_dir

@@ -3,7 +3,7 @@ import psycopg2
 def connect_to_postgres():
     try:
         connection = psycopg2.connect(
-            host="localhost",
+            host="postgres_db",     # use the service name defined in docker-compose.yml
             port="5432",            # this is default port for PostgreSQL
             user="postgres",        # change if you made a different user
             password="password",    # use the password you set during installation
