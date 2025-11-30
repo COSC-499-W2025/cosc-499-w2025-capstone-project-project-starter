@@ -48,7 +48,11 @@ def test_unzip_creates_new_folder():
             zf.writestr("file.txt", "content")
 
         result = zipvalidation.unzip_file(zip_file, extract_dir=extract_dir)
-        assert "extraction successful" in result
+
+        # Verify return value is the extraction directory
+        assert result == extract_dir
+
+        # Verify the file was actually extracted
         assert os.path.exists(os.path.join(extract_dir, "file.txt"))
 
 
