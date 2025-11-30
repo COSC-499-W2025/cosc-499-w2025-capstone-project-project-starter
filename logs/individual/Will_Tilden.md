@@ -1,6 +1,36 @@
 # Personal logs of Will Tilden (from Week 12) as per the personal log format outlined in lecture slides
 
 ## Applicable date range
+- Monday, November 24th to Sunday, November 30th
+
+## Type of tasks I worked on
+![Alt text](imgs/will_tilden_w13.png)
+
+## Recap on your weeks goals
+
+- Which features were yours in the project plan for this milestone?
+
+    I had issue 130 which was to add functionality such that both the ML data and the LLM data would be included in the PDF export when applicable if the user consented to the use of the LLM to analyze their data. This involved changes to the main file, refactoring the export function in the pdf exporter file to be able to handle the response from the llm, as well as driving this development with additional tests.
+
+- Which tasks from the project board are associated with these features?
+
+    The associated issue is issue [COSC-499-W2025/capstone-project-team-15#130](https://github.com/COSC-499-W2025/capstone-project-team-15/issues/130)
+
+- Among these tasks, which have you completed / in progress in the last 2 weeks?
+
+    I started and compeleted this issue this week.
+
+- Optional text: additional context that we should be aware of
+
+     This I think was one of my strongest weeks and I am proud of that. I made a strong contribution, I added tests that drove my development, I made two reviews on other people's PR's and was the first reviewer on one of those, and helped to test some of my other teammates code as well.
+
+- Working on in the next sprint
+
+    I believe this is our last sprint before the winter break? I could be confused but if not I would like to work more on the pdf exporter as I found it quite fun and interesting. The exported PDF is currently clean and straightforward but there is a lot of room for improvement and customization / personalization to the particular user.
+
+# Personal logs of Will Tilden (from Week 12) as per the personal log format outlined in lecture slides
+
+## Applicable date range
 - Monday, November 17th to Sunday, November 23rd
 
 ## Type of tasks I worked on
