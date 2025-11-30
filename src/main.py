@@ -33,7 +33,7 @@ def main():
     # Collect predictions for PDF
     all_predictions = collect_predictions(parsed_folder)
 
-    # Then export as before
+    # Then export as a PDF for user visualization
     export({"predictions": all_predictions}, filename="report.pdf")
 
 
