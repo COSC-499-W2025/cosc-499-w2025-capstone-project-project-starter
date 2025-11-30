@@ -139,3 +139,18 @@ The CLI interface.
 Command Pipeline #108
 - Among these tasks, which have you completed/in progress in the last 2 weeks?
 The above one. There is now a complete end to end command that takes in any zip folder and returns classification results.
+
+
+## Week 13
+- Applicable date range
+November 23 - November 30
+- Type of tasks you worked on (screenshot from Peer Eval question)
+![Alt text](./imgs/liam_storgaard_w13.png)
+- Recap on your week's goals
+Keep connecting everything else into a pipeline and get ready for the milestone presentation.
+- Which features were yours in the project plan for this milestone?
+A fix and improvement for the LLM/ML pipeline.
+- Which tasks from the project board are associated with these features?
+#128 Allow stacking of ML model + LLM and properly handle consent refusal
+- Among these tasks, which have you completed/in progress in the last 2 weeks?
+That one, it now properly falls back to the locally trained ML model on consent refusal and allows stacking the two models if given.
