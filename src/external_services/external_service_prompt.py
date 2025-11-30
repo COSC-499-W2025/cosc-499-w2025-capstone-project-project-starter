@@ -112,37 +112,25 @@ NOTE: You can change this preference at any time in the settings.
         Returns:
             bool: True if stored successfully
         """
-        from config.db_config import get_connection
-        
-        conn = get_connection()
-        if not conn:
-            print("Error: Could not connect to database")
-            return False
+        from config.db_config import with_db_cursor
         
         try:
-            cursor = conn.cursor()
-            
-            # Insert or update permission
-            cursor.execute("""
-                INSERT INTO external_service_permissions 
-                (user_id, service_name, permission_granted, updated_at)
-                VALUES (%s, %s, %s, CURRENT_TIMESTAMP)
-                ON CONFLICT (user_id, service_name) 
-                DO UPDATE SET 
-                    permission_granted = EXCLUDED.permission_granted,
-                    updated_at = CURRENT_TIMESTAMP
-            """, (user_id, service_name, permission_granted))
-            
-            conn.commit()
-            cursor.close()
-            return True
-            
+            with with_db_cursor() as cursor:
+                # Insert or update permission
+                cursor.execute("""
+                    INSERT INTO external_service_permissions 
+                    (user_id, service_name, permission_granted, updated_at)
+                    VALUES (%s, %s, %s, CURRENT_TIMESTAMP)
+                    ON CONFLICT (user_id, service_name) 
+                    DO UPDATE SET 
+                        permission_granted = EXCLUDED.permission_granted,
+                        updated_at = CURRENT_TIMESTAMP
+                """, (user_id, service_name, permission_granted))
+                
+                return True
         except Exception as e:
-            conn.rollback()
             print(f"Error storing permission: {e}")
             return False
-        finally:
-            conn.close()
 
 
 def request_external_service_permission(user_id='default_user', service_name='LLM', force=False):

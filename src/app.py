@@ -1,5 +1,4 @@
 """Core application initialization and setup."""
-from config.db_config import get_connection
 from consent.consent_manager import ConsentManager
 from collaborative.collaborative_manager import CollaborativeManager
 from upload_file import init_uploaded_files_table
@@ -9,36 +8,17 @@ from resume.resume_manager import ResumeManager
 
 
 def ensure_user_preferences_schema():
-    """
-    Ensure user_preferences table has required schema including git_username column.
-    This function handles schema migrations for the user_preferences table.
-    """
+    """Ensure user_preferences table has git_username column."""
     try:
-        with get_connection() as conn, conn.cursor() as cur:
-            # Check if table exists first
-            cur.execute("""
-                SELECT EXISTS (
-                    SELECT 1
-                    FROM information_schema.tables
-                    WHERE table_schema = 'public' AND table_name = 'user_preferences'
-                );
-            """)
-            table_exists = cur.fetchone()[0]
-            
-            if not table_exists:
-                # Table doesn't exist - this is a real problem, not just a missing column
-                raise Exception("user_preferences table does not exist. Table must be initialized first.")
-            
-            # Table exists, safely add column if missing (idempotent operation)
+        from config.db_config import with_db_cursor
+        with with_db_cursor() as cur:
+            # Add git_username column if missing
             cur.execute("""
                 ALTER TABLE user_preferences
                 ADD COLUMN IF NOT EXISTS git_username VARCHAR(255);
             """)
-            conn.commit()
     except Exception as e:
-        # Re-raise exception to surface real migration problems
-        print(f"[ERROR] Failed to update user_preferences schema: {e}")
-        raise
+        print(f"[WARN] Exception caught: {e}")
 
 
 def initialize_app():
@@ -58,12 +38,11 @@ def initialize_app():
         print(f"Failed to initialize database tables: {e}")
         return None
     
-    # Initialize managers (this also initializes user_preferences table)
+    ensure_user_preferences_schema()
+    
+    # Initialize managers
     consent_manager = ConsentManager(user_id="default_user")
     collab_manager = CollaborativeManager()
-    
-    # Now ensure schema is up to date (table should exist after manager initialization)
-    ensure_user_preferences_schema()
     
     consent_manager.initialize()
     
@@ -81,12 +60,12 @@ def initialize_app():
         print("Collaborative granted. Doing collaborative and individual.")
 
     # Test database connection
-    conn = get_connection()
-    if conn:
-        print("Database is connected!")
-        conn.close()
-    else:
-        print("Database is not connected.")
+    try:
+        from config.db_config import with_db_cursor
+        with with_db_cursor() as _:
+            print("Database is connected!")
+    except Exception as e:
+        print(f"Database is not connected: {e}")
         return None
     
     return consent_manager, collab_manager

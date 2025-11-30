@@ -2,7 +2,7 @@ import os
 from collections import Counter
 from analysis.analysis_router import AnalysisRouter
 from analysis.local_analyzer import LocalAnalyzer
-from config.db_config import get_connection
+from config.db_config import with_db_cursor
 import json
 
 
@@ -141,76 +141,60 @@ class ProjectAnalyzer:
     
     def _get_project_info(self, uploaded_file_id):
         """Get basic project information from database."""
-        conn = get_connection()
-        if not conn:
-            return None
-        
         try:
-            cursor = conn.cursor()
-            cursor.execute("""
-                SELECT id, filename, filepath, status, created_at
-                FROM uploaded_files
-                WHERE id = %s
-            """, (uploaded_file_id,))
-            
-            result = cursor.fetchone()
-            cursor.close()
-            
-            if result:
-                return {
-                    'id': result[0],
-                    'filename': result[1],
-                    'filepath': result[2],
-                    'status': result[3],
-                    'created_at': result[4]
-                }
-            return None
-            
+            with with_db_cursor() as cursor:
+                cursor.execute("""
+                    SELECT id, filename, filepath, status, created_at
+                    FROM uploaded_files
+                    WHERE id = %s
+                """, (uploaded_file_id,))
+                
+                result = cursor.fetchone()
+                
+                if result:
+                    return {
+                        'id': result[0],
+                        'filename': result[1],
+                        'filepath': result[2],
+                        'status': result[3],
+                        'created_at': result[4]
+                    }
+                return None
         except Exception as e:
             print(f"Error retrieving project info: {e}")
             return None
-        finally:
-            conn.close()
     
     def _get_file_contents(self, uploaded_file_id):
         """Get file contents from database."""
-        conn = get_connection()
-        if not conn:
-            return []
-        
         try:
-            cursor = conn.cursor()
-            cursor.execute("""
-                SELECT file_path, file_name, file_extension, file_size,
-                       file_content, content_type, is_binary, created_at
-                FROM file_contents
-                WHERE uploaded_file_id = %s
-                ORDER BY file_path
-            """, (uploaded_file_id,))
-            
-            results = cursor.fetchall()
-            cursor.close()
-            
-            files = []
-            for row in results:
-                files.append({
-                    'file_path': row[0],
-                    'file_name': row[1],
-                    'file_extension': row[2],
-                    'file_size': row[3] or 0,
-                    'file_content': row[4],
-                    'content_type': row[5],
-                    'is_binary': row[6],
-                    'created_at': row[7]
-                })
-            
-            return files
-            
+            with with_db_cursor() as cursor:
+                cursor.execute("""
+                    SELECT file_path, file_name, file_extension, file_size,
+                           file_content, content_type, is_binary, created_at
+                    FROM file_contents
+                    WHERE uploaded_file_id = %s
+                    ORDER BY file_path
+                """, (uploaded_file_id,))
+                
+                results = cursor.fetchall()
+                
+                files = []
+                for row in results:
+                    files.append({
+                        'file_path': row[0],
+                        'file_name': row[1],
+                        'file_extension': row[2],
+                        'file_size': row[3] or 0,
+                        'file_content': row[4],
+                        'content_type': row[5],
+                        'is_binary': row[6],
+                        'created_at': row[7]
+                    })
+                
+                return files
         except Exception as e:
             print(f"Error retrieving file contents: {e}")
             return []
-        finally:
-            conn.close()
     
     def _analyze_languages_from_files(self, file_contents):
         from common.constants import LANGUAGE_EXTENSIONS
@@ -350,41 +334,29 @@ class ProjectAnalyzer:
     
     def _store_analysis_results(self, uploaded_file_id, analysis_results):
         """Store analysis results in the database."""
-        conn = get_connection()
-        if not conn:
-            print("Warning: Could not store analysis results")
-            return False
-        
         try:
-            cursor = conn.cursor()
-            
-            # Create analysis_results table if it doesn't exist
-            cursor.execute("""
-                CREATE TABLE IF NOT EXISTS analysis_results (
-                    id SERIAL PRIMARY KEY,
-                    uploaded_file_id INTEGER REFERENCES uploaded_files(id) ON DELETE CASCADE,
-                    analysis_data JSONB,
-                    analysis_strategy VARCHAR(50),
-                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-                )
-            """)
-            
-            # Insert analysis results
-            cursor.execute("""
-                INSERT INTO analysis_results (uploaded_file_id, analysis_data, analysis_strategy)
-                VALUES (%s, %s, %s)
-            """, (uploaded_file_id, json.dumps(analysis_results, default=str), analysis_results.get('analysis_strategy', 'local')))
-            
-            conn.commit()
-            cursor.close()
-            return True
-            
+            with with_db_cursor() as cursor:
+                # Create analysis_results table if it doesn't exist
+                cursor.execute("""
+                    CREATE TABLE IF NOT EXISTS analysis_results (
+                        id SERIAL PRIMARY KEY,
+                        uploaded_file_id INTEGER REFERENCES uploaded_files(id) ON DELETE CASCADE,
+                        analysis_data JSONB,
+                        analysis_strategy VARCHAR(50),
+                        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                    )
+                """)
+                
+                # Insert analysis results
+                cursor.execute("""
+                    INSERT INTO analysis_results (uploaded_file_id, analysis_data, analysis_strategy)
+                    VALUES (%s, %s, %s)
+                """, (uploaded_file_id, json.dumps(analysis_results, default=str), analysis_results.get('analysis_strategy', 'local')))
+                
+                return True
         except Exception as e:
-            conn.rollback()
             print(f"Error storing analysis results: {e}")
             return False
-        finally:
-            conn.close()
     
     def display_analysis_results(self, analysis_results):
         if not analysis_results.get('success', False):
