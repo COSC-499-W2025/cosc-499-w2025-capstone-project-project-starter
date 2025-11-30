@@ -1,3 +1,46 @@
+# Personal Log of Cole Powrie — Week 13
+
+**Applicable Date Range:**  
+**Monday, November 24th to Sunday, November 30th**
+
+### Peer Evaluation Screenshot
+![Peer Evaluation](imgs/ColePowrieW13.png)
+
+## This Milestone
+- Successfully configured Docker Compose environment with Python and PostgreSQL containers.  
+- Connected backend to PostgreSQL container and verified proper database initialization.  
+- Developed and tested `create_tables.py` to set up `users`, `category`, `llm_results`, and `artifacts` tables (`artifacts` includes JSONB metadata).  
+- Implemented LLM persistence pipeline: permission check, local analyzer fallback, JSON parsing, and DB mapping.  
+- Integrated persistence into main workflow to persist per-file analysis results.  
+- **Note:** No changes have yet been merged into `main` — work remains on feature branches while in progress.
+
+## Tasks
+- Updated `docker-compose.yml` and `Dockerfile` to ensure app ↔ database communication and required system packages (`libmagic`, `libpq`).  
+- Centralized DB connection in `connect.py` to read environment variables.  
+- Added `llm_mapper.py` to persist raw LLM output, upsert categories, and insert artifacts with metadata.  
+- Updated `LLM_permission.py` to call mapper and handle JSON or raw outputs.  
+- Modified `main.py` to call `process_data_with_permission()` for each parsed file and persist results.  
+- Created `manual_llm_map_test.py` to test persistence without ML artifacts.  
+- Resolved container import / PYTHONPATH issues for in-container testing.
+
+## Progress Over the Last Two Weeks
+- Fully containerized backend and DB for consistent development and testing.  
+- Ensured reproducible DB initialization and verified persisted rows (`llm_results`, `category`, `artifacts`).  
+- Improved Git workflow and branch management; recovered and consolidated working branches.
+
+## In-Progress Tasks
+- Testing CRUD operations and relationship integrity for the new schema.  
+- Validating persistence under different inputs and error conditions.  
+- Preparing for ML pipeline integration (accepting encoder/model artifacts from ML team).  
+- Adding unit/integration tests around persistence and pipeline functions.
+
+## Next Cycle Activities
+- Integrate ML classifier artifacts (encoder, model) and ensure classifier outputs flow into metadata.  
+- Implement a lightweight read-only API (FastAPI/Flask) to expose `artifacts` and `llm_results`.  
+- Add CI (GitHub Actions) for linting, unit tests, and integration tests against a test DB.  
+- Introduce migrations (Alembic) and add JSONB indexes for metadata queries.  
+- Merge tested feature branches into `main` once CI/tests are established.
+
 # Personal log of Cole Powrie (Week 12)  
 
 ## Applicable Date Range
