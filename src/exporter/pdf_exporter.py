@@ -9,25 +9,27 @@ from reportlab.lib.pagesizes import LETTER
 from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer
 from reportlab.lib.styles import getSampleStyleSheet
 
-def export(data, filename="report.pdf"):
+def export(ml_data, llm_response=None, filename="report.pdf"):
     """
     Exports a predictions dictionary to a formatted PDF file.
 
     Args:
-        data (dict): Dictionary of predictions, e.g.:
+        ml_data (dict): Dictionary of predictions, e.g.:
                      {"predictions": [["Flask", 0.93], ["SQL", 0.71]]}
+        llm_response (string): Response from LLM, conditional on user consent to use of LLM,
+                    therefore defaults to None unless passed in
         filename (str): Output PDF filename.
     """
     from reportlab.lib.pagesizes import LETTER
     from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer
     from reportlab.lib.styles import getSampleStyleSheet
 
-    # Make sure data is a dictionary
-    if not isinstance(data, dict):
-        data = {}
+    # Make sure ml_data is a dictionary
+    if not isinstance(ml_data, dict):
+        ml_data = {}
 
     # Make sure predictions is a list of lists
-    predictions = data.get("predictions", [])
+    predictions = ml_data.get("predictions", [])
     if not isinstance(predictions, list):
         predictions = []
 
@@ -60,21 +62,49 @@ def export(data, filename="report.pdf"):
             elements.append(Paragraph(f"• {skill} — {confidence:.2f}", styles["Normal"]))
             elements.append(Spacer(1, 4))
 
+    # Optional LLM Analysis Section
+    if llm_response:
+        elements.append(Spacer(1, 20))
+        elements.append(Paragraph("<b>LLM Analysis:</b>", styles["Heading2"]))
+        elements.append(Spacer(1, 6))
+
+        # Split into paragraphs if needed
+        for line in llm_response.split("\n"):
+            if line.strip():
+                elements.append(Paragraph(line.strip(), styles["Normal"]))
+                elements.append(Spacer(1, 4))
+
     doc.build(elements)
     print(f"✅ PDF successfully created: {filename}")
 
 
+def collect_predictions(parsed_folder):
+    all_predictions = []
 
-# ------------------------
-# Example usage with mock predictions
-# ------------------------
-if __name__ == "__main__":
-    mock_data = {
-        "predictions": [
-            ["Flask", 0.93],
-            ["SQL", 0.71],
-            ["React", 0.62]
-        ]
-    }
+    if isinstance(parsed_folder, list):
+        for file_summary in parsed_folder:
+            file_name = file_summary.get("file", "Unknown file")
 
-    export(mock_data, filename="report.pdf")
+            # Accept both "skills" and "predictions"
+            skills = (
+                file_summary.get("skills")
+                or file_summary.get("predictions")
+                or []
+            )
+
+            if not isinstance(skills, list):
+                continue
+
+            for item in skills:
+                if isinstance(item, (list, tuple)) and len(item) == 2:
+                    skill, prob = item
+                    all_predictions.append([f"{file_name}: {skill}", prob])
+                else:
+                    print(f"⚠️ Skipping invalid skill entry in {file_name}: {item}")
+    else:
+        print("⚠️ Unexpected parsed_folder structure. PDF will be empty.")
+
+    return all_predictions
+
+
+
