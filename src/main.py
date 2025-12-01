@@ -1,19 +1,25 @@
 import sys
 from validator.LLM_permission import display_privacy_notice, request_consent, run_ollama_analysis
 from validator.zipvalidation import check_zip_file, unzip_file
+from validator.data_permission import display_data_privacy_notice, request_data_consent
 from codeparser import parse_core, parse_metadata
 from exporter.pdf_exporter import collect_predictions, export
 import json
 
 def main():
+    
+    # Data privacy notice
+    display_data_privacy_notice()
+    # Request consent for data analysis
+    data_consent = request_data_consent()
+    if not data_consent:
+        print("Data consent not given. Exiting.")
+        return
+
     # LLM privacy notice
-
     display_privacy_notice()
-
     # Request consent for use of LLM
-    consent = request_consent()
-
-    # Accepts zip file at command line
+    llm_consent = request_consent()
     if len(sys.argv) > 1:
         zip_path = sys.argv[1]
     else:
@@ -37,10 +43,8 @@ def main():
     all_predictions = collect_predictions(parsed_folder)
 
     # If LLM consent is not given, stop and export just the ML results to PDF
-    if not consent:
-        # Export using just the ML data
+    if not llm_consent:
         export({"predictions": all_predictions}, filename="report.pdf")
-
         print("\nLLM analysis was skipped because consent was not given.")
         print("Above is the aggregated summary from the local pretrained model only.")
         return
