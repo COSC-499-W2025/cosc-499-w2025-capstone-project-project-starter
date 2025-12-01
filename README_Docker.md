@@ -1,80 +1,99 @@
 # 🐳 Docker Setup for Artifact Miner
 
-This document explains how to build and run the Docker environment for the project.
-The Docker setup ensures that everyone on the team runs the same Python environment, regardless of their local system.
+This guide explains how to **build and run the Docker environment** for the project.  
+Docker ensures that everyone on the team runs the same Python environment — regardless of their local setup.
 
 ---
 
 ## 📦 Prerequisites
 
-Make sure you have the following installed on your machine:
+Make sure you have the following installed:
 
-- [Docker](https://docs.docker.com/get-docker/)
-- [Docker Compose](https://docs.docker.com/compose/install/)
+- **Docker**
+- **Docker Compose**
 
 Verify installation:
 
 ```bash
 docker --version
 docker compose version
-Build and Run the Container
-From the root of the repository (where the Dockerfile is located), run:
+```
 
-bash
-Copy code
+---
+
+## ⚙️ Build & Run the Container
+
+From the **root of the repository** (where the `Dockerfile` is located), run:
+
+```bash
 docker compose up --build
-This command:
+```
 
-Builds the image using the Dockerfile
+This command will:
 
-Starts the container defined in docker-compose.yml
+1. **Build** the Docker image using the `Dockerfile`
+2. **Start** the container defined in `docker-compose.yml`
+3. **Run** the test script `docker_test_entry.py` to verify that everything works
 
-Runs the test script docker_test_entry.py
+---
 
-✅ Verify It’s Working
-If everything is set up correctly, you should see this message:
+## ✅ Verifying the Setup
 
-csharp
-Copy code
+If everything is configured correctly, you should see this message:
+
+```bash
 ✅ Docker environment is working correctly!
+```
+
 This confirms that:
 
-The Docker image built successfully
+- The Docker image built successfully  
+- Python is installed and running inside the container  
+- Your project files were copied correctly  
 
-Python is installed and running inside the container
+---
 
-Your project files were copied correctly
+## 🧱 File Overview
 
-🧱 File Overview
-File	Purpose
-Dockerfile	Defines the container’s environment and dependencies
-.dockerignore	Excludes unnecessary files from the image (caches, logs, etc.)
-requirements.txt	Lists Python dependencies to install in the container
-docker-compose.yml	Defines how to build and run the container
-docker_test_entry.py	Temporary test script to verify Docker setup
+| File | Purpose |
+|------|----------|
+| `Dockerfile` | Defines the container’s environment and dependencies |
+| `.dockerignore` | Excludes unnecessary files (logs, caches, etc.) |
+| `requirements.txt` | Lists Python dependencies to install |
+| `docker-compose.yml` | Defines how to build and run the container |
+| `docker_test_entry.py` | Temporary test script used to verify setup |
 
-🔄 Common Commands
-Rebuild the image after making changes
-bash
-Copy code
+---
+
+## 🔄 Common Docker Commands
+
+**Rebuild the image after making changes:**
+```bash
 docker compose build
-Run the container without rebuilding
-bash
-Copy code
+```
+
+**Run the container without rebuilding:**
+```bash
 docker compose up
-Stop and remove containers
-bash
-Copy code
+```
+
+**Stop and remove containers:**
+```bash
 docker compose down
-Run a one-off command inside the container
-bash
-Copy code
+```
+
+**Run a one-off command inside the container:**
+```bash
 docker compose run app python --version
+```
 
-🚀 Next Steps
-Once the full project code is ready, update the Dockerfile’s final line:
+---
 
-dockerfile
-Copy code
-CMD ["python", "src/main.py"]
-This will make the container run our actual application instead of the test file.
+**To build the containers and see tables added to the DB, do the following:**
+```bash
+docker compose build
+docker compose up -d
+docker compose exec db psql -U postgres -d postgres
+
+\dt
+```

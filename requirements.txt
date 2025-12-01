@@ -1,7 +1,25 @@
-# list of required third party packages that need to be installed in order for the
-# container to run properly (this is a working list as the app grows / nears completion)
-
 numpy
 pandas
 requests
-psycopg2
+psycopg2    # requires 'brew install postgresql'
+iniconfig==2.1.0
+libmagic==1.0
+packaging==25.0
+pluggy==1.6.0
+Pygments==2.19.2
+pytest==8.4.2
+python-magic-bin==0.4.13; sys_platform == 'win32'
+python-magic==0.4.27; sys_platform != 'win32'
+reportlab>=3.6
+Flask
+psycopg2-binary
+# openai
+dotenv
+requests
+datasets
+torch
+transformers
+scikit-learn
+numpy
+orjson
+joblib
