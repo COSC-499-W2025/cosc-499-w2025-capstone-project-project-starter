@@ -12,13 +12,15 @@ from reportlab.lib import colors
 
 
 
-def export(data, filename="report.pdf", consent="y"):
+def export(data, llm_response=None,filename="report.pdf", consent="y"):
     """
     Exports a predictions dictionary to a formatted PDF file with a styled table.
 
     Args:
-        data (dict): Dictionary of predictions, e.g.:
+        ml_data (dict): Dictionary of predictions, e.g.:
                      {"predictions": [["Flask", 0.93], ["SQL", 0.71]]}
+        llm_response (string): Response from LLM, conditional on user consent to use of LLM,
+                    therefore defaults to None unless passed in
         filename (str): Output PDF filename.
     """
 
@@ -97,6 +99,19 @@ def export(data, filename="report.pdf", consent="y"):
     table.setStyle(TableStyle(table_style))
 
     elements.append(table)
+
+    # Optional LLM Analysis Section
+    if llm_response:
+        elements.append(Spacer(1, 20))
+        elements.append(Paragraph("<b>LLM Analysis:</b>", styles["Heading2"]))
+        elements.append(Spacer(1, 6))
+
+        for line in llm_response.split("\n"):
+            if line.strip():
+                elements.append(Paragraph(line.strip(), styles["Normal"]))
+                elements.append(Spacer(1, 4))
+
+
 
     # Build PDF
     doc.build(elements)
