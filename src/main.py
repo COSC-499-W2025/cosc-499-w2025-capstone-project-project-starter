@@ -1,10 +1,11 @@
 import sys
 from validator.LLM_permission import display_privacy_notice, request_consent, run_ollama_analysis
 from validator.zipvalidation import check_zip_file, unzip_file
-from codeparser import parse_core
+from codeparser import parse_core, parse_metadata
 import json
 
 def main():
+
     display_privacy_notice()
     consent = request_consent()
     if len(sys.argv) > 1:
