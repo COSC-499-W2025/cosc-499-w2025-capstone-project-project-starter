@@ -1,12 +1,13 @@
 import sys
 from validator.LLM_permission import display_privacy_notice, request_consent, run_ollama_analysis
 from validator.zipvalidation import check_zip_file, unzip_file
-from codeparser import parse_core
+from codeparser import parse_core, parse_metadata
 from exporter.pdf_exporter import collect_predictions, export
 import json
 
 def main():
     # LLM privacy notice
+
     display_privacy_notice()
 
     # Request consent for use of LLM
@@ -29,7 +30,6 @@ def main():
         unzipped_dir = unzip_file(zip_path)
         print(f".zip extracted to: {unzipped_dir}")
         print(unzipped_dir + " unzipped successfully!\n")
-
     except Exception as e:
         print(f"Extraction failed: {e}")
         return

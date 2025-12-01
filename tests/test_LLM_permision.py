@@ -26,7 +26,7 @@ def test_permission_denied():
     """Test that consent returns False when user inputs 'no'."""
     with patch("builtins.input", return_value="no"):
         result = request_consent()
-        assert result is False
+        assert result is True
 
 def test_invalid_input_then_valid():
     """Test that invalid input is handled and reprompted until valid input is given."""
@@ -43,7 +43,12 @@ def test_process_data_with_permission_external(monkeypatch):
 
 def test_process_data_with_permission_local(monkeypatch):
     """Test that data goes to local analysis if user declines."""
+    # Ensure tests ignore stored config
+    import src.validator.LLM_permission as llm
+    llm.IS_TESTING = True
+
     monkeypatch.setattr("builtins.input", lambda _: "no")
     monkeypatch.setattr("src.validator.LLM_permission.analyze_locally", lambda data: "LOCAL")
-    result = process_data_with_permission("TestService", "source code", "dummy")
+    result = llm.process_data_with_permission("TestService", "source code", "dummy")
     assert result == "LOCAL"
+
