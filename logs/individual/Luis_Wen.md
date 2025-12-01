@@ -1,3 +1,39 @@
+# Personal log of Luis Wen (from Week 13)
+
+## Features in this milestone
+
+- Storing users configuration
+- Test file for saved user configuration
+- Testing and reviewing code
+- Refactoring code and tests
+
+## Project board tasks
+
+- Issue #138
+
+## Work done in last week
+
+- Added store users configuration for future user
+- Implemented external service that has to be downloaded locally
+- Test files and refactoring code/test files
+- Presentation help
+
+## Peer evaluation screenshot week 13
+
+![alt text](</logs/individual/imgs/LuisWen_Week13.png>)
+
+## Additional context
+
+- Last weeks PR was made around 10pm Sunday but was not merged
+- The feature did work as intended as long as the steps provided in the instructions were followed
+- The definition of an external service (e.g. LLM) was not clearly established so I made assumptions
+- Ollama is a third party LLM that runs in a cloud through `ollama serve`
+
+## Next Cycle
+
+- Implement requirement 7, 9 and 10
+- Live in class demo
+
 # Personal log of Luis Wen (from Week 12)
 
 ## Features in this milestone
