@@ -105,3 +105,54 @@ def test_collect_predictions_missing_filename():
     result = collect_predictions(parsed)
     assert result == [["Unknown file: C++", 0.55]]
 
+def test_pdf_export_with_llm_section_increases_size(tmp_path):
+    pdf_no_llm = tmp_path / "no_llm.pdf"
+    pdf_with_llm = tmp_path / "with_llm.pdf"
+
+    mock_data = {
+        "predictions": [
+            ["Flask", 0.93],
+            ["SQL", 0.71],
+        ]
+    }
+
+    # Export without LLM
+    export(mock_data, filename=str(pdf_no_llm))
+    size_without = pdf_no_llm.stat().st_size
+
+    # Export with LLM
+    llm_text = "This is an LLM analysis.\nIt has multiple lines.\nIt should appear as a section."
+    export(mock_data, llm_response=llm_text, filename=str(pdf_with_llm))
+    size_with = pdf_with_llm.stat().st_size
+
+    assert pdf_with_llm.exists()
+    assert size_with > size_without     # PDF must be larger when LLM content is included
+
+def test_pdf_export_empty_llm_same_as_no_llm(tmp_path):
+    pdf_no_llm = tmp_path / "no_llm2.pdf"
+    pdf_empty_llm = tmp_path / "empty_llm.pdf"
+
+    mock_data = {"predictions": [["Python", 0.95]]}
+
+    export(mock_data, filename=str(pdf_no_llm))
+    export(mock_data, llm_response="", filename=str(pdf_empty_llm))
+
+    size_no_llm = pdf_no_llm.stat().st_size
+    size_empty_llm = pdf_empty_llm.stat().st_size
+
+    # Sizes won't be byte-for-byte identical, but they should be close enough
+    assert abs(size_no_llm - size_empty_llm) < 50
+
+def test_pdf_export_llm_none_same_as_omitted(tmp_path):
+    pdf_default = tmp_path / "default_llm.pdf"
+    pdf_none = tmp_path / "none_llm.pdf"
+
+    mock_data = {"predictions": [["JavaScript", 0.8]]}
+
+    export(mock_data, filename=str(pdf_default))
+    export(mock_data, llm_response=None, filename=str(pdf_none))
+
+    size_default = pdf_default.stat().st_size
+    size_none = pdf_none.stat().st_size
+
+    assert abs(size_default - size_none) < 50

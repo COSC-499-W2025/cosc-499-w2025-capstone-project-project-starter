@@ -2,11 +2,17 @@ import sys
 from validator.LLM_permission import display_privacy_notice, request_consent, run_ollama_analysis
 from validator.zipvalidation import check_zip_file, unzip_file
 from codeparser import parse_core
+from exporter.pdf_exporter import collect_predictions, export
 import json
 
 def main():
+    # LLM privacy notice
     display_privacy_notice()
+
+    # Request consent for use of LLM
     consent = request_consent()
+
+    # Accepts zip file at command line
     if len(sys.argv) > 1:
         zip_path = sys.argv[1]
     else:
@@ -28,15 +34,19 @@ def main():
         print(f"Extraction failed: {e}")
         return
     parsed_folder = parse_core.parse_directory(unzipped_dir)
-    ml_summary = parse_core.summarize_results(parsed_folder)
+    all_predictions = collect_predictions(parsed_folder)
 
-    # If consent is not given stop and print ML results
+    # If LLM consent is not given, stop and export just the ML results to PDF
     if not consent:
-        print(json.dumps(ml_summary, indent=2))
+        # Export using just the ML data
+        export({"predictions": all_predictions}, filename="report.pdf")
+
         print("\nLLM analysis was skipped because consent was not given.")
         print("Above is the aggregated summary from the local pretrained model only.")
         return
+    
 
+    # If LLM consent was provided, proceed with LLM analysis
     prompt = f"""
     Analyze the following extracted code directory:
 
@@ -53,9 +63,9 @@ def main():
     print("\nRunning analysis with Ollama...\n")
     response = run_ollama_analysis(prompt)
 
-    print("\n================ FINAL ANALYSIS ================\n")
-    print(response)
-    print("\n================================================\n")
+    # Export both ML and LLM data in PDF
+    export({"predictions": all_predictions}, response, filename="report.pdf")
+
 
     
 
