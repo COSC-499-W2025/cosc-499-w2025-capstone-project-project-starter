@@ -67,7 +67,7 @@ def main():
     response = run_ollama_analysis(prompt)
 
     # Export both ML and LLM data in PDF
-    export({"predictions": all_predictions}, response, filename="report.pdf")
+    export({"predictions": predictions}, response, filename="report.pdf")
 
 
     
