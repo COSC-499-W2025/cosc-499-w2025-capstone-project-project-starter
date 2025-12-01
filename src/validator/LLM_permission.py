@@ -26,7 +26,7 @@ CONFIG_PATH = Path(__file__).parent.parent / "config.json"
 # ------------------ PRIVACY NOTICE ------------------
 
 def display_privacy_notice():
-    print("\n⚠️  DATA PRIVACY NOTICE")
+    print("\n⚠️  LLM DATA PRIVACY NOTICE")
     print("=" * 70)
     print("You are about to send your project data to an external processing system:")
     print("Ollama (Local Large Language Model)")
