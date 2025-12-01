@@ -1,6 +1,7 @@
 import sys
 from validator.LLM_permission import display_privacy_notice, request_consent, run_ollama_analysis
 from validator.zipvalidation import check_zip_file, unzip_file
+from exporter.pdf_exporter import export, collect_predictions
 from codeparser import parse_core, parse_metadata
 from exporter.pdf_exporter import collect_predictions, export
 import json
@@ -34,7 +35,9 @@ def main():
         print(f"Extraction failed: {e}")
         return
     parsed_folder = parse_core.parse_directory(unzipped_dir)
-    all_predictions = collect_predictions(parsed_folder)
+    ml_summary = parse_core.summarize_results(parsed_folder)
+    predictions = collect_predictions(parsed_folder)
+
 
     # If LLM consent is not given, stop and export just the ML results to PDF
     if not consent:
@@ -64,7 +67,7 @@ def main():
     response = run_ollama_analysis(prompt)
 
     # Export both ML and LLM data in PDF
-    export({"predictions": all_predictions}, response, filename="report.pdf")
+    export({"predictions": predictions}, response, filename="report.pdf")
 
 
     
