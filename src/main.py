@@ -1,6 +1,7 @@
 import sys
 from validator.LLM_permission import display_privacy_notice, request_consent, run_ollama_analysis
 from validator.zipvalidation import check_zip_file, unzip_file
+from exporter.pdf_exporter import export, collect_predictions
 from codeparser import parse_core
 import json
 
@@ -29,6 +30,8 @@ def main():
         return
     parsed_folder = parse_core.parse_directory(unzipped_dir)
     ml_summary = parse_core.summarize_results(parsed_folder)
+    predictions = collect_predictions(parsed_folder)
+
 
     # If consent is not given stop and print ML results
     if not consent:
@@ -52,6 +55,8 @@ def main():
 
     print("\nRunning analysis with Ollama...\n")
     response = run_ollama_analysis(prompt)
+
+    export(predictions, filename="report.pdf", consent=consent)
 
     print("\n================ FINAL ANALYSIS ================\n")
     print(response)

@@ -12,7 +12,7 @@ def tmp_pdf(tmp_path):
     return tmp_path / "test_report.pdf"
 
 
-# ------------------- Existing Tests -------------------
+# --- Tests for export() ---
 
 def test_pdf_export_creates_file(tmp_pdf):
     """Normal export with valid predictions."""
@@ -23,7 +23,7 @@ def test_pdf_export_creates_file(tmp_pdf):
             ["React", 0.62]
         ]
     }
-    export(mock_data, filename=str(tmp_pdf))
+    export(mock_data, filename=str(tmp_pdf), consent="y")
     assert tmp_pdf.exists()
     assert tmp_pdf.stat().st_size > 0
 
@@ -31,7 +31,7 @@ def test_pdf_export_creates_file(tmp_pdf):
 def test_pdf_export_empty_predictions(tmp_pdf):
     """Export with empty predictions list."""
     mock_data = {"predictions": []}
-    export(mock_data, filename=str(tmp_pdf))
+    export(mock_data, filename=str(tmp_pdf), consent="y")
     assert tmp_pdf.exists()
     assert tmp_pdf.stat().st_size > 0
 
@@ -39,7 +39,7 @@ def test_pdf_export_empty_predictions(tmp_pdf):
 def test_pdf_export_missing_predictions_key(tmp_pdf):
     """Export with dict missing 'predictions' key."""
     mock_data = {"skills": [["Flask", 0.9]]}  # wrong key
-    export(mock_data, filename=str(tmp_pdf))
+    export(mock_data, filename=str(tmp_pdf), consent="y")
     assert tmp_pdf.exists()
     assert tmp_pdf.stat().st_size > 0
 
@@ -47,8 +47,7 @@ def test_pdf_export_missing_predictions_key(tmp_pdf):
 def test_pdf_export_invalid_type(tmp_pdf):
     """Export with completely invalid type (not a dict)."""
     mock_data = ["Flask", "SQL"]  # should be dict
-    # The function should handle this gracefully
-    export(mock_data, filename=str(tmp_pdf))
+    export(mock_data, filename=str(tmp_pdf), consent="y")
     assert tmp_pdf.exists()
     assert tmp_pdf.stat().st_size > 0
 
@@ -56,10 +55,12 @@ def test_pdf_export_invalid_type(tmp_pdf):
 def test_pdf_export_predictions_not_list(tmp_pdf):
     """Export where 'predictions' key exists but is not a list."""
     mock_data = {"predictions": "not a list"}
-    export(mock_data, filename=str(tmp_pdf))
+    export(mock_data, filename=str(tmp_pdf), consent="y")
     assert tmp_pdf.exists()
     assert tmp_pdf.stat().st_size > 0
 
+
+# --- Tests for collect_predictions() ---
 
 def test_collect_predictions_basic():
     parsed = [
@@ -115,23 +116,22 @@ def test_collect_predictions_missing_filename():
     assert result == [["Unknown file: C++", 0.55]]
 
 
-def test_pdf_export_model_used_ollama(tmp_pdf, monkeypatch):
+# --- Tests for consent behavior in export() ---
+
+def test_pdf_export_model_used_ollama(tmp_pdf):
     """Model line should use the Ollama model when consent is yes/y."""
-    monkeypatch.setattr("src.exporter.pdf_exporter.consent", "y")
-
-    mock_data = {"predictions": [["Python", 0.95]]}
-
-    export(mock_data, filename=str(tmp_pdf))
+    mock_data = {"predictions": [["Flask", 0.93]]}
+    export(mock_data, filename=str(tmp_pdf), consent="y")
+    # PDF exists
     assert tmp_pdf.exists()
     assert tmp_pdf.stat().st_size > 0
+    # Could optionally check contents if parsing PDF
 
 
-def test_pdf_export_model_used_local(tmp_pdf, monkeypatch):
+def test_pdf_export_model_used_local(tmp_pdf):
     """Model line should use the local model when consent is no/n."""
-    monkeypatch.setattr("src.exporter.pdf_exporter.consent", "n")
-
-    mock_data = {"predictions": [["Python", 0.95]]}
-
-    export(mock_data, filename=str(tmp_pdf))
+    mock_data = {"predictions": [["Flask", 0.93]]}
+    export(mock_data, filename=str(tmp_pdf), consent="n")
+    # PDF exists
     assert tmp_pdf.exists()
     assert tmp_pdf.stat().st_size > 0

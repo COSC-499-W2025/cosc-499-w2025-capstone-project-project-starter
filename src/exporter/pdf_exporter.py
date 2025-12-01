@@ -9,10 +9,10 @@ from reportlab.lib.pagesizes import LETTER
 from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle
 from reportlab.lib.styles import getSampleStyleSheet
 from reportlab.lib import colors
-from main import consent
 
 
-def export(data, filename="report.pdf"):
+
+def export(data, filename="report.pdf", consent="y"):
     """
     Exports a predictions dictionary to a formatted PDF file with a styled table.
 
