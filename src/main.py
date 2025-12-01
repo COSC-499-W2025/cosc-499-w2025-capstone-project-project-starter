@@ -40,7 +40,9 @@ def main():
         print(f"Extraction failed: {e}")
         return
     parsed_folder = parse_core.parse_directory(unzipped_dir)
-    all_predictions = collect_predictions(parsed_folder)
+    ml_summary = parse_core.summarize_results(parsed_folder)
+    predictions = collect_predictions(parsed_folder)
+
 
     # If LLM consent is not given, stop and export just the ML results to PDF
     if not llm_consent:
@@ -68,7 +70,7 @@ def main():
     response = run_ollama_analysis(prompt)
 
     # Export both ML and LLM data in PDF
-    export({"predictions": all_predictions}, response, filename="report.pdf")
+    export({"predictions": predictions}, response, filename="report.pdf")
 
 
     
