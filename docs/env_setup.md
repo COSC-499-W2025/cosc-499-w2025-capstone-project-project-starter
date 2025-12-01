@@ -55,6 +55,9 @@ PYTHONPATH=. pytest tests/
 or
 $env:PYTHONPATH = "."; pytest -v
 ### if you see a success message start coding you're good to go. 
+For coverage:
+PYTHONPATH=. pytest tests/ --cov=src --cov-report=term-missing
+
 
 
 
