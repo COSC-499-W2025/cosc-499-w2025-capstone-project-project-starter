@@ -8,6 +8,27 @@ from account.user_manager import AuthManager
 # Set to True for asterisks (*), False for visible password
 SHOW_PASSWORD_AS_ASTERISK = True
 
+# Menu item constants
+LOGGED_IN_MENU_ITEMS = [
+    "Logout",                      # 1
+    "Password display settings",   # 2
+    "Back to main menu"            # 3
+]
+
+LOGIN_MENU_ITEMS = [
+    "Login to existing account",   # 1
+    "Create new account",          # 2
+    "Password display settings",   # 3
+    "Back to main menu"            # 4
+]
+
+INITIAL_LOGIN_MENU_ITEMS = [
+    "Login to existing account",   # 1
+    "Create new account",          # 2
+    "Password display settings",   # 3
+    "Exit"                         # 4
+]
+
 
 def get_password_input(prompt="Password: ", show_asterisk=None):
     """
@@ -174,43 +195,55 @@ def user_account_menu():
                     print(f"Last login: {user_info['last_login_time']}")
             
             print("\nOptions:")
-            print("1. Logout")
-            print("2. Password display settings")
-            print("3. Back to main menu")
+            for idx, label in enumerate(LOGGED_IN_MENU_ITEMS, start=1):
+                print(f"{idx}. {label}")
             print("="*50)
             
             choice = input("Choose an option (1-3): ").strip()
             
-            if choice == '1':
-                handle_user_logout()
-            elif choice == '2':
-                set_password_display_mode()
-            elif choice == '3':
-                break
-            else:
+            logged_in_handlers = {
+                "1": lambda: handle_user_logout(),
+                "2": lambda: set_password_display_mode(),
+                "3": "BACK"
+            }
+            
+            handler = logged_in_handlers.get(choice)
+            
+            if handler is None:
                 print("Invalid choice. Please enter 1, 2, or 3.")
+                continue
+            
+            if handler == "BACK":
+                break
+            
+            handler()
         else:
             # User is not logged in - show login and register options
             print("You are not currently logged in.")
             print("\nOptions:")
-            print("1. Login to existing account")
-            print("2. Create new account")
-            print("3. Password display settings")
-            print("4. Back to main menu")
+            for idx, label in enumerate(LOGIN_MENU_ITEMS, start=1):
+                print(f"{idx}. {label}")
             print("="*50)
             
             choice = input("Choose an option (1-4): ").strip()
             
-            if choice == '1':
-                handle_user_login()
-            elif choice == '2':
-                handle_user_registration()
-            elif choice == '3':
-                set_password_display_mode()
-            elif choice == '4':
-                break
-            else:
+            login_handlers = {
+                "1": lambda: handle_user_login(),
+                "2": lambda: handle_user_registration(),
+                "3": lambda: set_password_display_mode(),
+                "4": "BACK"
+            }
+            
+            handler = login_handlers.get(choice)
+            
+            if handler is None:
                 print("Invalid choice. Please enter 1, 2, 3, or 4.")
+                continue
+            
+            if handler == "BACK":
+                break
+            
+            handler()
 
 
 def handle_user_login():
@@ -341,10 +374,8 @@ def login_menu():
         print("="*70)
         print("Welcome! Please log in or create an account to continue.")
         print("\nOptions:")
-        print("1. Login to existing account")
-        print("2. Create new account")
-        print("3. Password display settings")
-        print("4. Exit")
+        for idx, label in enumerate(INITIAL_LOGIN_MENU_ITEMS, start=1):
+            print(f"{idx}. {label}")
         print("="*70)
         
         try:
@@ -353,20 +384,37 @@ def login_menu():
             print("\nEOF detected. Exiting...")
             return False
         
-        if choice == '1':
+        def handle_login_and_check():
             handle_user_login()
             # If login was successful, return True to continue to main menu
             if AuthManager.is_user_logged_in():
                 return True
-        elif choice == '2':
+            return None
+        
+        def handle_registration_and_check():
             handle_user_registration()
             # If registration was successful and user logged in, return True
             if AuthManager.is_user_logged_in():
                 return True
-        elif choice == '3':
-            set_password_display_mode()
-        elif choice == '4':
+            return None
+        
+        def handle_exit():
             print("Goodbye!")
             return False
-        else:
+        
+        initial_handlers = {
+            "1": handle_login_and_check,
+            "2": handle_registration_and_check,
+            "3": lambda: set_password_display_mode(),
+            "4": handle_exit
+        }
+        
+        handler = initial_handlers.get(choice)
+        
+        if handler is None:
             print("Invalid choice. Please enter 1-4.")
+            continue
+        
+        result = handler()
+        if result is not None:  # True or False returned
+            return result
