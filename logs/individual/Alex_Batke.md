@@ -1,5 +1,30 @@
 # Personal Log of Alex Batke
-# Week 10
+# Week 13
+
+## Applicable Date Range
+- Monday, November 24th to Sunday, November 30th
+
+## Peer Evaluation Screenshot
+![alt text](<imgs/alex_batke_w13.png>)
+
+
+### Recap On Your Weeks Goals
+- Which Features Were Yours in the Project Plan for this Milestone?
+  In addition to all my previously completed work, i was assigned this
+  week to style the PDF that is exported so that the user has a more
+  understandable document that they can interpret easier.
+- Which Tasks from the Project Board are Associated with these Features?
+  For the PDF Styling, the relevant issue is #92, which have sub issues #139 with just myself assigned. These sub issues are to break up the implementation for easier integration later on.
+- Among these tasks, which have you completed/in progress in the last 2 weeks?
+  The PDF styling was easily completed this week with little issue. The important part being what how exactly the team wants the document to look.
+- Planning for next sprint: 
+  Next sprint will focus on preparing and giving our Milestone #1 presentation and video demo, As well as iron out any bugs that have sprung up
+- Optional text: additional context that we should be aware of:
+  Nothing further to comment on. On to next week.
+
+
+
+# Week 12 (Fixed to the correct Week)
 
 ## Applicable Date Range
 - Monday, November 10th to Sunday, November 23rd
