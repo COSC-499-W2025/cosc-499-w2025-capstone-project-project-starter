@@ -8,9 +8,8 @@ from typing import Optional
 from urllib import error, request
 
 
-DEFAULT_MODEL = os.environ.get("OLLAMA_MODEL", "qwen2.5-coder:1.5b-base")
+DEFAULT_MODEL = os.environ.get("OLLAMA_MODEL", "llama3.1:8b")
 DEFAULT_URL = os.environ.get("OLLAMA_URL", "http://localhost:11434/api/generate")
-
 
 def call_ollama(prompt: str, model: str = DEFAULT_MODEL, url: str = DEFAULT_URL, timeout: int = 60) -> str:
     """
@@ -38,16 +37,14 @@ def call_ollama(prompt: str, model: str = DEFAULT_MODEL, url: str = DEFAULT_URL,
         raise RuntimeError(f"Ollama response missing 'response' field: {data}")
     return data["response"].strip()
 
-
 def build_prompt(file_path: Path, code: str) -> str:
     return (
         "You are a code analysis assistant. Provide a concise summary and note any potential issues.\n"
         f"File: {file_path}\n"
         "Code:\n"
         f"{code}\n"
-        "Respond with a short summary and a bullet list of risks or TODOs if any."
+        "Respond with a short summary and a bullet list of skills shown and concepts demonstrated if any."
     )
-
 
 def analyze_file(file_path: Path, model: Optional[str] = None, url: Optional[str] = None) -> str:
     file_path = file_path.resolve()
@@ -57,7 +54,6 @@ def analyze_file(file_path: Path, model: Optional[str] = None, url: Optional[str
     code = file_path.read_text(encoding="utf-8")
     prompt = build_prompt(file_path, code)
     return call_ollama(prompt, model=model or DEFAULT_MODEL, url=url or DEFAULT_URL)
-
 
 def _build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
@@ -78,14 +74,12 @@ def _build_parser() -> argparse.ArgumentParser:
     )
     return parser
 
-
 def main():
     parser = _build_parser()
     args = parser.parse_args()
 
     result = analyze_file(args.file, model=args.model, url=args.url)
     print(result)
-
 
 if __name__ == "__main__":
     main()

@@ -65,3 +65,15 @@ PYTHONPATH=. pytest tests/ --cov=src --cov-report=term-missing
 docker exec -it artifact_db psql -U devuser -d artifact_data
 
 # Before test you should do: run **python src/main.py** in main branch
+
+## 8. To install LLM model:
+- install "Continue" extension
+- Download ollama
+- open it
+- ollama pull llama3.1:8b
+- ollama pull qwen2.5-coder:1.5b-base
+- ollama pull nomic-embed-text:latest
+- quick test: ollama run llama3.1:8b "Write a Python function that reverses a string."
+- run full thing on any file: python -m src.tools.ollama_analyze_file src/app.py \
+  --model llama3.1:8b \
+  --url http://localhost:11434/api/generate
