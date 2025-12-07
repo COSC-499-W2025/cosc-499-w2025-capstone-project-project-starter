@@ -40,6 +40,11 @@ venv\Scripts\activate.bat
 
 ### then run 
 pip install -r requirements.txt 
+
+### OCR prerequisites
+The OCR helper at `src/tools/image_text_extractor.py` depends on the system Tesseract binary.
+Install it so `pytesseract` can find it (for example, `brew install tesseract` on macOS).
+
 ### Now to turn off the environment after your coding session type 
 deactivate
 ### into your terminal. To restart it, type
