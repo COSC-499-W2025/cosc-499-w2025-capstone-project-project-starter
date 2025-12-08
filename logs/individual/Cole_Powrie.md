@@ -1,3 +1,33 @@
+# Personal Log of Cole Powrie — Week 14
+
+**Applicable Date Range:**  
+**Monday, December 1st to Sunday, December 7th**
+
+### Peer Evaluation Screenshot
+![Peer Evaluation](imgs/ColePowrieW14.png)
+
+## This Milestone
+- Focused on **presentation preparation** and **final report work** as groups began presenting their capstone progress.
+- Cleaned up and clarified parts of the **backend/database explanation** for the presentation.
+- Watched other groups present to understand expectations, pacing, and common feedback themes.
+
+## Tasks
+- Created **slides** for the backend + database portion of the presentation.
+- Reviewed and edited sections of the **capstone report**, especially technical backend/database portions.
+
+## Progress Over the Last Two Weeks
+- Verified backend + PostgreSQL containers running properly on multiple devices.
+- Cleaned up Git branches after merge conflicts and fixed divergence between `develop`, `develop2`, and local branches.
+- Ensured the codebase is fully recoverable and buildable using Docker Compose.
+- Observed peer presentations
+
+## In-Progress Tasks
+- Troubleshooting and finalizing backend and pipelining
+
+## Next Cycle Activities
+- Finalizations and any bug fixing
+- Plan improvements for the next term’s implementation phase.
+  
 # Personal Log of Cole Powrie — Week 13
 
 **Applicable Date Range:**  
