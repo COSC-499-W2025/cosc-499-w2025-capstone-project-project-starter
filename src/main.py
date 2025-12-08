@@ -3,6 +3,7 @@ from validator.LLM_permission import display_privacy_notice, request_consent, ru
 from validator.zipvalidation import check_zip_file, unzip_file
 from validator.data_permission import display_data_privacy_notice, request_data_consent
 from codeparser import parse_core, parse_metadata
+from contributions.contribution_check import find_git_repos, get_commit_contributions
 from exporter.pdf_exporter import collect_predictions, export
 import json
 
@@ -25,6 +26,7 @@ def main():
     else:
         zip_path = input("\nEnter the path to ZIP file: ").strip()
 
+    # Check if the passed filepath is a valid zip file and exists
     result = check_zip_file(zip_path)
     print(result)
 
@@ -39,14 +41,33 @@ def main():
     except Exception as e:
         print(f"Extraction failed: {e}")
         return
+
+    # Check for Git repos and contribution data
+    git_repos = [] 
+    git_repos = find_git_repos(unzipped_dir)
+    print(f"Found {len(git_repos)} Git repositories.\n")
+
+    for repo_path in git_repos:
+        print(f"\n📁 Repo found at: {repo_path}")
+
+        contributions = get_commit_contributions(repo_path)
+
+        print("👥 Commit Contributions:")
+        for author, count in contributions.items():
+            print(f"  - {author}: {count} commits")
+
+    # Parse data
     parsed_folder = parse_core.parse_directory(unzipped_dir)
+    
+    #ML model results
     ml_summary = parse_core.summarize_results(parsed_folder)
+    
     predictions = collect_predictions(parsed_folder)
 
 
     # If LLM consent is not given, stop and export just the ML results to PDF
     if not llm_consent:
-        export({"predictions": all_predictions}, filename="report.pdf")
+        export({"predictions": predictions}, filename="report.pdf")
         print("\nLLM analysis was skipped because consent was not given.")
         print("Above is the aggregated summary from the local pretrained model only.")
         return
