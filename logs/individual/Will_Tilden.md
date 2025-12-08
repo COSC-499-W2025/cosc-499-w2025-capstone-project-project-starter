@@ -29,6 +29,7 @@
     I'd like to work on the export to PDF and make it a lot more customizable and clean for the user to get exactly what they want presented on there I think that would be really fun and interesting to work on.
 
 # Personal logs of Will Tilden (from Week 12) as per the personal log format outlined in lecture slides
+# Personal logs of Will Tilden (from Week 13) as per the personal log format outlined in lecture slides
 
 ## Applicable date range
 - Monday, November 24th to Sunday, November 30th
