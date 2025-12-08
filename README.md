@@ -1,3 +1,7 @@
+# Team 9 
+- **Team Member**: Ryan Eveson 99775389, Sami Jaffri  44165611, Evan Pasenau 36403509, Jinxi Hu 48528608, Kevin Zhang 10811057, Eric Chen 47368527
+- Team contract 
+
 # **Milestone 1 Overview — Mining Digital Work Artifacts**
 
 This document includes both the **Work Breakdown Structure (WBS)** and the **System Architecture Diagram** for **Milestone #1 (October – December 07)** of the *Mining Digital Work Artifacts* project.
