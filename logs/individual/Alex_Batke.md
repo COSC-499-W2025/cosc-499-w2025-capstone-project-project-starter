@@ -5,6 +5,29 @@
 - Monday, November 24th to Sunday, November 30th
 
 ## Peer Evaluation Screenshot
+![alt text](<imgs/alex_batke_w14.png>)
+
+
+### Recap On Your Weeks Goals
+- Which Features Were Yours in the Project Plan for this Milestone?
+  In addition to all my previously completed work, i was assigned this
+  week to fine tune the PDF report, which included to sort the files that had prediected skills into a chronological order by modifed date, from last modified to first modified.
+- Which Tasks from the Project Board are Associated with these Features?
+   The relevant issues we #158 and #154, with 158 being a subissue to aid ensuring the modfied sorting was working on a base level before implementing on the more delicate PDF.
+- Among these tasks, which have you completed/in progress in the last 2 weeks?
+  The sorting now works as expected in the PDF, which can now allow the user to see the more recent files, showing more relevant skills being currently developed
+- Planning for next sprint: 
+  Next sprint will be in the New Year, and as such the Winter Break will allow us to prepare for the next Milesone.
+- Optional text: additional context that we should be aware of:
+  Nothing further to comment on. On to the next milestone
+
+
+# Week 13
+
+## Applicable Date Range
+- Monday, November 24th to Sunday, November 30th
+
+## Peer Evaluation Screenshot
 ![alt text](<imgs/alex_batke_w13.png>)
 
 
