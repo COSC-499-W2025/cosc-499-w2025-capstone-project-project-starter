@@ -154,3 +154,18 @@ A fix and improvement for the LLM/ML pipeline.
 #128 Allow stacking of ML model + LLM and properly handle consent refusal
 - Among these tasks, which have you completed/in progress in the last 2 weeks?
 That one, it now properly falls back to the locally trained ML model on consent refusal and allows stacking the two models if given.
+
+
+## Week 14
+- Applicable date range
+November 30 - December 7
+- Type of tasks you worked on (screenshot from Peer Eval question)
+![Alt text](./imgs/liam_storgaard_w14.png)
+- Recap on your week's goals
+Get the video done and fine tune the project to align with the requirements.
+- Which features were yours in the project plan for this milestone?
+Chronological ordering of projects.
+- Which tasks from the project board are associated with these features?
+ Feature chronologic ordering #155 
+- Among these tasks, which have you completed/in progress in the last 2 weeks?
+That one, completed and tracks based on last modification date.
