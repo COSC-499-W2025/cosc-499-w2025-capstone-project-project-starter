@@ -1,3 +1,34 @@
+# Personal log of Luis Wen (from Week 14)
+
+## Features in this milestone
+
+- Requirement 10
+- Test file for metrics extraction
+- Testing and reviewing code
+
+## Project board tasks
+
+- Issue #144
+
+## Work done in last week
+
+- Implemented extraction of metrics from projects
+- Presentation
+- Test code
+
+## Peer evaluation screenshot week 14
+
+![alt text](</logs/individual/imgs/LuisWen_Week14.png>)
+
+## Additional context
+
+- No additional context this week
+
+## Next Cycle
+
+- Work on merging all moving parts of the project
+- Add remaining requirements (not done)
+
 # Personal log of Luis Wen (from Week 13)
 
 ## Features in this milestone
