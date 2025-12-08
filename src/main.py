@@ -42,6 +42,8 @@ def main():
         print(f"Extraction failed: {e}")
         return
 
+    zip_meta = parse_core.read_zip_metadata(zip_path)
+
     # Check for Git repos and contribution data
     git_repos = [] 
     git_repos = find_git_repos(unzipped_dir)
@@ -57,7 +59,7 @@ def main():
             print(f"  - {author}: {count} commits")
 
     # Parse data
-    parsed_folder = parse_core.parse_directory(unzipped_dir)
+    parsed_folder = parse_core.parse_directory(unzipped_dir, zip_metadata=zip_meta)
     
     #ML model results
     ml_summary = parse_core.summarize_results(parsed_folder)
