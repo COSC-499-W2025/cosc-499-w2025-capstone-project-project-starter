@@ -9,6 +9,7 @@ from reportlab.lib.pagesizes import LETTER
 from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle
 from reportlab.lib.styles import getSampleStyleSheet
 from reportlab.lib import colors
+import os
 
 
 
@@ -121,32 +122,51 @@ def export(data, llm_response=None,filename="report.pdf", consent="y"):
 def collect_predictions(parsed_folder):
     """
     Collects predictions from parsed file summaries.
-    Returns a flat list of ["filename: skill", probability].
+    Returns a flat list of ["filename: skill", probability] sorted
+    by file modification time (newest first).
     """
+
+    if not isinstance(parsed_folder, list):
+        print("⚠️ Unexpected parsed_folder structure. PDF will be empty.")
+        return []
+
+    files_with_mtime = []
+
+    # Attach modification times
+    for file_summary in parsed_folder:
+        file_name = file_summary.get("file", "Unknown file")
+
+        # Only set mtime if the file exists on disk
+        if os.path.exists(file_name):
+            mtime = os.path.getmtime(file_name)
+        else:
+            mtime = 0  # fallback if file path is missing
+        files_with_mtime.append((file_summary, mtime))
+
+    # Sort files from newest to oldest
+    files_with_mtime.sort(key=lambda x: x[1], reverse=True)
 
     all_predictions = []
 
-    if isinstance(parsed_folder, list):
-        for file_summary in parsed_folder:
-            file_name = file_summary.get("file", "Unknown file")
+    # Collect predictions in sorted order
+    for file_summary, _ in files_with_mtime:
+        file_name = file_summary.get("file", "Unknown file")
 
-            # Accept both "skills" and "predictions"
-            skills = (
-                file_summary.get("skills")
-                or file_summary.get("predictions")
-                or []
-            )
+        # Accept both "skills" and "predictions" fields
+        skills = (
+            file_summary.get("skills")
+            or file_summary.get("predictions")
+            or []
+        )
 
-            if not isinstance(skills, list):
-                continue
+        if not isinstance(skills, list):
+            continue
 
-            for item in skills:
-                if isinstance(item, (list, tuple)) and len(item) == 2:
-                    skill, prob = item
-                    all_predictions.append([f"{file_name}: {skill}", prob])
-                else:
-                    print(f"⚠️ Skipping invalid skill entry in {file_name}: {item}")
-    else:
-        print("⚠️ Unexpected parsed_folder structure. PDF will be empty.")
+        for item in skills:
+            if isinstance(item, (list, tuple)) and len(item) == 2:
+                skill, prob = item
+                all_predictions.append([f"{file_name}: {skill}", prob])
+            else:
+                print(f"⚠️ Skipping invalid skill entry in {file_name}: {item}")
 
     return all_predictions
