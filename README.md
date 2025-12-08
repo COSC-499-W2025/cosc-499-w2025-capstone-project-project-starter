@@ -1,6 +1,7 @@
 [![Open in Visual Studio Code](https://classroom.github.com/assets/open-in-vscode-2e0aaae1b6195c2367325f4f02e2d04e9abb55f0b24a779b69b11b9e10269abc.svg)](https://classroom.github.com/online_ide?assignment_repo_id=20510252&assignment_repo_type=AssignmentRepo)
 
 # Digital Artifacts & Data Mining Project 
+
 ### Team 15
 - Rylan Millar - 33334400
 - Alex Batke - 34354803
@@ -9,40 +10,72 @@
 - Will Tilden - 61350294
 - Luis Wen Luo - 10665891
 
-## 📖 About
+## 📖 Overview
+
+This project focuses on analyzing digital work artifacts such as code and documents from a student or early professional’s computer. The goal is to help users understand the projects they've contributed to over the course of their degrees or professional careers, and build a resume by extracting useful insights like skills learned and contribution levels from a given directory.
+
+For this milestone, the system can parse a zipped folder, identify project details, extract key metrics, handle permissions and privacy concerns, and output the results in simple text-based formats. This lays the groundwork for future development of an API and a visual dashboard.
 
 
+## Diagrams
+- [Level 1 data flow diagram](/docs/data%20flow%20diagram/explanation.md)
+- [System architecture design](/docs/system%20architecture%20design/explanation.md)
 
 
-# Project-Starter
-Please use the provided folder structure for your project. You are free to organize any additional internal folder structure as required by the project. 
+## Installation
+
+### 1. Clone the Repository
+
+```bash
+git clone https://github.com/COSC-499-W2025/capstone-project-team-15.git
+cd <repository-path>
+```
+
+### 2. Create and Activate Virtual Environment
+
+**Windows (PowerShell)**
+
+```powershell
+python -m venv venv
+venv\Scripts\activate
+```
+
+**Mac/Linux**
+
+```bash
+python3 -m venv venv
+source venv/bin/activate
+```
+
+### 3. Install Dependencies
+
+```bash
+pip install -r requirements.txt
+```
+
+
+## Running the Application
+
+Paste the following input into the command line or powershell and subsitute `<path to zip file>` with the local path to a zip file on your device.
+
+```bash
+python main.py <path to zip file>
+```
+
+
+## Troubleshooting
+
+### Virtual Environment Script Error
+
+If you see this error:
 
 
 ```
-.
-├── docs                    # Documentation files
-│   ├── contract            # Team contract
-│   ├── proposal            # Project proposal 
-│   ├── design              # UI mocks
-│   ├── minutes             # Minutes from team meetings
-│   ├── logs                # Team and individual Logs
-│   └── ...          
-├── src                     # Source files (alternatively `app`)
-├── tests                   # Automated tests 
-├── utils                   # Utility files
-└── README.md
+running scripts is disabled on this system
 ```
 
-Please use a branching workflow, and once an item is ready, do remember to issue a PR, review, and merge it into the master branch.
-Be sure to keep your docs and README.md up-to-date.
+Run the following in the command line or powershell:
 
-# System Architecture Diagram
--Frontend: Our frontend will be built using React and Typescript to handle our drag-and-drop interface, visualize updates, and assist in export functionality.
--Backend: Our backend is a combination of Rust and Python. We are using Rust as our preprocessing engine in order to scan directories and chunk files, cache results, and extra data. We are using Python(PyTorch+FastAPI) for our ML service and using pretrained PyTorch models to classify skills, languages, and contributions to return labelled classifications.
-
-![alt text](<docs/design/SYS_DIA.png>)
-
-# DFD Level 1
--This DFD illustrates how data moves throughout the system from the user's input to the final output. Our system first captures the user input, then pre-processes and unpacks the data into pre-chunked streams, classifies the content using our pre-trained ML model, and finally summarizes and presents the final report.
-
-![alt text](<docs/design/DFD1.png>)
+```powershell
+Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass
+```
