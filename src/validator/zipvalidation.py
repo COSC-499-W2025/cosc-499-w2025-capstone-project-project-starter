@@ -1,5 +1,6 @@
 import os
 import zipfile
+import time
 
 
 def check_zip_file(file_path):
@@ -26,9 +27,15 @@ def unzip_file(zip_path, extract_dir=None):
     # Ensure extraction directory exists
     os.makedirs(extract_dir, exist_ok=True)
 
-    # Extract contents
+    # Extract contents and preserve original modification times
     with zipfile.ZipFile(zip_path, "r") as zip_ref:
-        zip_ref.extractall(extract_dir)
+        for info in zip_ref.infolist():
+            extracted_path = zip_ref.extract(info, path=extract_dir)
+
+            # Convert info.date_time tuple to timestamp
+            mod_time = time.mktime(info.date_time + (0, 0, -1))
+            # Update file's access and modification times
+            os.utime(extracted_path, (mod_time, mod_time))
 
     # Return ONLY the real directory path
     return extract_dir
