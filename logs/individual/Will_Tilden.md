@@ -1,3 +1,33 @@
+# Personal logs of Will Tilden (from Week 14) as per the personal log format outlined in lecture slides
+
+## Applicable date range
+- Monday, December 1st to Sunday, December 7th
+
+## Type of tasks I worked on
+![Alt text](imgs/will_tilden_w14.png)
+
+## Recap on your weeks goals
+
+- Which features were yours in the project plan for this milestone?
+
+    I did not complete a contirbution this week I got completely overwhelmed studying for a final exam that I have tomorrow so that is on me.
+
+- Which tasks from the project board are associated with these features?
+
+    n/a
+
+- Among these tasks, which have you completed / in progress in the last 2 weeks?
+
+    n/a
+
+- Optional text: additional context that we should be aware of
+
+     My fault I didn't contribute this week just have a couple exams very early in the exam period so got overwhelmed and let it slip. My fault. 
+
+- Working on in the next sprint
+
+    I'd like to work on the export to PDF and make it a lot more customizable and clean for the user to get exactly what they want presented on there I think that would be really fun and interesting to work on.
+
 # Personal logs of Will Tilden (from Week 12) as per the personal log format outlined in lecture slides
 
 ## Applicable date range
