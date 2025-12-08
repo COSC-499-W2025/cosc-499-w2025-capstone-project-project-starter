@@ -1,3 +1,40 @@
+# Personal Log for Rylan Millar (33334400) Week 14 (December 1-7)
+
+## Features from the project plan this week
+- Implement Github Collaboration Module
+
+## Tasks from the project board associated with these features
+- Distinguish individual projects from collaborative projects (#142)
+- Extrapolate individual contributions for a given collaboration project (#143)
+
+## Completed and In Progress
+- Distinguish individual projects from collaborative projects (#142) (**Complete**)
+- Extrapolate individual contributions for a given collaboration project (#143) (**Complete**)
+
+## What went well
+- I was able to contribute some physical code
+- I feel like my contributions are useful to project
+- The Github Collaboration Module checks if there is a repo and then show individual contributions based on commit history
+
+## What did not go well
+- Nothing, I think the team is locked in and making solid progress
+
+## Reflections
+- I was able to to implement an important part of the project with the Github module because we will expand on this module for other requirements of the project
+
+## Plans for next sprint
+- Update metadata extraction to extract more types of metadata
+- Update the system so that the metadata that is extracted, is stored in the database
+- Work on finishing the connecting of the pipeline
+- Housekeeping and adding comments
+
+## Peer evaluation screenshot Week 14
+
+![alt text](<imgs/rylan_millar_w14.png>)
+
+---
+---
+
 # Personal Log for Rylan Millar (33334400) Week 13 (November 24 - November 30)
 
 ## Features from the project plan this week
