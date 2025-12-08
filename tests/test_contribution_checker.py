@@ -1,74 +1,101 @@
+import os
+from pathlib import Path
+from git import Repo, Actor
 import pytest
-from unittest.mock import patch, MagicMock
 
-from contributions.contribution_checker import (
-    is_git_repo,
-    get_github_repo_url,
-    get_user_commit_count,
-)
-
-# ------------------------------
-# is_git_repo()
-# ------------------------------
-
-@patch("os.path.isdir")
-def test_is_git_repo_true(mock_isdir):
-    mock_isdir.return_value = True
-    assert is_git_repo("/path/project") is True
+from contributions.contribution_check import find_git_repos, get_commit_contributions
 
 
-@patch("os.path.isdir")
-def test_is_git_repo_false(mock_isdir):
-    mock_isdir.return_value = False
-    assert is_git_repo("/path/project") is False
+def create_git_repo(path: Path, commits=0, author="Test User <test@example.com>"):
+    """
+    Creates a real git repo with a specified number of commits and author.
+    """
+    repo = Repo.init(path)
+
+    # Set a consistent author
+    name, email = author.split(" <")
+    email = email[:-1]
+
+    with repo.config_writer() as cw:
+        cw.set_value("user", "name", name)
+        cw.set_value("user", "email", email)
+
+    for i in range(commits):
+        file_path = path / f"file{i}.txt"
+        file_path.write_text(f"Commit {i}")
+
+        repo.index.add([str(file_path)])
+        repo.index.commit(f"Commit {i}")
+
+    return repo
 
 
-# ------------------------------
-# get_github_repo_url()
-# ------------------------------
+def test_find_git_repos_finds_repo(tmp_path):
+    """
+    Should detect directories that contain a .git folder.
+    """
+    repo_dir = tmp_path / "student" / "project"
+    repo_dir.mkdir(parents=True)
 
-@patch("subprocess.check_output")
-def test_get_github_repo_url_success(mock_check_output):
-    mock_check_output.return_value = b"https://github.com/user/repo.git\n"
-    url = get_github_repo_url("/path/project")
-    assert url == "https://github.com/user/repo"
+    Repo.init(repo_dir)
 
+    repos = find_git_repos(tmp_path)
 
-@patch("subprocess.check_output", side_effect=Exception("git error"))
-def test_get_github_repo_url_failure(_):
-    assert get_github_repo_url("/path/project") is None
-
-
-# ------------------------------
-# get_user_commit_count()
-# ------------------------------
-
-@patch("requests.get")
-def test_get_user_commit_count_success(mock_get):
-    mock_resp = MagicMock()
-    mock_resp.status_code = 200
-    mock_resp.json.return_value = [
-        {"commit": {"author": {"email": "me@example.com"}}},
-        {"commit": {"author": {"email": "someone@example.com"}}},
-        {"commit": {"author": {"email": "me@example.com"}}},
-    ]
-    mock_get.return_value = mock_resp
-
-    count = get_user_commit_count("user", "repo", "me@example.com")
-    assert count == 2
+    assert repo_dir in repos
+    assert len(repos) == 1
 
 
-@patch("requests.get")
-def test_get_user_commit_count_github_error(mock_get):
-    mock_resp = MagicMock()
-    mock_resp.status_code = 404
-    mock_get.return_value = mock_resp
+def test_find_git_repos_ignores_non_repos(tmp_path):
+    """
+    Should not detect directories without .git.
+    """
+    non_repo = tmp_path / "folderA"
+    non_repo.mkdir()
 
-    count = get_user_commit_count("user", "repo", "me@example.com")
-    assert count is None
+    repos = find_git_repos(tmp_path)
+
+    assert repos == []
 
 
-@patch("requests.get", side_effect=Exception("network fail"))
-def test_get_user_commit_count_exception(_):
-    count = get_user_commit_count("user", "repo", "me@example.com")
-    assert count is None
+def test_get_commit_contributions_counts(tmp_path):
+    """
+    Should return correct commit counts for a single author.
+    """
+    repo_dir = tmp_path / "repo1"
+    repo_dir.mkdir()
+
+    create_git_repo(repo_dir, commits=3, author="Alice <alice@example.com>")
+
+    contributions = get_commit_contributions(repo_dir)
+
+    assert contributions["Alice <alice@example.com>"] == 3
+
+
+def test_multiple_authors(tmp_path):
+    """
+    Should count commits for multiple authors independently.
+    """
+    repo_dir = tmp_path / "repo2"
+    repo_dir.mkdir()
+
+    repo = Repo.init(repo_dir)
+
+    alice = Actor("Alice", "alice@example.com")
+    bob = Actor("Bob", "bob@example.com")
+
+    # Author A commit
+    file_a = repo_dir / "a.txt"
+    file_a.write_text("A1")
+    repo.index.add([str(file_a)])
+    repo.index.commit("A commit", author=alice, committer=alice)
+
+    # Author B commit
+    file_b = repo_dir / "b.txt"
+    file_b.write_text("B1")
+    repo.index.add([str(file_b)])
+    repo.index.commit("B commit", author=bob, committer=bob)
+
+    contributions = get_commit_contributions(repo_dir)
+
+    assert contributions["Alice <alice@example.com>"] == 1
+    assert contributions["Bob <bob@example.com>"] == 1
