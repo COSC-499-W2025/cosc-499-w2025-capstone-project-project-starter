@@ -127,6 +127,7 @@ class TestUploadFile:
         assert "INSERT INTO uploaded_files" in call_args[0][0]
         assert call_args[0][1][0] == "test.zip"  # filename
         assert call_args[0][1][2] == "uploaded"  # status
+        assert call_args[0][1][5] is None  # user_name (default None)
     
     # this is a test for a non-existent file
     def test_add_file_to_db_nonexistent_file(self):
@@ -347,6 +348,121 @@ class TestUploadFile:
         assert result.success is False
         assert result.error_type == "INVALID_ZIP"
         assert "has a .zip extension but is not a valid ZIP archive" in result.message
+
+    @patch('src.upload_file.extract_and_store_file_contents')
+    @patch('src.upload_file.zipfile.is_zipfile')
+    @patch('src.upload_file.zipfile.ZipFile')
+    @patch('builtins.open', create=True)
+    @patch('src.upload_file.shutil.copy')
+    @patch('src.upload_file.with_db_cursor')
+    @patch('src.parsing.file_validator.validate_uploaded_file')
+    @patch('src.upload_file.os.path.exists')
+    def test_add_file_to_db_with_user_name(self, mock_exists, mock_validate, mock_with_db_cursor, mock_copy, mock_open, mock_zipfile, mock_is_zipfile, mock_extract_and_store_file_contents):
+        """Test file upload with user_name parameter"""
+        zip_path = self.create_test_zip()
+        
+        # Mock file existence check
+        def exists_side_effect(path):
+            return path == zip_path
+        mock_exists.side_effect = exists_side_effect
+        mock_validate.return_value = None
+        
+        # Mock file operations
+        mock_is_zipfile.return_value = True
+        mock_zip_instance = MagicMock()
+        mock_zip_context = MagicMock()
+        mock_zip_context.namelist.return_value = ['test_file.txt']
+        mock_zip_instance.__enter__.return_value = mock_zip_context
+        mock_zipfile.return_value = mock_zip_instance
+        
+        # Mock file reading
+        mock_file_obj = MagicMock()
+        mock_file_obj.read.return_value = b'fake zip content'
+        mock_open.return_value.__enter__.return_value = mock_file_obj
+        
+        # Mock database cursor
+        mock_cursor = Mock()
+        mock_context = MagicMock()
+        mock_context.__enter__.return_value = mock_cursor
+        mock_with_db_cursor.return_value = mock_context
+        mock_cursor.fetchone.return_value = [123]
+
+        # Call with user_name
+        result = add_file_to_db(zip_path, user_name="testuser")
+        
+        # Verify result
+        assert isinstance(result, UploadResult)
+        assert result.success is True
+        assert result.error_type is None
+        
+        # Verify database call includes user_name
+        call_args = mock_cursor.execute.call_args
+        assert "INSERT INTO uploaded_files" in call_args[0][0]
+        assert "user_name" in call_args[0][0]
+        assert call_args[0][1][5] == "testuser"  # user_name parameter
+
+    @patch('src.upload_file.with_db_cursor')
+    def test_list_uploaded_files_by_user(self, mock_with_db_cursor):
+        """Test listing files for a specific user"""
+        from src.upload_file import list_uploaded_files_by_user
+        
+        # Mock database cursor
+        mock_cursor = Mock()
+        mock_context = MagicMock()
+        mock_context.__enter__.return_value = mock_cursor
+        mock_with_db_cursor.return_value = mock_context
+        
+        # Mock database results
+        mock_cursor.fetchall.return_value = [
+            (1, 'file1.zip', 'uploads/file1.zip', 'uploaded', {}, 'testuser', '2026-01-04 10:00:00', '2026-01-04 10:00:00'),
+            (2, 'file2.zip', 'uploads/file2.zip', 'uploaded', {}, 'testuser', '2026-01-04 11:00:00', '2026-01-04 11:00:00'),
+        ]
+        
+        # Call function
+        files = list_uploaded_files_by_user('testuser')
+        
+        # Verify results
+        assert len(files) == 2
+        assert files[0]['filename'] == 'file1.zip'
+        assert files[0]['user_name'] == 'testuser'
+        assert files[1]['filename'] == 'file2.zip'
+        assert files[1]['user_name'] == 'testuser'
+        
+        # Verify SQL query includes WHERE clause
+        call_args = mock_cursor.execute.call_args
+        assert 'WHERE user_name = %s' in call_args[0][0]
+        assert call_args[0][1] == ('testuser',)
+
+    @patch('src.upload_file.with_db_cursor')
+    def test_list_uploaded_files_includes_user_name(self, mock_with_db_cursor):
+        """Test that list_uploaded_files returns user_name field"""
+        from src.upload_file import list_uploaded_files
+        
+        # Mock database cursor
+        mock_cursor = Mock()
+        mock_context = MagicMock()
+        mock_context.__enter__.return_value = mock_cursor
+        mock_with_db_cursor.return_value = mock_context
+        
+        # Mock database results with user_name
+        mock_cursor.fetchall.return_value = [
+            (1, 'file1.zip', 'uploads/file1.zip', 'uploaded', {}, 'user1', '2026-01-04 10:00:00', '2026-01-04 10:00:00'),
+            (2, 'file2.zip', 'uploads/file2.zip', 'uploaded', {}, None, '2026-01-04 11:00:00', '2026-01-04 11:00:00'),
+        ]
+        
+        # Call function
+        files = list_uploaded_files()
+        
+        # Verify user_name is included in results
+        assert len(files) == 2
+        assert 'user_name' in files[0]
+        assert files[0]['user_name'] == 'user1'
+        assert 'user_name' in files[1]
+        assert files[1]['user_name'] is None
+        
+        # Verify SQL query includes user_name column
+        call_args = mock_cursor.execute.call_args
+        assert 'user_name' in call_args[0][0]
 
 
 if __name__ == "__main__":
