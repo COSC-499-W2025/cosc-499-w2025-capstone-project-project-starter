@@ -55,12 +55,6 @@ def init_uploaded_files_table():
                         ON UPDATE CASCADE
                 );
             """)
-            
-            # Create index on user_name for faster lookups
-            cursor.execute("""
-                CREATE INDEX IF NOT EXISTS idx_uploaded_files_user_name 
-                ON uploaded_files(user_name);
-            """)
         print(" Uploaded files table initialized")
 
         # 2) Migration: Automatically add missing columns to the old table
@@ -107,6 +101,12 @@ def init_uploaded_files_table():
                     UPDATE uploaded_files
                     SET last_modified_at = COALESCE(last_modified_at, created_at)
                     WHERE last_modified_at IS NULL;
+                """)
+
+                # Create index on user_name for faster lookups (after column is added)
+                cursor.execute("""
+                    CREATE INDEX IF NOT EXISTS idx_uploaded_files_user_name 
+                    ON uploaded_files(user_name);
                 """)
 
         except Exception as e:
