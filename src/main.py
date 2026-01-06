@@ -20,7 +20,7 @@ def main():
         return
 
     try:
-        unzipped_dir = unzip_file(zip_path)
+        unzipped_dir = unzip_file(zip_path, overwrite=True)
         print(f".zip extracted to: {unzipped_dir}")
         print(unzipped_dir + " unzipped successfully!\n")
 
