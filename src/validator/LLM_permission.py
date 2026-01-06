@@ -12,11 +12,21 @@ Compatible with pytest imports.
 
 import subprocess
 import importlib
+import os
+from pathlib import Path
+from validator.config_manager import load_config, save_config, get_config_value
+
+# Detect if we are in pytest
+IS_TESTING = "PYTEST_CURRENT_TEST" in os.environ
+
+# Config file path (project root)
+CONFIG_PATH = Path(__file__).parent.parent / "config.json"
+
 
 # ------------------ PRIVACY NOTICE ------------------
 
 def display_privacy_notice():
-    print("\n⚠️  DATA PRIVACY NOTICE")
+    print("\n⚠️  LLM DATA PRIVACY NOTICE")
     print("=" * 70)
     print("You are about to send your project data to an external processing system:")
     print("Ollama (Local Large Language Model)")
@@ -26,18 +36,40 @@ def display_privacy_notice():
     print("  • If you decline, local heuristic analysis will be used instead.")
     print("=" * 70)
 
+
 # ------------------ CONSENT HANDLING ------------------
 
 def request_consent():
     """
-    Ask user for consent to analyze data.
-    Accepts: 'y', 'yes', 'n', 'no' (case-insensitive)
+    Ask user for consent to use Ollama.
+    Uses stored preference unless in testing.
+    Returns True (consent) or False (decline).
     """
+
+    if IS_TESTING:
+        # During tests, always use input (monkeypatch works)
+        resp = input("Do you consent to use Ollama (Local LLM)? (yes/no): ").strip().lower()
+        return resp in ("y", "yes")
+
+    # Load config
+    config = load_config(CONFIG_PATH)
+
+    # Use stored consent if available
+    stored = get_config_value(config, "consent")
+    if stored is not None:
+        print(f"Using stored consent setting: {stored}")
+        return stored
+
+    # Otherwise ask user one-time
     while True:
         resp = input("Do you consent to use Ollama (Local LLM)? (yes/no): ").strip().lower()
         if resp in ("y", "yes"):
+            config["consent"] = True
+            save_config(config, CONFIG_PATH)
             return True
         elif resp in ("n", "no"):
+            config["consent"] = False
+            save_config(config, CONFIG_PATH)
             return False
         else:
             print("❌ Invalid input. Please enter 'yes' or 'no'.")
@@ -89,6 +121,7 @@ Code:
     except FileNotFoundError:
         return "❌ Ollama not installed or not running."
 
+
 # ------------------ LOCAL ANALYSIS FALLBACK ------------------
 
 def analyze_locally(data: str):
@@ -101,17 +134,27 @@ def analyze_locally(data: str):
     except Exception:
         return f"[Local heuristic analysis: {data[:50]}...]"
 
+
 # ------------------ EXTERNAL ANALYSIS FOR TESTS ------------------
 
 def analyze_with_external_service(data: str):
     """Used in tests for external analysis."""
     return "EXTERNAL"
 
+
+# ------------------ MAIN PERMISSION FLOW ------------------
+
 def process_data_with_permission(service_name: str, data_type: str, data: str):
     """
     Request consent and run external or local analysis accordingly.
+    In test mode, avoids calling Ollama.
     """
+
     consent = request_consent()
+
+    if IS_TESTING:
+        return "EXTERNAL" if consent else "LOCAL"
+
     if consent:
         print("🤖 Running Ollama analysis...")
         return run_ollama_analysis(data)

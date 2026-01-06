@@ -5,9 +5,11 @@ import shutil
 
 
 def check_zip_file(file_path):
+    # Check if the zip folder actually exists on the users system
     if not os.path.exists(file_path):
         return f"{file_path} does not exist"
 
+    # Check if the file is a valid zip file
     if zipfile.is_zipfile(file_path):
         return f"{file_path} is a zip file"
     else:
