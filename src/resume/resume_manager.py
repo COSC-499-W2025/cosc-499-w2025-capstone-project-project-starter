@@ -1,10 +1,14 @@
 from datetime import datetime
-from config.db_config import with_db_cursor
+from config.db_config import with_db_cursor, get_connection
 from analysis.project_ranking import rank_all_projects, calculate_project_score
 from analysis.key_metrics import analyze_project_from_db
-from project_summarizer import ProjectSummarizer
+from analysis.ranking_storage import get_stored_ranking_by_project_id
+from project_summarizer import ProjectSummarizer, summarize_project
 from parsing.file_contents_manager import get_file_contents_by_upload_id, get_file_statistics
 from portfolio.skill_mapper import SkillMapper
+from account.user_manager import AuthManager
+from collaborative.identify_projects import _identify_authors_from_zip, _extract_common_names_from_filenames
+from database.user_preferences import get_user_git_username
 import json
 
 
@@ -102,8 +106,22 @@ class ResumeManager:
                 result = cursor.fetchone()
             
             if result:
+                resume_data = result[0]
+                # Parse JSON if it's a string (PostgreSQL JSONB might return as dict or string depending on driver)
+                if isinstance(resume_data, str):
+                    resume_data = json.loads(resume_data)
+                elif isinstance(resume_data, dict):
+                    # Already parsed, use as is
+                    pass
+                else:
+                    # Try to parse anyway
+                    try:
+                        resume_data = json.loads(str(resume_data))
+                    except:
+                        resume_data = result[0]
+                
                 return {
-                    'resume_data': result[0],
+                    'resume_data': resume_data,
                     'created_at': result[1],
                     'updated_at': result[2]
                 }
@@ -228,6 +246,76 @@ class ResumeManager:
                 return None
             
             top_projects = ranked_projects[:top_projects_count]
+            
+            # Collect all authors from top projects to let user select their name
+            all_authors = set()
+            for project in top_projects:
+                try:
+                    project_id = project['project_id']
+                    file_contents = get_file_contents_by_upload_id(project_id)
+                    authors = _identify_authors_from_zip(project_id) | _extract_common_names_from_filenames(file_contents)
+                    all_authors.update(authors)
+                except Exception:
+                    continue
+            
+            # Get user's name from detected authors (similar to choose_author_from_zip logic)
+            user_name = user_id  # Default fallback
+            if all_authors:
+                git_username = get_user_git_username()
+                if git_username and git_username in all_authors:
+                    # Auto-select if git username matches
+                    user_name = git_username
+                else:
+                    # Let user select their name from detected authors
+                    authors_list = sorted(list(all_authors))
+                    print(f"\n{'='*70}")
+                    print("Select Your Name for Resume")
+                    print(f"{'='*70}")
+                    print("Detected author names from your projects:")
+                    for idx, name in enumerate(authors_list, start=1):
+                        print(f"  {idx}. {name}")
+                    print(f"  {len(authors_list) + 1}. Use my login username: {user_id}")
+                    print(f"  {len(authors_list) + 2}. Enter custom name")
+                    
+                    while True:
+                        try:
+                            choice = input("\nSelect an option: ").strip()
+                            
+                            if choice.isdigit():
+                                choice_num = int(choice)
+                                if 1 <= choice_num <= len(authors_list):
+                                    user_name = authors_list[choice_num - 1]
+                                    print(f"\nSelected: {user_name}")
+                                    break
+                                elif choice_num == len(authors_list) + 1:
+                                    user_name = user_id
+                                    print(f"\nUsing login username: {user_name}")
+                                    break
+                                elif choice_num == len(authors_list) + 2:
+                                    custom_name = input("Enter your name: ").strip()
+                                    if custom_name:
+                                        user_name = custom_name
+                                        print(f"\nUsing custom name: {user_name}")
+                                        break
+                                    else:
+                                        print("Please enter a valid name.")
+                                else:
+                                    print(f"Please enter a number between 1 and {len(authors_list) + 2}.")
+                            else:
+                                print("Invalid input. Enter a number.")
+                        except (ValueError, KeyboardInterrupt):
+                            print("\nUsing default username.")
+                            user_name = user_id
+                            break
+            else:
+                # No authors detected, use login username or ask for custom name
+                print(f"\nNo author names detected in projects.")
+                use_custom = input("Enter your name for the resume (or press Enter to use login username): ").strip()
+                if use_custom:
+                    user_name = use_custom
+                else:
+                    user_name = user_id
+            
             summarizer = ProjectSummarizer()
             skill_mapper = SkillMapper()
             
@@ -235,14 +323,24 @@ class ResumeManager:
             all_languages = set()
             all_frameworks = set()
             project_summaries = []
-            total_lines_of_code = 0
-            total_files = 0
             
             for project in top_projects:
                 try:
                     project_id = project['project_id']
                     
-                    # Get comprehensive summary
+                    # Get stored project summary from database (if available)
+                    stored_ranking = get_stored_ranking_by_project_id(project_id)
+                    project_summary_text = stored_ranking.get('summary', '') if stored_ranking else ''
+                    
+                    # If no summary in database, generate one using summarize_project
+                    if not project_summary_text:
+                        try:
+                            project_summary_text = summarize_project(project_id)
+                        except Exception as e:
+                            print(f"[WARNING] Could not generate summary for project {project_id}: {e}")
+                            project_summary_text = ''
+                    
+                    # Get comprehensive summary for additional data
                     summary = summarizer.generate_project_summary(project_id)
                     
                     if summary and 'error' not in summary:
@@ -252,56 +350,24 @@ class ResumeManager:
                         primary_language = languages_data.get('primary_language', 'Unknown')
                         all_languages.update(project_languages)
                         
-                        # Get key metrics
-                        key_metrics = analyze_project_from_db(project_id, silent=True)
-                        totals = key_metrics.get('totals', {})
-                        file_count = totals.get('files', 0)
-                        lines_of_code = totals.get('lines', 0)
-                        total_lines_of_code += lines_of_code
-                        total_files += file_count
-                        
                         # Get timeline info
                         time_analysis = summary.get('time_analysis', {})
                         duration_days = time_analysis.get('duration_days', 0)
                         intensity = time_analysis.get('intensity', 'Unknown')
+                        first_file = time_analysis.get('first_file', '')
+                        last_file = time_analysis.get('last_file', '')
                         
                         # Get collaboration info
                         collab_analysis = summary.get('collaboration_analysis', {})
                         collaboration_level = collab_analysis.get('collaboration_level', 'Unknown')
-                        
-                        # Get code analysis
-                        code_analysis = summary.get('code_analysis', {})
-                        quality_summary = code_analysis.get('code_quality_summary', {})
-                        code_quality_score = quality_summary.get('average_quality_score', 0)
-                        
-                        # Count OOP principles
-                        oop_summary = code_analysis.get('oop_principles_summary', {})
-                        oop_count = 0
-                        for principle in ['abstraction', 'encapsulation', 'polymorphism', 'inheritance']:
-                            principle_data = oop_summary.get(principle, {})
-                            if isinstance(principle_data, dict):
-                                oop_count += principle_data.get('count', 0)
-                        
-                        # Count optimizations
-                        optimization_count = len(code_analysis.get('optimization_summary', []))
                         
                         # Get file contents for framework detection
                         file_contents = get_file_contents_by_upload_id(project_id)
                         frameworks = ResumeManager._detect_frameworks_from_files(file_contents)
                         all_frameworks.update(frameworks)
                         
-                        # Detect if project has tests and docs
-                        has_tests = False
-                        has_docs = False
-                        for f in file_contents:
-                            file_path = f.get('file_path', '').lower()
-                            file_name = f.get('file_name', '').lower()
-                            if 'test' in file_path or file_name.startswith('test_'):
-                                has_tests = True
-                            if 'readme' in file_name or file_name.endswith('.md'):
-                                has_docs = True
-                        
                         # Extract skills from deep analysis
+                        code_analysis = summary.get('code_analysis', {})
                         deep_analysis_skills = skill_mapper.extract_skills_from_deep_analysis(code_analysis)
                         
                         # Combine all skills for this project
@@ -310,25 +376,38 @@ class ResumeManager:
                         project_skills.update(deep_analysis_skills)
                         all_skills.update(project_skills)
                         
-                        # Build enriched project summary
+                        # Clean project name
+                        project_name = project['filename']
+                        # Remove common suffixes and extensions
+                        clean_name = project_name
+                        # Remove file extensions
+                        if clean_name.endswith('.zip'):
+                            clean_name = clean_name[:-4]
+                        # Remove common git suffixes
+                        clean_name = clean_name.replace('-master', '').replace('-main', '').replace('-main.zip', '')
+                        # Replace underscores and hyphens with spaces
+                        clean_name = clean_name.replace('_', ' ').replace('-', ' ')
+                        # Title case and clean up multiple spaces
+                        clean_name = ' '.join(clean_name.split()).title()
+                        # If name is empty or too short, use original
+                        if not clean_name or len(clean_name) < 2:
+                            clean_name = project_name.replace('.zip', '')
+                        
+                        # Build enriched project summary for resume
                         project_summaries.append({
-                            'project_name': project['filename'],
+                            'project_name': clean_name,
                             'project_id': project_id,
-                            'score': project['score'],
                             'primary_language': primary_language,
                             'languages': project_languages,
                             'frameworks': frameworks,
-                            'skills': sorted(list(project_skills))[:10],
-                            'file_count': file_count,
-                            'lines_of_code': lines_of_code,
+                            'skills': sorted(list(project_skills))[:15],
                             'duration_days': duration_days,
                             'intensity': intensity,
+                            'first_file': first_file,
+                            'last_file': last_file,
                             'collaboration_level': collaboration_level,
-                            'code_quality_score': round(code_quality_score, 1),
-                            'oop_principles_count': oop_count,
-                            'optimization_count': optimization_count,
-                            'has_tests': has_tests,
-                            'has_docs': has_docs
+                            'summary': project_summary_text,  # Use stored summary from database
+                            'project_info': summary.get('project_info', {})
                         })
                 
                 except Exception as e:
@@ -340,16 +419,10 @@ class ResumeManager:
             
             # Build comprehensive resume data
             resume_data = {
+                'user_name': user_name,
                 'user_id': user_id,
                 'total_projects_analyzed': len(ranked_projects),
                 'top_projects_displayed': len(project_summaries),
-                'summary_stats': {
-                    'total_lines_of_code': total_lines_of_code,
-                    'total_files': total_files,
-                    'unique_languages': len(all_languages),
-                    'unique_frameworks': len(all_frameworks),
-                    'unique_skills': len(all_skills)
-                },
                 'all_skills': sorted(list(all_skills)),
                 'categorized_skills': categorized_skills,
                 'languages': sorted(list(all_languages)),

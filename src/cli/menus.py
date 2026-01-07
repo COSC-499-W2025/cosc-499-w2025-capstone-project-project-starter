@@ -396,12 +396,20 @@ def portfolio_menu():
 def handle_generate_resume():
     """Handle resume generation menu option."""
     from resume.resume_manager import ResumeManager
+    from account.user_manager import AuthManager
     
     print("\n" + "-"*70)
     print("Generate Resume")
     print("-"*70)
     
-    user_id = "default_user"
+    # Get logged-in user
+    if not AuthManager.is_user_logged_in():
+        print("\nError: You must be logged in to generate a resume.")
+        input("\nPress Enter to continue...")
+        return
+    
+    current_user = AuthManager.get_current_user()
+    user_id = current_user.get('user_name', 'default_user') if current_user else 'default_user'
     
     # Check if resume already exists
     if ResumeManager.resume_exists(user_id):
@@ -462,12 +470,20 @@ def handle_view_resume():
     """Handle resume viewing menu option."""
     from resume.resume_manager import ResumeManager
     from resume.resume_formatter import ResumeFormatter
+    from account.user_manager import AuthManager
     
     print("\n" + "-"*70)
     print("View Resume")
     print("-"*70)
     
-    user_id = "default_user"
+    # Get logged-in user
+    if not AuthManager.is_user_logged_in():
+        print("\nError: You must be logged in to view your resume.")
+        input("\nPress Enter to continue...")
+        return
+    
+    current_user = AuthManager.get_current_user()
+    user_id = current_user.get('user_name', 'default_user') if current_user else 'default_user'
     
     # Check if resume exists
     if not ResumeManager.resume_exists(user_id):
@@ -581,12 +597,20 @@ def _handle_pdf_export(resume_data):
 def handle_delete_resume():
     """Handle resume deletion menu option."""
     from resume.resume_manager import ResumeManager
+    from account.user_manager import AuthManager
     
     print("\n" + "-"*70)
     print("Delete Resume")
     print("-"*70)
     
-    user_id = "default_user"
+    # Get logged-in user
+    if not AuthManager.is_user_logged_in():
+        print("\nError: You must be logged in to delete your resume.")
+        input("\nPress Enter to continue...")
+        return
+    
+    current_user = AuthManager.get_current_user()
+    user_id = current_user.get('user_name', 'default_user') if current_user else 'default_user'
     
     # Check if resume exists
     if not ResumeManager.resume_exists(user_id):

@@ -43,31 +43,23 @@ class ResumeFormatter:
                 return None
             
             lines = []
-            lines.append("# Resume")
+            
+            # Header with user name
+            user_name = resume_data.get('user_name', 'Your Name')
+            lines.append(f"# {user_name}")
             lines.append("")
-            
-            # Overview section
-            lines.append("## Overview")
-            lines.append(f"- Total Projects Analyzed: {resume_data.get('total_projects_analyzed', 0)}")
-            lines.append(f"- Top Projects Displayed: {resume_data.get('top_projects_displayed', 0)}")
-            
-            summary_stats = resume_data.get('summary_stats', {})
-            if summary_stats:
-                lines.append(f"- Total Lines of Code: {summary_stats.get('total_lines_of_code', 0):,}")
-                lines.append(f"- Total Files: {summary_stats.get('total_files', 0):,}")
-                lines.append(f"- Unique Languages: {summary_stats.get('unique_languages', 0)}")
-                lines.append(f"- Unique Frameworks: {summary_stats.get('unique_frameworks', 0)}")
+            lines.append("---")
             lines.append("")
             
             # Skills section
             lines.append("## Technical Skills")
+            lines.append("")
             
             categorized_skills = resume_data.get('categorized_skills', {})
             if categorized_skills:
                 for category, skill_list in categorized_skills.items():
                     if skill_list:
-                        lines.append(f"### {category}")
-                        lines.append(", ".join(skill_list))
+                        lines.append(f"**{category}:** {', '.join(skill_list)}")
                         lines.append("")
             else:
                 skills = resume_data.get('all_skills', [])
@@ -77,67 +69,72 @@ class ResumeFormatter:
                     lines.append("No skills identified")
             lines.append("")
             
-            # Languages section
-            languages = resume_data.get('languages', [])
-            if languages:
-                lines.append("## Programming Languages")
-                lines.append(", ".join(languages))
-                lines.append("")
-            
-            # Frameworks section
-            frameworks = resume_data.get('frameworks', [])
-            if frameworks:
-                lines.append("## Frameworks and Tools")
-                lines.append(", ".join(frameworks))
-                lines.append("")
-            
             # Projects section
-            lines.append("## Top Projects")
+            lines.append("## Projects")
+            lines.append("")
             top_projects = resume_data.get('top_projects', [])
             
             if top_projects:
-                for idx, project in enumerate(top_projects, 1):
+                for project in top_projects:
                     project_name = project.get('project_name', 'Unknown')
-                    clean_name = project_name.replace('.zip', '').replace('-master', '').replace('-main', '')
-                    lines.append(f"### {idx}. {clean_name}")
-                    lines.append(f"**Score:** {project.get('score', 0)}")
-                    lines.append(f"**Primary Language:** {project.get('primary_language', 'Unknown')}")
+                    lines.append(f"### {project_name}")
                     
-                    if project.get('lines_of_code', 0) > 0:
-                        lines.append(f"**Scale:** {project.get('lines_of_code', 0):,} lines across {project.get('file_count', 0)} files")
+                    # Project date/period
+                    first_file = project.get('first_file', '')
+                    last_file = project.get('last_file', '')
+                    if first_file and last_file:
+                        if first_file == last_file:
+                            lines.append(f"*{first_file}*")
+                        else:
+                            lines.append(f"*{first_file} - {last_file}*")
+                    elif project.get('intensity') and project.get('intensity') != 'Unknown':
+                        lines.append(f"*{project.get('intensity')}*")
                     
-                    if project.get('frameworks'):
-                        lines.append(f"**Frameworks:** {', '.join(project.get('frameworks', []))}")
+                    lines.append("")
                     
-                    if project.get('collaboration_level') and project.get('collaboration_level') != 'Unknown':
-                        lines.append(f"**Collaboration:** {project.get('collaboration_level')}")
+                    # Project description from database summary
+                    project_summary = project.get('summary', '')
+                    if project_summary:
+                        # Clean up the summary text - extract meaningful content
+                        summary_lines = project_summary.split('\n')
+                        summary_count = 0
+                        for summary_line in summary_lines:
+                            summary_line = summary_line.strip()
+                            # Skip separator lines, headers, and metadata
+                            if (summary_line.startswith('=') or 
+                                not summary_line or 
+                                summary_line.isupper() and len(summary_line) > 30 or
+                                summary_line.startswith('   Created:') or
+                                'PROJECT SUMMARY' in summary_line.upper()):
+                                continue
+                            # Capture meaningful content lines
+                            if len(summary_line) > 15:
+                                lines.append(f"{summary_line}")
+                                summary_count += 1
+                                if summary_count >= 8:  # Limit to 8 lines
+                                    break
+                        if summary_count > 0:
+                            lines.append("")
                     
-                    if project.get('code_quality_score', 0) > 0:
-                        lines.append(f"**Code Quality Score:** {project.get('code_quality_score', 0)}/100")
-                    
-                    highlights = []
-                    if project.get('has_tests'):
-                        highlights.append("Unit Testing")
-                    if project.get('has_docs'):
-                        highlights.append("Documentation")
-                    if project.get('oop_principles_count', 0) > 0:
-                        highlights.append(f"OOP Principles ({project.get('oop_principles_count')} instances)")
-                    if project.get('optimization_count', 0) > 0:
-                        highlights.append(f"Code Optimizations ({project.get('optimization_count')} patterns)")
-                    
-                    if highlights:
-                        lines.append(f"**Highlights:** {', '.join(highlights)}")
-                    
+                    # Technologies used
                     project_skills = project.get('skills', [])
                     if project_skills:
-                        lines.append(f"**Technologies:** {', '.join(project_skills[:8])}")
+                        lines.append(f"**Technologies:** {', '.join(project_skills[:12])}")
+                        lines.append("")
+                    
+                    # Collaboration info if available
+                    collab_level = project.get('collaboration_level', '')
+                    if collab_level and collab_level != 'Unknown' and 'individual' not in collab_level.lower():
+                        lines.append(f"*Collaborative project*")
+                        lines.append("")
                     
                     lines.append("")
             else:
                 lines.append("No projects to display")
                 lines.append("")
             
-            lines.append(f"*Generated: {resume_data.get('generated_at', 'Unknown')}*")
+            lines.append("---")
+            lines.append(f"*Resume generated: {resume_data.get('generated_at', 'Unknown')[:10]}*")
             
             return "\n".join(lines)
             
@@ -161,23 +158,12 @@ class ResumeFormatter:
                 return None
             
             lines = []
-            lines.append("=" * 70)
-            lines.append("RESUME")
-            lines.append("=" * 70)
-            lines.append("")
             
-            # Overview section
-            lines.append("OVERVIEW")
-            lines.append("-" * 70)
-            lines.append(f"Total Projects Analyzed: {resume_data.get('total_projects_analyzed', 0)}")
-            lines.append(f"Top Projects Displayed: {resume_data.get('top_projects_displayed', 0)}")
-            
-            summary_stats = resume_data.get('summary_stats', {})
-            if summary_stats:
-                lines.append(f"Total Lines of Code: {summary_stats.get('total_lines_of_code', 0):,}")
-                lines.append(f"Total Files: {summary_stats.get('total_files', 0):,}")
-                lines.append(f"Unique Languages: {summary_stats.get('unique_languages', 0)}")
-                lines.append(f"Unique Frameworks: {summary_stats.get('unique_frameworks', 0)}")
+            # Header with user name
+            user_name = resume_data.get('user_name', 'Your Name')
+            lines.append("=" * 70)
+            lines.append(user_name.upper().center(70))
+            lines.append("=" * 70)
             lines.append("")
             
             # Skills section
@@ -188,76 +174,87 @@ class ResumeFormatter:
             if categorized_skills:
                 for category, skill_list in categorized_skills.items():
                     if skill_list:
-                        lines.append(f"{category}:")
-                        for skill in skill_list:
-                            lines.append(f"  - {skill}")
+                        lines.append(f"{category}: {', '.join(skill_list)}")
                         lines.append("")
             else:
                 skills = resume_data.get('all_skills', [])
                 if skills:
-                    for skill in skills:
-                        lines.append(f"  - {skill}")
+                    lines.append(", ".join(skills))
                 else:
-                    lines.append("  No skills identified")
+                    lines.append("No skills identified")
             lines.append("")
             
-            # Languages section
-            languages = resume_data.get('languages', [])
-            if languages:
-                lines.append("PROGRAMMING LANGUAGES")
-                lines.append("-" * 70)
-                lines.append(", ".join(languages))
-                lines.append("")
-            
-            # Frameworks section
-            frameworks = resume_data.get('frameworks', [])
-            if frameworks:
-                lines.append("FRAMEWORKS AND TOOLS")
-                lines.append("-" * 70)
-                lines.append(", ".join(frameworks))
-                lines.append("")
-            
             # Projects section
-            lines.append("TOP PROJECTS")
+            lines.append("PROJECTS")
             lines.append("-" * 70)
             top_projects = resume_data.get('top_projects', [])
             
             if top_projects:
-                for idx, project in enumerate(top_projects, 1):
+                for project in top_projects:
                     project_name = project.get('project_name', 'Unknown')
-                    clean_name = project_name.replace('.zip', '').replace('-master', '').replace('-main', '')
-                    lines.append(f"{idx}. {clean_name}")
-                    lines.append(f"   Score: {project.get('score', 0)}")
-                    lines.append(f"   Primary Language: {project.get('primary_language', 'Unknown')}")
+                    lines.append(f"{project_name.upper()}")
                     
-                    if project.get('lines_of_code', 0) > 0:
-                        lines.append(f"   Scale: {project.get('lines_of_code', 0):,} lines across {project.get('file_count', 0)} files")
+                    # Project date/period
+                    first_file = project.get('first_file', '')
+                    last_file = project.get('last_file', '')
+                    if first_file and last_file:
+                        if first_file == last_file:
+                            lines.append(f"  {first_file}")
+                        else:
+                            lines.append(f"  {first_file} - {last_file}")
+                    elif project.get('intensity') and project.get('intensity') != 'Unknown':
+                        lines.append(f"  {project.get('intensity')}")
                     
-                    if project.get('frameworks'):
-                        lines.append(f"   Frameworks: {', '.join(project.get('frameworks', []))}")
+                    lines.append("")
                     
-                    if project.get('collaboration_level') and project.get('collaboration_level') != 'Unknown':
-                        lines.append(f"   Collaboration: {project.get('collaboration_level')}")
+                    # Project description from database summary
+                    project_summary = project.get('summary', '')
+                    if project_summary:
+                        # Clean up the summary text - extract meaningful content
+                        summary_lines = project_summary.split('\n')
+                        summary_count = 0
+                        for summary_line in summary_lines:
+                            summary_line = summary_line.strip()
+                            # Skip separator lines, headers, and metadata
+                            if (summary_line.startswith('=') or 
+                                not summary_line or 
+                                summary_line.isupper() and len(summary_line) > 30 or
+                                summary_line.startswith('   Created:') or
+                                'PROJECT SUMMARY' in summary_line.upper()):
+                                continue
+                            # Capture meaningful content lines
+                            if len(summary_line) > 15:
+                                # Wrap long lines
+                                if len(summary_line) > 65:
+                                    words = summary_line.split()
+                                    current_line = "  "
+                                    for word in words:
+                                        if len(current_line) + len(word) + 1 > 65:
+                                            lines.append(current_line)
+                                            current_line = "  " + word
+                                        else:
+                                            current_line += " " + word if current_line != "  " else word
+                                    if current_line.strip():
+                                        lines.append(current_line)
+                                else:
+                                    lines.append(f"  {summary_line}")
+                                summary_count += 1
+                                if summary_count >= 8:  # Limit to 8 lines
+                                    break
+                        if summary_count > 0:
+                            lines.append("")
                     
-                    if project.get('code_quality_score', 0) > 0:
-                        lines.append(f"   Code Quality Score: {project.get('code_quality_score', 0)}/100")
-                    
-                    highlights = []
-                    if project.get('has_tests'):
-                        highlights.append("Unit Testing")
-                    if project.get('has_docs'):
-                        highlights.append("Documentation")
-                    if project.get('oop_principles_count', 0) > 0:
-                        highlights.append(f"OOP Principles ({project.get('oop_principles_count')} instances)")
-                    if project.get('optimization_count', 0) > 0:
-                        highlights.append(f"Code Optimizations ({project.get('optimization_count')} patterns)")
-                    
-                    if highlights:
-                        lines.append(f"   Highlights: {', '.join(highlights)}")
-                    
+                    # Technologies used
                     project_skills = project.get('skills', [])
                     if project_skills:
-                        lines.append(f"   Technologies: {', '.join(project_skills[:8])}")
+                        lines.append(f"  Technologies: {', '.join(project_skills[:12])}")
+                        lines.append("")
+                    
+                    # Collaboration info if available
+                    collab_level = project.get('collaboration_level', '')
+                    if collab_level and collab_level != 'Unknown' and 'individual' not in collab_level.lower():
+                        lines.append(f"  Collaborative project")
+                        lines.append("")
                     
                     lines.append("")
             else:
@@ -265,7 +262,7 @@ class ResumeFormatter:
                 lines.append("")
             
             lines.append("=" * 70)
-            lines.append(f"Generated: {resume_data.get('generated_at', 'Unknown')}")
+            lines.append(f"Resume generated: {resume_data.get('generated_at', 'Unknown')[:10]}")
             lines.append("=" * 70)
             
             return "\n".join(lines)
@@ -369,40 +366,10 @@ class ResumeFormatter:
             # Build document content
             story = []
             
-            # Title
-            story.append(Paragraph("Resume", title_style))
+            # Header with user name
+            user_name = resume_data.get('user_name', 'Your Name')
+            story.append(Paragraph(user_name, title_style))
             story.append(HRFlowable(width="100%", thickness=2, color=colors.HexColor('#3498db')))
-            story.append(Spacer(1, 15))
-            
-            # Overview Section
-            story.append(Paragraph("Overview", heading1_style))
-            
-            summary_stats = resume_data.get('summary_stats', {})
-            overview_data = [
-                ["Total Projects Analyzed:", str(resume_data.get('total_projects_analyzed', 0))],
-                ["Top Projects Displayed:", str(resume_data.get('top_projects_displayed', 0))],
-            ]
-            if summary_stats:
-                overview_data.extend([
-                    ["Total Lines of Code:", f"{summary_stats.get('total_lines_of_code', 0):,}"],
-                    ["Total Files:", f"{summary_stats.get('total_files', 0):,}"],
-                    ["Unique Languages:", str(summary_stats.get('unique_languages', 0))],
-                    ["Unique Frameworks:", str(summary_stats.get('unique_frameworks', 0))],
-                ])
-            
-            overview_table = Table(overview_data, colWidths=[2.5 * inch, 4 * inch])
-            overview_table.setStyle(TableStyle([
-                ('FONTNAME', (0, 0), (0, -1), 'Helvetica-Bold'),
-                ('FONTNAME', (1, 0), (1, -1), 'Helvetica'),
-                ('FONTSIZE', (0, 0), (-1, -1), 10),
-                ('TEXTCOLOR', (0, 0), (0, -1), colors.HexColor('#34495e')),
-                ('TEXTCOLOR', (1, 0), (1, -1), colors.HexColor('#2c3e50')),
-                ('ALIGN', (0, 0), (0, -1), 'RIGHT'),
-                ('ALIGN', (1, 0), (1, -1), 'LEFT'),
-                ('BOTTOMPADDING', (0, 0), (-1, -1), 6),
-                ('TOPPADDING', (0, 0), (-1, -1), 6),
-            ]))
-            story.append(overview_table)
             story.append(Spacer(1, 15))
             
             # Technical Skills Section
@@ -425,86 +392,76 @@ class ResumeFormatter:
             
             story.append(Spacer(1, 10))
             
-            # Programming Languages Section
-            languages = resume_data.get('languages', [])
-            if languages:
-                story.append(Paragraph("Programming Languages", heading1_style))
-                languages_text = ", ".join(languages)
-                story.append(Paragraph(languages_text, normal_style))
-                story.append(Spacer(1, 10))
-            
-            # Frameworks Section
-            frameworks = resume_data.get('frameworks', [])
-            if frameworks:
-                story.append(Paragraph("Frameworks and Tools", heading1_style))
-                frameworks_text = ", ".join(frameworks)
-                story.append(Paragraph(frameworks_text, normal_style))
-                story.append(Spacer(1, 10))
-            
-            # Top Projects Section
-            story.append(Paragraph("Top Projects", heading1_style))
+            # Projects Section
+            story.append(Paragraph("Projects", heading1_style))
             
             top_projects = resume_data.get('top_projects', [])
             if top_projects:
-                for idx, project in enumerate(top_projects, 1):
+                for project in top_projects:
                     project_name = project.get('project_name', 'Unknown')
-                    clean_name = project_name.replace('.zip', '').replace('-master', '').replace('-main', '')
                     
                     # Project header
-                    story.append(Paragraph(f"<b>{idx}. {clean_name}</b>", heading2_style))
+                    story.append(Paragraph(f"<b>{project_name}</b>", heading2_style))
                     
-                    # Project details table
-                    project_details = []
+                    # Project date/period
+                    first_file = project.get('first_file', '')
+                    last_file = project.get('last_file', '')
+                    date_text = ""
+                    if first_file and last_file:
+                        if first_file == last_file:
+                            date_text = first_file
+                        else:
+                            date_text = f"{first_file} - {last_file}"
+                    elif project.get('intensity') and project.get('intensity') != 'Unknown':
+                        date_text = project.get('intensity')
                     
-                    project_details.append(["Score:", f"{project.get('score', 0)}"])
-                    project_details.append(["Primary Language:", project.get('primary_language', 'Unknown')])
+                    if date_text:
+                        story.append(Paragraph(f"<i>{date_text}</i>", small_style))
                     
-                    if project.get('lines_of_code', 0) > 0:
-                        scale_text = f"{project.get('lines_of_code', 0):,} lines across {project.get('file_count', 0)} files"
-                        project_details.append(["Scale:", scale_text])
+                    story.append(Spacer(1, 5))
                     
-                    if project.get('frameworks'):
-                        project_details.append(["Frameworks:", ", ".join(project.get('frameworks', []))])
+                    # Project description from database summary
+                    project_summary = project.get('summary', '')
+                    if project_summary:
+                        # Clean up the summary text - extract meaningful content
+                        summary_lines = project_summary.split('\n')
+                        summary_count = 0
+                        in_content_section = False
+                        for summary_line in summary_lines:
+                            summary_line = summary_line.strip()
+                            # Skip separator lines and headers
+                            if summary_line.startswith('=') or not summary_line:
+                                continue
+                            # Skip section headers that are all caps or have specific patterns
+                            if summary_line.isupper() and len(summary_line) > 30:
+                                continue
+                            # Start capturing after project info section
+                            if 'PROJECT SUMMARY' in summary_line.upper() or 'OVERVIEW' in summary_line.upper():
+                                in_content_section = True
+                                continue
+                            # Capture meaningful content lines
+                            if len(summary_line) > 15 and not summary_line.startswith('   Created:'):
+                                # Escape HTML and add paragraph
+                                summary_line_escaped = summary_line.replace('&', '&amp;').replace('<', '&lt;').replace('>', '&gt;')
+                                story.append(Paragraph(summary_line_escaped, normal_style))
+                                summary_count += 1
+                                if summary_count >= 8:  # Limit to 8 paragraphs
+                                    break
+                        if summary_count > 0:
+                            story.append(Spacer(1, 5))
                     
-                    if project.get('collaboration_level') and project.get('collaboration_level') != 'Unknown':
-                        project_details.append(["Collaboration:", project.get('collaboration_level')])
-                    
-                    if project.get('code_quality_score', 0) > 0:
-                        project_details.append(["Code Quality:", f"{project.get('code_quality_score', 0)}/100"])
-                    
-                    # Build highlights
-                    highlights = []
-                    if project.get('has_tests'):
-                        highlights.append("Unit Testing")
-                    if project.get('has_docs'):
-                        highlights.append("Documentation")
-                    if project.get('oop_principles_count', 0) > 0:
-                        highlights.append(f"OOP Principles ({project.get('oop_principles_count')})")
-                    if project.get('optimization_count', 0) > 0:
-                        highlights.append(f"Optimizations ({project.get('optimization_count')})")
-                    
-                    if highlights:
-                        project_details.append(["Highlights:", ", ".join(highlights)])
-                    
+                    # Technologies used
                     project_skills = project.get('skills', [])
                     if project_skills:
-                        project_details.append(["Technologies:", ", ".join(project_skills[:6])])
+                        tech_text = f"<b>Technologies:</b> {', '.join(project_skills[:12])}"
+                        story.append(Paragraph(tech_text, normal_style))
+                        story.append(Spacer(1, 5))
                     
-                    if project_details:
-                        project_table = Table(project_details, colWidths=[1.5 * inch, 5 * inch])
-                        project_table.setStyle(TableStyle([
-                            ('FONTNAME', (0, 0), (0, -1), 'Helvetica-Bold'),
-                            ('FONTNAME', (1, 0), (1, -1), 'Helvetica'),
-                            ('FONTSIZE', (0, 0), (-1, -1), 9),
-                            ('TEXTCOLOR', (0, 0), (0, -1), colors.HexColor('#7f8c8d')),
-                            ('TEXTCOLOR', (1, 0), (1, -1), colors.HexColor('#2c3e50')),
-                            ('ALIGN', (0, 0), (0, -1), 'RIGHT'),
-                            ('ALIGN', (1, 0), (1, -1), 'LEFT'),
-                            ('BOTTOMPADDING', (0, 0), (-1, -1), 3),
-                            ('TOPPADDING', (0, 0), (-1, -1), 3),
-                            ('LEFTPADDING', (0, 0), (-1, -1), 15),
-                        ]))
-                        story.append(project_table)
+                    # Collaboration info if available
+                    collab_level = project.get('collaboration_level', '')
+                    if collab_level and collab_level != 'Unknown' and 'individual' not in collab_level.lower():
+                        story.append(Paragraph("<i>Collaborative project</i>", small_style))
+                        story.append(Spacer(1, 5))
                     
                     story.append(Spacer(1, 10))
             else:
