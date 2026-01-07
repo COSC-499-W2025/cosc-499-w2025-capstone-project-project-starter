@@ -15,13 +15,19 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 's
 class TestHandleGenerateResume:
     """Test suite for handle_generate_resume function."""
     
+    @patch('account.user_manager.AuthManager.get_current_user')
+    @patch('account.user_manager.AuthManager.is_user_logged_in')
     @patch('resume.resume_manager.ResumeManager.store_user_resume')
     @patch('resume.resume_manager.ResumeManager.generate_user_resume')
     @patch('resume.resume_manager.ResumeManager.resume_exists')
     @patch('builtins.input')
-    def test_generate_resume_new(self, mock_input, mock_exists, mock_generate, mock_store):
+    def test_generate_resume_new(self, mock_input, mock_exists, mock_generate, mock_store, mock_is_logged_in, mock_get_user):
         """Test generating a new resume when none exists."""
         from cli.menus import handle_generate_resume
+        
+        # Mock logged in user
+        mock_is_logged_in.return_value = True
+        mock_get_user.return_value = {'user_name': 'test_user'}
         
         # Mock that no resume exists
         mock_exists.return_value = False
@@ -48,17 +54,23 @@ class TestHandleGenerateResume:
         handle_generate_resume()
         
         # Verify calls
-        mock_exists.assert_called_once_with("default_user")
-        mock_generate.assert_called_once_with("default_user", top_projects_count=5)
-        mock_store.assert_called_once_with("default_user", mock_resume_data)
+        mock_exists.assert_called_once_with("test_user")
+        mock_generate.assert_called_once_with("test_user", top_projects_count=5)
+        mock_store.assert_called_once_with("test_user", mock_resume_data)
     
+    @patch('account.user_manager.AuthManager.get_current_user')
+    @patch('account.user_manager.AuthManager.is_user_logged_in')
     @patch('resume.resume_manager.ResumeManager.store_user_resume')
     @patch('resume.resume_manager.ResumeManager.generate_user_resume')
     @patch('resume.resume_manager.ResumeManager.resume_exists')
     @patch('builtins.input')
-    def test_generate_resume_regenerate_confirmed(self, mock_input, mock_exists, mock_generate, mock_store):
+    def test_generate_resume_regenerate_confirmed(self, mock_input, mock_exists, mock_generate, mock_store, mock_is_logged_in, mock_get_user):
         """Test regenerating resume when user confirms."""
         from cli.menus import handle_generate_resume
+        
+        # Mock logged in user
+        mock_is_logged_in.return_value = True
+        mock_get_user.return_value = {'user_name': 'test_user'}
         
         # Mock that resume exists
         mock_exists.return_value = True
@@ -85,14 +97,20 @@ class TestHandleGenerateResume:
         handle_generate_resume()
         
         # Verify regeneration happened
-        mock_generate.assert_called_once_with("default_user", top_projects_count=3)
+        mock_generate.assert_called_once_with("test_user", top_projects_count=3)
     
+    @patch('account.user_manager.AuthManager.get_current_user')
+    @patch('account.user_manager.AuthManager.is_user_logged_in')
     @patch('resume.resume_manager.ResumeManager.generate_user_resume')
     @patch('resume.resume_manager.ResumeManager.resume_exists')
     @patch('builtins.input')
-    def test_generate_resume_cancel_regenerate(self, mock_input, mock_exists, mock_generate):
+    def test_generate_resume_cancel_regenerate(self, mock_input, mock_exists, mock_generate, mock_is_logged_in, mock_get_user):
         """Test cancelling regeneration when resume exists."""
         from cli.menus import handle_generate_resume
+        
+        # Mock logged in user
+        mock_is_logged_in.return_value = True
+        mock_get_user.return_value = {'user_name': 'test_user'}
         
         # Mock that resume exists
         mock_exists.return_value = True
@@ -106,13 +124,19 @@ class TestHandleGenerateResume:
         # Verify generation was not called
         mock_generate.assert_not_called()
     
+    @patch('account.user_manager.AuthManager.get_current_user')
+    @patch('account.user_manager.AuthManager.is_user_logged_in')
     @patch('resume.resume_manager.ResumeManager.store_user_resume')
     @patch('resume.resume_manager.ResumeManager.generate_user_resume')
     @patch('resume.resume_manager.ResumeManager.resume_exists')
     @patch('builtins.input')
-    def test_generate_resume_invalid_then_valid_count(self, mock_input, mock_exists, mock_generate, mock_store):
+    def test_generate_resume_invalid_then_valid_count(self, mock_input, mock_exists, mock_generate, mock_store, mock_is_logged_in, mock_get_user):
         """Test handling invalid project count input."""
         from cli.menus import handle_generate_resume
+        
+        # Mock logged in user
+        mock_is_logged_in.return_value = True
+        mock_get_user.return_value = {'user_name': 'test_user'}
         
         # Mock that no resume exists
         mock_exists.return_value = False
@@ -134,15 +158,21 @@ class TestHandleGenerateResume:
         handle_generate_resume()
         
         # Verify correct count was used
-        mock_generate.assert_called_once_with("default_user", top_projects_count=7)
+        mock_generate.assert_called_once_with("test_user", top_projects_count=7)
     
+    @patch('account.user_manager.AuthManager.get_current_user')
+    @patch('account.user_manager.AuthManager.is_user_logged_in')
     @patch('resume.resume_manager.ResumeManager.store_user_resume')
     @patch('resume.resume_manager.ResumeManager.generate_user_resume')
     @patch('resume.resume_manager.ResumeManager.resume_exists')
     @patch('builtins.input')
-    def test_generate_resume_no_projects(self, mock_input, mock_exists, mock_generate, mock_store):
+    def test_generate_resume_no_projects(self, mock_input, mock_exists, mock_generate, mock_store, mock_is_logged_in, mock_get_user):
         """Test handling when no projects exist."""
         from cli.menus import handle_generate_resume
+        
+        # Mock logged in user
+        mock_is_logged_in.return_value = True
+        mock_get_user.return_value = {'user_name': 'test_user'}
         
         # Mock that no resume exists
         mock_exists.return_value = False
@@ -159,13 +189,19 @@ class TestHandleGenerateResume:
         # Verify store was not called
         mock_store.assert_not_called()
     
+    @patch('account.user_manager.AuthManager.get_current_user')
+    @patch('account.user_manager.AuthManager.is_user_logged_in')
     @patch('resume.resume_manager.ResumeManager.store_user_resume')
     @patch('resume.resume_manager.ResumeManager.generate_user_resume')
     @patch('resume.resume_manager.ResumeManager.resume_exists')
     @patch('builtins.input')
-    def test_generate_resume_store_failure(self, mock_input, mock_exists, mock_generate, mock_store):
+    def test_generate_resume_store_failure(self, mock_input, mock_exists, mock_generate, mock_store, mock_is_logged_in, mock_get_user):
         """Test handling when resume storage fails."""
         from cli.menus import handle_generate_resume
+        
+        # Mock logged in user
+        mock_is_logged_in.return_value = True
+        mock_get_user.return_value = {'user_name': 'test_user'}
         
         # Mock that no resume exists
         mock_exists.return_value = False
@@ -193,20 +229,26 @@ class TestHandleGenerateResume:
 class TestHandleViewResume:
     """Test suite for handle_view_resume function."""
     
+    @patch('account.user_manager.AuthManager.get_current_user')
+    @patch('account.user_manager.AuthManager.is_user_logged_in')
     @patch('resume.resume_formatter.ResumeFormatter.get_formatted_resume')
     @patch('resume.resume_manager.ResumeManager.get_user_resume')
     @patch('resume.resume_manager.ResumeManager.resume_exists')
     @patch('builtins.input')
-    def test_view_resume_text_format(self, mock_input, mock_exists, mock_get_resume, mock_format):
+    def test_view_resume_text_format(self, mock_input, mock_exists, mock_get_resume, mock_format, mock_is_logged_in, mock_get_user):
         """Test viewing resume in text format."""
         from cli.menus import handle_view_resume
+        
+        # Mock logged in user
+        mock_is_logged_in.return_value = True
+        mock_get_user.return_value = {'user_name': 'test_user'}
         
         # Mock that resume exists
         mock_exists.return_value = True
         
         # Mock resume data
         mock_resume_data = {
-            'user_id': 'default_user',
+            'user_id': 'test_user',
             'all_skills': ['Python'],
             'summary_stats': {}
         }
@@ -226,19 +268,25 @@ class TestHandleViewResume:
         # Verify formatter was called with correct format
         mock_format.assert_called_once_with(mock_resume_data, 'text')
     
+    @patch('account.user_manager.AuthManager.get_current_user')
+    @patch('account.user_manager.AuthManager.is_user_logged_in')
     @patch('resume.resume_formatter.ResumeFormatter.get_formatted_resume')
     @patch('resume.resume_manager.ResumeManager.get_user_resume')
     @patch('resume.resume_manager.ResumeManager.resume_exists')
     @patch('builtins.input')
-    def test_view_resume_markdown_format(self, mock_input, mock_exists, mock_get_resume, mock_format):
+    def test_view_resume_markdown_format(self, mock_input, mock_exists, mock_get_resume, mock_format, mock_is_logged_in, mock_get_user):
         """Test viewing resume in markdown format."""
         from cli.menus import handle_view_resume
+        
+        # Mock logged in user
+        mock_is_logged_in.return_value = True
+        mock_get_user.return_value = {'user_name': 'test_user'}
         
         # Mock that resume exists
         mock_exists.return_value = True
         
         # Mock resume data
-        mock_resume_data = {'user_id': 'default_user'}
+        mock_resume_data = {'user_id': 'test_user'}
         mock_get_resume.return_value = {
             'resume_data': mock_resume_data
         }
@@ -255,19 +303,25 @@ class TestHandleViewResume:
         # Verify formatter was called with markdown format
         mock_format.assert_called_once_with(mock_resume_data, 'markdown')
     
+    @patch('account.user_manager.AuthManager.get_current_user')
+    @patch('account.user_manager.AuthManager.is_user_logged_in')
     @patch('resume.resume_formatter.ResumeFormatter.get_formatted_resume')
     @patch('resume.resume_manager.ResumeManager.get_user_resume')
     @patch('resume.resume_manager.ResumeManager.resume_exists')
     @patch('builtins.input')
-    def test_view_resume_json_format(self, mock_input, mock_exists, mock_get_resume, mock_format):
+    def test_view_resume_json_format(self, mock_input, mock_exists, mock_get_resume, mock_format, mock_is_logged_in, mock_get_user):
         """Test viewing resume in JSON format."""
         from cli.menus import handle_view_resume
+        
+        # Mock logged in user
+        mock_is_logged_in.return_value = True
+        mock_get_user.return_value = {'user_name': 'test_user'}
         
         # Mock that resume exists
         mock_exists.return_value = True
         
         # Mock resume data
-        mock_resume_data = {'user_id': 'default_user'}
+        mock_resume_data = {'user_id': 'test_user'}
         mock_get_resume.return_value = {
             'resume_data': mock_resume_data
         }
@@ -276,7 +330,7 @@ class TestHandleViewResume:
         mock_input.side_effect = ['3', '']
         
         # Mock formatted output
-        mock_format.return_value = '{"user_id": "default_user"}'
+        mock_format.return_value = '{"user_id": "test_user"}'
         
         # Execute
         handle_view_resume()
@@ -284,12 +338,18 @@ class TestHandleViewResume:
         # Verify formatter was called with json format
         mock_format.assert_called_once_with(mock_resume_data, 'json')
     
+    @patch('account.user_manager.AuthManager.get_current_user')
+    @patch('account.user_manager.AuthManager.is_user_logged_in')
     @patch('resume.resume_manager.ResumeManager.get_user_resume')
     @patch('resume.resume_manager.ResumeManager.resume_exists')
     @patch('builtins.input')
-    def test_view_resume_not_found(self, mock_input, mock_exists, mock_get_resume):
+    def test_view_resume_not_found(self, mock_input, mock_exists, mock_get_resume, mock_is_logged_in, mock_get_user):
         """Test viewing resume when none exists."""
         from cli.menus import handle_view_resume
+        
+        # Mock logged in user
+        mock_is_logged_in.return_value = True
+        mock_get_user.return_value = {'user_name': 'test_user'}
         
         # Mock that no resume exists
         mock_exists.return_value = False
@@ -303,19 +363,25 @@ class TestHandleViewResume:
         # Verify get_user_resume was not called
         mock_get_resume.assert_not_called()
     
+    @patch('account.user_manager.AuthManager.get_current_user')
+    @patch('account.user_manager.AuthManager.is_user_logged_in')
     @patch('resume.resume_formatter.ResumeFormatter.get_formatted_resume')
     @patch('resume.resume_manager.ResumeManager.get_user_resume')
     @patch('resume.resume_manager.ResumeManager.resume_exists')
     @patch('builtins.input')
-    def test_view_resume_default_format(self, mock_input, mock_exists, mock_get_resume, mock_format):
+    def test_view_resume_default_format(self, mock_input, mock_exists, mock_get_resume, mock_format, mock_is_logged_in, mock_get_user):
         """Test viewing resume with default format (empty input)."""
         from cli.menus import handle_view_resume
+        
+        # Mock logged in user
+        mock_is_logged_in.return_value = True
+        mock_get_user.return_value = {'user_name': 'test_user'}
         
         # Mock that resume exists
         mock_exists.return_value = True
         
         # Mock resume data
-        mock_resume_data = {'user_id': 'default_user'}
+        mock_resume_data = {'user_id': 'test_user'}
         mock_get_resume.return_value = {
             'resume_data': mock_resume_data
         }
@@ -442,6 +508,8 @@ class TestHandlePDFExport:
         # Verify format_pdf was called
         mock_format_pdf.assert_called_once()
     
+    @patch('account.user_manager.AuthManager.get_current_user')
+    @patch('account.user_manager.AuthManager.is_user_logged_in')
     @patch('resume.resume_formatter.ResumeFormatter.format_pdf')
     @patch('resume.resume_manager.ResumeManager.get_user_resume')
     @patch('resume.resume_manager.ResumeManager.resume_exists')
@@ -449,15 +517,19 @@ class TestHandlePDFExport:
     @patch('os.path.exists')
     @patch('builtins.input')
     def test_view_resume_pdf_option(self, mock_input, mock_exists_file, mock_getsize, 
-                                     mock_resume_exists, mock_get_resume, mock_format_pdf):
+                                     mock_resume_exists, mock_get_resume, mock_format_pdf, mock_is_logged_in, mock_get_user):
         """Test selecting PDF export option from view menu."""
         from cli.menus import handle_view_resume
+        
+        # Mock logged in user
+        mock_is_logged_in.return_value = True
+        mock_get_user.return_value = {'user_name': 'test_user'}
         
         # Mock that resume exists
         mock_resume_exists.return_value = True
         
         # Mock resume data
-        mock_resume_data = {'user_id': 'default_user'}
+        mock_resume_data = {'user_id': 'test_user'}
         mock_get_resume.return_value = {
             'resume_data': mock_resume_data
         }
@@ -480,12 +552,18 @@ class TestHandlePDFExport:
 class TestHandleDeleteResume:
     """Test suite for handle_delete_resume function."""
     
+    @patch('account.user_manager.AuthManager.get_current_user')
+    @patch('account.user_manager.AuthManager.is_user_logged_in')
     @patch('resume.resume_manager.ResumeManager.delete_user_resume')
     @patch('resume.resume_manager.ResumeManager.resume_exists')
     @patch('builtins.input')
-    def test_delete_resume_confirmed(self, mock_input, mock_exists, mock_delete):
+    def test_delete_resume_confirmed(self, mock_input, mock_exists, mock_delete, mock_is_logged_in, mock_get_user):
         """Test deleting resume when user confirms."""
         from cli.menus import handle_delete_resume
+        
+        # Mock logged in user
+        mock_is_logged_in.return_value = True
+        mock_get_user.return_value = {'user_name': 'test_user'}
         
         # Mock that resume exists
         mock_exists.return_value = True
@@ -500,14 +578,20 @@ class TestHandleDeleteResume:
         handle_delete_resume()
         
         # Verify deletion was called
-        mock_delete.assert_called_once_with("default_user")
+        mock_delete.assert_called_once_with("test_user")
     
+    @patch('account.user_manager.AuthManager.get_current_user')
+    @patch('account.user_manager.AuthManager.is_user_logged_in')
     @patch('resume.resume_manager.ResumeManager.delete_user_resume')
     @patch('resume.resume_manager.ResumeManager.resume_exists')
     @patch('builtins.input')
-    def test_delete_resume_cancelled(self, mock_input, mock_exists, mock_delete):
+    def test_delete_resume_cancelled(self, mock_input, mock_exists, mock_delete, mock_is_logged_in, mock_get_user):
         """Test cancelling resume deletion."""
         from cli.menus import handle_delete_resume
+        
+        # Mock logged in user
+        mock_is_logged_in.return_value = True
+        mock_get_user.return_value = {'user_name': 'test_user'}
         
         # Mock that resume exists
         mock_exists.return_value = True
@@ -521,12 +605,18 @@ class TestHandleDeleteResume:
         # Verify deletion was not called
         mock_delete.assert_not_called()
     
+    @patch('account.user_manager.AuthManager.get_current_user')
+    @patch('account.user_manager.AuthManager.is_user_logged_in')
     @patch('resume.resume_manager.ResumeManager.delete_user_resume')
     @patch('resume.resume_manager.ResumeManager.resume_exists')
     @patch('builtins.input')
-    def test_delete_resume_not_found(self, mock_input, mock_exists, mock_delete):
+    def test_delete_resume_not_found(self, mock_input, mock_exists, mock_delete, mock_is_logged_in, mock_get_user):
         """Test deleting resume when none exists."""
         from cli.menus import handle_delete_resume
+        
+        # Mock logged in user
+        mock_is_logged_in.return_value = True
+        mock_get_user.return_value = {'user_name': 'test_user'}
         
         # Mock that no resume exists
         mock_exists.return_value = False
@@ -540,12 +630,18 @@ class TestHandleDeleteResume:
         # Verify delete was not called
         mock_delete.assert_not_called()
     
+    @patch('account.user_manager.AuthManager.get_current_user')
+    @patch('account.user_manager.AuthManager.is_user_logged_in')
     @patch('resume.resume_manager.ResumeManager.delete_user_resume')
     @patch('resume.resume_manager.ResumeManager.resume_exists')
     @patch('builtins.input')
-    def test_delete_resume_failure(self, mock_input, mock_exists, mock_delete):
+    def test_delete_resume_failure(self, mock_input, mock_exists, mock_delete, mock_is_logged_in, mock_get_user):
         """Test handling when deletion fails."""
         from cli.menus import handle_delete_resume
+        
+        # Mock logged in user
+        mock_is_logged_in.return_value = True
+        mock_get_user.return_value = {'user_name': 'test_user'}
         
         # Mock that resume exists
         mock_exists.return_value = True
@@ -560,7 +656,7 @@ class TestHandleDeleteResume:
         handle_delete_resume()
         
         # Verify deletion was attempted
-        mock_delete.assert_called_once_with("default_user")
+        mock_delete.assert_called_once_with("test_user")
 
 
 if __name__ == '__main__':
