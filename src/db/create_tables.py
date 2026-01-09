@@ -10,11 +10,6 @@ def create_tables():
         # Use the same connection as everywhere else
         connection = get_db_connection()
         cursor = connection.cursor()
-
-        # ONLY create the tables you actually use
-        print("Dropping old tables (if they exist)...")
-        cursor.execute("DROP TABLE IF EXISTS detailed_skills CASCADE;")
-        cursor.execute("DROP TABLE IF EXISTS skills_analysis CASCADE;")
         
 
         # CREATE ONLY THE TABLES YOU NEED
