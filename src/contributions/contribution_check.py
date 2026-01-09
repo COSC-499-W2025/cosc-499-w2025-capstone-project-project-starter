@@ -1,7 +1,7 @@
 import os
 import zipfile
 from pathlib import Path
-from git import Repo
+#from git import Repo #this path is throwing an error
 
 
 def find_git_repos(directory):
