@@ -1,6 +1,7 @@
-# src/db/skills_integration.py (CLEAN FIXED VERSION)
+# src/db/skills_integration.py (COMPLETE FIXED VERSION)
 import json
 import uuid
+import re
 from datetime import datetime
 from .skills_repository import SkillsRepository
 
@@ -48,6 +49,84 @@ def make_metadata_serializable(zip_metadata):
     # Last resort: convert to string
     return {"metadata": str(zip_metadata)}
 
+def extract_skills_from_ml_data(ml_summary, predictions):
+    """
+    Extract skill names from ML analysis results
+    """
+    skills = []
+    
+    # Convert everything to strings for pattern matching
+    ml_text = str(ml_summary)
+    pred_text = str(predictions)
+    combined_text = ml_text + "\n" + pred_text
+    
+    print(f"DEBUG extract_skills_from_ml_data - Combined text preview: {combined_text[:500]}...")
+    
+    # Pattern 1: Look for "Skill-Name: files=X" pattern (from console output)
+    pattern1 = r'([A-Z][a-zA-Z\-]+): files=\d+'
+    matches = re.findall(pattern1, combined_text)
+    skills.extend(matches)
+    
+    # Pattern 2: Look for indented skills in project summary
+    pattern2 = r'^\s+([A-Z][a-zA-Z\-]+): files=\d+'
+    matches = re.findall(pattern2, combined_text, re.MULTILINE)
+    skills.extend(matches)
+    
+    # Pattern 3: Look for skills in dictionary format
+    if isinstance(ml_summary, list):
+        for item in ml_summary:
+            if isinstance(item, dict):
+                # Check for skill-related keys
+                for key, value in item.items():
+                    key_lower = str(key).lower()
+                    if any(skill_word in key_lower for skill_word in ['skill', 'type', 'category', 'name']):
+                        if value and isinstance(value, str) and len(value) > 2:
+                            skills.append(value)
+    
+    # Pattern 4: Look in predictions
+    if isinstance(predictions, list):
+        for item in predictions:
+            if isinstance(item, dict):
+                # Look for 'skill' key
+                if 'skill' in item and item['skill']:
+                    skills.append(str(item['skill']))
+                # Look for keys containing 'skill'
+                for key, value in item.items():
+                    if 'skill' in str(key).lower() and value and isinstance(value, str) and len(value) > 2:
+                        skills.append(value)
+    
+    # Pattern 5: Look for common skill keywords
+    skill_keywords = [
+        "Testing", "CI", "Containerization", "Concurrency", "Performance", "Optimization",
+        "Security", "Cryptography", "Logging", "Metrics", "Monitoring", "Tracing",
+        "Infrastructure", "Build", "Package", "Scripting", "Automation", "CLI",
+        "Web", "Frontend", "Backend", "Fullstack", "API", "Authentication",
+        "Authorization", "Microservices", "Messaging", "Queueing", "Streaming",
+        "SQL", "Database", "ORM", "NoSQL", "Graph", "Caching", "Cloud",
+        "AWS", "GCP", "Azure", "Kubernetes", "BigData", "Systems", "Embedded",
+        "Networking", "Parallel", "GPU", "Data", "Engineering", "Visualization",
+        "Numerics", "ML", "Machine-Learning", "Deep-Learning", "NLP", "Vision",
+        "Recommendation", "MLOps", "Probabilistic", "Game", "Functional",
+        "Serialization", "Python", "JavaScript", "Java", "C++", "Docker", "PostgreSQL",
+        "Git", "Functional-Programming"
+    ]
+    
+    for skill in skill_keywords:
+        if skill in combined_text:
+            skills.append(skill)
+    
+    # Clean up: remove duplicates, empty strings, and very short strings
+    skills = [s.strip() for s in skills if s and len(str(s).strip()) > 2]
+    
+    # Remove common false positives
+    false_positives = ["Project", "File", "Path", "Summary", "Binary", "Non", "All"]
+    skills = [s for s in skills if s not in false_positives]
+    
+    skills = list(set(skills))
+    
+    print(f"DEBUG extract_skills_from_ml_data - Extracted skills: {skills}")
+    return skills
+
 def store_ml_results_to_db(project_path, ml_summary, predictions, zip_metadata=None):
     """
     Store ML model results to database
@@ -59,14 +138,18 @@ def store_ml_results_to_db(project_path, ml_summary, predictions, zip_metadata=N
         # Convert metadata to serializable format
         serializable_metadata = make_metadata_serializable(zip_metadata)
         
+        # Extract skills BEFORE creating skills_data
+        detected_skills = extract_skills_from_ml_data(ml_summary, predictions)
+        
         # Prepare skills data - ensure everything is JSON serializable
         skills_data = {
             "project_id": project_id,
             "analysis_type": "ml_model",
             "source": "local_ml",
-            "ml_summary": str(ml_summary) if not isinstance(ml_summary, (dict, list, str, int, float, bool, type(None))) else ml_summary,
-            "predictions": str(predictions) if not isinstance(predictions, (dict, list, str, int, float, bool, type(None))) else predictions,
+            "ml_summary": ml_summary if isinstance(ml_summary, (dict, list, str, int, float, bool, type(None))) else str(ml_summary),
+            "predictions": predictions if isinstance(predictions, (dict, list, str, int, float, bool, type(None))) else str(predictions),
             "file_path": str(project_path),
+            "detected_skills": detected_skills,  # Add detected skills to the data
             "timestamp": datetime.now().isoformat()
         }
         
@@ -81,18 +164,7 @@ def store_ml_results_to_db(project_path, ml_summary, predictions, zip_metadata=N
         )
         
         # Also store the detected skills in detailed_skills table
-        detected_skills = []
-        if isinstance(ml_summary, dict) and "detected_skills" in ml_summary:
-            detected_skills = [skill for skill, detected in ml_summary["detected_skills"].items() if detected]
-        elif isinstance(predictions, dict):
-            # Try to extract from predictions
-            for key, value in predictions.items():
-                if isinstance(value, dict) and "skills" in value:
-                    detected_skills.extend(value["skills"])
-        
         if detected_skills:
-            # Remove duplicates
-            detected_skills = list(set(detected_skills))
             SkillsRepository.store_detailed_skills(
                 project_id=project_id,
                 skills_list=detected_skills,
@@ -101,6 +173,9 @@ def store_ml_results_to_db(project_path, ml_summary, predictions, zip_metadata=N
                 file_path=str(project_path),
                 context="ML model analysis"
             )
+            print(f"DEBUG: Stored {len(detected_skills)} skills to detailed_skills table")
+        else:
+            print("DEBUG: No skills to store in detailed_skills table")
         
         print(f"✅ ML results stored in database with project ID: {project_id}")
         return project_id
@@ -132,7 +207,7 @@ def store_llm_results_to_db(project_path, llm_response, predictions, project_id=
             "source": "ollama",
             "llm_response": str(llm_response),
             "extracted_skills": llm_skills,
-            "predictions": str(predictions) if not isinstance(predictions, (dict, list, str, int, float, bool, type(None))) else predictions,
+            "predictions": predictions if isinstance(predictions, (dict, list, str, int, float, bool, type(None))) else str(predictions),
             "file_path": str(project_path),
             "timestamp": datetime.now().isoformat()
         }
