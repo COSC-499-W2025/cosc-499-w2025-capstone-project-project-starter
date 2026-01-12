@@ -80,5 +80,5 @@ docker exec -it artifact_db psql -U devuser -d artifact_data
 - run any file: python -m src.tools.ollama_analyze_file src/app.py \
   --model llama3.1:8b \
   --url http://localhost:11434/api/generate
-- to run on zip file: python -m src.tools.ollama_analyze_file test.zip --zip --max-files 200 --max-bytes-per-file 4000000
+- to run on zip file: python -m src.tools.ollama_analyze_file test.zip --zip --max-files 200 --max-bytes-per-file 4000
 
