@@ -258,27 +258,41 @@ def test_portfolio_menu_delegates(mock_portfolio_menu):
     mock_portfolio_menu.assert_called_once()
 
 
+@patch("account.user_manager.AuthManager.get_current_user")
+@patch("account.user_manager.AuthManager.is_user_logged_in")
 @patch("resume.resume_manager.ResumeManager.delete_user_resume", return_value=True)
 @patch("resume.resume_manager.ResumeManager.resume_exists", return_value=True)
 @patch("builtins.input", side_effect=["y", ""])
 @patch("sys.stdout", new_callable=StringIO)
-def test_handle_delete_resume_success(mock_stdout, mock_input, mock_exists, mock_delete):
+def test_handle_delete_resume_success(mock_stdout, mock_input, mock_exists, mock_delete, mock_is_logged_in, mock_get_user):
     """handle_delete_resume should delete when confirmed."""
+    # Mock logged in user
+    mock_is_logged_in.return_value = True
+    mock_get_user.return_value = {'user_name': 'test_user'}
+    
     menus.handle_delete_resume()
-    mock_delete.assert_called_once_with("default_user")
+    mock_delete.assert_called_once_with("test_user")
     assert "Resume deleted successfully" in mock_stdout.getvalue()
 
 
+@patch("account.user_manager.AuthManager.get_current_user")
+@patch("account.user_manager.AuthManager.is_user_logged_in")
 @patch("resume.resume_manager.ResumeManager.get_user_resume", return_value=None)
 @patch("resume.resume_manager.ResumeManager.resume_exists", return_value=True)
 @patch("builtins.input", return_value="")
 @patch("sys.stdout", new_callable=StringIO)
-def test_handle_view_resume_missing_record(mock_stdout, mock_input, mock_exists, mock_get_resume):
+def test_handle_view_resume_missing_record(mock_stdout, mock_input, mock_exists, mock_get_resume, mock_is_logged_in, mock_get_user):
     """Gracefully handle missing resume record."""
+    # Mock logged in user
+    mock_is_logged_in.return_value = True
+    mock_get_user.return_value = {'user_name': 'test_user'}
+    
     menus.handle_view_resume()
     assert "Failed to retrieve resume" in mock_stdout.getvalue()
 
 
+@patch("account.user_manager.AuthManager.get_current_user")
+@patch("account.user_manager.AuthManager.is_user_logged_in")
 @patch("resume.resume_formatter.ResumeFormatter.get_formatted_resume", return_value=None)
 @patch(
     "resume.resume_manager.ResumeManager.get_user_resume",
@@ -287,8 +301,12 @@ def test_handle_view_resume_missing_record(mock_stdout, mock_input, mock_exists,
 @patch("resume.resume_manager.ResumeManager.resume_exists", return_value=True)
 @patch("builtins.input", side_effect=["2", ""])
 @patch("sys.stdout", new_callable=StringIO)
-def test_handle_view_resume_format_failure(mock_stdout, mock_input, mock_exists, mock_get_resume, mock_format_resume):
+def test_handle_view_resume_format_failure(mock_stdout, mock_input, mock_exists, mock_get_resume, mock_format_resume, mock_is_logged_in, mock_get_user):
     """If formatting fails, an error message should be shown."""
+    # Mock logged in user
+    mock_is_logged_in.return_value = True
+    mock_get_user.return_value = {'user_name': 'test_user'}
+    
     menus.handle_view_resume()
     assert "Failed to format resume" in mock_stdout.getvalue()
 

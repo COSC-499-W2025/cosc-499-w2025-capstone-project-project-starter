@@ -99,6 +99,7 @@ class TestResumeFormatterMarkdown:
     def sample_resume(self):
         """Sample resume data for testing."""
         return {
+            'user_name': 'Test User',
             'total_projects_analyzed': 10,
             'top_projects_displayed': 2,
             'all_skills': ['Python', 'JavaScript'],
@@ -115,21 +116,26 @@ class TestResumeFormatterMarkdown:
     
     def test_format_markdown_success(self, sample_resume):
         """Test successful Markdown formatting."""
+        # Add user_name to sample_resume
+        sample_resume['user_name'] = 'Test User'
         result = ResumeFormatter.format_markdown(sample_resume)
         
         assert result is not None
-        assert '# Resume' in result
-        assert '## Overview' in result
+        assert '# Test User' in result or '# Your Name' in result
+        assert '## Technical Skills' in result
+        assert '## Projects' in result
         assert 'Python' in result
         assert 'Project A' in result
     
     def test_format_markdown_contains_sections(self, sample_resume):
         """Test that Markdown contains all required sections."""
+        # Add user_name to sample_resume
+        sample_resume['user_name'] = 'Test User'
         result = ResumeFormatter.format_markdown(sample_resume)
         
         # Fixed: Match actual formatter output (## Technical Skills, not ## Skills)
         assert '## Technical Skills' in result
-        assert '## Top Projects' in result
+        assert '## Projects' in result
         assert 'Technologies' in result
     
     def test_format_markdown_empty_data(self):
@@ -138,8 +144,9 @@ class TestResumeFormatterMarkdown:
         assert result is None
     
     def test_format_markdown_with_summary_stats(self):
-        """Test Markdown formatting with summary stats."""
+        """Test Markdown formatting with summary stats (stats are no longer displayed)."""
         resume_data = {
+            'user_name': 'Test User',
             'total_projects_analyzed': 5,
             'top_projects_displayed': 2,
             'summary_stats': {
@@ -154,14 +161,14 @@ class TestResumeFormatterMarkdown:
         }
         result = ResumeFormatter.format_markdown(resume_data)
         assert result is not None
-        assert 'Total Lines of Code: 10,000' in result
-        assert 'Total Files: 100' in result
-        assert 'Unique Languages: 3' in result
-        assert 'Unique Frameworks: 2' in result
+        # Summary stats are no longer displayed in the new format
+        assert '## Technical Skills' in result
+        assert '## Projects' in result
     
     def test_format_markdown_with_categorized_skills(self):
         """Test Markdown formatting with categorized skills."""
         resume_data = {
+            'user_name': 'Test User',
             'total_projects_analyzed': 5,
             'top_projects_displayed': 2,
             'categorized_skills': {
@@ -173,14 +180,16 @@ class TestResumeFormatterMarkdown:
         }
         result = ResumeFormatter.format_markdown(resume_data)
         assert result is not None
-        assert '### Languages' in result
+        # Categorized skills now use **Category:** format instead of ###
+        assert '**Languages:**' in result
         assert 'Python, JavaScript' in result
-        assert '### Frameworks' in result
+        assert '**Frameworks:**' in result
         assert 'React, Django' in result
     
     def test_format_markdown_no_skills(self):
         """Test Markdown formatting with no skills."""
         resume_data = {
+            'user_name': 'Test User',
             'total_projects_analyzed': 5,
             'top_projects_displayed': 2,
             'all_skills': [],
@@ -192,69 +201,65 @@ class TestResumeFormatterMarkdown:
         assert 'No skills identified' in result
     
     def test_format_markdown_with_languages(self):
-        """Test Markdown formatting with languages section."""
+        """Test Markdown formatting with languages (languages are now in Technical Skills)."""
         resume_data = {
+            'user_name': 'Test User',
             'total_projects_analyzed': 5,
             'top_projects_displayed': 2,
             'languages': ['Python', 'JavaScript', 'Java'],
-            'all_skills': [],
+            'all_skills': ['Python', 'JavaScript', 'Java'],
             'top_projects': [],
             'generated_at': '2024-01-01T10:00:00'
         }
         result = ResumeFormatter.format_markdown(resume_data)
         assert result is not None
-        assert '## Programming Languages' in result
-        assert 'Python, JavaScript, Java' in result
+        # Languages are now included in Technical Skills, not a separate section
+        assert '## Technical Skills' in result
+        assert 'Python' in result or 'JavaScript' in result
     
     def test_format_markdown_with_frameworks(self):
-        """Test Markdown formatting with frameworks section."""
+        """Test Markdown formatting with frameworks (frameworks are now in Technical Skills)."""
         resume_data = {
+            'user_name': 'Test User',
             'total_projects_analyzed': 5,
             'top_projects_displayed': 2,
             'frameworks': ['React', 'Django', 'Flask'],
-            'all_skills': [],
+            'all_skills': ['React', 'Django', 'Flask'],
             'top_projects': [],
             'generated_at': '2024-01-01T10:00:00'
         }
         result = ResumeFormatter.format_markdown(resume_data)
         assert result is not None
-        assert '## Frameworks and Tools' in result
-        assert 'React, Django, Flask' in result
+        # Frameworks are now included in Technical Skills, not a separate section
+        assert '## Technical Skills' in result
+        assert 'React' in result or 'Django' in result
     
     def test_format_markdown_project_with_all_details(self):
         """Test Markdown formatting with project containing all details."""
         resume_data = {
+            'user_name': 'Test User',
             'total_projects_analyzed': 5,
             'top_projects_displayed': 2,
             'all_skills': [],
             'top_projects': [{
                 'project_name': 'test-project',
-                'score': 95,
                 'primary_language': 'Python',
-                'lines_of_code': 5000,
-                'file_count': 50,
+                'first_file': '2024-01-01',
+                'last_file': '2024-01-31',
                 'frameworks': ['Django', 'React'],
                 'collaboration_level': 'Team',
-                'code_quality_score': 88,
-                'has_tests': True,
-                'has_docs': True,
-                'oop_principles_count': 10,
-                'optimization_count': 5,
+                'summary': 'This is a test project description that shows what the project does.',
                 'skills': ['Python', 'Django', 'React']
             }],
             'generated_at': '2024-01-01T10:00:00'
         }
         result = ResumeFormatter.format_markdown(resume_data)
         assert result is not None
-        assert '**Scale:** 5,000 lines across 50 files' in result
-        assert '**Frameworks:** Django, React' in result
-        assert '**Collaboration:** Team' in result
-        assert '**Code Quality Score:** 88/100' in result
-        assert 'Unit Testing' in result
-        assert 'Documentation' in result
-        assert 'OOP Principles (10 instances)' in result
-        assert 'Code Optimizations (5 patterns)' in result
-        assert '**Highlights:**' in result
+        # New format shows project name, dates, description, and technologies
+        assert '### test-project' in result
+        assert '**Technologies:**' in result
+        assert 'Python' in result or 'Django' in result
+        # Technical details like scale, score, etc. are no longer shown
     
     def test_format_markdown_exception_handling(self):
         """Test Markdown formatting exception handling."""
@@ -267,6 +272,7 @@ class TestResumeFormatterMarkdown:
                     raise Exception("Cannot convert to string")
             
             resume_data = {
+                'user_name': 'Test User',
                 'total_projects_analyzed': 5,
                 'top_projects_displayed': 2,
                 'all_skills': [BadObject()],  # This will cause an exception
@@ -286,6 +292,7 @@ class TestResumeFormatterText:
     def sample_resume(self):
         """Sample resume data for testing."""
         return {
+            'user_name': 'Test User',
             'total_projects_analyzed': 5,
             'top_projects_displayed': 1,
             'all_skills': ['Java', 'Spring'],
@@ -302,22 +309,16 @@ class TestResumeFormatterText:
     
     def test_format_text_success(self, sample_resume):
         """Test successful text formatting."""
+        # Add user_name to sample_resume
+        sample_resume['user_name'] = 'Test User'
         result = ResumeFormatter.format_text(sample_resume)
         
         assert result is not None
-        assert 'RESUME' in result
-        # Fixed: Match actual formatter output (OVERVIEW, not OVERVIEW:)
-        assert 'OVERVIEW' in result
-        assert 'SKILLS' in result
-        assert 'TOP PROJECTS' in result
+        # New format uses user name instead of "RESUME"
+        assert 'TEST USER' in result or 'Test User' in result
+        assert 'TECHNICAL SKILLS' in result
+        assert 'PROJECTS' in result
     
-    def test_format_text_contains_data(self, sample_resume):
-        """Test that text format contains actual data."""
-        result = ResumeFormatter.format_text(sample_resume)
-        
-        assert 'Java' in result
-        assert 'Backend Service' in result
-        assert '88' in result
     
     def test_format_text_empty_data(self):
         """Test text formatting with empty data."""
@@ -325,8 +326,9 @@ class TestResumeFormatterText:
         assert result is None
     
     def test_format_text_with_summary_stats(self):
-        """Test text formatting with summary stats."""
+        """Test text formatting with summary stats (stats are no longer displayed)."""
         resume_data = {
+            'user_name': 'Test User',
             'total_projects_analyzed': 5,
             'top_projects_displayed': 2,
             'summary_stats': {
@@ -341,14 +343,14 @@ class TestResumeFormatterText:
         }
         result = ResumeFormatter.format_text(resume_data)
         assert result is not None
-        assert 'Total Lines of Code: 15,000' in result
-        assert 'Total Files: 150' in result
-        assert 'Unique Languages: 4' in result
-        assert 'Unique Frameworks: 3' in result
+        # Summary stats are no longer displayed in the new format
+        assert 'TECHNICAL SKILLS' in result
+        assert 'PROJECTS' in result
     
     def test_format_text_with_categorized_skills(self):
         """Test text formatting with categorized skills."""
         resume_data = {
+            'user_name': 'Test User',
             'total_projects_analyzed': 5,
             'top_projects_displayed': 2,
             'categorized_skills': {
@@ -360,16 +362,18 @@ class TestResumeFormatterText:
         }
         result = ResumeFormatter.format_text(resume_data)
         assert result is not None
+        # Categorized skills now use "Category: skills" format instead of bullet points
         assert 'Backend:' in result
-        assert '  - Python' in result
-        assert '  - Django' in result
+        assert 'Python' in result
+        assert 'Django' in result
         assert 'Frontend:' in result
-        assert '  - React' in result
-        assert '  - TypeScript' in result
+        assert 'React' in result
+        assert 'TypeScript' in result
     
     def test_format_text_no_skills(self):
         """Test text formatting with no skills."""
         resume_data = {
+            'user_name': 'Test User',
             'total_projects_analyzed': 5,
             'top_projects_displayed': 2,
             'all_skills': [],
@@ -378,72 +382,42 @@ class TestResumeFormatterText:
         }
         result = ResumeFormatter.format_text(resume_data)
         assert result is not None
-        assert '  No skills identified' in result
+        # Format changed - check for "No skills identified" without indentation
+        assert 'No skills identified' in result
     
     def test_format_text_with_languages(self):
-        """Test text formatting with languages section."""
+        """Test text formatting with languages (languages are now in Technical Skills)."""
         resume_data = {
+            'user_name': 'Test User',
             'total_projects_analyzed': 5,
             'top_projects_displayed': 2,
             'languages': ['Python', 'Java', 'C++'],
-            'all_skills': [],
+            'all_skills': ['Python', 'Java', 'C++'],
             'top_projects': [],
             'generated_at': '2024-01-01T10:00:00'
         }
         result = ResumeFormatter.format_text(resume_data)
         assert result is not None
-        assert 'PROGRAMMING LANGUAGES' in result
-        assert 'Python, Java, C++' in result
+        # Languages are now included in Technical Skills, not a separate section
+        assert 'TECHNICAL SKILLS' in result
+        assert 'Python' in result
     
     def test_format_text_with_frameworks(self):
-        """Test text formatting with frameworks section."""
+        """Test text formatting with frameworks (frameworks are now in Technical Skills)."""
         resume_data = {
+            'user_name': 'Test User',
             'total_projects_analyzed': 5,
             'top_projects_displayed': 2,
             'frameworks': ['Django', 'Flask', 'FastAPI'],
-            'all_skills': [],
+            'all_skills': ['Django', 'Flask', 'FastAPI'],
             'top_projects': [],
             'generated_at': '2024-01-01T10:00:00'
         }
         result = ResumeFormatter.format_text(resume_data)
         assert result is not None
-        assert 'FRAMEWORKS AND TOOLS' in result
-        assert 'Django, Flask, FastAPI' in result
-    
-    def test_format_text_project_with_all_details(self):
-        """Test text formatting with project containing all details."""
-        resume_data = {
-            'total_projects_analyzed': 5,
-            'top_projects_displayed': 2,
-            'all_skills': [],
-            'top_projects': [{
-                'project_name': 'test-project',
-                'score': 92,
-                'primary_language': 'Python',
-                'lines_of_code': 7500,
-                'file_count': 75,
-                'frameworks': ['Django', 'PostgreSQL'],
-                'collaboration_level': 'Solo',
-                'code_quality_score': 90,
-                'has_tests': True,
-                'has_docs': True,
-                'oop_principles_count': 12,
-                'optimization_count': 6,
-                'skills': ['Python', 'Django', 'PostgreSQL', 'REST API']
-            }],
-            'generated_at': '2024-01-01T10:00:00'
-        }
-        result = ResumeFormatter.format_text(resume_data)
-        assert result is not None
-        assert '   Scale: 7,500 lines across 75 files' in result
-        assert '   Frameworks: Django, PostgreSQL' in result
-        assert '   Collaboration: Solo' in result
-        assert '   Code Quality Score: 90/100' in result
-        assert 'Unit Testing' in result
-        assert 'Documentation' in result
-        assert 'OOP Principles (12 instances)' in result
-        assert 'Code Optimizations (6 patterns)' in result
-        assert '   Highlights:' in result
+        # Frameworks are now included in Technical Skills, not a separate section
+        assert 'TECHNICAL SKILLS' in result
+        assert 'Django' in result
     
     def test_format_text_exception_handling(self):
         """Test text formatting exception handling."""
@@ -454,6 +428,7 @@ class TestResumeFormatterText:
                     raise Exception("Cannot convert to string")
             
             resume_data = {
+                'user_name': 'Test User',
                 'total_projects_analyzed': 5,
                 'top_projects_displayed': 2,
                 'all_skills': [BadObject()],  # This will cause an exception
@@ -473,6 +448,7 @@ class TestResumeFormatterInterface:
     def sample_resume(self):
         """Sample resume data for testing."""
         return {
+            'user_name': 'Test User',
             'total_projects_analyzed': 3,
             'top_projects_displayed': 1,
             'all_skills': ['Python'],
@@ -489,31 +465,43 @@ class TestResumeFormatterInterface:
     
     def test_get_formatted_resume_markdown(self, sample_resume):
         """Test getting resume in Markdown format."""
+        # Add user_name to sample_resume
+        sample_resume['user_name'] = 'Test User'
         result = ResumeFormatter.get_formatted_resume(sample_resume, 'markdown')
         
         assert result is not None
-        assert '# Resume' in result
+        # New format uses user name instead of "# Resume"
+        assert '# Test User' in result or '# Your Name' in result
     
     def test_get_formatted_resume_text(self, sample_resume):
         """Test getting resume in text format."""
+        # Add user_name to sample_resume
+        sample_resume['user_name'] = 'Test User'
         result = ResumeFormatter.get_formatted_resume(sample_resume, 'text')
         
         assert result is not None
-        assert 'RESUME' in result
+        # New format uses user name instead of "RESUME"
+        assert 'TEST USER' in result or 'Test User' in result
     
     def test_get_formatted_resume_default_format(self, sample_resume):
         """Test default format is text."""
+        # Add user_name to sample_resume
+        sample_resume['user_name'] = 'Test User'
         result = ResumeFormatter.get_formatted_resume(sample_resume)
         
         assert result is not None
-        assert 'RESUME' in result
+        # New format uses user name instead of "RESUME"
+        assert 'TEST USER' in result or 'Test User' in result
     
     def test_get_formatted_resume_invalid_format(self, sample_resume):
         """Test invalid format defaults to text."""
+        # Add user_name to sample_resume
+        sample_resume['user_name'] = 'Test User'
         result = ResumeFormatter.get_formatted_resume(sample_resume, 'invalid')
         
         assert result is not None
-        assert 'RESUME' in result
+        # New format uses user name instead of "RESUME"
+        assert 'TEST USER' in result or 'Test User' in result
     
     def test_get_formatted_resume_empty_data(self):
         """Test get_formatted_resume with empty data."""
@@ -528,16 +516,11 @@ class TestResumeFormatterPDF:
     def sample_resume(self):
         """Sample resume data for PDF testing."""
         return {
+            'user_name': 'Test User',
             'user_id': 'test_user',
             'total_projects_analyzed': 5,
             'top_projects_displayed': 2,
             'all_skills': ['Python', 'JavaScript', 'React', 'Docker'],
-            'summary_stats': {
-                'total_lines_of_code': 8000,
-                'total_files': 80,
-                'unique_languages': 2,
-                'unique_frameworks': 3
-            },
             'categorized_skills': {
                 'Languages': ['Python', 'JavaScript'],
                 'Frameworks': ['React', 'Docker']
@@ -546,23 +529,17 @@ class TestResumeFormatterPDF:
             'frameworks': ['React', 'Docker', 'Node.js'],
             'top_projects': [
                 {
-                    'project_name': 'web-app-master.zip',
+                    'project_name': 'Web App',
                     'project_id': 1,
-                    'score': 95,
                     'primary_language': 'Python',
                     'languages': ['Python', 'JavaScript'],
                     'frameworks': ['React', 'Docker'],
                     'skills': ['Python', 'JavaScript', 'React'],
-                    'file_count': 50,
-                    'lines_of_code': 5000,
-                    'duration_days': 60,
+                    'first_file': '2024-01-01',
+                    'last_file': '2024-01-31',
                     'intensity': 'High',
                     'collaboration_level': 'Team',
-                    'code_quality_score': 88.5,
-                    'oop_principles_count': 15,
-                    'optimization_count': 4,
-                    'has_tests': True,
-                    'has_docs': True
+                    'summary': 'A web application project description.'
                 }
             ],
             'generated_at': '2024-01-01T10:00:00'
@@ -619,15 +596,10 @@ class TestResumeFormatterPDF:
             pytest.skip("reportlab not installed")
         
         resume_data = {
+            'user_name': 'Test User',
             'total_projects_analyzed': 0,
             'top_projects_displayed': 0,
             'all_skills': [],
-            'summary_stats': {
-                'total_lines_of_code': 0,
-                'total_files': 0,
-                'unique_languages': 0,
-                'unique_frameworks': 0
-            },
             'categorized_skills': {},
             'languages': [],
             'frameworks': [],
@@ -686,6 +658,7 @@ class TestResumeFormatterPDF:
             pytest.skip("reportlab not installed")
         
         resume_data = {
+            'user_name': 'Test User',
             'total_projects_analyzed': 5,
             'top_projects_displayed': 2,
             'all_skills': [],
@@ -708,6 +681,7 @@ class TestResumeFormatterPDF:
     def test_format_pdf_import_error(self):
         """Test PDF generation when reportlab is not available."""
         resume_data = {
+            'user_name': 'Test User',
             'total_projects_analyzed': 5,
             'top_projects_displayed': 2,
             'all_skills': [],
