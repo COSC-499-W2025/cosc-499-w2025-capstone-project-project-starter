@@ -1,3 +1,60 @@
+# Personal Log of Cole Powrie — Week 1 Term 2 (BONUS)
+
+**Applicable Date Range:**  
+**Monday, December 7th to Sunday, January 12th**
+
+### Peer Evaluation Screenshot
+![Peer Evaluation](imgs/ColePowrieW1T2)
+
+## This Milestone
+- Focused on **database integration troubleshooting**, resolving critical issues that prevented skills analysis results from being stored in PostgreSQL.
+- Fixed **JSON serialization errors** that were breaking the entire storage pipeline.
+- Implemented **automated database setup**, simplifying configuration for team members.
+- Created **testing procedures** to verify the full pipeline works end-to-end.
+
+## Tasks
+- **Fixed Database Connection Issues:**
+  - Updated `connect.py` with retry logic for Docker (`db` host) and local (`localhost`) connections.
+  - Resolved password mismatches between Docker Compose and database connection code.
+  - Added connection timeout handling and retry mechanisms.
+
+- **Solved JSON Serialization Errors:**
+  - Fixed `Object of type ZipInfo is not JSON serializable` error.
+  - Created `make_metadata_serializable()` helper function for proper data conversion.
+  - Ensured all metadata stored in PostgreSQL is JSON-serializable.
+
+- **Implemented Database Integration:**
+  - Created `skills_integration.py` to bridge ML / Ollama analysis with PostgreSQL.
+  - Added functions to store both ML and LLM analysis results.
+  - Implemented skill extraction logic for the `detailed_skills` table.
+
+- **Simplified Database Schema:**
+  - Removed unused tables (`users`, `category`, `artifacts`).
+  - Retained only essential tables: `skills_analysis` and `detailed_skills`.
+  - Updated `create_tables.py` for minimal and idempotent schema setup.
+
+- **Improved Code Structure:**
+  - Fixed import paths in `main.py` to work correctly from the `src/` directory.
+  - Added debug logging for easier troubleshooting.
+  - Created pull request documentation for team integration.
+
+## Progress Over the Last Two Weeks
+- Restored full database functionality — skills analysis now properly persists in PostgreSQL.
+- Verified the complete pipeline: ZIP → ML analysis → Database → PDF report.
+- Tested multiple configurations, confirming functionality in both Docker and local development environments.
+- Created clear team setup instructions using a simple four-command workflow.
+- Documented all changes thoroughly in a detailed pull request.
+
+## In-Progress Tasks
+- Final testing on team member machines.
+- Documentation updates for new setup and troubleshooting procedures.
+- Monitoring for edge cases during production use.
+
+## Next Cycle Activities
+- Performance optimization of database queries.
+- Implementing data export functionality.
+
+
 # Personal Log of Cole Powrie — Week 14
 
 **Applicable Date Range:**  
