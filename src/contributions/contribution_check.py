@@ -1,7 +1,6 @@
 import os
-import zipfile
 from pathlib import Path
-#from git import Repo #this path is throwing an error
+from git import Repo  # GitPython
 
 
 def find_git_repos(directory):
@@ -12,12 +11,13 @@ def find_git_repos(directory):
     directory = Path(directory)
     git_repos = []
 
-    for root, dirs, files in os.walk(directory):
+    for root, dirs, _files in os.walk(directory):
         root_path = Path(root)
-        if ".git" in dirs:     # A Git repo exists here
+        if ".git" in dirs:
             git_repos.append(root_path)
 
     return git_repos
+
 
 def get_commit_contributions(repo_path):
     """

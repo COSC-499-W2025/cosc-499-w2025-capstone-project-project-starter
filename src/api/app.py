@@ -2,6 +2,9 @@ from fastapi import FastAPI, UploadFile, File, HTTPException
 from pydantic import BaseModel
 from sqlalchemy import text
 from src.db.session import get_engine
+import os
+from fastapi import Form
+from src.api.ingest import ingest_zip_to_db, save_upload_to_temp
 
 app = FastAPI(title="Artifact Miner API", version="0.1.0")
 
@@ -60,13 +63,49 @@ def post_privacy_consent(payload: PrivacyConsentIn):
 
 
 @app.post("/projects/upload")
-async def upload_project(file: UploadFile = File(...)):
-    # Placeholder: ingestion will be implemented next (zip parse -> projects/snapshots/file_blobs)
-    # For now, ensure the endpoint exists per Milestone 2.
+async def upload_project(
+    file: UploadFile = File(...),
+    user_id: str | None = Form(default=None),
+    portfolio_id: str | None = Form(default=None),
+    project_name: str | None = Form(default=None),
+    snapshot_label: str | None = Form(default=None),
+):
     if not file.filename or not file.filename.lower().endswith(".zip"):
         raise HTTPException(status_code=400, detail="Expected a .zip upload")
-    _ = await file.read()
-    return {"accepted": True, "filename": file.filename}
+
+    upload_bytes = await file.read()
+    if not upload_bytes:
+        raise HTTPException(status_code=400, detail="Empty upload")
+
+    tmp_zip = save_upload_to_temp(upload_bytes)
+    try:
+        blobstore_root = os.environ.get("ARTIFACT_MINER_BLOBSTORE", "/blobstore")
+        res = ingest_zip_to_db(
+            engine=get_engine(),
+            zip_path=tmp_zip,
+            zip_filename=file.filename,
+            blobstore_root=blobstore_root,
+            user_id=user_id,
+            portfolio_id=portfolio_id,
+            project_name=project_name,
+            snapshot_label=snapshot_label,
+        )
+        return {
+            "user_id": res.user_id,
+            "portfolio_id": res.portfolio_id,
+            "created": res.created_projects,
+            "skipped": res.skipped_projects,
+        }
+    except PermissionError as e:
+        raise HTTPException(status_code=403, detail=str(e))
+    except zipfile.BadZipFile:
+        raise HTTPException(status_code=400, detail="Invalid zip file")
+    finally:
+        try:
+            os.remove(tmp_zip)
+        except OSError:
+            pass
+
 
 
 @app.get("/projects")
