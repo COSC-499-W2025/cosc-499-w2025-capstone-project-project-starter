@@ -6,6 +6,8 @@ import tempfile
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Iterable, List, Tuple
+from datetime import datetime
+from typing import Optional
 
 from sqlalchemy import text
 from sqlalchemy.engine import Engine
@@ -17,6 +19,7 @@ class SnapshotFileRow:
     file_sha256: str
     stored_path: str
     size_bytes: int
+    last_modified_ts: Optional[datetime]
 
 
 def fetch_snapshot_files(engine: Engine, snapshot_id: str) -> List[SnapshotFileRow]:
@@ -24,7 +27,7 @@ def fetch_snapshot_files(engine: Engine, snapshot_id: str) -> List[SnapshotFileR
         rows = conn.execute(
             text(
                 """
-                SELECT sf.relative_path, sf.file_sha256, fb.stored_path, sf.size_bytes
+                SELECT sf.relative_path, sf.file_sha256, fb.stored_path, sf.size_bytes, sf.last_modified_ts
                 FROM snapshot_files sf
                 JOIN file_blobs fb ON fb.sha256 = sf.file_sha256
                 WHERE sf.snapshot_id = :sid
@@ -40,6 +43,7 @@ def fetch_snapshot_files(engine: Engine, snapshot_id: str) -> List[SnapshotFileR
             file_sha256=r["file_sha256"],
             stored_path=r["stored_path"],
             size_bytes=int(r["size_bytes"]),
+            last_modified_ts=r["last_modified_ts"],
         )
         for r in rows
     ]

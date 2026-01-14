@@ -16,6 +16,7 @@ COPY requirements/worker.txt /app/requirements/worker.txt
 # worker.txt references api.txt, so copy both
 COPY requirements/api.txt /app/requirements/api.txt
 RUN pip install --no-cache-dir -r /app/requirements/worker.txt
+RUN pip install --no-cache-dir --index-url https://download.pytorch.org/whl/cpu torch
 
 COPY alembic.ini /app/alembic.ini
 COPY src/db /app/src/db

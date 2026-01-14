@@ -5,6 +5,7 @@ import os
 import posixpath
 import tempfile
 import zipfile
+from datetime import datetime, timezone
 from dataclasses import dataclass
 from typing import Dict, List, Optional, Tuple
 
@@ -220,8 +221,9 @@ def ingest_zip_to_db(
                         """
                         INSERT INTO analyses (snapshot_id, analysis_type, status)
                         VALUES
-                          (:sid, 'parser', 'pending'),
-                          (:sid, 'git_metrics', 'pending')
+                        (:sid, 'parser', 'pending'),
+                        (:sid, 'local_ml', 'pending'),
+                        (:sid, 'git_metrics', 'pending')
                         """
                     ),
                     {"sid": snap_id},
@@ -264,15 +266,16 @@ def ingest_zip_to_db(
                     )
 
                     # Insert snapshot mapping
+                    dt = datetime(*info.date_time, tzinfo=timezone.utc)
                     conn.execute(
                         text(
                             """
                             INSERT INTO snapshot_files (snapshot_id, relative_path, file_sha256, last_modified_ts, file_mode, size_bytes)
-                            VALUES (:sid, :rel, :sha, NULL, NULL, :size)
+                            VALUES (:sid, :rel, :sha, :mtime, NULL, :size)
                             ON CONFLICT (snapshot_id, relative_path) DO NOTHING
                             """
                         ),
-                        {"sid": snap_id, "rel": rel_in_project, "sha": sha, "size": int(info.file_size)},
+                        {"sid": snap_id, "rel": rel_in_project, "sha": sha, "mtime": dt, "size": int(info.file_size)},
                     )
 
                 created_projects.append(

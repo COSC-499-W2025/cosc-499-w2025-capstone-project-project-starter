@@ -7,8 +7,7 @@ from typing import Any, Dict, Optional
 
 from sqlalchemy import text
 from src.db.session import get_engine
-from src.worker.executors import run_parser, run_git_metrics
-
+from src.worker.executors import run_parser, run_git_metrics, run_local_ml
 
 POLL_INTERVAL_SECS = float(os.environ.get("WORKER_POLL_INTERVAL_SECS", "2.0"))
 BATCH_SIZE = int(os.environ.get("WORKER_BATCH_SIZE", "5"))
@@ -89,6 +88,9 @@ def main():
                 _finish(engine, analysis_id, status="complete", output=out)
             elif analysis_type == "git_metrics":
                 out = run_git_metrics(engine, snapshot_id)
+                _finish(engine, analysis_id, status="complete", output=out)
+            elif analysis_type == "local_ml":
+                out = run_local_ml(engine, analysis_id, snapshot_id)
                 _finish(engine, analysis_id, status="complete", output=out)
             else:
                 _fail(engine, analysis_id, f"unknown analysis_type: {analysis_type}")

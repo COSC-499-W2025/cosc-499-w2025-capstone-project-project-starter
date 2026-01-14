@@ -5,6 +5,7 @@ from src.db.session import get_engine
 import os
 from fastapi import Form
 from src.api.ingest import ingest_zip_to_db, save_upload_to_temp
+import zipfile
 
 app = FastAPI(title="Artifact Miner API", version="0.1.0")
 
