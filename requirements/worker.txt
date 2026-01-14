@@ -1,0 +1,14 @@
+-r api.txt
+
+# ingestion + parsing + reporting + git metrics
+GitPython==3.1.43
+reportlab>=3.6
+python-magic==0.4.27; sys_platform != 'win32'
+python-magic-bin==0.4.13; sys_platform == 'win32'
+requests>=2.31.0
+
+# ML inference stack (keep lean; add torch/transformers only if truly required)
+numpy>=1.26
+pandas>=2.2
+scikit-learn>=1.4
+joblib>=1.4

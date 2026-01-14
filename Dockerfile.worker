@@ -1,0 +1,30 @@
+FROM python:3.11-slim
+
+WORKDIR /app
+
+ENV PYTHONDONTWRITEBYTECODE=1
+ENV PYTHONUNBUFFERED=1
+
+# worker needs libmagic + git for GitPython (and may need unzip tooling later)
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    ca-certificates \
+    libmagic1 \
+    git \
+  && rm -rf /var/lib/apt/lists/*
+
+COPY requirements/worker.txt /app/requirements/worker.txt
+# worker.txt references api.txt, so copy both
+COPY requirements/api.txt /app/requirements/api.txt
+RUN pip install --no-cache-dir -r /app/requirements/worker.txt
+
+COPY alembic.ini /app/alembic.ini
+COPY src/db /app/src/db
+COPY src/codeparser /app/src/codeparser
+COPY src/contributions /app/src/contributions
+COPY src/ml /app/src/ml
+COPY src/worker /app/src/worker
+
+ENV ARTIFACT_MINER_BLOBSTORE=/blobstore
+VOLUME ["/blobstore"]
+
+CMD ["python", "-m", "src.worker.poller"]
