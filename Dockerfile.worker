@@ -5,12 +5,33 @@ WORKDIR /app
 ENV PYTHONDONTWRITEBYTECODE=1
 ENV PYTHONUNBUFFERED=1
 
-# worker needs libmagic + git for GitPython (and may need unzip tooling later)
+# worker needs libmagic + git for GitPython; also install curl + zstd for Ollama install
 RUN apt-get update && apt-get install -y --no-install-recommends \
     ca-certificates \
     libmagic1 \
     git \
+    curl \
+    zstd \
   && rm -rf /var/lib/apt/lists/*
+
+# Install Ollama CLI (CPU mode by default inside container)
+# Uses official Linux download artifacts (amd64/arm64).
+ARG TARGETARCH
+RUN set -eux; \
+    arch="${TARGETARCH:-}"; \
+    if [ -z "$arch" ]; then arch="$(dpkg --print-architecture)"; fi; \
+    case "$arch" in \
+      amd64|x86_64) ollama_arch="amd64" ;; \
+      arm64|aarch64) ollama_arch="arm64" ;; \
+      *) echo "Unsupported arch for Ollama: $arch" >&2; exit 1 ;; \
+    esac; \
+    curl -fsSL "https://ollama.com/download/ollama-linux-${ollama_arch}.tar.zst" \
+      | zstd -d \
+      | tar -xf - -C /usr
+
+# Persist model downloads outside the container layer (optional but strongly recommended)
+ENV OLLAMA_MODELS=/ollama
+VOLUME ["/ollama"]
 
 COPY requirements/worker.txt /app/requirements/worker.txt
 # worker.txt references api.txt, so copy both
@@ -24,6 +45,7 @@ COPY src/codeparser /app/src/codeparser
 COPY src/contributions /app/src/contributions
 COPY src/ml /app/src/ml
 COPY src/worker /app/src/worker
+COPY src/validator /app/src/validator
 
 ENV ARTIFACT_MINER_BLOBSTORE=/blobstore
 VOLUME ["/blobstore"]

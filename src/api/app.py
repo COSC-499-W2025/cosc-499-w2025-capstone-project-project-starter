@@ -1,13 +1,14 @@
-from fastapi import FastAPI, UploadFile, File, HTTPException
+from fastapi import FastAPI, UploadFile, File, HTTPException, Form, Query
 from pydantic import BaseModel
 from sqlalchemy import text
-from src.db.session import get_engine
+
 import os
-from fastapi import Form
+
+from src.db.session import get_engine
 from src.api.ingest import ingest_zip_to_db, save_upload_to_temp
-import zipfile
-from fastapi import Query
 from src.api.report import build_project_report
+from src.db.consents import get_snapshot_owner_user_id, is_external_services_allowed
+
 
 app = FastAPI(title="Artifact Miner API", version="0.1.0")
 
@@ -31,13 +32,11 @@ def health():
 def post_privacy_consent(payload: PrivacyConsentIn):
     engine = get_engine()
     with engine.begin() as conn:
-        # Ensure a user exists (single-user default if none provided)
         if payload.user_id is None:
             user_id = conn.execute(text("INSERT INTO users DEFAULT VALUES RETURNING id")).scalar_one()
         else:
             user_id = payload.user_id
 
-        # Upsert consent (simple insert; upgrades can coalesce by (user_id, consent_type))
         conn.execute(
             text(
                 """
@@ -50,7 +49,6 @@ def post_privacy_consent(payload: PrivacyConsentIn):
             {"user_id": user_id, "ctype": payload.consent_type, "granted": payload.granted, "version": payload.version},
         )
 
-        # Ensure user_config exists
         conn.execute(
             text(
                 """
@@ -99,83 +97,12 @@ async def upload_project(
             "created": res.created_projects,
             "skipped": res.skipped_projects,
         }
-    except PermissionError as e:
-        raise HTTPException(status_code=403, detail=str(e))
-    except zipfile.BadZipFile:
-        raise HTTPException(status_code=400, detail="Invalid zip file")
     finally:
         try:
-            os.remove(tmp_zip)
-        except OSError:
+            os.unlink(tmp_zip)
+        except Exception:
             pass
 
-
-
-@app.get("/projects")
-def list_projects():
-    engine = get_engine()
-    with engine.connect() as conn:
-        rows = conn.execute(text("SELECT id, name, project_type, collaboration_type, created_at FROM projects ORDER BY created_at ASC")).mappings().all()
-    return {"projects": list(rows)}
-
-
-@app.get("/projects/{project_id}")
-def get_project(project_id: str):
-    engine = get_engine()
-    with engine.connect() as conn:
-        row = conn.execute(text("SELECT * FROM projects WHERE id = :id"), {"id": project_id}).mappings().first()
-        if not row:
-            raise HTTPException(status_code=404, detail="Project not found")
-    return dict(row)
-
-
-@app.get("/skills")
-def list_skills():
-    engine = get_engine()
-    with engine.connect() as conn:
-        rows = conn.execute(text("SELECT skill_name, category FROM skills ORDER BY skill_name ASC")).mappings().all()
-    return {"skills": list(rows)}
-
-
-@app.get("/resume/{resume_id}")
-def get_resume(resume_id: str):
-    engine = get_engine()
-    with engine.connect() as conn:
-        row = conn.execute(text("SELECT id, project_id, content_json, updated_at FROM resume_items WHERE id = :id"), {"id": resume_id}).mappings().first()
-        if not row:
-            raise HTTPException(status_code=404, detail="Resume item not found")
-    return dict(row)
-
-
-@app.post("/resume/generate")
-def generate_resume():
-    # Placeholder
-    return {"accepted": True}
-
-
-@app.post("/resume/{resume_id}/edit")
-def edit_resume(resume_id: str):
-    return {"accepted": True}
-
-
-@app.get("/portfolio/{portfolio_id}")
-def get_portfolio(portfolio_id: str):
-    engine = get_engine()
-    with engine.connect() as conn:
-        row = conn.execute(text("SELECT id, user_id, name, created_at FROM portfolios WHERE id = :id"), {"id": portfolio_id}).mappings().first()
-        if not row:
-            raise HTTPException(status_code=404, detail="Portfolio not found")
-    return dict(row)
-
-
-@app.post("/portfolio/generate")
-def generate_portfolio():
-    return {"accepted": True}
-
-
-@app.post("/portfolio/{portfolio_id}/edit")
-def edit_portfolio(portfolio_id: str):
-    return {"accepted": True}
 
 @app.get("/snapshots/{snapshot_id}/analyses")
 def list_snapshot_analyses(snapshot_id: str):
@@ -203,12 +130,8 @@ def list_snapshot_analyses(snapshot_id: str):
 
 @app.get("/snapshots/{snapshot_id}/skills")
 def list_snapshot_skills(snapshot_id: str, limit: int = Query(default=20, ge=1, le=200)):
-    """
-    Returns skills detected for a snapshot, based on the completed local_ml analysis.
-    """
     engine = get_engine()
     with engine.connect() as conn:
-        # Find the local_ml analysis for this snapshot
         aid = conn.execute(
             text(
                 """
@@ -244,6 +167,158 @@ def list_snapshot_skills(snapshot_id: str, limit: int = Query(default=20, ge=1, 
 
     return {"snapshot_id": snapshot_id, "analysis_id": str(aid), "skills": [dict(r) for r in rows]}
 
+
+@app.post("/snapshots/{snapshot_id}/external-analysis")
+def request_external_analysis(snapshot_id: str):
+    """
+    Triggers external analysis if and only if external_services consent is granted
+    for the owning user of the snapshot.
+
+    If not granted, this endpoint returns/ensures the local ML alternative.
+    """
+    engine = get_engine()
+    with engine.begin() as conn:
+        uid = get_snapshot_owner_user_id(conn, snapshot_id)
+        if not uid:
+            raise HTTPException(status_code=404, detail="Snapshot not found")
+
+        allowed = is_external_services_allowed(conn, str(uid))
+
+        if not allowed:
+            # Alternative analysis: local ML.
+            # If a local_ml job exists, return its status; else enqueue it.
+            row = conn.execute(
+                text(
+                    """
+                    SELECT id, status
+                    FROM analyses
+                    WHERE snapshot_id = :sid AND analysis_type = 'local_ml'
+                    ORDER BY created_at DESC
+                    LIMIT 1
+                    """
+                ),
+                {"sid": snapshot_id},
+            ).mappings().first()
+
+            if not row:
+                aid = conn.execute(
+                    text(
+                        """
+                        INSERT INTO analyses (snapshot_id, analysis_type, status)
+                        VALUES (:sid, 'local_ml', 'pending')
+                        RETURNING id
+                        """
+                    ),
+                    {"sid": snapshot_id},
+                ).scalar_one()
+                return {
+                    "snapshot_id": snapshot_id,
+                    "external_allowed": False,
+                    "used": "local_ml",
+                    "analysis_id": str(aid),
+                    "status": "pending",
+                }
+
+            return {
+                "snapshot_id": snapshot_id,
+                "external_allowed": False,
+                "used": "local_ml",
+                "analysis_id": str(row["id"]),
+                "status": row["status"],
+            }
+
+        # Consent granted: ensure external_llm analysis exists (enqueue if missing).
+        row = conn.execute(
+            text(
+                """
+                SELECT id, status
+                FROM analyses
+                WHERE snapshot_id = :sid AND analysis_type = 'external_llm'
+                ORDER BY created_at DESC
+                LIMIT 1
+                """
+            ),
+            {"sid": snapshot_id},
+        ).mappings().first()
+
+        if row:
+            return {
+                "snapshot_id": snapshot_id,
+                "external_allowed": True,
+                "used": "external_llm",
+                "analysis_id": str(row["id"]),
+                "status": row["status"],
+            }
+
+        aid = conn.execute(
+            text(
+                """
+                INSERT INTO analyses (snapshot_id, analysis_type, status)
+                VALUES (:sid, 'external_llm', 'pending')
+                RETURNING id
+                """
+            ),
+            {"sid": snapshot_id},
+        ).scalar_one()
+
+        return {
+            "snapshot_id": snapshot_id,
+            "external_allowed": True,
+            "used": "external_llm",
+            "analysis_id": str(aid),
+            "status": "pending",
+        }
+
+
+@app.get("/snapshots/{snapshot_id}/external-analysis")
+def get_external_analysis(snapshot_id: str):
+    """
+    Returns the latest external_llm analysis output if complete.
+    If consent is not granted, returns the latest local_ml analysis output if complete.
+    """
+    engine = get_engine()
+    with engine.connect() as conn:
+        uid = get_snapshot_owner_user_id(conn, snapshot_id)
+        if not uid:
+            raise HTTPException(status_code=404, detail="Snapshot not found")
+
+        allowed = is_external_services_allowed(conn, str(uid))
+
+        if allowed:
+            row = conn.execute(
+                text(
+                    """
+                    SELECT id, status, output_json
+                    FROM analyses
+                    WHERE snapshot_id = :sid AND analysis_type = 'external_llm'
+                    ORDER BY completed_at DESC NULLS LAST, created_at DESC
+                    LIMIT 1
+                    """
+                ),
+                {"sid": snapshot_id},
+            ).mappings().first()
+            if not row:
+                return {"snapshot_id": snapshot_id, "external_allowed": True, "analysis": None}
+            return {"snapshot_id": snapshot_id, "external_allowed": True, "analysis": dict(row)}
+
+        # Fallback: local_ml
+        row = conn.execute(
+            text(
+                """
+                SELECT id, status, output_json
+                FROM analyses
+                WHERE snapshot_id = :sid AND analysis_type = 'local_ml'
+                ORDER BY completed_at DESC NULLS LAST, created_at DESC
+                LIMIT 1
+                """
+            ),
+            {"sid": snapshot_id},
+        ).mappings().first()
+        if not row:
+            return {"snapshot_id": snapshot_id, "external_allowed": False, "analysis": None}
+        return {"snapshot_id": snapshot_id, "external_allowed": False, "analysis": dict(row)}
+
+
 @app.get("/projects/{project_id}/report")
 def get_project_report(
     project_id: str,
@@ -261,3 +336,37 @@ def get_project_report(
         return report
     except KeyError:
         raise HTTPException(status_code=404, detail="Project not found")
+
+
+# Placeholders for milestone-2 endpoints
+@app.post("/resume/generate")
+def generate_resume():
+    return {"accepted": True}
+
+
+@app.post("/resume/{resume_id}/edit")
+def edit_resume(resume_id: str):
+    return {"accepted": True}
+
+
+@app.get("/portfolio/{portfolio_id}")
+def get_portfolio(portfolio_id: str):
+    engine = get_engine()
+    with engine.connect() as conn:
+        row = conn.execute(
+            text("SELECT id, user_id, name, created_at FROM portfolios WHERE id = :id"),
+            {"id": portfolio_id},
+        ).mappings().first()
+        if not row:
+            raise HTTPException(status_code=404, detail="Portfolio not found")
+    return dict(row)
+
+
+@app.post("/portfolio/generate")
+def generate_portfolio():
+    return {"accepted": True}
+
+
+@app.post("/portfolio/{portfolio_id}/edit")
+def edit_portfolio(portfolio_id: str):
+    return {"accepted": True}

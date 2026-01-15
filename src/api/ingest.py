@@ -5,12 +5,13 @@ import os
 import posixpath
 import tempfile
 import zipfile
-from datetime import datetime, timezone
 from dataclasses import dataclass
 from typing import Dict, List, Optional, Tuple
 
 from sqlalchemy import text
 from sqlalchemy.engine import Engine
+
+from src.db.consents import latest_consent_granted
 
 
 @dataclass(frozen=True)
@@ -30,10 +31,6 @@ def _sha256_file(path: str) -> str:
 
 
 def _safe_zip_relpath(name: str) -> Optional[str]:
-    """
-    Return a normalized POSIX relative path, or None if the ZIP entry is unsafe.
-    Rejects absolute paths and any traversal (..).
-    """
     name = name.replace("\\", "/")
     name = posixpath.normpath(name)
 
@@ -53,7 +50,6 @@ def _ensure_user_and_portfolio(conn, user_id: Optional[str], portfolio_id: Optio
     if user_id is None:
         user_id = str(conn.execute(text("INSERT INTO users DEFAULT VALUES RETURNING id")).scalar_one())
 
-    # Ensure config row exists
     conn.execute(
         text(
             """
@@ -66,7 +62,6 @@ def _ensure_user_and_portfolio(conn, user_id: Optional[str], portfolio_id: Optio
     )
 
     if portfolio_id is None:
-        # Use/create a default portfolio named "default" for this user
         row = conn.execute(
             text("SELECT id FROM portfolios WHERE user_id = :user_id AND name = 'default' ORDER BY created_at ASC LIMIT 1"),
             {"user_id": user_id},
@@ -85,7 +80,6 @@ def _ensure_user_and_portfolio(conn, user_id: Optional[str], portfolio_id: Optio
 
 
 def _require_data_access_consent(conn, user_id: str) -> None:
-    # Latest consent state for data_access; if absent or not granted, reject.
     granted = conn.execute(
         text(
             """
@@ -102,6 +96,14 @@ def _require_data_access_consent(conn, user_id: str) -> None:
         raise PermissionError("data_access consent not granted")
 
 
+def save_upload_to_temp(upload_bytes: bytes) -> str:
+    fd, path = tempfile.mkstemp(prefix="artifactminer-", suffix=".zip")
+    os.close(fd)
+    with open(path, "wb") as f:
+        f.write(upload_bytes)
+    return path
+
+
 def ingest_zip_to_db(
     *,
     engine: Engine,
@@ -113,16 +115,6 @@ def ingest_zip_to_db(
     project_name: Optional[str] = None,
     snapshot_label: Optional[str] = None,
 ) -> IngestResult:
-    """
-    Ingest a ZIP into:
-      - projects (top-level dirs become projects unless project_name forces single project)
-      - snapshots (one per project per unique zip hash)
-      - file_blobs (dedup by sha256)
-      - snapshot_files (path mapping per snapshot)
-      - analyses (create pending jobs: parser, git_metrics)
-
-    Returns created vs skipped (already ingested) per project.
-    """
     zip_sha = _sha256_file(zip_path)
 
     os.makedirs(blobstore_root, exist_ok=True)
@@ -134,8 +126,9 @@ def ingest_zip_to_db(
         user_id2, portfolio_id2 = _ensure_user_and_portfolio(conn, user_id, portfolio_id)
         _require_data_access_consent(conn, user_id2)
 
+        external_allowed_at_ingest = latest_consent_granted(conn, user_id2, "external_services") is True
+
         with zipfile.ZipFile(zip_path, "r") as zf:
-            # Collect safe file entries
             entries: List[Tuple[str, zipfile.ZipInfo]] = []
             for info in zf.infolist():
                 if info.is_dir():
@@ -145,8 +138,6 @@ def ingest_zip_to_db(
                     continue
                 entries.append((safe, info))
 
-            # Decide project grouping
-            # If project_name is provided, force all files into a single project.
             project_to_files: Dict[str, List[Tuple[str, zipfile.ZipInfo]]] = {}
             if project_name:
                 project_to_files[project_name] = entries
@@ -156,10 +147,9 @@ def ingest_zip_to_db(
                     top = parts[0] if len(parts) > 1 else "__root__"
                     project_to_files.setdefault(top, []).append((rel, info))
 
-            # Create projects + snapshots and ingest file blobs
             for proj_key, files in project_to_files.items():
                 proj_display = proj_key if proj_key != "__root__" else (project_name or zip_filename)
-                # Find or create project (name scoped to portfolio)
+
                 proj_id = conn.execute(
                     text(
                         """
@@ -185,7 +175,6 @@ def ingest_zip_to_db(
 
                 proj_id = str(proj_id)
 
-                # Snapshot uniqueness: (project_id, source_zip_sha256)
                 snap_id = conn.execute(
                     text(
                         """
@@ -215,30 +204,42 @@ def ingest_zip_to_db(
                 ).scalar_one()
                 snap_id = str(snap_id)
 
-                # Create pending analyses (worker will execute later)
-                conn.execute(
-                    text(
-                        """
-                        INSERT INTO analyses (snapshot_id, analysis_type, status)
-                        VALUES
-                        (:sid, 'parser', 'pending'),
-                        (:sid, 'local_ml', 'pending'),
-                        (:sid, 'git_metrics', 'pending')
-                        """
-                    ),
-                    {"sid": snap_id},
-                )
+                # Always queue local analyses; queue external only if consent already granted.
+                if external_allowed_at_ingest:
+                    conn.execute(
+                        text(
+                            """
+                            INSERT INTO analyses (snapshot_id, analysis_type, status)
+                            VALUES
+                              (:sid, 'parser', 'pending'),
+                              (:sid, 'local_ml', 'pending'),
+                              (:sid, 'git_metrics', 'pending'),
+                              (:sid, 'external_llm', 'pending')
+                            """
+                        ),
+                        {"sid": snap_id},
+                    )
+                else:
+                    conn.execute(
+                        text(
+                            """
+                            INSERT INTO analyses (snapshot_id, analysis_type, status)
+                            VALUES
+                              (:sid, 'parser', 'pending'),
+                              (:sid, 'local_ml', 'pending'),
+                              (:sid, 'git_metrics', 'pending')
+                            """
+                        ),
+                        {"sid": snap_id},
+                    )
 
-                # Ingest files for this snapshot
                 for rel, info in files:
-                    # Compute per-project relative path stored in snapshot_files
                     if project_name:
                         rel_in_project = rel
                     else:
                         parts = rel.split("/", 1)
                         rel_in_project = parts[1] if len(parts) == 2 else parts[0]
 
-                    # Read file bytes, compute sha, and optionally write blob
                     with zf.open(info, "r") as fp:
                         data = fp.read()
 
@@ -247,52 +248,58 @@ def ingest_zip_to_db(
                     os.makedirs(os.path.dirname(stored_path), exist_ok=True)
 
                     if not os.path.exists(stored_path):
-                        # write atomically
                         tmp_path = stored_path + ".tmp"
                         with open(tmp_path, "wb") as out:
                             out.write(data)
                         os.replace(tmp_path, stored_path)
 
-                    # Insert blob row (dedupe)
                     conn.execute(
                         text(
                             """
                             INSERT INTO file_blobs (sha256, size_bytes, mime_type, stored_path)
-                            VALUES (:sha, :size, NULL, :stored_path)
+                            VALUES (:sha, :sz, NULL, :path)
                             ON CONFLICT (sha256) DO NOTHING
                             """
                         ),
-                        {"sha": sha, "size": int(info.file_size), "stored_path": stored_path},
+                        {"sha": sha, "sz": int(len(data)), "path": stored_path},
                     )
 
-                    # Insert snapshot mapping
-                    dt = datetime(*info.date_time, tzinfo=timezone.utc)
+                    dt = None
+                    try:
+                        dt = getattr(info, "date_time", None)
+                        if dt:
+                            # stored as naive; DB column is timestamptz, Postgres will interpret per server tz.
+                            # acceptable for milestone scope.
+                            dt = datetime(*dt)  # type: ignore[name-defined]
+                    except Exception:
+                        dt = None
+
                     conn.execute(
                         text(
                             """
-                            INSERT INTO snapshot_files (snapshot_id, relative_path, file_sha256, last_modified_ts, file_mode, size_bytes)
-                            VALUES (:sid, :rel, :sha, :mtime, NULL, :size)
-                            ON CONFLICT (snapshot_id, relative_path) DO NOTHING
+                            INSERT INTO snapshot_files
+                              (snapshot_id, relative_path, file_sha256, last_modified_ts, file_mode, size_bytes)
+                            VALUES
+                              (:sid, :rel, :sha, :ts, :mode, :sz)
                             """
                         ),
-                        {"sid": snap_id, "rel": rel_in_project, "sha": sha, "mtime": dt, "size": int(info.file_size)},
+                        {
+                            "sid": snap_id,
+                            "rel": rel_in_project,
+                            "sha": sha,
+                            "ts": None,
+                            "mode": None,
+                            "sz": int(len(data)),
+                        },
                     )
 
                 created_projects.append(
-                    {"project_id": proj_id, "project_name": proj_display, "snapshot_id": snap_id, "zip_sha256": zip_sha, "file_count": len(files)}
+                    {"project_id": proj_id, "project_name": proj_display, "snapshot_id": snap_id, "zip_sha256": zip_sha}
                 )
 
     return IngestResult(
-        user_id=user_id2,
-        portfolio_id=portfolio_id2,
+        user_id=str(user_id2),
+        portfolio_id=str(portfolio_id2),
         created_projects=created_projects,
         skipped_projects=skipped_projects,
     )
-
-
-def save_upload_to_temp(upload_bytes: bytes) -> str:
-    fd, path = tempfile.mkstemp(prefix="artifactminer-", suffix=".zip")
-    os.close(fd)
-    with open(path, "wb") as f:
-        f.write(upload_bytes)
-    return path

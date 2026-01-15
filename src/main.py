@@ -154,7 +154,7 @@ def main(argv: Optional[List[str]] = None) -> int:
             return 1
         user_id = _post_consent(api, user_id=user_id, consent_type="data_access", granted=True)
 
-    # Optional external services consent (not currently used by worker unless you later enqueue external_llm).
+    # Optional external services consent
     if args.external_consent:
         user_id = _post_consent(api, user_id=user_id, consent_type="external_services", granted=True)
     else:

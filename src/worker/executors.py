@@ -2,25 +2,25 @@ from __future__ import annotations
 
 import os
 import re
-from collections import Counter, defaultdict
+from collections import Counter
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Tuple
 
+import json
+import numpy as np
 from sqlalchemy import text
 from sqlalchemy.engine import Engine
 
-from src.codeparser.file_classification import is_binary_file 
+from src.codeparser.file_classification import is_binary_file
 from src.codeparser.chunking import EXT_TO_LANG, chunk as chunk_text
 from src.contributions.contribution_check import find_git_repos, get_commit_contributions
 from src.worker.workspace import materialize_snapshot_to_dir
 from src.db.base import fetch_snapshot_files
-
-import json
-import math
-import numpy as np
+from src.db.consents import get_snapshot_owner_user_id, is_external_services_allowed
 
 from src.ml.universal import predict as ml_predict
-from src.codeparser.chunking import chunk as chunk_text
+from src.worker.llm import run_external_llm_analysis
+
 
 def _utcnow_iso() -> str:
     return datetime.now(timezone.utc).isoformat()
@@ -45,13 +45,6 @@ def _classify_activity(relpath: str) -> str:
 
 
 def run_parser(engine: Engine, snapshot_id: str) -> Dict[str, Any]:
-    """
-    Produces lightweight, reliable signals without invoking ML:
-      - total/text/binary counts (via libmagic)
-      - language counts (via extension mapping)
-      - activity breakdown (code/test/document/design/other)
-      - chunk counts (approximate) for text files using chunking.chunk()
-    """
     files = fetch_snapshot_files(engine, snapshot_id)
 
     total_files = len(files)
@@ -64,13 +57,11 @@ def run_parser(engine: Engine, snapshot_id: str) -> Dict[str, Any]:
     chunks_total = 0
     chunks_by_lang = Counter()
 
-    # Evaluate using stored blob paths (no need to materialize snapshot)
     for f in files:
         lang = _infer_language_from_relpath(f.relative_path)
         language_counts[lang] += 1
         activity_counts[_classify_activity(f.relative_path)] += 1
 
-        # binary/text distinction using libmagic
         is_bin = True
         try:
             is_bin = is_binary_file(f.stored_path)
@@ -82,20 +73,15 @@ def run_parser(engine: Engine, snapshot_id: str) -> Dict[str, Any]:
             continue
 
         text_count += 1
-
-        # chunk count using codeparser.chunking.chunk()
         try:
             with open(f.stored_path, "r", encoding="utf-8", errors="replace") as fp:
                 s = fp.read(1_000_000)
-            # chunk_text yields (start,end,textslice)
             c = sum(1 for _ in chunk_text(s))
             chunks_total += c
             chunks_by_lang[lang] += c
         except Exception:
-            # ignore unreadable text files
             pass
 
-    # Top languages by file count
     top_languages = [{"language": k, "files": v} for k, v in language_counts.most_common(10)]
 
     return {
@@ -116,7 +102,6 @@ def run_parser(engine: Engine, snapshot_id: str) -> Dict[str, Any]:
 
 
 def _parse_author_key(author_key: str) -> Tuple[str, str | None]:
-    # "Name <email>"
     m = re.match(r"^(.*?)(?:\s*<([^>]+)>)?$", author_key.strip())
     if not m:
         return author_key.strip(), None
@@ -126,12 +111,6 @@ def _parse_author_key(author_key: str) -> Tuple[str, str | None]:
 
 
 def run_git_metrics(engine: Engine, snapshot_id: str) -> Dict[str, Any]:
-    """
-    If the snapshot contains one or more .git directories, compute commit counts per author
-    and store normalized data in contributors/project_contributors/contribution_events.
-
-    If there are no git repos present in the snapshot, returns a result stating that.
-    """
     files = fetch_snapshot_files(engine, snapshot_id)
     workdir = materialize_snapshot_to_dir(files)
 
@@ -139,7 +118,6 @@ def run_git_metrics(engine: Engine, snapshot_id: str) -> Dict[str, Any]:
         repos = find_git_repos(workdir)
         repo_count = len(repos)
 
-        # Map snapshot -> project_id for contribution tables
         with engine.connect() as conn:
             project_id = conn.execute(
                 text("SELECT project_id FROM snapshots WHERE id = :sid"),
@@ -161,12 +139,10 @@ def run_git_metrics(engine: Engine, snapshot_id: str) -> Dict[str, Any]:
             for k, v in contribs.items():
                 all_contribs[k] = all_contribs.get(k, 0) + int(v)
 
-        # Persist to DB
         with engine.begin() as conn:
             for author_key, commit_count in all_contribs.items():
                 name, email = _parse_author_key(author_key)
 
-                # Find existing contributor
                 cid = conn.execute(
                     text(
                         """
@@ -190,7 +166,6 @@ def run_git_metrics(engine: Engine, snapshot_id: str) -> Dict[str, Any]:
                         {"name": name, "email": email},
                     ).scalar_one()
 
-                # Link contributor to project (is_user left FALSE; can be set later via config/UI)
                 conn.execute(
                     text(
                         """
@@ -202,7 +177,6 @@ def run_git_metrics(engine: Engine, snapshot_id: str) -> Dict[str, Any]:
                     {"pid": project_id, "cid": cid},
                 )
 
-                # Insert contribution event (activity_type=code; other counts unknown for now)
                 conn.execute(
                     text(
                         """
@@ -223,22 +197,14 @@ def run_git_metrics(engine: Engine, snapshot_id: str) -> Dict[str, Any]:
             "commit_contributions": all_contribs,
         }
     finally:
-        # Cleanup workdir
         try:
             import shutil
             shutil.rmtree(workdir, ignore_errors=True)
         except Exception:
             pass
 
+
 def run_local_ml(engine: Engine, analysis_id: str, snapshot_id: str) -> Dict[str, Any]:
-    """
-    Always-run local ML analysis:
-      - reads all non-binary files from blobstore paths
-      - chunks text (windowed) and runs batched embeddings + logistic regression
-      - aggregates across chunks/files
-      - writes normalized rows into skills + analysis_skills
-      - returns a structured output_json payload
-    """
     threshold = float(os.environ.get("LOCAL_ML_THRESHOLD", "0.5"))
     max_file_chars = int(os.environ.get("LOCAL_ML_MAX_FILE_CHARS", "1000000"))
     max_chunks_total = int(os.environ.get("LOCAL_ML_MAX_CHUNKS_TOTAL", "5000"))
@@ -246,17 +212,15 @@ def run_local_ml(engine: Engine, analysis_id: str, snapshot_id: str) -> Dict[str
 
     files = fetch_snapshot_files(engine, snapshot_id)
 
-    # Load model resources once (tokenizer, encoder, classifier, skill names).
     ml_predict._load_resources()
     skill_names: List[str] = list(ml_predict._skills)
     n_skills = len(skill_names)
 
-    # Aggregates
     max_prob = np.zeros(n_skills, dtype=np.float32)
     sum_prob = np.zeros(n_skills, dtype=np.float32)
     hit_count = np.zeros(n_skills, dtype=np.int32)
-    first_seen = [None] * n_skills  # datetime or None
-    examples = [[] for _ in range(n_skills)]  # list of {"path","p","ts"}
+    first_seen = [None] * n_skills
+    examples = [[] for _ in range(n_skills)]
 
     total_chunks = 0
     text_files = 0
@@ -266,10 +230,10 @@ def run_local_ml(engine: Engine, analysis_id: str, snapshot_id: str) -> Dict[str
         ex = examples[i]
         ex.append({"path": relpath, "p": float(p), "ts": ts.isoformat() if ts else None})
         ex.sort(key=lambda r: r["p"], reverse=True)
-        del ex[3:]  # keep top 3
+        del ex[3:]
 
     batch_texts: List[str] = []
-    batch_meta: List[Tuple[str, Any]] = []  # (relpath, last_modified_ts)
+    batch_meta: List[Tuple[str, Any]] = []
 
     def flush_batch():
         nonlocal batch_texts, batch_meta
@@ -277,7 +241,7 @@ def run_local_ml(engine: Engine, analysis_id: str, snapshot_id: str) -> Dict[str
             return
 
         X = ml_predict.embed_texts(batch_texts, ml_predict._tok, ml_predict._enc, ml_predict._device)
-        probs = ml_predict._clf.predict_proba(X)  # shape (B, n_skills)
+        probs = ml_predict._clf.predict_proba(X)
 
         for j in range(probs.shape[0]):
             relpath, ts = batch_meta[j]
@@ -304,7 +268,6 @@ def run_local_ml(engine: Engine, analysis_id: str, snapshot_id: str) -> Dict[str
         batch_meta = []
 
     for f in files:
-        # skip binary
         try:
             if is_binary_file(f.stored_path):
                 binary_files += 1
@@ -321,8 +284,6 @@ def run_local_ml(engine: Engine, analysis_id: str, snapshot_id: str) -> Dict[str
         except Exception:
             continue
 
-        # Chunk into model window size. predict.py truncates to 2000 chars anyway,
-        # but chunking is essential for coverage. :contentReference[oaicite:4]{index=4}
         for _start, _end, slice_ in chunk_text(raw):
             if not slice_:
                 continue
@@ -341,7 +302,6 @@ def run_local_ml(engine: Engine, analysis_id: str, snapshot_id: str) -> Dict[str
 
     flush_batch()
 
-    # Build final ranked results
     detected = np.where(hit_count > 0)[0]
     skills_out = []
     for i in detected.tolist():
@@ -377,9 +337,7 @@ def run_local_ml(engine: Engine, analysis_id: str, snapshot_id: str) -> Dict[str
         "skills": skills_out[:200],
     }
 
-    # Persist normalization: skills + analysis_skills
     with engine.begin() as conn:
-        # Clear any previous run for this analysis row
         conn.execute(text("DELETE FROM analysis_skills WHERE analysis_id = :aid"), {"aid": analysis_id})
 
         for row in skills_out:
@@ -399,7 +357,6 @@ def run_local_ml(engine: Engine, analysis_id: str, snapshot_id: str) -> Dict[str
 
             sid = conn.execute(text("SELECT id FROM skills WHERE skill_name = :name"), {"name": name}).scalar_one()
 
-            # Store evidence in a compact json
             evidence = {
                 "hits": row["hits"],
                 "avg_prob": row["avg_prob"],
@@ -407,7 +364,6 @@ def run_local_ml(engine: Engine, analysis_id: str, snapshot_id: str) -> Dict[str
                 "examples": row["examples"],
             }
 
-            # Prefer first_seen_ts column if present; otherwise store only in evidence_json.
             cols = conn.execute(
                 text(
                     """
@@ -457,3 +413,28 @@ def run_local_ml(engine: Engine, analysis_id: str, snapshot_id: str) -> Dict[str
                 )
 
     return output
+
+
+def run_external_llm(engine: Engine, analysis_id: str, snapshot_id: str) -> Dict[str, Any]:
+    """
+    External analysis is allowed only if the owning user granted external_services consent.
+    If not allowed (or revoked after enqueue), we return a local_ml fallback payload.
+    """
+    with engine.connect() as conn:
+        uid = get_snapshot_owner_user_id(conn, snapshot_id)
+        if not uid:
+            # Snapshot missing or broken FK chain: fail closed -> fallback.
+            fallback = run_local_ml(engine, analysis_id, snapshot_id)
+            fallback["external_llm"] = {"used": "local_ml", "reason": "snapshot owner could not be resolved"}
+            return fallback
+
+        allowed = is_external_services_allowed(conn, str(uid))
+
+    if not allowed:
+        fallback = run_local_ml(engine, analysis_id, snapshot_id)
+        fallback["external_llm"] = {"used": "local_ml", "reason": "external_services consent not granted"}
+        return fallback
+
+    out = run_external_llm_analysis(engine, snapshot_id)
+    out["external_llm"] = {"used": "ollama"}
+    return out
