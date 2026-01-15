@@ -546,7 +546,10 @@ def list_portfolio_showcases(
     limit: int,
 ) -> Dict[str, Any]:
     with engine.connect() as conn:
-        pf_ok = conn.execute(text("SELECT 1 FROM portfolios WHERE id = :pid"), {"pid": portfolio_id}).scalar()
+        pf_ok = conn.execute(
+            text("SELECT 1 FROM portfolios WHERE id = :pid"),
+            {"pid": portfolio_id},
+        ).scalar()
         if not pf_ok:
             raise KeyError("Portfolio not found")
 
@@ -564,7 +567,7 @@ def list_portfolio_showcases(
                 FROM portfolio_showcases ps
                 JOIN projects pr ON pr.id = ps.project_id
                 WHERE pr.portfolio_id = :pf
-                ORDER BY ps.updated_at DESC, ps.created_at DESC
+                ORDER BY ps.updated_at DESC NULLS LAST, ps.created_at DESC, ps.id DESC
                 LIMIT :lim
                 """
             ),
@@ -576,7 +579,7 @@ def list_portfolio_showcases(
         cj = r.get("content_json") or {}
         items.append(
             {
-                "showcase_id": str(r["id"]),
+                "id": str(r["id"]),
                 "project_id": str(r["project_id"]),
                 "project_name": r.get("project_name"),
                 "thumbnail_blob_sha256": r.get("thumbnail_blob_sha256"),
@@ -586,8 +589,8 @@ def list_portfolio_showcases(
             }
         )
 
-    return {"portfolio_id": portfolio_id, "limit": int(limit), "showcases": items}
-
+    # Tests expect "items", not "showcases".
+    return {"portfolio_id": portfolio_id, "limit": int(limit), "items": items}
 
 def get_resume_item(
     *,

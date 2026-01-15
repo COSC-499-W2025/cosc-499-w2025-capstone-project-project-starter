@@ -10,54 +10,64 @@ on:
 jobs:
   test:
     runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: artifactminer_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd="pg_isready -U postgres -d artifactminer_test"
+          --health-interval=5s
+          --health-timeout=5s
+          --health-retries=20
+
     strategy:
       matrix:
-        python-version: ["3.10", "3.11"]
+        python-version: ["3.11"]
+
+    env:
+      DATABASE_URL: postgresql+psycopg2://postgres:postgres@localhost:5432/artifactminer_test
+      ARTIFACT_MINER_BLOBSTORE: /tmp/artifactminer-blobstore-ci
 
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
 
       - name: Set up Python ${{ matrix.python-version }}
-        uses: actions/setup-python@v4
+        uses: actions/setup-python@v5
         with:
           python-version: ${{ matrix.python-version }}
 
       - name: Install system dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y libpq-dev
-          sudo apt-get install -y build-essential libjpeg8-dev zlib1g-dev
-
-      - name: Set up virtual environment
-        run: |
-          python -m venv venv
-          . venv/bin/activate  # Activating the virtual environment
+          sudo apt-get install -y --no-install-recommends libpq-dev build-essential
+          python -m pip install --upgrade pip wheel
 
       - name: Install Python dependencies
         run: |
-          . venv/bin/activate  # Ensure virtualenv is activated
-          python -m pip install --upgrade pip
-          python -m pip install pytest
-          if [ -f requirements.txt ]; then python -m pip install -r requirements.txt; fi
-          python -m pip install reportlab  # Install reportlab with pip
-          python -m pip install GitPython  # Install GitPython with pip
+          if [ -f requirements/dev.txt ]; then
+            python -m pip install -r requirements/dev.txt
+          else
+            python -m pip install -r requirements/api.txt
+            python -m pip install pytest
+          fi
 
-      - name: Debug Print PYTHONPATH and test directory
+      - name: Initialize blobstore path
         run: |
-          echo "Current directory: $(pwd)"
-          echo "PYTHONPATH: $(pwd)"
-          echo "Listing contents of src directory:"
-          ls -l src  # List the files in the src directory to verify it exists
-          echo "Listing contents of tests directory:"
-          ls -l tests  # List the files in the tests directory to verify they exist
+          mkdir -p "$ARTIFACT_MINER_BLOBSTORE"
 
-      - name: Run regression tests with PYTHONPATH
+      - name: Run migrations
         run: |
-          . venv/bin/activate  # Ensure virtualenv is activated
-          export PYTHONPATH=$(pwd)  # Set PYTHONPATH to the root of the project
-          pytest -v  # Run the tests with verbose output
+          python -m pip show alembic
+          alembic upgrade head
 
-      - name: Post Set up Python 3.11
-        run: echo "Running post-setup tasks"
-        if: ${{ always() }}
+      - name: Run tests
+        run: |
+          export PYTHONPATH="$(pwd)"
+          pytest -q

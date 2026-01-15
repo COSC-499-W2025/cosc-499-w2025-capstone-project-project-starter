@@ -20,32 +20,57 @@ DEFAULT_CONFIG: Dict[str, Any] = {
     },
 }
 
+def _deep_merge(base: Any, patch: Any) -> Any:
+    """
+    Recursive, dict-only merge.
+    - dict + dict => recurse per key
+    - otherwise => patch replaces base
+    This is the behavior required by PATCH semantics in tests.
+    """
+    if isinstance(base, dict) and isinstance(patch, dict):
+        out: Dict[str, Any] = dict(base)
+        for k, v in patch.items():
+            if k in out:
+                out[k] = _deep_merge(out[k], v)
+            else:
+                out[k] = v
+        return out
+    return patch
+
 
 def _normalize_config(cfg: Any) -> Dict[str, Any]:
+    """
+    Enforce a stable shape, but do not derive/auto-populate values from other tables.
+    """
     if not isinstance(cfg, dict):
-        return dict(DEFAULT_CONFIG)
-    # Shallow merge defaults to ensure keys exist.
-    out = dict(DEFAULT_CONFIG)
-    out_identity = dict(DEFAULT_CONFIG.get("identity", {}))
-    out_ranking = dict(DEFAULT_CONFIG.get("ranking", {}))
+        cfg = {}
 
-    if isinstance(cfg.get("identity"), dict):
-        out_identity.update(cfg["identity"])
-    if isinstance(cfg.get("ranking"), dict):
-        out_ranking.update(cfg["ranking"])
+    # top-level
+    out: Dict[str, Any] = dict(cfg)
 
-    out.update(cfg)
-    out["identity"] = out_identity
-    out["ranking"] = out_ranking
+    # identity defaults
+    identity = out.get("identity")
+    if not isinstance(identity, dict):
+        identity = {}
+    identity_out: Dict[str, Any] = dict(identity)
 
-    # Ensure expected types.
-    if not isinstance(out["identity"].get("match_emails"), list):
-        out["identity"]["match_emails"] = []
-    if not isinstance(out["identity"].get("match_names"), list):
-        out["identity"]["match_names"] = []
-    if not isinstance(out["identity"].get("project_contributor_map"), dict):
-        out["identity"]["project_contributor_map"] = {}
+    me = identity_out.get("match_emails")
+    if not isinstance(me, list):
+        me = []
+    identity_out["match_emails"] = [str(x) for x in me if str(x).strip()]
 
+    mn = identity_out.get("match_names")
+    if not isinstance(mn, list):
+        mn = []
+    identity_out["match_names"] = [str(x) for x in mn if str(x).strip()]
+
+    pcm = identity_out.get("project_contributor_map")
+    if not isinstance(pcm, dict):
+        pcm = {}
+    # ensure string->string map
+    identity_out["project_contributor_map"] = {str(k): str(v) for k, v in pcm.items()}
+
+    out["identity"] = identity_out
     return out
 
 
@@ -60,7 +85,6 @@ def ensure_user_config_row(conn, user_id: str) -> None:
         ),
         {"uid": user_id},
     )
-
 
 def get_user_config(conn, user_id: str) -> Dict[str, Any]:
     ensure_user_config_row(conn, user_id)
@@ -90,22 +114,32 @@ def put_user_config(conn, user_id: str, cfg: Dict[str, Any]) -> Dict[str, Any]:
 
 def merge_user_config(conn, user_id: str, patch: Dict[str, Any]) -> Dict[str, Any]:
     """
-    JSONB merge (shallow) using Postgres `||` operator. Then normalize shape in Python.
+    Deep merge in Python, then persist as JSONB.
+    Avoid Postgres `||` shallow merge (it overwrites nested dicts like identity).
     """
     ensure_user_config_row(conn, user_id)
+
+    current = conn.execute(
+        text("SELECT config_json FROM user_config WHERE user_id = :uid"),
+        {"uid": user_id},
+    ).scalar_one()
+
+    merged = _deep_merge(_normalize_config(current), patch if isinstance(patch, dict) else {})
+    merged_norm = _normalize_config(merged)
+
     conn.execute(
         text(
             """
             UPDATE user_config
-            SET config_json = (config_json || CAST(:patch AS jsonb)),
+            SET config_json = CAST(:cfg AS jsonb),
                 updated_at = NOW()
             WHERE user_id = :uid
             """
         ),
-        {"uid": user_id, "patch": json.dumps(patch)},
+        {"uid": user_id, "cfg": json.dumps(merged_norm)},
     )
-    return get_user_config(conn, user_id)
 
+    return merged_norm
 
 def set_project_user_contributor_mapping(conn, user_id: str, project_id: str, contributor_id: str) -> Dict[str, Any]:
     cfg = get_user_config(conn, user_id)

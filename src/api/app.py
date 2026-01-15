@@ -175,7 +175,7 @@ def list_snapshot_analyses(snapshot_id: str):
                   COALESCE(output_json->>'error', NULL) AS error
                 FROM analyses
                 WHERE snapshot_id = :sid
-                ORDER BY created_at ASC
+                ORDER BY started_at ASC NULLS LAST, created_at ASC, id ASC
                 """
             ),
             {"sid": snapshot_id},

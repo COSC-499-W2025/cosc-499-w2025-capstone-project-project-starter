@@ -8,3 +8,4 @@ src/ml/.python-version
 *.bin
 *.npz
 src/ml/data/
+.pytest_cache
