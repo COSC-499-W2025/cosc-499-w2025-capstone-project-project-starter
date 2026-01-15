@@ -13,7 +13,7 @@ from sqlalchemy.engine import Engine
 
 from src.codeparser.file_classification import is_binary_file
 from src.codeparser.chunking import EXT_TO_LANG, chunk as chunk_text
-from src.contributions.contribution_check import find_git_repos, get_commit_contributions
+from src.worker.contribution_check import find_git_repos, get_commit_contributions
 from src.worker.workspace import materialize_snapshot_to_dir
 from src.db.base import fetch_snapshot_files
 from src.db.consents import get_snapshot_owner_user_id, is_external_services_allowed

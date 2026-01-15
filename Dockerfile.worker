@@ -42,10 +42,8 @@ RUN pip install --no-cache-dir --index-url https://download.pytorch.org/whl/cpu 
 COPY alembic.ini /app/alembic.ini
 COPY src/db /app/src/db
 COPY src/codeparser /app/src/codeparser
-COPY src/contributions /app/src/contributions
 COPY src/ml /app/src/ml
 COPY src/worker /app/src/worker
-COPY src/validator /app/src/validator
 
 ENV ARTIFACT_MINER_BLOBSTORE=/blobstore
 VOLUME ["/blobstore"]
