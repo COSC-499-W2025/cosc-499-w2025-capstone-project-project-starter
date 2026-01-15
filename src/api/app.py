@@ -1,14 +1,25 @@
-from fastapi import FastAPI, UploadFile, File, HTTPException, Form, Query
-from pydantic import BaseModel
-from sqlalchemy import text
+from __future__ import annotations
 
 import os
+from typing import Any, Dict, List, Optional
+
+from fastapi import FastAPI, UploadFile, File, HTTPException, Form, Query, Body
+from pydantic import BaseModel, Field
+from sqlalchemy import text
 
 from src.db.session import get_engine
 from src.api.ingest import ingest_zip_to_db, save_upload_to_temp
 from src.api.report import build_project_report
 from src.db.consents import get_snapshot_owner_user_id, is_external_services_allowed
 
+from src.db.user_config import (
+    get_user_config,
+    put_user_config,
+    merge_user_config,
+    resolve_project_owner_user_id,
+    set_project_user_contributor_mapping,
+    clear_project_user_contributor_mapping,
+)
 
 app = FastAPI(title="Artifact Miner API", version="0.1.0")
 
@@ -18,6 +29,29 @@ class PrivacyConsentIn(BaseModel):
     consent_type: str  # data_access | external_services
     granted: bool
     version: int = 1
+
+
+class UserConfigOut(BaseModel):
+    user_id: str
+    config: Dict[str, Any]
+
+
+class UserConfigIn(BaseModel):
+    config: Dict[str, Any] = Field(default_factory=dict)
+
+
+class SetUserContributorIn(BaseModel):
+    is_user: bool = True
+    unset_others: bool = True
+    persist_to_config: bool = True
+
+
+def _rank_score(user_commits: int, total_commits: int) -> Optional[float]:
+    # Deterministic and transparent. Only meaningful if user_commits > 0.
+    if user_commits <= 0:
+        return None
+    other = max(0, int(total_commits) - int(user_commits))
+    return float(int(user_commits)) + 0.10 * float(other)
 
 
 @app.get("/health")
@@ -170,12 +204,6 @@ def list_snapshot_skills(snapshot_id: str, limit: int = Query(default=20, ge=1, 
 
 @app.post("/snapshots/{snapshot_id}/external-analysis")
 def request_external_analysis(snapshot_id: str):
-    """
-    Triggers external analysis if and only if external_services consent is granted
-    for the owning user of the snapshot.
-
-    If not granted, this endpoint returns/ensures the local ML alternative.
-    """
     engine = get_engine()
     with engine.begin() as conn:
         uid = get_snapshot_owner_user_id(conn, snapshot_id)
@@ -185,8 +213,6 @@ def request_external_analysis(snapshot_id: str):
         allowed = is_external_services_allowed(conn, str(uid))
 
         if not allowed:
-            # Alternative analysis: local ML.
-            # If a local_ml job exists, return its status; else enqueue it.
             row = conn.execute(
                 text(
                     """
@@ -227,7 +253,6 @@ def request_external_analysis(snapshot_id: str):
                 "status": row["status"],
             }
 
-        # Consent granted: ensure external_llm analysis exists (enqueue if missing).
         row = conn.execute(
             text(
                 """
@@ -272,10 +297,6 @@ def request_external_analysis(snapshot_id: str):
 
 @app.get("/snapshots/{snapshot_id}/external-analysis")
 def get_external_analysis(snapshot_id: str):
-    """
-    Returns the latest external_llm analysis output if complete.
-    If consent is not granted, returns the latest local_ml analysis output if complete.
-    """
     engine = get_engine()
     with engine.connect() as conn:
         uid = get_snapshot_owner_user_id(conn, snapshot_id)
@@ -301,7 +322,6 @@ def get_external_analysis(snapshot_id: str):
                 return {"snapshot_id": snapshot_id, "external_allowed": True, "analysis": None}
             return {"snapshot_id": snapshot_id, "external_allowed": True, "analysis": dict(row)}
 
-        # Fallback: local_ml
         row = conn.execute(
             text(
                 """
@@ -338,7 +358,354 @@ def get_project_report(
         raise HTTPException(status_code=404, detail="Project not found")
 
 
-# Placeholders for milestone-2 endpoints
+
+@app.get("/users/{user_id}/config", response_model=UserConfigOut)
+def get_config(user_id: str):
+    engine = get_engine()
+    with engine.begin() as conn:
+        cfg = get_user_config(conn, user_id)
+    return {"user_id": user_id, "config": cfg}
+
+
+@app.put("/users/{user_id}/config", response_model=UserConfigOut)
+def put_config(user_id: str, payload: UserConfigIn):
+    engine = get_engine()
+    with engine.begin() as conn:
+        cfg = put_user_config(conn, user_id, payload.config or {})
+    return {"user_id": user_id, "config": cfg}
+
+
+@app.patch("/users/{user_id}/config", response_model=UserConfigOut)
+def patch_config(user_id: str, patch: Dict[str, Any] = Body(default_factory=dict)):
+    engine = get_engine()
+    with engine.begin() as conn:
+        cfg = merge_user_config(conn, user_id, patch or {})
+    return {"user_id": user_id, "config": cfg}
+
+
+@app.get("/projects/{project_id}/contributors")
+def list_project_contributors(project_id: str):
+    engine = get_engine()
+    with engine.connect() as conn:
+        exists = conn.execute(text("SELECT 1 FROM projects WHERE id = :pid"), {"pid": project_id}).scalar()
+        if not exists:
+            raise HTTPException(status_code=404, detail="Project not found")
+
+        rows = conn.execute(
+            text(
+                """
+                WITH contrib_commits AS (
+                  SELECT
+                    ce.contributor_id,
+                    COALESCE(SUM(ce.commit_count), 0) AS commits
+                  FROM contribution_events ce
+                  JOIN snapshots s ON s.id = ce.snapshot_id
+                  WHERE s.project_id = :pid
+                  GROUP BY ce.contributor_id
+                )
+                SELECT
+                  c.id AS contributor_id,
+                  c.canonical_name,
+                  c.email,
+                  pc.is_user,
+                  COALESCE(cc.commits, 0) AS commits
+                FROM project_contributors pc
+                JOIN contributors c ON c.id = pc.contributor_id
+                LEFT JOIN contrib_commits cc ON cc.contributor_id = pc.contributor_id
+                WHERE pc.project_id = :pid
+                ORDER BY pc.is_user DESC, commits DESC, c.canonical_name ASC
+                """
+            ),
+            {"pid": project_id},
+        ).mappings().all()
+
+    return {"project_id": project_id, "contributors": [dict(r) for r in rows]}
+
+
+@app.post("/projects/{project_id}/contributors/{contributor_id}/set-user")
+def set_project_user_contributor(project_id: str, contributor_id: str, payload: SetUserContributorIn):
+    """
+    Sets project_contributors.is_user and (optionally) persists to user_config:
+      config.identity.project_contributor_map[project_id] = contributor_id
+    """
+    engine = get_engine()
+    with engine.begin() as conn:
+        proj = conn.execute(
+            text("SELECT id FROM projects WHERE id = :pid"),
+            {"pid": project_id},
+        ).scalar()
+        if not proj:
+            raise HTTPException(status_code=404, detail="Project not found")
+
+        cid_ok = conn.execute(
+            text("SELECT 1 FROM contributors WHERE id = :cid"),
+            {"cid": contributor_id},
+        ).scalar()
+        if not cid_ok:
+            raise HTTPException(status_code=404, detail="Contributor not found")
+
+        # Ensure link exists.
+        conn.execute(
+            text(
+                """
+                INSERT INTO project_contributors (project_id, contributor_id, is_user)
+                VALUES (:pid, :cid, FALSE)
+                ON CONFLICT (project_id, contributor_id) DO NOTHING
+                """
+            ),
+            {"pid": project_id, "cid": contributor_id},
+        )
+
+        if payload.unset_others:
+            conn.execute(
+                text(
+                    """
+                    UPDATE project_contributors
+                    SET is_user = FALSE
+                    WHERE project_id = :pid AND contributor_id <> :cid
+                    """
+                ),
+                {"pid": project_id, "cid": contributor_id},
+            )
+
+        conn.execute(
+            text(
+                """
+                UPDATE project_contributors
+                SET is_user = :flag
+                WHERE project_id = :pid AND contributor_id = :cid
+                """
+            ),
+            {"pid": project_id, "cid": contributor_id, "flag": bool(payload.is_user)},
+        )
+
+        # Persist mapping into user_config so future git_metrics runs can auto-link deterministically.
+        owner_user_id = resolve_project_owner_user_id(conn, project_id)
+        if owner_user_id and payload.persist_to_config:
+            if payload.is_user:
+                set_project_user_contributor_mapping(conn, owner_user_id, project_id, contributor_id)
+            else:
+                clear_project_user_contributor_mapping(conn, owner_user_id, project_id)
+
+    return {"project_id": project_id, "contributor_id": contributor_id, "is_user": bool(payload.is_user)}
+
+@app.get("/projects")
+def list_projects(
+    portfolio_id: Optional[str] = Query(default=None),
+    user_id: Optional[str] = Query(default=None),
+):
+    """
+    Lists projects with derived ranking metrics.
+    Requires either portfolio_id or user_id.
+    If user_id is provided, uses the user's default portfolio (name='default') if it exists.
+    """
+    engine = get_engine()
+    with engine.connect() as conn:
+        if not portfolio_id and not user_id:
+            raise HTTPException(status_code=400, detail="Provide portfolio_id or user_id")
+
+        if not portfolio_id and user_id:
+            portfolio_id = conn.execute(
+                text(
+                    """
+                    SELECT id
+                    FROM portfolios
+                    WHERE user_id = :uid AND name = 'default'
+                    ORDER BY created_at ASC
+                    LIMIT 1
+                    """
+                ),
+                {"uid": user_id},
+            ).scalar()
+            if not portfolio_id:
+                return {"portfolio_id": None, "projects": []}
+            portfolio_id = str(portfolio_id)
+
+        rows = conn.execute(
+            text(
+                """
+                WITH totals AS (
+                  SELECT
+                    s.project_id,
+                    COALESCE(SUM(ce.commit_count), 0) AS total_commits,
+                    COUNT(DISTINCT ce.contributor_id) AS contributor_count
+                  FROM snapshots s
+                  LEFT JOIN contribution_events ce ON ce.snapshot_id = s.id
+                  GROUP BY s.project_id
+                ),
+                user_totals AS (
+                  SELECT
+                    s.project_id,
+                    COALESCE(SUM(ce.commit_count), 0) AS user_commits
+                  FROM snapshots s
+                  JOIN contribution_events ce ON ce.snapshot_id = s.id
+                  JOIN project_contributors pc
+                    ON pc.project_id = s.project_id
+                   AND pc.contributor_id = ce.contributor_id
+                   AND pc.is_user = TRUE
+                  GROUP BY s.project_id
+                ),
+                latest AS (
+                  SELECT DISTINCT ON (project_id)
+                    project_id,
+                    id AS latest_snapshot_id,
+                    ingested_at AS latest_ingested_at
+                  FROM snapshots
+                  ORDER BY project_id, ingested_at DESC
+                )
+                SELECT
+                  pr.id,
+                  pr.name,
+                  pr.project_type,
+                  pr.collaboration_type,
+                  pr.user_role,
+                  pr.created_at,
+                  COALESCE(t.total_commits, 0) AS total_commits,
+                  COALESCE(ut.user_commits, 0) AS user_commits,
+                  COALESCE(t.contributor_count, 0) AS contributor_count,
+                  l.latest_snapshot_id,
+                  l.latest_ingested_at
+                FROM projects pr
+                LEFT JOIN totals t ON t.project_id = pr.id
+                LEFT JOIN user_totals ut ON ut.project_id = pr.id
+                LEFT JOIN latest l ON l.project_id = pr.id
+                WHERE pr.portfolio_id = :pf
+                ORDER BY pr.created_at ASC
+                """
+            ),
+            {"pf": portfolio_id},
+        ).mappings().all()
+
+    out = []
+    for r in rows:
+        total = int(r["total_commits"] or 0)
+        userc = int(r["user_commits"] or 0)
+        out.append(
+            {
+                "id": str(r["id"]),
+                "name": r["name"],
+                "project_type": r["project_type"],
+                "collaboration_type": r["collaboration_type"],
+                "user_role": r.get("user_role"),
+                "created_at": r["created_at"],
+                "metrics": {
+                    "total_commits": total,
+                    "user_commits": userc if userc > 0 else None,
+                    "contributor_count": int(r["contributor_count"] or 0),
+                    "rank_score": _rank_score(userc, total),
+                },
+                "latest_snapshot": {
+                    "id": str(r["latest_snapshot_id"]) if r.get("latest_snapshot_id") else None,
+                    "ingested_at": r.get("latest_ingested_at"),
+                },
+            }
+        )
+
+    # Sort with rank_score desc NULLS LAST, then created_at asc for stability.
+    out.sort(
+        key=lambda x: (
+            -1 if x["metrics"]["rank_score"] is None else 0,
+            0.0 if x["metrics"]["rank_score"] is None else -float(x["metrics"]["rank_score"]),
+            str(x["created_at"] or ""),
+        )
+    )
+
+    return {"portfolio_id": str(portfolio_id), "projects": out}
+
+
+@app.get("/portfolio/{portfolio_id}/top-projects")
+def top_projects(portfolio_id: str, limit: int = Query(default=5, ge=1, le=50)):
+    """
+    Returns a ranked summary for the top projects in a portfolio.
+    Summary is local-only and derived from latest completed parser/local_ml for each project's latest snapshot (best effort).
+    """
+    engine = get_engine()
+    listing = list_projects(portfolio_id=portfolio_id, user_id=None)
+    projects = listing.get("projects") or []
+
+    # Keep only those with computed rank_score.
+    ranked = [p for p in projects if (p.get("metrics") or {}).get("rank_score") is not None]
+    ranked.sort(key=lambda p: float(p["metrics"]["rank_score"]), reverse=True)
+    ranked = ranked[: int(limit)]
+
+    summaries: List[Dict[str, Any]] = []
+    with engine.connect() as conn:
+        for p in ranked:
+            pid = p["id"]
+            latest_sid = ((p.get("latest_snapshot") or {}).get("id")) or None
+            if not latest_sid:
+                summaries.append(
+                    {
+                        "project_id": pid,
+                        "name": p.get("name"),
+                        "rank_score": p["metrics"]["rank_score"],
+                        "summary": None,
+                    }
+                )
+                continue
+
+            parser = conn.execute(
+                text(
+                    """
+                    SELECT output_json
+                    FROM analyses
+                    WHERE snapshot_id = :sid AND analysis_type = 'parser' AND status = 'complete'
+                    ORDER BY completed_at DESC NULLS LAST, created_at DESC
+                    LIMIT 1
+                    """
+                ),
+                {"sid": latest_sid},
+            ).scalar() or {}
+
+            ml = conn.execute(
+                text(
+                    """
+                    SELECT output_json
+                    FROM analyses
+                    WHERE snapshot_id = :sid AND analysis_type = 'local_ml' AND status = 'complete'
+                    ORDER BY completed_at DESC NULLS LAST, created_at DESC
+                    LIMIT 1
+                    """
+                ),
+                {"sid": latest_sid},
+            ).scalar() or {}
+
+            top_lang = []
+            try:
+                top_lang = (parser.get("top_languages") or [])[:3]
+            except Exception:
+                top_lang = []
+
+            top_skills = []
+            try:
+                top_skills = (ml.get("skills") or [])[:5]
+            except Exception:
+                top_skills = []
+
+            lang_str = ", ".join([str(x.get("language")) for x in top_lang if isinstance(x, dict) and x.get("language")]) or None
+            skills_str = ", ".join([str(x.get("skill")) for x in top_skills if isinstance(x, dict) and x.get("skill")]) or None
+
+            summaries.append(
+                {
+                    "project_id": pid,
+                    "name": p.get("name"),
+                    "rank_score": p["metrics"]["rank_score"],
+                    "features": {
+                        "user_commits": p["metrics"].get("user_commits"),
+                        "total_commits": p["metrics"].get("total_commits"),
+                        "contributor_count": p["metrics"].get("contributor_count"),
+                    },
+                    "summary": {
+                        "top_languages": lang_str,
+                        "top_skills": skills_str,
+                    },
+                }
+            )
+
+    return {"portfolio_id": portfolio_id, "limit": int(limit), "top_projects": summaries}
+
+
+# Existing placeholders (milestone-2)
 @app.post("/resume/generate")
 def generate_resume():
     return {"accepted": True}

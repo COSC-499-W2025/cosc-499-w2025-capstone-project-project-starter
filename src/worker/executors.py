@@ -1,10 +1,11 @@
+# src/worker/executors.py
 from __future__ import annotations
 
 import os
 import re
 from collections import Counter
 from datetime import datetime, timezone
-from typing import Any, Dict, List, Tuple
+from typing import Any, Dict, List, Tuple, Optional
 
 import json
 import numpy as np
@@ -20,6 +21,8 @@ from src.db.consents import get_snapshot_owner_user_id, is_external_services_all
 
 from src.ml.universal import predict as ml_predict
 from src.worker.llm import run_external_llm_analysis
+
+from src.db.user_config import identity_rules_for_user
 
 
 def _utcnow_iso() -> str:
@@ -110,6 +113,88 @@ def _parse_author_key(author_key: str) -> Tuple[str, str | None]:
     return name, email
 
 
+def _auto_flag_user_contributor(
+    conn,
+    *,
+    project_id: str,
+    user_id: str,
+    author_rows: List[Dict[str, Any]],
+) -> Optional[str]:
+    """
+    Uses user_config.identity to deterministically set project_contributors.is_user:
+      1) If identity.project_contributor_map has project_id -> contributor_id, choose it.
+      2) Else, match by email/name rules; if multiple matches, choose highest-commits.
+    Returns chosen contributor_id or None.
+    """
+    match_emails, match_names, mapping = identity_rules_for_user(conn, user_id)
+
+    mapped = mapping.get(str(project_id))
+    if mapped:
+        # Ensure only this one is_user.
+        conn.execute(
+            text("UPDATE project_contributors SET is_user = FALSE WHERE project_id = :pid"),
+            {"pid": project_id},
+        )
+        conn.execute(
+            text(
+                """
+                UPDATE project_contributors
+                SET is_user = TRUE
+                WHERE project_id = :pid AND contributor_id = :cid
+                """
+            ),
+            {"pid": project_id, "cid": mapped},
+        )
+        return str(mapped)
+
+    # Normalize rules for case-insensitive match.
+    email_set = {e.strip().casefold() for e in match_emails if str(e).strip()}
+    name_set = {n.strip().casefold() for n in match_names if str(n).strip()}
+
+    if not email_set and not name_set:
+        return None
+
+    candidates: List[Tuple[int, str]] = []
+    for r in author_rows:
+        cid = str(r["contributor_id"])
+        commits = int(r.get("commits") or 0)
+        nm = (r.get("canonical_name") or "")
+        em = (r.get("email") or "")
+
+        nm_cf = str(nm).strip().casefold()
+        em_cf = str(em).strip().casefold()
+
+        if em_cf and em_cf in email_set:
+            candidates.append((commits, cid))
+            continue
+        if nm_cf and nm_cf in name_set:
+            candidates.append((commits, cid))
+            continue
+
+    if not candidates:
+        return None
+
+    # Choose highest-commits; stable tie-breaker by UUID string.
+    candidates.sort(key=lambda t: (-int(t[0]), str(t[1])))
+    chosen = str(candidates[0][1])
+
+    conn.execute(
+        text("UPDATE project_contributors SET is_user = FALSE WHERE project_id = :pid"),
+        {"pid": project_id},
+    )
+    conn.execute(
+        text(
+            """
+            UPDATE project_contributors
+            SET is_user = TRUE
+            WHERE project_id = :pid AND contributor_id = :cid
+            """
+        ),
+        {"pid": project_id, "cid": chosen},
+    )
+    return chosen
+
+
 def run_git_metrics(engine: Engine, snapshot_id: str) -> Dict[str, Any]:
     files = fetch_snapshot_files(engine, snapshot_id)
     workdir = materialize_snapshot_to_dir(files)
@@ -119,10 +204,23 @@ def run_git_metrics(engine: Engine, snapshot_id: str) -> Dict[str, Any]:
         repo_count = len(repos)
 
         with engine.connect() as conn:
-            project_id = conn.execute(
-                text("SELECT project_id FROM snapshots WHERE id = :sid"),
+            row = conn.execute(
+                text(
+                    """
+                    SELECT s.project_id, p.user_id
+                    FROM snapshots s
+                    JOIN projects pr ON pr.id = s.project_id
+                    JOIN portfolios p ON p.id = pr.portfolio_id
+                    WHERE s.id = :sid
+                    """
+                ),
                 {"sid": snapshot_id},
-            ).scalar_one()
+            ).mappings().first()
+            project_id = str(row["project_id"]) if row else None
+            owner_user_id = str(row["user_id"]) if row and row.get("user_id") else None
+
+        if not project_id:
+            raise RuntimeError("could not resolve project_id for snapshot")
 
         all_contribs: Dict[str, int] = {}
         repo_summaries: List[Dict[str, Any]] = []
@@ -139,6 +237,8 @@ def run_git_metrics(engine: Engine, snapshot_id: str) -> Dict[str, Any]:
             for k, v in contribs.items():
                 all_contribs[k] = all_contribs.get(k, 0) + int(v)
 
+        # Insert contributors + project_contributors + contribution_events
+        author_rows_for_matching: List[Dict[str, Any]] = []
         with engine.begin() as conn:
             for author_key, commit_count in all_contribs.items():
                 name, email = _parse_author_key(author_key)
@@ -187,6 +287,24 @@ def run_git_metrics(engine: Engine, snapshot_id: str) -> Dict[str, Any]:
                         """
                     ),
                     {"sid": snapshot_id, "cid": cid, "commits": int(commit_count)},
+                )
+
+                author_rows_for_matching.append(
+                    {
+                        "contributor_id": str(cid),
+                        "canonical_name": name,
+                        "email": email,
+                        "commits": int(commit_count),
+                    }
+                )
+
+            # Consume user_config (Milestone-1 requirement B) to auto-link user identity.
+            if owner_user_id:
+                _auto_flag_user_contributor(
+                    conn,
+                    project_id=project_id,
+                    user_id=owner_user_id,
+                    author_rows=author_rows_for_matching,
                 )
 
         return {
@@ -416,14 +534,9 @@ def run_local_ml(engine: Engine, analysis_id: str, snapshot_id: str) -> Dict[str
 
 
 def run_external_llm(engine: Engine, analysis_id: str, snapshot_id: str) -> Dict[str, Any]:
-    """
-    External analysis is allowed only if the owning user granted external_services consent.
-    If not allowed (or revoked after enqueue), we return a local_ml fallback payload.
-    """
     with engine.connect() as conn:
         uid = get_snapshot_owner_user_id(conn, snapshot_id)
         if not uid:
-            # Snapshot missing or broken FK chain: fail closed -> fallback.
             fallback = run_local_ml(engine, analysis_id, snapshot_id)
             fallback["external_llm"] = {"used": "local_ml", "reason": "snapshot owner could not be resolved"}
             return fallback
