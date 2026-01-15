@@ -104,7 +104,9 @@ class TestUploadFile:
         mock_context = MagicMock()
         mock_context.__enter__.return_value = mock_cursor
         mock_with_db_cursor.return_value = mock_context
-        mock_cursor.fetchone.return_value = [123]  # Mock file_id
+        # First fetchone() is for duplicate-check SELECT (no duplicate),
+        # second fetchone() is for INSERT ... RETURNING id
+        mock_cursor.fetchone.side_effect = [None, [123]]  # Mock file_id
 
         # Call the function to add the file to the Database
         result = add_file_to_db(zip_path)
@@ -120,13 +122,66 @@ class TestUploadFile:
         
         # Verify database operations
         mock_with_db_cursor.assert_called_once()
-        mock_cursor.execute.assert_called_once()
+        # First call: duplicate-check SELECT, second call: INSERT
+        assert mock_cursor.execute.call_count == 2
         
-        # Verify the execute call contains correct parameters
-        call_args = mock_cursor.execute.call_args
-        assert "INSERT INTO uploaded_files" in call_args[0][0]
-        assert call_args[0][1][0] == "test.zip"  # filename
-        assert call_args[0][1][2] == "uploaded"  # status
+        # Verify the INSERT call contains correct parameters
+        insert_call = [
+            c for c in mock_cursor.execute.call_args_list
+            if "INSERT INTO uploaded_files" in c[0][0]
+        ][0]
+        assert insert_call[0][1][0] == "test.zip"  # filename
+        assert insert_call[0][1][2] == "uploaded"  # status
+
+    @patch('src.upload_file.extract_and_store_file_contents')
+    @patch('src.upload_file.zipfile.is_zipfile')
+    @patch('src.upload_file.zipfile.ZipFile')
+    @patch('builtins.open', create=True)
+    @patch('src.upload_file.shutil.copy')
+    @patch('src.upload_file.with_db_cursor')
+    @patch('src.parsing.file_validator.validate_uploaded_file')
+    @patch('src.upload_file.os.path.exists')
+    def test_add_file_to_db_duplicate_zip_detected(self, mock_exists, mock_validate, mock_with_db_cursor, mock_copy, mock_open, mock_zipfile, mock_is_zipfile, mock_extract_and_store_file_contents):
+        """If an identical ZIP has already been uploaded, it should be rejected as a duplicate."""
+        zip_path = self.create_test_zip("dup.zip")
+
+        # Mock file existence check
+        def exists_side_effect(path):
+            return path == zip_path
+        mock_exists.side_effect = exists_side_effect
+        mock_validate.return_value = None
+
+        # Mock file operations
+        mock_is_zipfile.return_value = True
+        mock_zip_instance = MagicMock()
+        mock_zip_context = MagicMock()
+        mock_zip_context.namelist.return_value = ['test_file.txt']
+        mock_zip_instance.__enter__.return_value = mock_zip_context
+        mock_zipfile.return_value = mock_zip_instance
+
+        # Mock file reading
+        mock_file_obj = MagicMock()
+        mock_file_obj.read.return_value = b'fake zip content'
+        mock_open.return_value.__enter__.return_value = mock_file_obj
+
+        # Mock the database cursor: first fetchone() => existing duplicate, so no INSERT
+        mock_cursor = Mock()
+        mock_context = MagicMock()
+        mock_context.__enter__.return_value = mock_cursor
+        mock_with_db_cursor.return_value = mock_context
+        mock_cursor.fetchone.return_value = [42, "existing.zip"]
+
+        result = add_file_to_db(zip_path)
+
+        assert isinstance(result, UploadResult)
+        assert result.success is False
+        assert result.error_type == "DUPLICATE_UPLOAD"
+        assert "already been uploaded" in result.message
+        assert result.data["existing_file_id"] == 42
+        assert result.data["existing_filename"] == "existing.zip"
+
+        # When duplicate is detected, we should *not* attempt to extract contents
+        mock_extract_and_store_file_contents.assert_not_called()
     
     # this is a test for a non-existent file
     def test_add_file_to_db_nonexistent_file(self):
@@ -274,7 +329,9 @@ class TestUploadFile:
         mock_context = MagicMock()
         mock_context.__enter__.return_value = mock_cursor
         mock_with_db_cursor.return_value = mock_context
-        mock_cursor.fetchone.return_value = [456]
+        # First fetchone() is for duplicate-check SELECT (no duplicate),
+        # second fetchone() is for INSERT ... RETURNING id
+        mock_cursor.fetchone.side_effect = [None, [456]]
         
         # Execute actual upload
         result = add_file_to_db(zip_path)

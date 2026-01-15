@@ -204,11 +204,41 @@ def add_file_to_db(filepath) -> UploadResult:
             data={"filepath": dest_path},
         )
 
-    # 6. Save to database
+    # 6. Check for duplicate uploads and save to database
     try:
         with open(dest_path, "rb") as f:
             zip_bytes = f.read()
+
         with with_db_cursor() as cursor:
+            # 6.1 Check if an identical ZIP (same bytes) has already been uploaded
+            cursor.execute(
+                """
+                SELECT id, filename
+                FROM uploaded_files
+                WHERE file_data = %s
+                LIMIT 1
+                """,
+                (zip_bytes,),
+            )
+            existing = cursor.fetchone()
+
+            if existing:
+                existing_id, existing_filename = existing
+                return UploadResult(
+                    success=False,
+                    message=(
+                        "This ZIP file appears to have already been uploaded "
+                        f"as '{existing_filename}' (ID {existing_id}). "
+                        "Duplicate uploads are not allowed."
+                    ),
+                    error_type="DUPLICATE_UPLOAD",
+                    data={
+                        "existing_file_id": existing_id,
+                        "existing_filename": existing_filename,
+                    },
+                )
+
+            # 6.2 No duplicate found: insert new uploaded_files record
             cursor.execute("""
                 INSERT INTO uploaded_files (
                     filename,
