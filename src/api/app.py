@@ -6,6 +6,7 @@ import os
 from fastapi import Form
 from src.api.ingest import ingest_zip_to_db, save_upload_to_temp
 import zipfile
+from fastapi import Query
 
 app = FastAPI(title="Artifact Miner API", version="0.1.0")
 
@@ -174,3 +175,70 @@ def generate_portfolio():
 @app.post("/portfolio/{portfolio_id}/edit")
 def edit_portfolio(portfolio_id: str):
     return {"accepted": True}
+
+@app.get("/snapshots/{snapshot_id}/analyses")
+def list_snapshot_analyses(snapshot_id: str):
+    engine = get_engine()
+    with engine.connect() as conn:
+        rows = conn.execute(
+            text(
+                """
+                SELECT
+                  id,
+                  analysis_type,
+                  status,
+                  started_at,
+                  completed_at,
+                  COALESCE(output_json->>'error', NULL) AS error
+                FROM analyses
+                WHERE snapshot_id = :sid
+                ORDER BY created_at ASC
+                """
+            ),
+            {"sid": snapshot_id},
+        ).mappings().all()
+    return {"snapshot_id": snapshot_id, "analyses": [dict(r) for r in rows]}
+
+
+@app.get("/snapshots/{snapshot_id}/skills")
+def list_snapshot_skills(snapshot_id: str, limit: int = Query(default=20, ge=1, le=200)):
+    """
+    Returns skills detected for a snapshot, based on the completed local_ml analysis.
+    """
+    engine = get_engine()
+    with engine.connect() as conn:
+        # Find the local_ml analysis for this snapshot
+        aid = conn.execute(
+            text(
+                """
+                SELECT id
+                FROM analyses
+                WHERE snapshot_id = :sid AND analysis_type = 'local_ml' AND status = 'complete'
+                ORDER BY completed_at DESC NULLS LAST, created_at DESC
+                LIMIT 1
+                """
+            ),
+            {"sid": snapshot_id},
+        ).scalar()
+
+        if not aid:
+            return {"snapshot_id": snapshot_id, "analysis_id": None, "skills": []}
+
+        rows = conn.execute(
+            text(
+                """
+                SELECT
+                  s.skill_name,
+                  s.category,
+                  a_s.confidence
+                FROM analysis_skills a_s
+                JOIN skills s ON s.id = a_s.skill_id
+                WHERE a_s.analysis_id = :aid
+                ORDER BY a_s.confidence DESC, s.skill_name ASC
+                LIMIT :lim
+                """
+            ),
+            {"aid": str(aid), "lim": int(limit)},
+        ).mappings().all()
+
+    return {"snapshot_id": snapshot_id, "analysis_id": str(aid), "skills": [dict(r) for r in rows]}
