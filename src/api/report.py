@@ -464,6 +464,9 @@ def build_project_report(
     contributor_count = int(contrib_totals.get("contributor_count") or 0)
     derived_collab = "collaborative" if contributor_count > 1 else "individual"
 
+    db_collab = project["collaboration_type"]
+    needs_refresh = (contributor_count > 0) and (str(db_collab) != str(derived_collab))
+
     # Rank features (best-effort). If user commits are known (project_contributors.is_user set), compute score.
     total_commits = int(contrib_totals.get("total_commits") or 0)
     user_commits_val = int(user_commits or 0)
@@ -499,9 +502,10 @@ def build_project_report(
                 "duration_seconds": duration_seconds,
             },
             "collaboration": {
-                "db_collaboration_type": project["collaboration_type"],
-                "derived_collaboration_type": derived_collab,
+                "authoritative_collaboration_type": db_collab,
+                "derived_from_contributors": derived_collab,
                 "contributor_count": contributor_count,
+                "db_needs_refresh": bool(needs_refresh),
             },
             "contributions": {
                 "total_commits": total_commits,

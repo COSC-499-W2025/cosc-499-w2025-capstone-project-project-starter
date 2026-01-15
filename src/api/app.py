@@ -1,12 +1,15 @@
 from __future__ import annotations
 
 import os
+import uuid
 from typing import Any, Dict, List, Optional
 
 from fastapi import FastAPI, UploadFile, File, HTTPException, Form, Query, Body
 from pydantic import BaseModel, Field
 from sqlalchemy import text
-
+from sqlalchemy import text, bindparam
+from sqlalchemy.dialects.postgresql import ARRAY, UUID
+from fastapi.responses import Response
 from src.db.session import get_engine
 from src.api.ingest import ingest_zip_to_db, save_upload_to_temp
 from src.api.report import build_project_report
@@ -16,9 +19,19 @@ from src.db.user_config import (
     get_user_config,
     put_user_config,
     merge_user_config,
+    identity_rules_for_user,
     resolve_project_owner_user_id,
     set_project_user_contributor_mapping,
     clear_project_user_contributor_mapping,
+)
+
+from src.api.pdf_exporter import export_resume_item_pdf_bytes
+
+from src.api.generation import (
+    generate_portfolio_top_summaries,
+    generate_resume_item,
+    list_portfolio_showcases,
+    get_resume_item,
 )
 
 app = FastAPI(title="Artifact Miner API", version="0.1.0")
@@ -704,18 +717,6 @@ def top_projects(portfolio_id: str, limit: int = Query(default=5, ge=1, le=50)):
 
     return {"portfolio_id": portfolio_id, "limit": int(limit), "top_projects": summaries}
 
-
-# Existing placeholders (milestone-2)
-@app.post("/resume/generate")
-def generate_resume():
-    return {"accepted": True}
-
-
-@app.post("/resume/{resume_id}/edit")
-def edit_resume(resume_id: str):
-    return {"accepted": True}
-
-
 @app.get("/portfolio/{portfolio_id}")
 def get_portfolio(portfolio_id: str):
     engine = get_engine()
@@ -728,12 +729,330 @@ def get_portfolio(portfolio_id: str):
             raise HTTPException(status_code=404, detail="Portfolio not found")
     return dict(row)
 
+class PortfolioGenerateIn(BaseModel):
+    portfolio_id: str
+    limit: int = Field(default=5, ge=1, le=50)
+    persist: bool = True
+
+
+class ResumeGenerateIn(BaseModel):
+    project_id: str
+    prefer_external_bullets: bool = True
+
+
+@app.post("/resume/generate")
+def generate_resume(payload: ResumeGenerateIn):
+    """
+    Creates a resume_items row (output artifact) for a given project.
+    Returns the created resume_id and its stored content_json.
+    """
+    engine = get_engine()
+    try:
+        out = generate_resume_item(
+            engine=engine,
+            project_id=payload.project_id,
+            prefer_external_bullets=bool(payload.prefer_external_bullets),
+        )
+        return out
+    except KeyError:
+        raise HTTPException(status_code=404, detail="Project not found")
+
+@app.get("/resume/{resume_id}/pdf")
+def download_resume_pdf(resume_id: str):
+    engine = get_engine()
+    try:
+        item = get_resume_item(engine=engine, resume_id=resume_id)
+    except KeyError:
+        raise HTTPException(status_code=404, detail="Resume item not found")
+
+    pdf_bytes = export_resume_item_pdf_bytes(item)
+    filename = f"resume-{resume_id}.pdf"
+
+    return Response(
+        content=pdf_bytes,
+        media_type="application/pdf",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
+
+
+@app.get("/resume/{resume_id}")
+def get_resume(resume_id: str):
+    """
+    Retrieves a previously generated resume item by id.
+    """
+    engine = get_engine()
+    try:
+        return get_resume_item(engine=engine, resume_id=resume_id)
+    except KeyError:
+        raise HTTPException(status_code=404, detail="Resume item not found")
+
 
 @app.post("/portfolio/generate")
-def generate_portfolio():
-    return {"accepted": True}
+def generate_portfolio(payload: PortfolioGenerateIn):
+    """
+    Generates top-ranked project summaries for a portfolio.
+    If persist=true, creates portfolio_showcases rows (output artifacts) per summarized project.
+    """
+    engine = get_engine()
+    try:
+        out = generate_portfolio_top_summaries(
+            engine=engine,
+            portfolio_id=payload.portfolio_id,
+            limit=int(payload.limit),
+            persist=bool(payload.persist),
+        )
+        return out
+    except KeyError:
+        raise HTTPException(status_code=404, detail="Portfolio not found")
 
 
-@app.post("/portfolio/{portfolio_id}/edit")
-def edit_portfolio(portfolio_id: str):
-    return {"accepted": True}
+@app.get("/portfolio/{portfolio_id}/generated")
+def get_generated_portfolio_artifacts(portfolio_id: str, limit: int = Query(default=50, ge=1, le=200)):
+    """
+    Retrieves previously generated portfolio_showcases artifacts for the portfolio.
+    """
+    engine = get_engine()
+    try:
+        return list_portfolio_showcases(engine=engine, portfolio_id=portfolio_id, limit=int(limit))
+    except KeyError:
+        raise HTTPException(status_code=404, detail="Portfolio not found")
+
+
+class IdentityRulesIn(BaseModel):
+    match_emails: List[str] = Field(default_factory=list)
+    match_names: List[str] = Field(default_factory=list)
+
+
+class AutoLinkIdentityIn(BaseModel):
+    portfolio_id: Optional[str] = None
+    dry_run: bool = False
+    persist_project_map: bool = True
+
+
+def _dedup_str_list(xs: List[str]) -> List[str]:
+    seen = set()
+    out = []
+    for x in xs:
+        s = str(x).strip()
+        if not s:
+            continue
+        key = s.casefold()
+        if key in seen:
+            continue
+        seen.add(key)
+        out.append(s)
+    return out
+
+
+@app.post("/users/{user_id}/identity/rules")
+def set_identity_rules(user_id: str, payload: IdentityRulesIn):
+    """
+    Convenience endpoint:
+      - Writes identity.match_emails and identity.match_names into user_config.
+    """
+    engine = get_engine()
+    with engine.begin() as conn:
+        cfg = get_user_config(conn, user_id)
+        ident = cfg.setdefault("identity", {})
+        ident["match_emails"] = _dedup_str_list(payload.match_emails or [])
+        ident["match_names"] = _dedup_str_list(payload.match_names or [])
+        cfg = put_user_config(conn, user_id, cfg)
+    return {"user_id": user_id, "identity": cfg.get("identity") or {}}
+
+
+def _choose_user_contributor_for_project(
+    conn,
+    *,
+    user_id: str,
+    project_id: str,
+) -> Tuple[Optional[str], str]:
+    """
+    Returns (chosen_contributor_id, reason).
+    Uses:
+      1) identity.project_contributor_map[project_id] if present
+      2) match by identity.match_emails / identity.match_names against contributors on the project
+         choosing highest-commits match.
+    """
+    match_emails, match_names, mapping = identity_rules_for_user(conn, user_id)
+
+    mapped = (mapping or {}).get(str(project_id))
+    if mapped:
+        return str(mapped), "config.project_contributor_map"
+
+    email_set = {str(e).strip().casefold() for e in (match_emails or []) if str(e).strip()}
+    name_set = {str(n).strip().casefold() for n in (match_names or []) if str(n).strip()}
+    if not email_set and not name_set:
+        return None, "no_identity_rules"
+
+    rows = conn.execute(
+        text(
+            """
+            WITH contrib_commits AS (
+              SELECT
+                ce.contributor_id,
+                COALESCE(SUM(ce.commit_count), 0) AS commits
+              FROM contribution_events ce
+              JOIN snapshots s ON s.id = ce.snapshot_id
+              WHERE s.project_id = :pid
+              GROUP BY ce.contributor_id
+            )
+            SELECT
+              c.id AS contributor_id,
+              c.canonical_name,
+              c.email,
+              COALESCE(cc.commits, 0) AS commits
+            FROM project_contributors pc
+            JOIN contributors c ON c.id = pc.contributor_id
+            LEFT JOIN contrib_commits cc ON cc.contributor_id = pc.contributor_id
+            WHERE pc.project_id = :pid
+            """
+        ),
+        {"pid": project_id},
+    ).mappings().all()
+
+    candidates: List[Tuple[int, str]] = []
+    for r in rows:
+        cid = str(r["contributor_id"])
+        commits = int(r.get("commits") or 0)
+        nm_cf = str(r.get("canonical_name") or "").strip().casefold()
+        em_cf = str(r.get("email") or "").strip().casefold()
+
+        if em_cf and em_cf in email_set:
+            candidates.append((commits, cid))
+            continue
+        if nm_cf and nm_cf in name_set:
+            candidates.append((commits, cid))
+            continue
+
+    if not candidates:
+        return None, "no_matches"
+
+    candidates.sort(key=lambda t: (-int(t[0]), str(t[1])))
+    return str(candidates[0][1]), "rule_match_best_commits"
+
+
+def _apply_is_user_flag(conn, *, project_id: str, contributor_id: str, unset_others: bool = True) -> None:
+    conn.execute(
+        text(
+            """
+            INSERT INTO project_contributors (project_id, contributor_id, is_user)
+            VALUES (:pid, :cid, FALSE)
+            ON CONFLICT (project_id, contributor_id) DO NOTHING
+            """
+        ),
+        {"pid": project_id, "cid": contributor_id},
+    )
+    if unset_others:
+        conn.execute(
+            text(
+                """
+                UPDATE project_contributors
+                SET is_user = FALSE
+                WHERE project_id = :pid AND contributor_id <> :cid
+                """
+            ),
+            {"pid": project_id, "cid": contributor_id},
+        )
+    conn.execute(
+        text(
+            """
+            UPDATE project_contributors
+            SET is_user = TRUE
+            WHERE project_id = :pid AND contributor_id = :cid
+            """
+        ),
+        {"pid": project_id, "cid": contributor_id},
+    )
+
+
+@app.post("/users/{user_id}/identity/auto-link")
+def auto_link_identity(user_id: str, payload: AutoLinkIdentityIn):
+    engine = get_engine()
+    with engine.begin() as conn:
+        portfolio_ids: List[str] = []
+        if payload.portfolio_id:
+            owned = conn.execute(
+                text("SELECT 1 FROM portfolios WHERE id = :pid AND user_id = :uid"),
+                {"pid": payload.portfolio_id, "uid": user_id},
+            ).scalar()
+            if not owned:
+                raise HTTPException(status_code=404, detail="Portfolio not found for user")
+            portfolio_ids = [payload.portfolio_id]
+        else:
+            portfolio_ids = [
+                str(x)
+                for x in conn.execute(
+                    text("SELECT id FROM portfolios WHERE user_id = :uid ORDER BY created_at ASC"),
+                    {"uid": user_id},
+                ).scalars().all()
+            ]
+
+        pids_uuid = [uuid.UUID(p) for p in portfolio_ids]
+
+        stmt = text(
+            """
+            SELECT id
+            FROM projects
+            WHERE portfolio_id = ANY(:pids)
+            ORDER BY created_at ASC
+            """
+        ).bindparams(bindparam("pids", type_=ARRAY(UUID(as_uuid=True))))
+
+        projects = conn.execute(stmt, {"pids": pids_uuid}).scalars().all()
+        projects = [str(p) for p in projects]
+
+        results: List[Dict[str, Any]] = []
+        for pid in projects:
+            chosen, reason = _choose_user_contributor_for_project(conn, user_id=user_id, project_id=pid)
+            if not chosen:
+                results.append({"project_id": pid, "chosen_contributor_id": None, "applied": False, "reason": reason})
+                continue
+
+            if not payload.dry_run:
+                _apply_is_user_flag(conn, project_id=pid, contributor_id=chosen, unset_others=True)
+                if payload.persist_project_map:
+                    set_project_user_contributor_mapping(conn, user_id, pid, chosen)
+
+            results.append(
+                {
+                    "project_id": pid,
+                    "chosen_contributor_id": chosen,
+                    "applied": (not payload.dry_run),
+                    "reason": reason,
+                }
+            )
+
+    return {"user_id": user_id, "portfolio_ids": portfolio_ids, "dry_run": bool(payload.dry_run), "results": results}
+
+@app.post("/projects/{project_id}/refresh-collaboration")
+def refresh_project_collaboration(project_id: str):
+    """
+    Recomputes and persists projects.collaboration_type based on distinct contributors observed for the project.
+    Useful after backfilling git_metrics or importing older DB state.
+    """
+    engine = get_engine()
+    with engine.begin() as conn:
+        exists = conn.execute(text("SELECT 1 FROM projects WHERE id = :pid"), {"pid": project_id}).scalar()
+        if not exists:
+            raise HTTPException(status_code=404, detail="Project not found")
+
+        contributor_count = int(
+            conn.execute(
+                text(
+                    """
+                    SELECT COUNT(DISTINCT pc.contributor_id)
+                    FROM project_contributors pc
+                    WHERE pc.project_id = :pid
+                    """
+                ),
+                {"pid": project_id},
+            ).scalar_one()
+        )
+
+        ctype = "collaborative" if contributor_count > 1 else "individual"
+        conn.execute(
+            text("UPDATE projects SET collaboration_type = :ct WHERE id = :pid"),
+            {"ct": ctype, "pid": project_id},
+        )
+
+    return {"project_id": project_id, "collaboration_type": ctype, "contributor_count": contributor_count}

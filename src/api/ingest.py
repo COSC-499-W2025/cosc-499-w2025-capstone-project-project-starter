@@ -162,11 +162,12 @@ def ingest_zip_to_db(
                 ).scalar()
 
                 if not proj_id:
+                    # Let DB default apply, and allow git_metrics to make it authoritative later.
                     proj_id = conn.execute(
                         text(
                             """
-                            INSERT INTO projects (portfolio_id, name, project_type, collaboration_type, evidence_json)
-                            VALUES (:portfolio_id, :name, 'code', 'individual', '{}'::jsonb)
+                            INSERT INTO projects (portfolio_id, name, project_type, evidence_json)
+                            VALUES (:portfolio_id, :name, 'code', '{}'::jsonb)
                             RETURNING id
                             """
                         ),

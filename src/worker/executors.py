@@ -1,4 +1,3 @@
-# src/worker/executors.py
 from __future__ import annotations
 
 import os
@@ -19,7 +18,7 @@ from src.worker.workspace import materialize_snapshot_to_dir
 from src.db.base import fetch_snapshot_files
 from src.db.consents import get_snapshot_owner_user_id, is_external_services_allowed
 
-from src.ml.universal import predict as ml_predict
+from src.ml import predict as ml_predict
 from src.worker.llm import run_external_llm_analysis
 
 from src.db.user_config import identity_rules_for_user
@@ -195,6 +194,7 @@ def _auto_flag_user_contributor(
     return chosen
 
 
+
 def run_git_metrics(engine: Engine, snapshot_id: str) -> Dict[str, Any]:
     files = fetch_snapshot_files(engine, snapshot_id)
     workdir = materialize_snapshot_to_dir(files)
@@ -237,9 +237,10 @@ def run_git_metrics(engine: Engine, snapshot_id: str) -> Dict[str, Any]:
             for k, v in contribs.items():
                 all_contribs[k] = all_contribs.get(k, 0) + int(v)
 
-        # Insert contributors + project_contributors + contribution_events
         author_rows_for_matching: List[Dict[str, Any]] = []
+
         with engine.begin() as conn:
+            # Insert contributors + project_contributors + contribution_events
             for author_key, commit_count in all_contribs.items():
                 name, email = _parse_author_key(author_key)
 
@@ -298,7 +299,7 @@ def run_git_metrics(engine: Engine, snapshot_id: str) -> Dict[str, Any]:
                     }
                 )
 
-            # Consume user_config (Milestone-1 requirement B) to auto-link user identity.
+            # D) Auto-link user identity when rules exist in user_config (deterministic).
             if owner_user_id:
                 _auto_flag_user_contributor(
                     conn,
@@ -307,12 +308,38 @@ def run_git_metrics(engine: Engine, snapshot_id: str) -> Dict[str, Any]:
                     author_rows=author_rows_for_matching,
                 )
 
+            # Make collaboration_type authoritative in DB after git_metrics runs.
+            # Use project_contributors count (across all snapshots) as the authoritative source of distinct contributors.
+            contributor_count = int(
+                conn.execute(
+                    text("SELECT COUNT(*) FROM project_contributors WHERE project_id = :pid"),
+                    {"pid": project_id},
+                ).scalar_one()
+            )
+            collab_type = "collaborative" if contributor_count > 1 else "individual"
+
+            conn.execute(
+                text(
+                    """
+                    UPDATE projects
+                    SET collaboration_type = :ctype
+                    WHERE id = :pid
+                    """
+                ),
+                {"ctype": collab_type, "pid": project_id},
+            )
+
         return {
             "snapshot_id": snapshot_id,
             "generated_at": _utcnow_iso(),
             "git_repos_found": repo_count,
             "repo_summaries": repo_summaries,
             "commit_contributions": all_contribs,
+            "derived": {
+                "project_id": str(project_id),
+                "distinct_contributors": int(len(all_contribs)),
+                "authoritative_collaboration_type": collab_type,
+            },
         }
     finally:
         try:
@@ -320,7 +347,6 @@ def run_git_metrics(engine: Engine, snapshot_id: str) -> Dict[str, Any]:
             shutil.rmtree(workdir, ignore_errors=True)
         except Exception:
             pass
-
 
 def run_local_ml(engine: Engine, analysis_id: str, snapshot_id: str) -> Dict[str, Any]:
     threshold = float(os.environ.get("LOCAL_ML_THRESHOLD", "0.5"))
