@@ -7,6 +7,7 @@ from fastapi import Form
 from src.api.ingest import ingest_zip_to_db, save_upload_to_temp
 import zipfile
 from fastapi import Query
+from src.api.report import build_project_report
 
 app = FastAPI(title="Artifact Miner API", version="0.1.0")
 
@@ -242,3 +243,21 @@ def list_snapshot_skills(snapshot_id: str, limit: int = Query(default=20, ge=1, 
         ).mappings().all()
 
     return {"snapshot_id": snapshot_id, "analysis_id": str(aid), "skills": [dict(r) for r in rows]}
+
+@app.get("/projects/{project_id}/report")
+def get_project_report(
+    project_id: str,
+    include_raw_analyses: bool = Query(default=False),
+    include_framework_detection: bool = Query(default=True),
+):
+    engine = get_engine()
+    try:
+        report = build_project_report(
+            engine=engine,
+            project_id=project_id,
+            include_raw_analyses=bool(include_raw_analyses),
+            include_framework_detection=bool(include_framework_detection),
+        )
+        return report
+    except KeyError:
+        raise HTTPException(status_code=404, detail="Project not found")

@@ -22,33 +22,6 @@ class SnapshotFileRow:
     last_modified_ts: Optional[datetime]
 
 
-def fetch_snapshot_files(engine: Engine, snapshot_id: str) -> List[SnapshotFileRow]:
-    with engine.connect() as conn:
-        rows = conn.execute(
-            text(
-                """
-                SELECT sf.relative_path, sf.file_sha256, fb.stored_path, sf.size_bytes, sf.last_modified_ts
-                FROM snapshot_files sf
-                JOIN file_blobs fb ON fb.sha256 = sf.file_sha256
-                WHERE sf.snapshot_id = :sid
-                ORDER BY sf.relative_path ASC
-                """
-            ),
-            {"sid": snapshot_id},
-        ).mappings().all()
-
-    return [
-        SnapshotFileRow(
-            relative_path=r["relative_path"],
-            file_sha256=r["file_sha256"],
-            stored_path=r["stored_path"],
-            size_bytes=int(r["size_bytes"]),
-            last_modified_ts=r["last_modified_ts"],
-        )
-        for r in rows
-    ]
-
-
 def materialize_snapshot_to_dir(files: Iterable[SnapshotFileRow]) -> str:
     """
     Materialize the snapshot into a temp directory, preserving relative paths.

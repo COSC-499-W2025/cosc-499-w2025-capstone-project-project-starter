@@ -107,7 +107,7 @@ def _wait_for_snapshot(
 def main(argv: Optional[List[str]] = None) -> int:
     p = argparse.ArgumentParser(prog="artifact-miner", description="Artifact Miner CLI (API client)")
     p.add_argument("zip", nargs="?", help="Path to a .zip file to upload")
-    p.add_argument("--api-url", default=None, help="API base URL (default: ARTIFACT_MINER_API_URL or http://localhost:8000)")
+    p.add_argument("--api-url", default=None, help="API base URL (default: ARTIFACT_MINER_API_URL or http://localhost:5001)")
     p.add_argument("--user-id", default=None, help="Existing user_id (UUID). If omitted, a new user is created on consent.")
     p.add_argument("--portfolio-id", default=None, help="Target portfolio_id (UUID). If omitted, API uses/creates default portfolio.")
     p.add_argument("--project-name", default=None, help="Force single project name for the upload.")
