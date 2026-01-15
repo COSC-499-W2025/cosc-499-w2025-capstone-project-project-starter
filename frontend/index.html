@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Artifact API - Connectivity Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 50px auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #333;
+        }
+        button {
+            background-color: #4CAF50;
+            color: white;
+            padding: 10px 20px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 5px;
+            font-size: 14px;
+        }
+        button:hover {
+            background-color: #45a049;
+        }
+        .result {
+            margin-top: 20px;
+            padding: 15px;
+            border-radius: 4px;
+            background-color: #f9f9f9;
+            border-left: 4px solid #4CAF50;
+        }
+        .error {
+            border-left-color: #f44336;
+            background-color: #ffebee;
+        }
+        pre {
+            background-color: #f5f5f5;
+            padding: 10px;
+            border-radius: 4px;
+            overflow-x: auto;
+        }
+        .status {
+            display: inline-block;
+            padding: 5px 10px;
+            border-radius: 3px;
+            font-weight: bold;
+            margin-left: 10px;
+        }
+        .status.success {
+            background-color: #4CAF50;
+            color: white;
+        }
+        .status.error {
+            background-color: #f44336;
+            color: white;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Artifact API - Connectivity Test</h1>
+        <p>Test endpoints to verify API connectivity:</p>
+        
+        <button onclick="testRoot()">Test Root Endpoint</button>
+        <button onclick="testHealth()">Test Health Check</button>
+        <button onclick="testDbHealth()">Test DB Health</button>
+        <button onclick="testProjects()">Test Projects Endpoint</button>
+        
+        <div id="result"></div>
+    </div>
+
+    <script>
+        const API_BASE_URL = 'http://localhost:8000';
+
+        async function makeRequest(endpoint, description) {
+            const resultDiv = document.getElementById('result');
+            resultDiv.innerHTML = `<p>Testing ${description}...</p>`;
+            
+            try {
+                const response = await fetch(`${API_BASE_URL}${endpoint}`);
+                const data = await response.json();
+                
+                const statusClass = response.ok ? 'success' : 'error';
+                const statusText = response.ok ? 'SUCCESS' : 'ERROR';
+                
+                resultDiv.innerHTML = `
+                    <div class="result ${response.ok ? '' : 'error'}">
+                        <h3>${description} 
+                            <span class="status ${statusClass}">${statusText} (${response.status})</span>
+                        </h3>
+                        <p><strong>Endpoint:</strong> ${endpoint}</p>
+                        <pre>${JSON.stringify(data, null, 2)}</pre>
+                    </div>
+                `;
+            } catch (error) {
+                resultDiv.innerHTML = `
+                    <div class="result error">
+                        <h3>${description} 
+                            <span class="status error">ERROR</span>
+                        </h3>
+                        <p><strong>Error:</strong> ${error.message}</p>
+                        <p>Make sure the API is running on ${API_BASE_URL}</p>
+                    </div>
+                `;
+            }
+        }
+
+        function testRoot() {
+            makeRequest('/', 'Root Endpoint');
+        }
+
+        function testHealth() {
+            makeRequest('/api/health', 'Health Check');
+        }
+
+        function testDbHealth() {
+            makeRequest('/api/health/db', 'Database Health Check');
+        }
+
+        function testProjects() {
+            makeRequest('/api/projects', 'Projects Endpoint');
+        }
+    </script>
+</body>
+</html>
