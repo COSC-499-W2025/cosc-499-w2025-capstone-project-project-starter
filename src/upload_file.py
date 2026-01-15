@@ -4,7 +4,11 @@ import zipfile
 import json
 from config.db_config import with_db_cursor
 from parsing.file_validator import validate_uploaded_file, WrongFormatError
-from parsing.file_contents_manager import init_file_contents_table, extract_and_store_file_contents, get_file_contents_by_upload_id
+from parsing.file_contents_manager import (
+    init_file_contents_table,
+    extract_and_store_file_contents,
+    get_file_contents_by_upload_id,
+)
 from pathlib import Path
 
 UPLOAD_FOLDER = Path(os.getenv("UPLOAD_FOLDER", "uploads"))
@@ -140,10 +144,10 @@ def add_file_to_db(filepath) -> UploadResult:
             data={"filepath": filepath},
         )
 
-    # Prepare destination path
+    # 3. Prepare destination path
     dest_path = str(UPLOAD_FOLDER / filename)   # keep as str if the rest of your code expects str
 
-    # 3. Create upload directory (via helper)
+    # 4. Create upload directory (via helper)
     err = ensure_upload_dir()
     if err:
         return UploadResult(
@@ -153,7 +157,7 @@ def add_file_to_db(filepath) -> UploadResult:
             data={"destination": str(UPLOAD_FOLDER)}
         )
 
-    # 4. Copy file to upload folder
+    # 5. Copy file to upload folder
     try:
         shutil.copy(filepath, dest_path)
         print(f"File copied to {dest_path}")
@@ -170,7 +174,7 @@ def add_file_to_db(filepath) -> UploadResult:
             data={"source": filepath, "destination": dest_path},
         )
 
-    # 4.5 Key Change
+    # 5.5 Key Change
     # To prevent RAR/7z files from crashing after simply changing the extension to .zip.
     if not zipfile.is_zipfile(dest_path):
         return UploadResult(
@@ -184,7 +188,7 @@ def add_file_to_db(filepath) -> UploadResult:
             data={"filepath": dest_path},
         )
     
-    # 5. Extract metadata from zip
+    # 6. Extract metadata from zip
     file_contents = []
     try:
         # This has already been confirmed as a valid ZIP file, so the is_zipfile check will not be performed again.

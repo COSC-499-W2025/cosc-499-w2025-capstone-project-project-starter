@@ -117,6 +117,21 @@ def extract_and_store_file_contents(uploaded_file_id, zip_file_path, max_files=1
                         # Always store raw bytes in BYTEA
                         file_content = Binary(file_bytes)
 
+                        # Skip storing this file if an identical file (same size + bytes)
+                        # is already present in file_contents from any previous upload.
+                        cursor.execute(
+                            """
+                            SELECT 1
+                            FROM file_contents
+                            WHERE file_size = %s AND file_content = %s
+                            LIMIT 1
+                            """,
+                            (file_size, file_content),
+                        )
+                        if cursor.fetchone():
+                            # Duplicate found; do not store again
+                            continue
+
                         batch_data.append((
                             uploaded_file_id,
                             file_path,
