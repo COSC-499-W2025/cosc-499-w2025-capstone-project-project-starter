@@ -34,6 +34,14 @@ from src.api.generation import (
     get_resume_item,
 )
 
+from src.db.deletion import (
+    delete_snapshot_and_gc,
+    delete_portfolio_showcase_and_gc,
+    delete_resume_item,
+    delete_analysis,
+)
+
+
 app = FastAPI(title="Artifact Miner API", version="0.1.0")
 
 
@@ -1056,3 +1064,195 @@ def refresh_project_collaboration(project_id: str):
         )
 
     return {"project_id": project_id, "collaboration_type": ctype, "contributor_count": contributor_count}
+
+
+@app.delete("/snapshots/{snapshot_id}")
+def delete_snapshot(snapshot_id: str):
+    """
+    Safe deletion:
+      - Deletes snapshot and cascaded derived rows (analyses, snapshot_files, contribution_events).
+      - Garbage-collects unreferenced file_blobs (shared blobs remain if referenced elsewhere).
+    """
+    engine = get_engine()
+    try:
+        return delete_snapshot_and_gc(engine, snapshot_id)
+    except KeyError:
+        raise HTTPException(status_code=404, detail="Snapshot not found")
+
+
+@app.delete("/portfolio/showcases/{showcase_id}")
+def delete_portfolio_showcase(showcase_id: str):
+    """
+    Deletes a previously generated portfolio_showcases artifact.
+    If it had a thumbnail blob, GC it only if unreferenced elsewhere.
+    """
+    engine = get_engine()
+    try:
+        return delete_portfolio_showcase_and_gc(engine, showcase_id)
+    except KeyError:
+        raise HTTPException(status_code=404, detail="Showcase not found")
+
+
+@app.delete("/resume/{resume_id}")
+def delete_resume(resume_id: str):
+    """
+    Deletes a previously generated resume_items artifact.
+    """
+    engine = get_engine()
+    try:
+        return delete_resume_item(engine, resume_id)
+    except KeyError:
+        raise HTTPException(status_code=404, detail="Resume item not found")
+
+
+@app.delete("/analyses/{analysis_id}")
+def delete_analysis_by_id(analysis_id: str):
+    """
+    Deletes a previously generated analysis/insight by analysis id.
+    """
+    engine = get_engine()
+    try:
+        return delete_analysis(engine, analysis_id)
+    except KeyError:
+        raise HTTPException(status_code=404, detail="Analysis not found")
+
+
+@app.get("/portfolio/{portfolio_id}/projects/chronological")
+def list_portfolio_projects_chronological(
+    portfolio_id: str,
+    direction: str = Query(default="asc", pattern="^(asc|desc)$"),
+    limit: int = Query(default=200, ge=1, le=2000),
+):
+    """
+    Portfolio-level chronological list of projects.
+    This is distinct from /projects (which returns ranked ordering).
+    """
+    engine = get_engine()
+    order = "ASC" if direction == "asc" else "DESC"
+
+    with engine.connect() as conn:
+        owned = conn.execute(text("SELECT 1 FROM portfolios WHERE id = :pid"), {"pid": portfolio_id}).scalar()
+        if not owned:
+            raise HTTPException(status_code=404, detail="Portfolio not found")
+
+        rows = conn.execute(
+            text(
+                f"""
+                SELECT
+                  id,
+                  name,
+                  project_type,
+                  collaboration_type,
+                  user_role,
+                  created_at
+                FROM projects
+                WHERE portfolio_id = :pid
+                ORDER BY created_at {order}, id {order}
+                LIMIT :lim
+                """
+            ),
+            {"pid": portfolio_id, "lim": int(limit)},
+        ).mappings().all()
+
+    return {
+        "portfolio_id": portfolio_id,
+        "direction": direction,
+        "limit": int(limit),
+        "projects": [dict(r) for r in rows],
+    }
+
+
+@app.get("/portfolio/{portfolio_id}/skills/chronological")
+def list_portfolio_skills_chronological(
+    portfolio_id: str,
+    direction: str = Query(default="asc", pattern="^(asc|desc)$"),
+    limit: int = Query(default=500, ge=1, le=5000),
+):
+    """
+    Portfolio-level chronological list of skills exercised.
+
+    Derivation:
+      - Read completed local_ml analyses for snapshots in the portfolio.
+      - From output_json.skills[*].first_seen_ts (preferred), produce skill events with:
+          (skill, first_seen_ts, project_id, snapshot_id, analysis_id, max_prob, hits)
+      - If first_seen_ts is missing, fall back to snapshot.ingested_at.
+    This aligns with the existing local_ml output schema. :contentReference[oaicite:2]{index=2}
+    """
+    engine = get_engine()
+    order_mult = 1 if direction == "asc" else -1
+
+    with engine.connect() as conn:
+        owned = conn.execute(text("SELECT 1 FROM portfolios WHERE id = :pid"), {"pid": portfolio_id}).scalar()
+        if not owned:
+            raise HTTPException(status_code=404, detail="Portfolio not found")
+
+        rows = conn.execute(
+            text(
+                """
+                SELECT
+                  a.id AS analysis_id,
+                  a.snapshot_id,
+                  a.output_json,
+                  a.completed_at,
+                  s.ingested_at,
+                  prj.id AS project_id,
+                  prj.name AS project_name
+                FROM analyses a
+                JOIN snapshots s ON s.id = a.snapshot_id
+                JOIN projects prj ON prj.id = s.project_id
+                WHERE prj.portfolio_id = :pid
+                  AND a.analysis_type = 'local_ml'
+                  AND a.status = 'complete'
+                ORDER BY COALESCE(a.completed_at, s.ingested_at) ASC, a.created_at ASC
+                """
+            ),
+            {"pid": portfolio_id},
+        ).mappings().all()
+
+    events = []
+    for r in rows:
+        out = r.get("output_json") or {}
+        skills = out.get("skills") if isinstance(out, dict) else None
+        if not isinstance(skills, list):
+            continue
+
+        for srow in skills:
+            if not isinstance(srow, dict):
+                continue
+            skill = srow.get("skill")
+            if not skill:
+                continue
+
+            ts = srow.get("first_seen_ts") or None
+            # Fall back if model did not emit first_seen_ts.
+            if not ts:
+                fallback = r.get("ingested_at") or r.get("completed_at")
+                ts = fallback.isoformat() if fallback is not None else None
+
+            events.append(
+                {
+                    "skill": str(skill),
+                    "first_seen_ts": ts,
+                    "project_id": str(r.get("project_id")),
+                    "project_name": r.get("project_name"),
+                    "snapshot_id": str(r.get("snapshot_id")),
+                    "analysis_id": str(r.get("analysis_id")),
+                    "max_prob": srow.get("max_prob"),
+                    "hits": srow.get("hits"),
+                }
+            )
+
+    # Sort in-process to apply direction and ensure stable ordering.
+    def _k(e):
+        t = e.get("first_seen_ts") or ""
+        return (t, e.get("skill") or "", e.get("project_id") or "", e.get("snapshot_id") or "")
+
+    events.sort(key=_k, reverse=(direction == "desc"))
+    events = events[: int(limit)]
+
+    return {
+        "portfolio_id": portfolio_id,
+        "direction": direction,
+        "limit": int(limit),
+        "skill_events": events,
+    }
