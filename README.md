@@ -22,60 +22,65 @@ For this milestone, the system can parse a zipped folder, identify project detai
 - [System architecture design](/docs/system%20architecture%20design/explanation.md)
 
 
-## Installation
+## Running with Docker (API + DB + analysis worker)
 
-### 1. Clone the Repository
+This repository ships with a Docker Compose stack for Postgres + migrations + the FastAPI service, plus an optional analysis worker and Ollama.
 
-```bash
-git clone https://github.com/COSC-499-W2025/capstone-project-team-15.git
-cd <repository-path>
-```
+### Prerequisites
+- Docker Engine + Docker Compose v2
 
-### 2. Create and Activate Virtual Environment
+### Important info
+Service URLs
 
-**Windows (PowerShell)**
+API base URL: http://localhost:5001
 
-```powershell
-python -m venv venv
-venv\Scripts\activate
-```
+Postgres: postgresql://postgres:postgres@localhost:5432/artifactminer
 
-**Mac/Linux**
-
-```bash
-python3 -m venv venv
-source venv/bin/activate
-```
-
-### 3. Install Dependencies
+### Start the core stack (db + migrate + api)
+This brings up:
+- Postgres on `localhost:5432`
+- API on `localhost:5001` (container port 5000)
 
 ```bash
-pip install -r requirements.txt
+docker compose up --build
 ```
 
-
-## Running the Application
-
-Paste the following input into the command line or powershell and subsitute `<path to zip file>` with the local path to a zip file on your device.
+To stop:
 
 ```bash
-python main.py <path to zip file>
+docker compose down
+```
+To wipe all data (destructive):
+```bash
+docker compose down -v
+```
+
+### Starting the analysis worker (and Ollama)
+The worker and Ollama are behind Compose profiles:
+- ollama is in profiles external and analysis
+- worker is in profile analysis
+
+Run everything (api + db + worker + ollama):
+```
+docker compose --profile analysis up --build
 ```
 
 
-## Troubleshooting
-
-### Virtual Environment Script Error
-
-If you see this error:
-
+## Testing
 
 ```
-running scripts is disabled on this system
+pip install python-multipart fastapi alembic
+```
+If the test database has not been created before:
+
+```bash
+export DATABASE_URL='postgresql+psycopg2://postgres:postgres@localhost:5432/artifactminer_test'
+psql 'postgresql://postgres:postgres@localhost:5432/postgres' -c 'CREATE DATABASE artifactminer_test;' || true
+alembic upgrade head
 ```
 
-Run the following in the command line or powershell:
+Then, to test, run from the project root:
 
-```powershell
-Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass
+```
+PYTHONPATH=. pytest
 ```

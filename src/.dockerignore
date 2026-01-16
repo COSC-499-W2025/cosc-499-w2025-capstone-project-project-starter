@@ -1,0 +1,28 @@
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.pytest_cache/
+.mypy_cache/
+.venv/
+venv/
+dist/
+build/
+.eggs/
+
+Archive/
+Archive.zip
+report.pdf
+docs/
+
+# The ML training corpora and embedding shards are not needed for inference
+src/ml/**/data/
+src/ml/**/shards/
+src/ml/**/embeds/
+
+# If HiGitClass is training-related and huge, exclude it too.
+# If you later discover you need it at runtime, remove this line.
+src/ml/HiGitClass/
+
+.git/
+.gitignore

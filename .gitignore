@@ -7,4 +7,5 @@ src/ml/.python-version
 *.pt
 *.bin
 *.npz
-src/ml/universal/data/
+src/ml/data/
+.pytest_cache

@@ -1,50 +1,80 @@
-# docker-compose.yml
-version: "3.9"
-
 services:
   db:
     image: postgres:16
-    container_name: postgres_db
-    restart: always
+    container_name: artifactminer-db
+    restart: unless-stopped
     environment:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: postgres
-      POSTGRES_DB: postgres
+      POSTGRES_DB: artifactminer
     ports:
       - "5432:5432"
     volumes:
       - pgdata:/var/lib/postgresql/data
-      - ./init.sql:/docker-entrypoint-initdb.d/init.sql  # Optional for initial data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres -d postgres"]
+      test: ["CMD-SHELL", "pg_isready -U postgres -d artifactminer"]
       interval: 5s
       timeout: 5s
-      retries: 10  # Increased retries
+      retries: 20
 
-  app:
-    build: .
-    container_name: artifact-miner
+  migrate:
+    build:
+      context: .
+      dockerfile: Dockerfile.api
+    container_name: artifactminer-migrate
     environment:
-      DB_HOST: db  # Set environment variable for connection
-      DB_PORT: 5432
-      DB_NAME: postgres
-      DB_USER: postgres
-      DB_PASSWORD: postgres
-    command: >
-      /bin/sh -c "
-      echo 'Waiting for database...' &&
-      python src/db/wait_for_db.py &&
-      echo 'Creating tables...' &&
-      python src/db/create_tables.py &&
-      echo 'Starting application...' &&
-      python src/main.py"
-    volumes:
-      - .:/app
-    ports:
-      - "5001:5000"
+      DATABASE_URL: postgresql+psycopg2://postgres:postgres@db:5432/artifactminer
     depends_on:
       db:
         condition: service_healthy
+    command: ["alembic", "upgrade", "head"]
+    restart: "no"
+
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile.api
+    container_name: artifactminer-api
+    environment:
+      DATABASE_URL: postgresql+psycopg2://postgres:postgres@db:5432/artifactminer
+      ARTIFACT_MINER_BLOBSTORE: /blobstore
+    volumes:
+      - blobstore:/blobstore
+    ports:
+      - "5001:5000"
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+
+  ollama:
+    profiles: ["external", "analysis"]
+    image: ollama/ollama:latest
+    container_name: artifactminer-ollama
+    volumes:
+      - ollama:/root/.ollama
+    ports:
+      - "11434:11434"
+
+  worker:
+    profiles: ["analysis"]
+    build:
+      context: .
+      dockerfile: Dockerfile.worker
+    container_name: artifactminer-worker
+    environment:
+      DATABASE_URL: postgresql+psycopg2://postgres:postgres@db:5432/artifactminer
+      ARTIFACT_MINER_BLOBSTORE: /blobstore
+      OLLAMA_HOST: http://ollama:11434
+      OLLAMA_MODEL: mistral
+    volumes:
+      - blobstore:/blobstore
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+      ollama:
+        condition: service_started
 
 volumes:
   pgdata:
+  blobstore:
+  ollama:
