@@ -45,10 +45,10 @@ def _normalize_config(cfg: Any) -> Dict[str, Any]:
     if not isinstance(cfg, dict):
         cfg = {}
 
-    # top-level
-    out: Dict[str, Any] = dict(cfg)
+    # Start from DEFAULT_CONFIG so required top-level keys always exist.
+    out: Dict[str, Any] = _deep_merge(DEFAULT_CONFIG, dict(cfg))
 
-    # identity defaults
+    # identity defaults + normalization
     identity = out.get("identity")
     if not isinstance(identity, dict):
         identity = {}
@@ -67,12 +67,17 @@ def _normalize_config(cfg: Any) -> Dict[str, Any]:
     pcm = identity_out.get("project_contributor_map")
     if not isinstance(pcm, dict):
         pcm = {}
-    # ensure string->string map
     identity_out["project_contributor_map"] = {str(k): str(v) for k, v in pcm.items()}
 
     out["identity"] = identity_out
-    return out
 
+    # ranking defaults + normalization (reserved for milestone 2, must be a dict)
+    ranking = out.get("ranking")
+    if not isinstance(ranking, dict):
+        ranking = {}
+    out["ranking"] = dict(ranking)
+
+    return out
 
 def ensure_user_config_row(conn, user_id: str) -> None:
     conn.execute(
