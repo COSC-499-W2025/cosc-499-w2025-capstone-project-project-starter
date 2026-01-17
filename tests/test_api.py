@@ -1,5 +1,7 @@
 import uuid
 from datetime import datetime, timezone
+import io
+import zipfile
 
 from sqlalchemy import text
 import re
@@ -647,3 +649,70 @@ def test_delete_resume_and_analysis_endpoints(client, engine):
     r4 = client.delete(f"/analyses/{analysis_id}")
     assert r4.status_code == 404
 
+# --- Helper to create a dummy zip file in memory ---
+def _create_dummy_zip():
+    s = io.BytesIO()
+    with zipfile.ZipFile(s, 'w') as z:
+        z.writestr('main.py', 'print("Hello World")')
+    s.seek(0)
+    return s
+
+def test_project_display_name_update_and_resume_integration(client, monkeypatch, tmp_path):
+    """
+    1. Upload a project (defaults to filename).
+    2. PATCH the display_name.
+    3. Generate resume and verify it uses the new display_name.
+    """
+    
+    # --- FIX: Set the specific environment variable the app looks for ---
+    test_blob_dir = tmp_path / "test_blobs"
+    test_blob_dir.mkdir()
+    
+    # This matches the key found in src/api/app.py line 139
+    monkeypatch.setenv("ARTIFACT_MINER_BLOBSTORE", str(test_blob_dir))
+    # ------------------------------------------------------------------
+    
+    # 1. Create a user and grant consent
+    r_consent = client.post(
+        "/privacy-consent",
+        json={"consent_type": "data_access", "granted": True, "version": 1},
+    )
+    assert r_consent.status_code == 200
+    user_id = r_consent.json()["user_id"]
+
+    # 2. Upload a project
+    # (We use the helper to make a fake zip in memory)
+    zip_buf = _create_dummy_zip()
+    r_upload = client.post(
+        "/projects/upload",
+        files={"file": ("ugly_filename_v1.zip", zip_buf, "application/zip")},
+        data={"user_id": user_id}
+    )
+    assert r_upload.status_code == 200
+    
+    # Get the ID and confirm initial name is the filename
+    project_data = r_upload.json()["created"][0]
+    project_id = project_data["project_id"]
+    assert project_data["project_name"] == "ugly_filename_v1.zip"
+
+    # 3. UPDATE (Patch) the Display Name
+    new_name = "My Polished Project"
+    r_patch = client.patch(
+        f"/projects/{project_id}",
+        json={"display_name": new_name}
+    )
+    assert r_patch.status_code == 200
+    assert r_patch.json()["display_name"] == new_name
+
+    # 4. Generate Resume
+    # This verifies the SQL query uses COALESCE(display_name, name)
+    r_resume = client.post(
+        "/resume/generate",
+        json={"project_id": project_id, "prefer_external_bullets": False}
+    )
+    assert r_resume.status_code == 200
+    
+    # 5. Verify the PDF content data
+    content = r_resume.json()["content"]
+    assert content["project"]["name"] == new_name
+    assert content["project"]["name"] != "ugly_filename_v1.zip"
