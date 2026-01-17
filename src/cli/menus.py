@@ -18,6 +18,7 @@ from external_services.external_service_prompt import request_external_service_p
 from external_services.permission_manager import ExternalServicePermission
 from collaborative.identify_contributors import identify_contributors
 from database.user_preferences import get_user_git_username, update_user_git_username
+from account.user_manager import AuthManager
 from tools.cleanup_insights import delete_insights
 from cli.display import display_success, display_error
 

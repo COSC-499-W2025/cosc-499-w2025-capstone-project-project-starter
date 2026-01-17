@@ -204,20 +204,26 @@ class TestProjectSummarizer:
         
         assert time_analysis == {}
     
+    @patch('src.project_summarizer.AuthManager')
     @patch('src.project_summarizer.get_project_by_id')
-    def test_generate_project_summary_project_not_found(self, mock_project):
+    def test_generate_project_summary_project_not_found(self, mock_project, mock_auth):
         """Test project summary generation when project is not found"""
+        # Mock AuthManager to return a valid username
+        mock_auth.get_current_username.return_value = 'test_user'
         mock_project.return_value = None
         
         summary = self.summarizer.generate_project_summary(999)
         
         assert 'error' in summary
-        assert summary['error'] == 'Project not found'
+        assert summary['error'] == 'Project not found or access denied'
     
+    @patch('src.project_summarizer.AuthManager')
     @patch('src.project_summarizer.get_project_by_id')
     @patch('src.project_summarizer.get_file_contents_by_upload_id')
-    def test_generate_project_summary_no_file_contents(self, mock_contents, mock_project):
+    def test_generate_project_summary_no_file_contents(self, mock_contents, mock_project, mock_auth):
         """Test project summary generation when no file contents are found"""
+        # Mock AuthManager to return a valid username
+        mock_auth.get_current_username.return_value = 'test_user'
         mock_project.return_value = self.sample_project_info
         mock_contents.return_value = []
         
@@ -288,9 +294,13 @@ class TestProjectSummarizer:
 class TestSummarizeProjectFunction:
     """Test suite for the convenience summarize_project function"""
     
+    @patch('src.project_summarizer.AuthManager')
     @patch('src.project_summarizer.ProjectSummarizer')
-    def test_summarize_project_success(self, mock_summarizer_class):
+    def test_summarize_project_success(self, mock_summarizer_class, mock_auth):
         """Test the summarize_project convenience function"""
+        # Mock AuthManager to return a valid username
+        mock_auth.get_current_username.return_value = 'test_user'
+        
         # Mock the summarizer instance
         mock_summarizer = Mock()
         mock_summarizer_class.return_value = mock_summarizer
@@ -305,7 +315,8 @@ class TestSummarizeProjectFunction:
         
         # Verify the function calls
         mock_summarizer_class.assert_called_once()
-        mock_summarizer.generate_project_summary.assert_called_once_with(1)
+        # Verify generate_project_summary called with user_name parameter
+        mock_summarizer.generate_project_summary.assert_called_once_with(1, user_name='test_user')
         mock_summarizer.format_summary_for_display.assert_called_once_with(mock_summary)
         
         assert result == mock_formatted
@@ -314,9 +325,13 @@ class TestSummarizeProjectFunction:
 class TestGetAvailableProjects:
     """Test suite for the get_available_projects function"""
     
+    @patch('src.project_summarizer.AuthManager')
     @patch('src.project_summarizer.with_db_cursor')
-    def test_get_available_projects_success(self, mock_with_db_cursor):
+    def test_get_available_projects_success(self, mock_with_db_cursor, mock_auth):
         """Test successful retrieval of available projects"""
+        # Mock AuthManager to return a valid username
+        mock_auth.get_current_username.return_value = 'test_user'
+        
         # Mock database cursor
         mock_cursor = Mock()
         mock_context = MagicMock()

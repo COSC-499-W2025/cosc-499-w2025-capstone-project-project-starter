@@ -151,9 +151,10 @@ class TestRankAndSummarizeTopProjects:
         
         # Verify summarize_project was called 3 times (for top 3, since no stored summaries)
         assert mock_summarize.call_count == 3
-        assert mock_summarize.call_args_list[0] == call(1)
-        assert mock_summarize.call_args_list[1] == call(2)
-        assert mock_summarize.call_args_list[2] == call(3)
+        # Verify calls include user_name parameter
+        assert mock_summarize.call_args_list[0] == call(1, user_name=None)
+        assert mock_summarize.call_args_list[1] == call(2, user_name=None)
+        assert mock_summarize.call_args_list[2] == call(3, user_name=None)
     
     @patch('analysis.project_ranking.rank_all_projects')
     def test_rank_and_summarize_no_projects(self, mock_rank_all):
@@ -186,7 +187,8 @@ class TestRankAndSummarizeTopProjects:
         
         # Should only summarize 1 project (min of 3 and actual count)
         assert mock_summarize.call_count == 1
-        assert mock_summarize.call_args_list[0] == call(1)
+        # Verify call includes user_name parameter
+        assert mock_summarize.call_args_list[0] == call(1, user_name=None)
         # Verify get_stored_ranking_by_project_id was called
         assert mock_get_stored.call_count == 1
     
@@ -210,12 +212,13 @@ class TestRankAndSummarizeTopProjects:
         
         # Should only summarize top 3, not all 5
         assert mock_summarize.call_count == 3
-        assert mock_summarize.call_args_list[0] == call(1)
-        assert mock_summarize.call_args_list[1] == call(2)
-        assert mock_summarize.call_args_list[2] == call(3)
+        # Verify calls include user_name parameter
+        assert mock_summarize.call_args_list[0] == call(1, user_name=None)
+        assert mock_summarize.call_args_list[1] == call(2, user_name=None)
+        assert mock_summarize.call_args_list[2] == call(3, user_name=None)
         # Verify project 4 and 5 were NOT summarized
-        assert call(4) not in mock_summarize.call_args_list
-        assert call(5) not in mock_summarize.call_args_list
+        assert call(4, user_name=None) not in mock_summarize.call_args_list
+        assert call(5, user_name=None) not in mock_summarize.call_args_list
         # Verify get_stored_ranking_by_project_id was called 3 times (for top 3)
         assert mock_get_stored.call_count == 3
     
@@ -241,7 +244,8 @@ class TestRankAndSummarizeTopProjects:
 
         mock_rank_all.assert_called_once()
         mock_get_stored.assert_called_once_with(1)
-        mock_summarize.assert_called_once_with(1)
+        # Verify call includes user_name parameter
+        mock_summarize.assert_called_once_with(1, user_name=None)
     
     @patch('analysis.project_ranking.get_stored_ranking_by_project_id')
     @patch('analysis.project_ranking.summarize_project')
