@@ -46,7 +46,13 @@ def init_uploaded_files_table():
                     status VARCHAR(50) DEFAULT 'uploaded',
                     metadata JSONB,
                     file_data BYTEA,
-                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                    user_name VARCHAR(255),
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    CONSTRAINT fk_user_name
+                        FOREIGN KEY (user_name)
+                        REFERENCES user_informations(user_name)
+                        ON DELETE SET NULL
+                        ON UPDATE CASCADE
                 );
             """)
         print(" Uploaded files table initialized")
@@ -66,11 +72,41 @@ def init_uploaded_files_table():
                     ADD COLUMN IF NOT EXISTS last_modified_at TIMESTAMP;
                 """)
 
+                # The old database may not have user_name.
+                cursor.execute("""
+                    ALTER TABLE uploaded_files
+                    ADD COLUMN IF NOT EXISTS user_name VARCHAR(255);
+                """)
+
+                # Add foreign key constraint if it doesn't exist
+                cursor.execute("""
+                    DO $$ 
+                    BEGIN
+                        IF NOT EXISTS (
+                            SELECT 1 FROM pg_constraint 
+                            WHERE conname = 'fk_user_name'
+                        ) THEN
+                            ALTER TABLE uploaded_files
+                            ADD CONSTRAINT fk_user_name
+                                FOREIGN KEY (user_name)
+                                REFERENCES user_informations(user_name)
+                                ON DELETE SET NULL
+                                ON UPDATE CASCADE;
+                        END IF;
+                    END $$;
+                """)
+
                 # Initialize the history's last_modified_at to created_at (only accept NULL).
                 cursor.execute("""
                     UPDATE uploaded_files
                     SET last_modified_at = COALESCE(last_modified_at, created_at)
                     WHERE last_modified_at IS NULL;
+                """)
+
+                # Create index on user_name for faster lookups (after column is added)
+                cursor.execute("""
+                    CREATE INDEX IF NOT EXISTS idx_uploaded_files_user_name 
+                    ON uploaded_files(user_name);
                 """)
 
         except Exception as e:
@@ -87,7 +123,7 @@ def init_uploaded_files_table():
         raise
 
 
-def add_file_to_db(filepath) -> UploadResult:
+def add_file_to_db(filepath, user_name: str = None) -> UploadResult:
     # 1. Check if file exists
     # Return detailed error if not found
     if not os.path.exists(filepath):
@@ -216,9 +252,10 @@ def add_file_to_db(filepath) -> UploadResult:
                     status,
                     metadata,
                     file_data,
+                    user_name,
                     last_modified_at
                 )
-                VALUES (%s, %s, %s, %s, %s, CURRENT_TIMESTAMP)
+                VALUES (%s, %s, %s, %s, %s, %s, CURRENT_TIMESTAMP)
                 RETURNING id
             """, (
                 filename,
@@ -226,6 +263,7 @@ def add_file_to_db(filepath) -> UploadResult:
                 "uploaded",
                 json.dumps({"files": file_contents}),
                 zip_bytes,
+                user_name,
             ))
             uploaded_file_id = cursor.fetchone()[0]
 
@@ -298,6 +336,7 @@ def list_uploaded_files():
                     filepath,
                     status,
                     metadata,
+                    user_name,
                     created_at,
                     last_modified_at
                 FROM uploaded_files
@@ -314,8 +353,9 @@ def list_uploaded_files():
                 "filepath": row[2],
                 "status": row[3],
                 "metadata": row[4],
-                "created_at": row[5],
-                "last_modified_at": row[6],
+                "user_name": row[5],
+                "created_at": row[6],
+                "last_modified_at": row[7],
             })
         
         return files
@@ -325,4 +365,56 @@ def list_uploaded_files():
         return []
     except Exception as e:
         print(f"Error retrieving uploaded files: {e}")
+        return []
+
+
+def list_uploaded_files_by_user(user_name: str):
+    """
+    Get a list of all uploaded files for a specific user.
+    
+    Args:
+        user_name (str): The username to filter by
+    
+    Returns:
+        list: List of uploaded file records for the specified user
+    """
+    try:
+        with with_db_cursor() as cursor:
+            cursor.execute("""
+                SELECT
+                    id,
+                    filename,
+                    filepath,
+                    status,
+                    metadata,
+                    user_name,
+                    created_at,
+                    last_modified_at
+                FROM uploaded_files
+                WHERE user_name = %s
+                ORDER BY created_at DESC
+            """, (user_name,))
+            
+            results = cursor.fetchall()
+        
+        files = []
+        for row in results:
+            files.append({
+                "id": row[0],
+                "filename": row[1],
+                "filepath": row[2],
+                "status": row[3],
+                "metadata": row[4],
+                "user_name": row[5],
+                "created_at": row[6],
+                "last_modified_at": row[7],
+            })
+        
+        return files
+        
+    except ConnectionError:
+        print("Could not connect to database.")
+        return []
+    except Exception as e:
+        print(f"Error retrieving uploaded files for user {user_name}: {e}")
         return []

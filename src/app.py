@@ -29,9 +29,11 @@ def initialize_app():
     print("STARTING BACKEND SETUP...")
     
     # Initialize database tables
+    # IMPORTANT: init_user_informations_table() must be called BEFORE init_uploaded_files_table()
+    # because uploaded_files has a foreign key reference to user_informations.user_name
     try:
-        init_uploaded_files_table()
         init_user_informations_table()
+        init_uploaded_files_table()
         init_ranking_storage_table()
         ResumeManager.init_resume_table()
     except Exception as e:
