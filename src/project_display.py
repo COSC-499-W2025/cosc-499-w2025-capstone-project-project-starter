@@ -4,6 +4,7 @@ Handles all user interface interactions for listing and selecting projects.
 """
 from project_manager import list_projects, list_project_files
 from project_summarizer import get_available_projects
+from account.user_manager import AuthManager
 
 
 def select_project_interactive(title: str):
@@ -52,8 +53,16 @@ def list_projects_menu():
     """
     Handle the list projects menu option.
     Lists all stored projects and allows viewing files within a selected project.
+    Data Isolation: Uses current user's username to filter projects.
     """
-    projects = list_projects()
+    # Get current logged-in user for data isolation
+    current_username = AuthManager.get_current_username()
+    if not current_username:
+        print("Error: No user is currently logged in.")
+        return
+    
+    # Data Isolation: Pass user_name to list only current user's projects
+    projects = list_projects(current_username)
     if projects:
         print("\nWould you like to view files for a specific project?")
         view_choice = input("Enter project number to view files, or 'q' to go back: ").strip()
@@ -65,7 +74,8 @@ def list_projects_menu():
                     print(f"\n" + "-"*80)
                     print(f"Files in project: {selected_project['filename']}")
                     print("-"*80)
-                    files = list_project_files(selected_project['id'])
+                    # Data Isolation: Pass user_name to verify project ownership
+                    files = list_project_files(selected_project['id'], current_username)
                     if files:
                         for i, file_path in enumerate(files, 1):
                             print(f"{i}. {file_path}")
