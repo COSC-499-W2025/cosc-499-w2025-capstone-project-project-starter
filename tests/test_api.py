@@ -664,15 +664,14 @@ def test_project_display_name_update_and_resume_integration(client, monkeypatch,
     3. Generate resume and verify it uses the new display_name.
     """
     
-    # --- FIX: Set the specific environment variable the app looks for ---
+    # Set the environment variable
     test_blob_dir = tmp_path / "test_blobs"
     test_blob_dir.mkdir()
     
-    # This matches the key found in src/api/app.py line 139
+    # matches the key found in app.py
     monkeypatch.setenv("ARTIFACT_MINER_BLOBSTORE", str(test_blob_dir))
-    # ------------------------------------------------------------------
     
-    # 1. Create a user and grant consent
+    # Create a user and grant consent
     r_consent = client.post(
         "/privacy-consent",
         json={"consent_type": "data_access", "granted": True, "version": 1},
@@ -680,8 +679,7 @@ def test_project_display_name_update_and_resume_integration(client, monkeypatch,
     assert r_consent.status_code == 200
     user_id = r_consent.json()["user_id"]
 
-    # 2. Upload a project
-    # (We use the helper to make a fake zip in memory)
+    # Upload a project w fake zip helper func
     zip_buf = _create_dummy_zip()
     r_upload = client.post(
         "/projects/upload",
@@ -695,7 +693,7 @@ def test_project_display_name_update_and_resume_integration(client, monkeypatch,
     project_id = project_data["project_id"]
     assert project_data["project_name"] == "ugly_filename_v1.zip"
 
-    # 3. UPDATE (Patch) the Display Name
+    # UPDATE (Patch) the Display Name
     new_name = "My Polished Project"
     r_patch = client.patch(
         f"/projects/{project_id}",
@@ -704,15 +702,14 @@ def test_project_display_name_update_and_resume_integration(client, monkeypatch,
     assert r_patch.status_code == 200
     assert r_patch.json()["display_name"] == new_name
 
-    # 4. Generate Resume
-    # This verifies the SQL query uses COALESCE(display_name, name)
+    # Generate Resume - verifies the SQL query uses COALESCE(display_name, name)
     r_resume = client.post(
         "/resume/generate",
         json={"project_id": project_id, "prefer_external_bullets": False}
     )
     assert r_resume.status_code == 200
     
-    # 5. Verify the PDF content data
+    # Verify the PDF content data
     content = r_resume.json()["content"]
     assert content["project"]["name"] == new_name
     assert content["project"]["name"] != "ugly_filename_v1.zip"
