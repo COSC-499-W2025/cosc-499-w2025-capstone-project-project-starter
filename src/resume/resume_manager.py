@@ -240,7 +240,8 @@ class ResumeManager:
                   Returns None if generation fails or no projects exist
         """
         try:
-            ranked_projects = rank_all_projects()
+            # Data Isolation: Rank only projects belonging to this user
+            ranked_projects = rank_all_projects(user_name=user_id)
             
             if not ranked_projects:
                 return None
@@ -335,13 +336,15 @@ class ResumeManager:
                     # If no summary in database, generate one using summarize_project
                     if not project_summary_text:
                         try:
-                            project_summary_text = summarize_project(project_id)
+                            # Data Isolation: Pass user_id to verify project ownership
+                            project_summary_text = summarize_project(project_id, user_name=user_id)
                         except Exception as e:
                             print(f"[WARNING] Could not generate summary for project {project_id}: {e}")
                             project_summary_text = ''
                     
                     # Get comprehensive summary for additional data
-                    summary = summarizer.generate_project_summary(project_id)
+                    # Data Isolation: Pass user_id to verify project ownership
+                    summary = summarizer.generate_project_summary(project_id, user_name=user_id)
                     
                     if summary and 'error' not in summary:
                         # Extract languages

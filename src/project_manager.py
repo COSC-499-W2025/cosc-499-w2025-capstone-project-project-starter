@@ -8,18 +8,26 @@ import json
 from config.db_config import with_db_cursor
 
 
-def list_projects():
+def list_projects(user_name):
     """
-    List all stored projects (ZIP files) in alphabetical order.
-    Returns list of project dictionaries with id, filename, created_at, and file_count.
+    List all stored projects (ZIP files) for a specific user in alphabetical order.
+    Data Isolation: Only returns projects belonging to the specified user.
+    
+    Args:
+        user_name (str): Username to filter projects by
+    
+    Returns:
+        list: List of project dictionaries with id, filename, created_at, and file_count.
     """
     try:
         with with_db_cursor() as cursor:
+            # Data Isolation: Filter projects by user_name to ensure users only see their own data
             cursor.execute("""
                 SELECT id, filename, status, metadata, created_at
                 FROM uploaded_files
+                WHERE user_name = %s
                 ORDER BY filename ASC
-            """)
+            """, (user_name,))
             projects = cursor.fetchall()
         
         # if there are no projects, return an empty list
@@ -74,23 +82,26 @@ def list_projects():
         return []
 
 
-def list_project_files(project_id):
+def list_project_files(project_id, user_name):
     """
     List individual files within a specific project.
+    Data Isolation: Verifies project belongs to the user before returning files.
     
     Args:
-        project_id: The ID of the project to list files for
+        project_id (int): The ID of the project to list files for
+        user_name (str): Username to verify project ownership
         
     Returns:
-        List of file paths/names in the project
+        list: List of file paths/names in the project
     """
     try:
         with with_db_cursor() as cursor:
+            # Data Isolation: Verify project belongs to the specified user
             cursor.execute("""
                 SELECT metadata
                 FROM uploaded_files
-                WHERE id = %s
-            """, (project_id,))
+                WHERE id = %s AND user_name = %s
+            """, (project_id, user_name))
             
             result = cursor.fetchone()
             
@@ -125,14 +136,26 @@ def list_project_files(project_id):
         return []
 
 # this function will get a project by its id
-def get_project_by_id(project_id):
+def get_project_by_id(project_id, user_name):
+    """
+    Get a project by its ID for a specific user.
+    Data Isolation: Only returns project if it belongs to the specified user.
+    
+    Args:
+        project_id (int): The ID of the project to retrieve
+        user_name (str): Username to verify project ownership
+        
+    Returns:
+        dict: Project information or None if not found or access denied
+    """
     try:
         with with_db_cursor() as cursor:
+            # Data Isolation: Verify project belongs to the specified user
             cursor.execute("""
                 SELECT id, filename, filepath, status, metadata, created_at
                 FROM uploaded_files
-                WHERE id = %s
-            """, (project_id,))
+                WHERE id = %s AND user_name = %s
+            """, (project_id, user_name))
             
             project = cursor.fetchone()
         
@@ -160,10 +183,25 @@ def get_project_by_id(project_id):
         return None
 
 # this function will get the total number of projects in the database
-def get_project_count():
+def get_project_count(user_name):
+    """
+    Get the total number of projects for a specific user.
+    Data Isolation: Only counts projects belonging to the specified user.
+    
+    Args:
+        user_name (str): Username to filter projects by
+        
+    Returns:
+        int: Number of projects owned by the user
+    """
     try:
         with with_db_cursor() as cursor:
-            cursor.execute("SELECT COUNT(*) FROM uploaded_files")
+            # Data Isolation: Count only projects belonging to the specified user
+            cursor.execute("""
+                SELECT COUNT(*) 
+                FROM uploaded_files 
+                WHERE user_name = %s
+            """, (user_name,))
             count = cursor.fetchone()[0]
         return count
         
@@ -175,10 +213,14 @@ def get_project_count():
         return 0
 
 
-def list_projects_chronologically():
+def list_projects_chronologically(user_name):
     """
-    List all stored projects (ZIP files) in chronological order by creation date.
+    List all stored projects (ZIP files) for a specific user in chronological order by creation date.
+    Data Isolation: Only returns projects belonging to the specified user.
     Requirement: Produce a chronological list of projects.
+    
+    Args:
+        user_name (str): Username to filter projects by
     
     Returns:
         list: List of project dictionaries with id, filename, created_at, and file_count,
@@ -186,11 +228,13 @@ def list_projects_chronologically():
     """
     try:
         with with_db_cursor() as cursor:
+            # Data Isolation: Filter projects by user_name to ensure users only see their own data
             cursor.execute("""
                 SELECT id, filename, status, metadata, created_at
                 FROM uploaded_files
+                WHERE user_name = %s
                 ORDER BY created_at ASC
-            """)
+            """, (user_name,))
             projects = cursor.fetchall()
         
         # if there are no projects, return an empty list

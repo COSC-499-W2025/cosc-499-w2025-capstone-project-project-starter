@@ -63,8 +63,8 @@ class PortfolioManager:
             analysis_strategy = self.analysis_router.get_analysis_strategy('project')
             fallback_used = (analysis_strategy == 'local')
             
-            # Get ranked projects using existing ranking function
-            ranked_projects = rank_all_projects()
+            # Data Isolation: Get ranked projects for current user only
+            ranked_projects = rank_all_projects(user_name=self.user_id)
             
             if not ranked_projects:
                 return {
@@ -88,8 +88,9 @@ class PortfolioManager:
                 project_analysis = ranked_project.get('analysis', {})
                 
                 try:
+                    # Data Isolation: Pass user_id to ensure project belongs to user
                     # Get project summary using existing ProjectSummarizer
-                    summary = self.summarizer.generate_project_summary(project_id)
+                    summary = self.summarizer.generate_project_summary(project_id, user_name=self.user_id)
                     
                     if 'error' in summary:
                         continue
@@ -239,7 +240,8 @@ class PortfolioManager:
                     if rank_idx <= 3:  # Top 3 projects
                         try:
                             from project_summarizer import summarize_project
-                            summary_text = summarize_project(project_id)
+                            # Data Isolation: Pass user_id to verify project ownership
+                            summary_text = summarize_project(project_id, user_name=self.user_id)
                             top_summaries.append(summary_text)
                         except Exception as e:
                             top_summaries.append(f"Error generating summary: {e}")

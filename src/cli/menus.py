@@ -203,7 +203,9 @@ def handle_analyze_metrics_and_summary():
     # print Key Metrics (original option 3)
     analyze_project_from_db(project_id)
 
-    summary_text = summarize_project(project_id)
+    # Data Isolation: Get current user for project ownership verification
+    current_username = AuthManager.get_current_username()
+    summary_text = summarize_project(project_id, user_name=current_username)
     print(summary_text)
 
     input("\nPress Enter to continue...")
@@ -211,7 +213,9 @@ def handle_analyze_metrics_and_summary():
 def handle_rank_projects():
     """Handle rank all projects menu option."""
     print("\nRanking all projects...")
-    ranked = rank_all_projects()
+    # Data Isolation: Get current user to rank only their projects
+    current_username = AuthManager.get_current_username()
+    ranked = rank_all_projects(user_name=current_username)
     display_rankings(ranked)
     
     if ranked:
@@ -232,7 +236,9 @@ def handle_rank_and_summarize_projects():
     print("\n" + "-"*80)
     save_choice = input("Would you like to save these rankings and summaries to the database? (y/n): ").strip().lower()
     if save_choice in ['y', 'yes']:
-        ranked = rank_all_projects()
+        # Data Isolation: Get current user to rank only their projects
+        current_username = AuthManager.get_current_username()
+        ranked = rank_all_projects(user_name=current_username)
         if ranked:
             # Generate summaries for all projects (not just top 3)
             generate_all = input("Generate summaries for ALL projects (not just top 3)? (y/n): ").strip().lower()
