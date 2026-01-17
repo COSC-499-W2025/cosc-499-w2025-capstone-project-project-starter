@@ -30,8 +30,8 @@ class TestProjectManager:
         ]
         mock_cursor.fetchall.return_value = mock_projects
         
-        # Call the function
-        result = list_projects()
+        # Call the function with user_name parameter for data isolation
+        result = list_projects('test_user')
         
         # Verify database operations
         mock_with_db_cursor.assert_called_once()
@@ -62,8 +62,8 @@ class TestProjectManager:
         # Mock empty results
         mock_cursor.fetchall.return_value = []
         
-        # Call the function
-        result = list_projects()
+        # Call the function with user_name parameter
+        result = list_projects('test_user')
         
         # Verify return value
         assert result == []
@@ -75,8 +75,8 @@ class TestProjectManager:
         # Mock database connection failure
         mock_with_db_cursor.side_effect = ConnectionError("Could not connect to database")
         
-        # Call the function
-        result = list_projects()
+        # Call the function with user_name parameter
+        result = list_projects('test_user')
         
         # Verify return value
         assert result == []
@@ -95,8 +95,8 @@ class TestProjectManager:
         mock_project = (1, "test_project.zip", "/path/to/file", "uploaded", '{"files": ["file1.py"]}', datetime(2024, 1, 1, 10, 0, 0))
         mock_cursor.fetchone.return_value = mock_project
         
-        # Call the function
-        result = get_project_by_id(1)
+        # Call the function with user_name parameter for data isolation
+        result = get_project_by_id(1, 'test_user')
         
         # Verify database operations
         mock_cursor.execute.assert_called_once()
@@ -125,8 +125,8 @@ class TestProjectManager:
         # Mock empty result
         mock_cursor.fetchone.return_value = None
         
-        # Call the function
-        result = get_project_by_id(999)
+        # Call the function with user_name parameter
+        result = get_project_by_id(999, 'test_user')
         
         # Verify return value
         assert result is None
@@ -145,8 +145,8 @@ class TestProjectManager:
         mock_metadata = '{"files": ["folder/file1.py", "folder/file2.js", "folder/", "readme.md"]}'
         mock_cursor.fetchone.return_value = (mock_metadata,)
         
-        # Call the function
-        result = list_project_files(1)
+        # Call the function with user_name parameter for data isolation
+        result = list_project_files(1, 'test_user')
         
         # Verify database operations
         mock_with_db_cursor.assert_called_once()
@@ -171,8 +171,8 @@ class TestProjectManager:
         # Mock empty result
         mock_cursor.fetchone.return_value = None
         
-        # Call the function
-        result = list_project_files(999)
+        # Call the function with user_name parameter
+        result = list_project_files(999, 'test_user')
         
         # Verify return value
         assert result == []
@@ -186,7 +186,9 @@ class TestProjectManager:
         mock_with_db_cursor.return_value = mock_context
         
         mock_cursor.fetchone.return_value = (5,)
-        result = get_project_count()
+        
+        # Call the function with user_name parameter for data isolation
+        result = get_project_count('test_user')
         
         mock_cursor.execute.assert_called_once()
         assert result == 5
@@ -205,7 +207,8 @@ class TestProjectManager:
         ]
         mock_cursor.fetchall.return_value = mock_projects
         
-        result = list_projects_chronologically()
+        # Call the function with user_name parameter for data isolation
+        result = list_projects_chronologically('test_user')
         
         mock_cursor.execute.assert_called_once()
         assert len(result) == 2
@@ -223,7 +226,9 @@ class TestProjectManager:
         mock_with_db_cursor.return_value = mock_context
         
         mock_cursor.fetchall.return_value = []
-        result = list_projects_chronologically()
+        
+        # Call the function with user_name parameter
+        result = list_projects_chronologically('test_user')
         
         assert result == []
     
@@ -231,7 +236,9 @@ class TestProjectManager:
     def test_list_projects_chronologically_connection_error(self, mock_with_db_cursor):
         """Test chronological listing with connection error"""
         mock_with_db_cursor.side_effect = ConnectionError("Connection failed")
-        result = list_projects_chronologically()
+        
+        # Call the function with user_name parameter
+        result = list_projects_chronologically('test_user')
         
         assert result == []
 
