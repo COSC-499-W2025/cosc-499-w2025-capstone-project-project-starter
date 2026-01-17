@@ -223,7 +223,7 @@ class ResumeManager:
         return sorted(list(detected_frameworks))
     
     @staticmethod
-    def generate_user_resume(user_id, top_projects_count=5):
+    def generate_user_resume(user_id, top_projects_count=5, selection: dict | None = None):
         """
         Generate a user-aggregated resume from top ranked projects.
         
@@ -245,6 +245,17 @@ class ResumeManager:
             if not ranked_projects:
                 return None
             
+            # ---- NEW: apply selection filters ----
+            if selection:
+                # allow overriding top_projects_count
+                if "top_projects_count" in selection and isinstance(selection["top_projects_count"], int):
+                    top_projects_count = selection["top_projects_count"]
+
+                selected_ids = selection.get("selected_project_ids")
+                if selected_ids:
+                    ranked_projects = [p for p in ranked_projects if p.get("project_id") in selected_ids]
+            # ---- END NEW ----
+
             top_projects = ranked_projects[:top_projects_count]
             
             # Collect all authors from top projects to let user select their name
@@ -324,6 +335,13 @@ class ResumeManager:
             all_frameworks = set()
             project_summaries = []
             
+            include_skills = True
+            skills_mode = "categorized"   # "categorized" or "all"
+
+            if selection:
+                include_skills = selection.get("include_skills", True)
+                skills_mode = selection.get("skills_mode", "categorized")
+
             for project in top_projects:
                 try:
                     project_id = project['project_id']
@@ -366,15 +384,21 @@ class ResumeManager:
                         frameworks = ResumeManager._detect_frameworks_from_files(file_contents)
                         all_frameworks.update(frameworks)
                         
-                        # Extract skills from deep analysis
-                        code_analysis = summary.get('code_analysis', {})
-                        deep_analysis_skills = skill_mapper.extract_skills_from_deep_analysis(code_analysis)
-                        
-                        # Combine all skills for this project
-                        project_skills = set(project_languages)
-                        project_skills.update(frameworks)
-                        project_skills.update(deep_analysis_skills)
-                        all_skills.update(project_skills)
+                        # Only collect skills if enabled
+                        if include_skills:
+                            # Extract skills from deep analysis
+                            code_analysis = summary.get('code_analysis', {})
+                            deep_analysis_skills = skill_mapper.extract_skills_from_deep_analysis(code_analysis)
+
+                            # Combine all skills for this project
+                            project_skills = set(project_languages)
+                            project_skills.update(frameworks)
+                            project_skills.update(deep_analysis_skills)
+
+                            all_skills.update(project_skills)
+                        else:
+                            # Still keep per-project skills key stable, but empty
+                            project_skills = set()
                         
                         # Clean project name
                         project_name = project['filename']
@@ -414,8 +438,16 @@ class ResumeManager:
                     print(f"[ERROR] Failed to summarize project {project['project_id']}: {e}")
                     continue
             
-            # Categorize skills
-            categorized_skills = skill_mapper.categorize_skills(all_skills)
+            # Categorize skills (respect selection)
+            if include_skills:
+                all_skills_list = sorted(list(all_skills))
+                if skills_mode == "categorized":
+                    categorized_skills = skill_mapper.categorize_skills(all_skills_list)
+                else:
+                    categorized_skills = {}
+            else:
+                all_skills_list = []
+                categorized_skills = {}
             
             # Build comprehensive resume data
             resume_data = {
@@ -423,7 +455,7 @@ class ResumeManager:
                 'user_id': user_id,
                 'total_projects_analyzed': len(ranked_projects),
                 'top_projects_displayed': len(project_summaries),
-                'all_skills': sorted(list(all_skills)),
+                'all_skills': all_skills_list,
                 'categorized_skills': categorized_skills,
                 'languages': sorted(list(all_languages)),
                 'frameworks': sorted(list(all_frameworks)),
