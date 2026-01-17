@@ -466,6 +466,18 @@ def cmd_project_report(args: argparse.Namespace, st: DemoState) -> int:
     print(_pretty(out))
     return 0
 
+def cmd_project_update(args: argparse.Namespace, st: DemoState) -> int:
+    api = ApiClient(st.api_url)
+    pid = args.project_id or st.last_project_id
+    
+    if not pid:
+        _eprint("missing project_id")
+        return 2
+
+    payload = {"display_name": args.display_name}
+    out = api.patch(f"/projects/{pid}", json_body=payload)
+    print(_pretty(out))
+    return 0
 
 def cmd_project_contributors(args: argparse.Namespace, st: DemoState) -> int:
     api = ApiClient(st.api_url)
@@ -871,6 +883,11 @@ def build_parser() -> argparse.ArgumentParser:
     sp = sub.add_parser("projects", help="Project queries")
     psub = sp.add_subparsers(dest="projects_cmd", required=True)
 
+    sp_upd = psub.add_parser("update", help="Update project details")
+    sp_upd.add_argument("project_id", nargs="?", default=None)
+    sp_upd.add_argument("--display-name", required=True, help="New name for resume")
+    sp_upd.set_defaults(_handler="project_update")
+
     sp1 = psub.add_parser("list", help="GET /projects (ranked)")
     sp1.add_argument("--portfolio-id", default=None)
     sp1.add_argument("--user-id", default=None)
@@ -1034,6 +1051,8 @@ def main(argv: Optional[List[str]] = None) -> int:
             rc = cmd_project_refresh_collab(args, st)
         elif h == "portfolio_get":
             rc = cmd_portfolio_get(args, st, state_path)
+        elif h == "project_update":
+            rc = cmd_project_update(args, st)
         elif h == "portfolio_top":
             rc = cmd_portfolio_top(args, st)
         elif h == "portfolio_generate":

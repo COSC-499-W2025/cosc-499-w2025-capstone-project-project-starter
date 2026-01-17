@@ -133,6 +133,8 @@ def ingest_zip_to_db(
             for info in zf.infolist():
                 if info.is_dir():
                     continue
+                if "__MACOSX" in info.filename:
+                    continue
                 safe = _safe_zip_relpath(info.filename)
                 if safe is None:
                     continue

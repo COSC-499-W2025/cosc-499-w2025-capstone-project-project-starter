@@ -66,6 +66,9 @@ class SetUserContributorIn(BaseModel):
     unset_others: bool = True
     persist_to_config: bool = True
 
+class ProjectUpdateIn(BaseModel):
+    display_name: str
+
 
 def _rank_score(user_commits: int, total_commits: int) -> Optional[float]:
     # Deterministic and transparent. Only meaningful if user_commits > 0.
@@ -633,6 +636,27 @@ def list_projects(
 
     return {"portfolio_id": str(portfolio_id), "projects": out}
 
+@app.patch("/projects/{project_id}")
+def update_project(project_id: str, payload: ProjectUpdateIn):
+    """
+    Updates the project's display name.
+    """
+    engine = get_engine()
+    with engine.begin() as conn:
+        exists = conn.execute(
+            text("SELECT 1 FROM projects WHERE id = :pid"),
+            {"pid": project_id}
+        ).scalar()
+        
+        if not exists:
+            raise HTTPException(status_code=404, detail="Project not found")
+
+        conn.execute(
+            text("UPDATE projects SET display_name = :dn WHERE id = :pid"),
+            {"dn": payload.display_name, "pid": project_id}
+        )
+
+    return {"project_id": project_id, "display_name": payload.display_name}
 
 @app.get("/portfolio/{portfolio_id}/top-projects")
 def top_projects(portfolio_id: str, limit: int = Query(default=5, ge=1, le=50)):

@@ -401,7 +401,7 @@ def generate_resume_item(
 
     with engine.begin() as conn:
         proj = conn.execute(
-            text("SELECT id, name, portfolio_id, collaboration_type, user_role FROM projects WHERE id = :pid"),
+            text("SELECT id, COALESCE(display_name, name) as name, portfolio_id, collaboration_type, user_role FROM projects WHERE id = :pid"),
             {"pid": project_id},
         ).mappings().first()
         if not proj:

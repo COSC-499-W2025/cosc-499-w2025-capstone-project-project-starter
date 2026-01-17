@@ -53,6 +53,7 @@ def upgrade():
         sa.Column("id", sa.UUID(as_uuid=True), primary_key=True, server_default=sa.text("gen_random_uuid()")),
         sa.Column("portfolio_id", sa.UUID(as_uuid=True), sa.ForeignKey("portfolios.id", ondelete="CASCADE"), nullable=False),
         sa.Column("name", sa.String(length=255), nullable=False),
+        sa.Column("display_name", sa.String(length=255), nullable=True),
         sa.Column("project_type", sa.String(length=32), nullable=False, server_default="code"),  # code | document | image | mixed
         sa.Column("collaboration_type", sa.String(length=32), nullable=False, server_default="individual"),  # individual | collaborative
         sa.Column("user_role", sa.String(length=128), nullable=True),
