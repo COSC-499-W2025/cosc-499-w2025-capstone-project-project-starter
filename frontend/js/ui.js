@@ -350,6 +350,7 @@ async function checkHealth() {
     }
 }
 
+// Find the getProjectReport function and update it:
 async function getProjectReport() {
     const projectId = document.getElementById('reportProjectId').value;
     if (!projectId) {
@@ -358,11 +359,56 @@ async function getProjectReport() {
     }
     
     try {
-        const report = await getProjectReport(projectId);
-        document.getElementById('analyticsResult').textContent = JSON.stringify(report, null, 2);
+        const report = await apiCall(`/projects/${projectId}/report?include_raw_analyses=false`);
+        
+        // SAFE DISPLAY: Limit the depth and handle circular references
+        const safeReport = createSafeDisplayObject(report);
+        
+        document.getElementById('analyticsResult').textContent = 
+            JSON.stringify(safeReport, null, 2);
     } catch (error) {
-        alert(`Error: ${error.message}`);
+        document.getElementById('analyticsResult').textContent = 
+            `Error: ${error.message}`;
     }
+}
+
+// Add this helper function to handle circular references
+function createSafeDisplayObject(obj, depth = 0, maxDepth = 3, seen = new WeakSet()) {
+    if (depth > maxDepth) {
+        return '[Maximum depth reached]';
+    }
+    
+    if (obj === null || typeof obj !== 'object') {
+        return obj;
+    }
+    
+    if (seen.has(obj)) {
+        return '[Circular Reference]';
+    }
+    seen.add(obj);
+    
+    if (Array.isArray(obj)) {
+        // Limit array display to first 10 items
+        const limitedArray = obj.slice(0, 10);
+        return limitedArray.map(item => 
+            createSafeDisplayObject(item, depth + 1, maxDepth, seen)
+        ).concat(obj.length > 10 ? [`... ${obj.length - 10} more items`] : []);
+    }
+    
+    const result = {};
+    const keys = Object.keys(obj);
+    
+    // Limit object keys for display
+    const displayKeys = keys.slice(0, 20);
+    for (const key of displayKeys) {
+        result[key] = createSafeDisplayObject(obj[key], depth + 1, maxDepth, seen);
+    }
+    
+    if (keys.length > 20) {
+        result['...'] = `${keys.length - 20} more keys`;
+    }
+    
+    return result;
 }
 
 async function getChronologicalSkills() {
@@ -429,3 +475,4 @@ function generateResumeFromProject(projectId) {
     showSection('resume');
     setTimeout(() => generateResume(), 100);
 }
+
