@@ -22,7 +22,7 @@ def test_display_portfolio_success(mock_stdout, mock_manager_cls, mock_formatter
     mock_formatter = mock_formatter_cls.return_value
     mock_formatter.get_formatted_portfolio.return_value = "FORMATTED"
 
-    pd.display_portfolio(user_id="u1", format_type="text", top_n=3)
+    pd.display_portfolio(user_name="u1", format_type="text", top_n=3)
 
     mock_manager_cls.assert_called_once_with("u1")
     mock_manager.generate_portfolio_report.assert_called_once_with(top_n=3)

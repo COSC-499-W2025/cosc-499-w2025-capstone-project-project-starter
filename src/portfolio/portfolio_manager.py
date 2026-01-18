@@ -26,19 +26,19 @@ import json
 class PortfolioManager:
     """Manages portfolio report generation using existing analysis functions."""
     
-    def __init__(self, user_id: str = 'default_user'):
+    def __init__(self, user_name: str = 'default_user'):
         """
         Initialize portfolio manager.
         
         Args:
-            user_id: User identifier
+            user_name: Username (string) to filter projects and data
         """
-        self.user_id = user_id
+        self.user_name = user_name
         self.summarizer = ProjectSummarizer()
-        self.project_analyzer = ProjectAnalyzer(user_id)
+        self.project_analyzer = ProjectAnalyzer(user_name)
         self.consent_storage = ConsentStorage()
-        self.permission_manager = ExternalServicePermission(user_id)
-        self.analysis_router = AnalysisRouter(user_id)
+        self.permission_manager = ExternalServicePermission(user_name)
+        self.analysis_router = AnalysisRouter(user_name)
         self.resume_manager = ResumeManager()
     
     def generate_portfolio_report(self, top_n: Optional[int] = None) -> Dict[str, Any]:
@@ -56,7 +56,7 @@ class PortfolioManager:
             timestamp = datetime.now().isoformat()
             
             # Get consent and privacy information using existing functions
-            consent_status = self.consent_storage.get_consent_status(self.user_id)
+            consent_status = self.consent_storage.get_consent_status(self.user_name)
             user_consent = consent_status.get('consent_given', False) if consent_status else False
             
             llm_permission = self.permission_manager.has_permission('LLM')
@@ -64,7 +64,7 @@ class PortfolioManager:
             fallback_used = (analysis_strategy == 'local')
             
             # Data Isolation: Get ranked projects for current user only
-            ranked_projects = rank_all_projects(user_name=self.user_id)
+            ranked_projects = rank_all_projects(user_name=self.user_name)
             
             if not ranked_projects:
                 return {
@@ -88,9 +88,9 @@ class PortfolioManager:
                 project_analysis = ranked_project.get('analysis', {})
                 
                 try:
-                    # Data Isolation: Pass user_id to ensure project belongs to user
+                    # Data Isolation: Pass username to ensure project belongs to user
                     # Get project summary using existing ProjectSummarizer
-                    summary = self.summarizer.generate_project_summary(project_id, user_name=self.user_id)
+                    summary = self.summarizer.generate_project_summary(project_id, user_name=self.user_name)
                     
                     if 'error' in summary:
                         continue
@@ -240,8 +240,8 @@ class PortfolioManager:
                     if rank_idx <= 3:  # Top 3 projects
                         try:
                             from project_summarizer import summarize_project
-                            # Data Isolation: Pass user_id to verify project ownership
-                            summary_text = summarize_project(project_id, user_name=self.user_id)
+                            # Data Isolation: Pass username to verify project ownership
+                            summary_text = summarize_project(project_id, user_name=self.user_name)
                             top_summaries.append(summary_text)
                         except Exception as e:
                             top_summaries.append(f"Error generating summary: {e}")
@@ -273,7 +273,7 @@ class PortfolioManager:
             
             # Build portfolio report in humanized format
             portfolio_report = {
-                'user_id': self.user_id,
+                'user_name': self.user_name,
                 'generated_at': timestamp,
                 'summary': {
                     'total_projects': len(projects_data),
@@ -422,7 +422,7 @@ class PortfolioManager:
             
             # Track skills and their first appearance
             skill_first_used = {}
-            project_analyzer = ProjectAnalyzer(self.user_id)
+            project_analyzer = ProjectAnalyzer(self.user_name)
             
             for project in projects:
                 project_id = project['id']

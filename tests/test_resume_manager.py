@@ -281,8 +281,8 @@ class TestResumeGeneration:
         
         # Verify result structure
         assert result is not None
-        assert result['user_id'] == 'test_user'
-        assert result['user_name'] == 'Alice'  # Selected author name
+        assert result['user_name'] == 'test_user'
+        assert result['display_name'] == 'Alice'  # Selected author name
         assert result['total_projects_analyzed'] == 2
         assert result['top_projects_displayed'] == 2
         
