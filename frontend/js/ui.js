@@ -1,4 +1,48 @@
 // frontend/js/ui.js
+
+// ========== ADD THIS FUNCTION AT THE TOP ==========
+function safeStringify(obj, space = 2) {
+    const seen = new WeakSet();
+    
+    function replacer(key, value) {
+        // Handle circular references
+        if (typeof value === 'object' && value !== null) {
+            if (seen.has(value)) {
+                return '[Circular Reference]';
+            }
+            seen.add(value);
+        }
+        
+        // Handle very large arrays
+        if (Array.isArray(value) && value.length > 100) {
+            return value.slice(0, 100).concat(`[ ... ${value.length - 100} more items ]`);
+        }
+        
+        // Handle very large objects
+        if (typeof value === 'object' && value !== null && !Array.isArray(value)) {
+            const keys = Object.keys(value);
+            if (keys.length > 50) {
+                const limited = {};
+                for (let i = 0; i < Math.min(50, keys.length); i++) {
+                    const k = keys[i];
+                    limited[k] = value[k];
+                }
+                limited['...'] = `${keys.length - 50} more keys`;
+                return limited;
+            }
+        }
+        
+        return value;
+    }
+    
+    try {
+        return JSON.stringify(obj, replacer, space);
+    } catch (error) {
+        return `Error stringifying: ${error.message}`;
+    }
+}
+// ==================================================
+
 let currentUser = null;
 
 // Navigation
@@ -45,14 +89,14 @@ document.getElementById('uploadForm').addEventListener('submit', async (e) => {
         if (snapshotLabel) formData.append('snapshot_label', snapshotLabel);
         
         const result = await uploadProject(formData);
-        document.getElementById('uploadResult').textContent = JSON.stringify(result, null, 2);
+        document.getElementById('uploadResult').textContent = safeStringify(result);
         
         // Store portfolio ID for later use
         if (result.portfolio_id) {
             localStorage.setItem('lastPortfolioId', result.portfolio_id);
         }
         
-        showStatus('uploadStatus', `Upload successful! Created ${result.created.length} projects`, 'success');
+        showStatus('uploadStatus', `Upload successful! Created ${result.created?.length || 0} projects`, 'success');
         
         // Switch to projects view
         setTimeout(() => showSection('projects'), 2000);
@@ -89,8 +133,8 @@ async function loadProjects() {
             }
         }
         
-        displayProjects(result.projects);
-        document.getElementById('projectsResult').textContent = JSON.stringify(result, null, 2);
+        displayProjects(result.projects || []);
+        document.getElementById('projectsResult').textContent = safeStringify(result);
         
     } catch (error) {
         projectsList.innerHTML = `<div class="status status-error">Error: ${error.message}</div>`;
@@ -107,8 +151,8 @@ async function loadTopProjects() {
         if (!portfolioId) throw new Error('Please enter a Portfolio ID');
         
         const result = await getTopProjects(portfolioId);
-        displayTopProjects(result.top_projects);
-        document.getElementById('projectsResult').textContent = JSON.stringify(result, null, 2);
+        displayTopProjects(result.top_projects || []);
+        document.getElementById('projectsResult').textContent = safeStringify(result);
         
     } catch (error) {
         projectsList.innerHTML = `<div class="status status-error">Error: ${error.message}</div>`;
@@ -130,11 +174,11 @@ function displayProjects(projects) {
             <p><strong>Type:</strong> ${project.project_type || 'N/A'}</p>
             <p><strong>Collaboration:</strong> ${project.collaboration_type || 'N/A'}</p>
             <div class="mt-2">
-                <span class="status ${project.metrics.user_commits ? 'status-success' : 'status-warning'}">
-                    ${project.metrics.user_commits || 0} user commits
+                <span class="status ${project.metrics?.user_commits ? 'status-success' : 'status-warning'}">
+                    ${project.metrics?.user_commits || 0} user commits
                 </span>
                 <span class="status">
-                    ${project.metrics.total_commits || 0} total commits
+                    ${project.metrics?.total_commits || 0} total commits
                 </span>
             </div>
             <div class="mt-3">
@@ -157,8 +201,8 @@ function displayTopProjects(topProjects) {
     container.innerHTML = topProjects.map(project => `
         <div class="project-card">
             <h3>${project.name || 'Unnamed Project'}</h3>
-            <p><strong>Rank Score:</strong> ${project.rank_score.toFixed(2)}</p>
-            ${project.features.user_commits ? 
+            <p><strong>Rank Score:</strong> ${project.rank_score?.toFixed(2) || 'N/A'}</p>
+            ${project.features?.user_commits ? 
                 `<p><strong>User Commits:</strong> ${project.features.user_commits}</p>` : ''}
             ${project.summary?.top_languages ? 
                 `<p><strong>Top Languages:</strong> ${project.summary.top_languages}</p>` : ''}
@@ -188,30 +232,30 @@ async function getSkills() {
         const analyses = await getSnapshotAnalyses(snapshotId);
         
         // Display skills
-        const skillsHTML = skills.skills.map(skill => `
+        const skillsHTML = (skills.skills || []).map(skill => `
             <div class="skill-tag">
-                ${skill.skill_name}
-                <small>(${(skill.confidence * 100).toFixed(1)}%)</small>
+                ${skill.skill_name || 'Unknown'}
+                <small>(${skill.confidence ? (skill.confidence * 100).toFixed(1) + '%' : 'N/A'})</small>
             </div>
         `).join('');
         
         document.getElementById('skillsContainer').innerHTML = `
-            <h4>Top ${skills.skills.length} Skills:</h4>
-            <div class="flex flex-wrap">${skillsHTML}</div>
+            <h4>Top ${(skills.skills || []).length} Skills:</h4>
+            <div class="flex flex-wrap">${skillsHTML || 'No skills found'}</div>
         `;
         
         // Display analyses
-        const analysesHTML = analyses.analyses.map(analysis => `
+        const analysesHTML = (analyses.analyses || []).map(analysis => `
             <div class="status ${analysis.status === 'complete' ? 'status-success' : 
                               analysis.status === 'failed' ? 'status-error' : 'status-warning'}">
-                ${analysis.analysis_type}: ${analysis.status}
+                ${analysis.analysis_type || 'Unknown'}: ${analysis.status || 'unknown'}
                 ${analysis.error ? `<br><small>Error: ${analysis.error}</small>` : ''}
             </div>
         `).join('');
         
         document.getElementById('analysisResults').innerHTML = `
             <h4>Analyses:</h4>
-            <div class="flex flex-wrap">${analysesHTML}</div>
+            <div class="flex flex-wrap">${analysesHTML || 'No analyses found'}</div>
         `;
         
     } catch (error) {
@@ -219,6 +263,7 @@ async function getSkills() {
     }
 }
 
+// ========== FIXED requestExternalAnalysis FUNCTION ==========
 async function requestExternalAnalysis() {
     const snapshotId = document.getElementById('snapshotId').value;
     if (!snapshotId) {
@@ -227,13 +272,22 @@ async function requestExternalAnalysis() {
     }
     
     try {
-        const result = await requestExternalAnalysis(snapshotId);
-        alert(`External analysis requested. Status: ${result.status}`);
-        getSkills(); // Refresh the display
+        const result = await apiCall(`/snapshots/${snapshotId}/external-analysis`, {
+            method: 'POST'
+        });
+        
+        // SAFELY check for status
+        const status = result?.status || result?.analysis?.status || 'unknown';
+        alert(`External analysis requested. Status: ${status}`);
+        
+        // Refresh the display
+        getSkills();
+        
     } catch (error) {
         alert(`Error: ${error.message}`);
     }
 }
+// ============================================================
 
 // Resume Generation
 async function generateResume() {
@@ -248,15 +302,15 @@ async function generateResume() {
         document.getElementById('resumeItems').innerHTML = `
             <div class="card">
                 <h4>Generated Resume Item</h4>
-                <p><strong>Resume ID:</strong> ${resume.resume_id}</p>
-                <p><strong>Project:</strong> ${resume.project_name}</p>
-                <p><strong>Generated At:</strong> ${new Date(resume.generated_at).toLocaleString()}</p>
-                <button class="btn btn-success mt-2" onclick="downloadResumePDF('${resume.resume_id}')">
+                <p><strong>Resume ID:</strong> ${resume.resume_id || 'N/A'}</p>
+                <p><strong>Project:</strong> ${resume.project_name || 'N/A'}</p>
+                <p><strong>Generated At:</strong> ${resume.generated_at ? new Date(resume.generated_at).toLocaleString() : 'N/A'}</p>
+                <button class="btn btn-success mt-2" onclick="downloadResumePDF('${resume.resume_id || ''}')">
                     Download PDF
                 </button>
                 <div class="mt-2">
                     <strong>Content Preview:</strong>
-                    <pre>${JSON.stringify(resume.content_json, null, 2).substring(0, 500)}...</pre>
+                    <pre>${safeStringify(resume.content_json || {}).substring(0, 500)}...</pre>
                 </div>
             </div>
         `;
@@ -277,7 +331,8 @@ async function generatePortfolioSummary() {
         
         try {
             const summary = await generatePortfolioSummary(portfolioId);
-            alert(`Portfolio summary generated for ${summary.generated.length} projects`);
+            const count = summary?.generated?.length || 0;
+            alert(`Portfolio summary generated for ${count} projects`);
         } catch (error) {
             alert(`Error: ${error.message}`);
         }
@@ -315,16 +370,17 @@ async function autoLinkIdentity(apply = false) {
     try {
         const result = await autoLinkIdentity(userId, portfolioId, !apply, true);
         
-        const resultsHTML = result.results.map(r => `
+        const results = result.results || [];
+        const resultsHTML = results.map(r => `
             <div class="status ${r.applied ? 'status-success' : 'status-warning'}">
-                ${r.project_id}: ${r.chosen_contributor_id || 'No match'} (${r.reason})
+                ${r.project_id || 'Unknown'}: ${r.chosen_contributor_id || 'No match'} (${r.reason || 'unknown'})
             </div>
         `).join('');
         
         document.getElementById('autoLinkResults').innerHTML = `
             <h4>Auto-link Results (${apply ? 'Applied' : 'Dry Run'}):</h4>
-            <div>${resultsHTML}</div>
-            <p class="mt-2">Processed ${result.results.length} projects</p>
+            <div>${resultsHTML || 'No results'}</div>
+            <p class="mt-2">Processed ${results.length} projects</p>
         `;
         
     } catch (error) {
@@ -350,7 +406,6 @@ async function checkHealth() {
     }
 }
 
-// Find the getProjectReport function and update it:
 async function getProjectReport() {
     const projectId = document.getElementById('reportProjectId').value;
     if (!projectId) {
@@ -360,55 +415,10 @@ async function getProjectReport() {
     
     try {
         const report = await apiCall(`/projects/${projectId}/report?include_raw_analyses=false`);
-        
-        // SAFE DISPLAY: Limit the depth and handle circular references
-        const safeReport = createSafeDisplayObject(report);
-        
-        document.getElementById('analyticsResult').textContent = 
-            JSON.stringify(safeReport, null, 2);
+        document.getElementById('analyticsResult').textContent = safeStringify(report);
     } catch (error) {
-        document.getElementById('analyticsResult').textContent = 
-            `Error: ${error.message}`;
+        document.getElementById('analyticsResult').textContent = `Error: ${error.message}`;
     }
-}
-
-// Add this helper function to handle circular references
-function createSafeDisplayObject(obj, depth = 0, maxDepth = 3, seen = new WeakSet()) {
-    if (depth > maxDepth) {
-        return '[Maximum depth reached]';
-    }
-    
-    if (obj === null || typeof obj !== 'object') {
-        return obj;
-    }
-    
-    if (seen.has(obj)) {
-        return '[Circular Reference]';
-    }
-    seen.add(obj);
-    
-    if (Array.isArray(obj)) {
-        // Limit array display to first 10 items
-        const limitedArray = obj.slice(0, 10);
-        return limitedArray.map(item => 
-            createSafeDisplayObject(item, depth + 1, maxDepth, seen)
-        ).concat(obj.length > 10 ? [`... ${obj.length - 10} more items`] : []);
-    }
-    
-    const result = {};
-    const keys = Object.keys(obj);
-    
-    // Limit object keys for display
-    const displayKeys = keys.slice(0, 20);
-    for (const key of displayKeys) {
-        result[key] = createSafeDisplayObject(obj[key], depth + 1, maxDepth, seen);
-    }
-    
-    if (keys.length > 20) {
-        result['...'] = `${keys.length - 20} more keys`;
-    }
-    
-    return result;
 }
 
 async function getChronologicalSkills() {
@@ -420,7 +430,7 @@ async function getChronologicalSkills() {
     
     try {
         const skills = await getChronologicalSkills(portfolioId);
-        document.getElementById('analyticsResult').textContent = JSON.stringify(skills, null, 2);
+        document.getElementById('analyticsResult').textContent = safeStringify(skills);
     } catch (error) {
         alert(`Error: ${error.message}`);
     }
@@ -435,7 +445,7 @@ async function refreshCollaboration() {
     
     try {
         const result = await refreshCollaboration(projectId);
-        alert(`Collaboration refreshed: ${result.collaboration_type} (${result.contributor_count} contributors)`);
+        alert(`Collaboration refreshed: ${result.collaboration_type || 'unknown'} (${result.contributor_count || 0} contributors)`);
     } catch (error) {
         alert(`Error: ${error.message}`);
     }
@@ -450,7 +460,7 @@ async function listContributors() {
     
     try {
         const contributors = await listContributors(projectId);
-        document.getElementById('analyticsResult').textContent = JSON.stringify(contributors, null, 2);
+        document.getElementById('analyticsResult').textContent = safeStringify(contributors);
     } catch (error) {
         alert(`Error: ${error.message}`);
     }
@@ -475,4 +485,3 @@ function generateResumeFromProject(projectId) {
     showSection('resume');
     setTimeout(() => generateResume(), 100);
 }
-
