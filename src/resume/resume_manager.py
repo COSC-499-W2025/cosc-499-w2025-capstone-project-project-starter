@@ -98,7 +98,11 @@ class ResumeManager:
             if not existing or "resume_data" not in existing:
                 return []
 
-            resume_data = existing["resume_data"] or {}
+            resume_data = existing.get("resume_data")
+
+            if not isinstance(resume_data, dict):
+                return []
+
             custom_map = resume_data.get("custom_project_wording", {}) or {}
             if not isinstance(custom_map, dict):
                 return []
@@ -128,10 +132,11 @@ class ResumeManager:
         """
         try:
             existing = ResumeManager.get_user_resume(user_id)
-            if not existing or "resume_data" not in existing:
-                return False
 
-            resume_data = existing["resume_data"] or {}
+            resume_data = existing.get("resume_data") if existing else {}
+            if not isinstance(resume_data, dict):
+                resume_data = {}
+
             custom_map = resume_data.get("custom_project_wording", {})
 
             if not isinstance(custom_map, dict):
