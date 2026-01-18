@@ -179,15 +179,15 @@ def calculate_project_score(analysis_data: Dict[str, Any], project_id: Optional[
 
 def rank_all_projects(user_name=None) -> List[Dict[str, Any]]:
     """
-    Rank all uploaded projects in the database by composite score using key_metrics.
+    Rank all uploaded projects for the current user by composite score using key_metrics.
     Uses stored scores from database if available, otherwise calculates new scores.
-    Data Isolation: If user_name is provided, only ranks projects belonging to that user.
+    Data Isolation: Only ranks projects belonging to the specified user (or current user if None).
     
     Args:
-        user_name (str, optional): Username to filter projects. If None, uses current user.
+        user_name (str, optional): Username to filter projects. If None, uses current logged-in user.
     
     Returns:
-        List[Dict[str, Any]]: List of ranked projects
+        List[Dict[str, Any]]: List of ranked projects for the user, or empty list if no user logged in.
     """
     # Get current user if user_name not provided
     if user_name is None:
