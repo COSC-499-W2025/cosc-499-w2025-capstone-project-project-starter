@@ -444,7 +444,8 @@ class ResumeManager:
             if include_skills:
                 all_skills_list = sorted(list(all_skills))
                 if skills_mode == "categorized":
-                    categorized_skills = skill_mapper.categorize_skills(all_skills_list)
+                    # SkillMapper expects a set for set operations (e.g., set difference)
+                    categorized_skills = skill_mapper.categorize_skills(all_skills)
                 else:
                     categorized_skills = {}
             else:
