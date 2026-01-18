@@ -48,6 +48,8 @@ def test_extract_and_store_file_contents_success(mock_conn_factory, mock_insert_
         zf.writestr("image.png", b"\x89PNG")
 
     cursor = MagicMock()
+    # No existing duplicates in file_contents for this happy-path test
+    cursor.fetchone.return_value = None
     conn = MagicMock()
     mock_conn_factory.return_value = _ctx_with_cursor((conn, cursor))
 

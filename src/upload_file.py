@@ -4,7 +4,11 @@ import zipfile
 import json
 from config.db_config import with_db_cursor
 from parsing.file_validator import validate_uploaded_file, WrongFormatError
-from parsing.file_contents_manager import init_file_contents_table, extract_and_store_file_contents, get_file_contents_by_upload_id
+from parsing.file_contents_manager import (
+    init_file_contents_table,
+    extract_and_store_file_contents,
+    get_file_contents_by_upload_id,
+)
 from pathlib import Path
 
 UPLOAD_FOLDER = Path(os.getenv("UPLOAD_FOLDER", "uploads"))
@@ -47,7 +51,13 @@ def init_uploaded_files_table():
                     metadata JSONB,
                     thumbnail BYTEA,
                     file_data BYTEA,
-                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                    user_name VARCHAR(255),
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    CONSTRAINT fk_user_name
+                        FOREIGN KEY (user_name)
+                        REFERENCES user_informations(user_name)
+                        ON DELETE SET NULL
+                        ON UPDATE CASCADE
                 );
             """)
         print(" Uploaded files table initialized")
@@ -73,11 +83,41 @@ def init_uploaded_files_table():
                     ADD COLUMN IF NOT EXISTS last_modified_at TIMESTAMP;
                 """)
 
+                # The old database may not have user_name.
+                cursor.execute("""
+                    ALTER TABLE uploaded_files
+                    ADD COLUMN IF NOT EXISTS user_name VARCHAR(255);
+                """)
+
+                # Add foreign key constraint if it doesn't exist
+                cursor.execute("""
+                    DO $$ 
+                    BEGIN
+                        IF NOT EXISTS (
+                            SELECT 1 FROM pg_constraint 
+                            WHERE conname = 'fk_user_name'
+                        ) THEN
+                            ALTER TABLE uploaded_files
+                            ADD CONSTRAINT fk_user_name
+                                FOREIGN KEY (user_name)
+                                REFERENCES user_informations(user_name)
+                                ON DELETE SET NULL
+                                ON UPDATE CASCADE;
+                        END IF;
+                    END $$;
+                """)
+
                 # Initialize the history's last_modified_at to created_at (only accept NULL).
                 cursor.execute("""
                     UPDATE uploaded_files
                     SET last_modified_at = COALESCE(last_modified_at, created_at)
                     WHERE last_modified_at IS NULL;
+                """)
+
+                # Create index on user_name for faster lookups (after column is added)
+                cursor.execute("""
+                    CREATE INDEX IF NOT EXISTS idx_uploaded_files_user_name 
+                    ON uploaded_files(user_name);
                 """)
 
         except Exception as e:
@@ -94,7 +134,7 @@ def init_uploaded_files_table():
         raise
 
 
-def add_file_to_db(filepath) -> UploadResult:
+def add_file_to_db(filepath, user_name: str = None) -> UploadResult:
     # 1. Check if file exists
     # Return detailed error if not found
     if not os.path.exists(filepath):
@@ -147,10 +187,10 @@ def add_file_to_db(filepath) -> UploadResult:
             data={"filepath": filepath},
         )
 
-    # Prepare destination path
+    # 3. Prepare destination path
     dest_path = str(UPLOAD_FOLDER / filename)   # keep as str if the rest of your code expects str
 
-    # 3. Create upload directory (via helper)
+    # 4. Create upload directory (via helper)
     err = ensure_upload_dir()
     if err:
         return UploadResult(
@@ -160,7 +200,7 @@ def add_file_to_db(filepath) -> UploadResult:
             data={"destination": str(UPLOAD_FOLDER)}
         )
 
-    # 4. Copy file to upload folder
+    # 5. Copy file to upload folder
     try:
         shutil.copy(filepath, dest_path)
         print(f"File copied to {dest_path}")
@@ -177,7 +217,7 @@ def add_file_to_db(filepath) -> UploadResult:
             data={"source": filepath, "destination": dest_path},
         )
 
-    # 4.5 Key Change
+    # 5.5 Key Change
     # To prevent RAR/7z files from crashing after simply changing the extension to .zip.
     if not zipfile.is_zipfile(dest_path):
         return UploadResult(
@@ -191,7 +231,7 @@ def add_file_to_db(filepath) -> UploadResult:
             data={"filepath": dest_path},
         )
     
-    # 5. Extract metadata from zip
+    # 6. Extract metadata from zip
     file_contents = []
     try:
         # This has already been confirmed as a valid ZIP file, so the is_zipfile check will not be performed again.
@@ -211,11 +251,41 @@ def add_file_to_db(filepath) -> UploadResult:
             data={"filepath": dest_path},
         )
 
-    # 6. Save to database
+    # 6. Check for duplicate uploads and save to database
     try:
         with open(dest_path, "rb") as f:
             zip_bytes = f.read()
+
         with with_db_cursor() as cursor:
+            # 6.1 Check if an identical ZIP (same bytes) has already been uploaded
+            cursor.execute(
+                """
+                SELECT id, filename
+                FROM uploaded_files
+                WHERE file_data = %s
+                LIMIT 1
+                """,
+                (zip_bytes,),
+            )
+            existing = cursor.fetchone()
+
+            if existing:
+                existing_id, existing_filename = existing
+                return UploadResult(
+                    success=False,
+                    message=(
+                        "This ZIP file appears to have already been uploaded "
+                        f"as '{existing_filename}' (ID {existing_id}). "
+                        "Duplicate uploads are not allowed."
+                    ),
+                    error_type="DUPLICATE_UPLOAD",
+                    data={
+                        "existing_file_id": existing_id,
+                        "existing_filename": existing_filename,
+                    },
+                )
+
+            # 6.2 No duplicate found: insert new uploaded_files record
             cursor.execute("""
                 INSERT INTO uploaded_files (
                     filename,
@@ -223,9 +293,10 @@ def add_file_to_db(filepath) -> UploadResult:
                     status,
                     metadata,
                     file_data,
+                    user_name,
                     last_modified_at
                 )
-                VALUES (%s, %s, %s, %s, %s, CURRENT_TIMESTAMP)
+                VALUES (%s, %s, %s, %s, %s, %s, CURRENT_TIMESTAMP)
                 RETURNING id
             """, (
                 filename,
@@ -233,6 +304,7 @@ def add_file_to_db(filepath) -> UploadResult:
                 "uploaded",
                 json.dumps({"files": file_contents}),
                 zip_bytes,
+                user_name,
             ))
             uploaded_file_id = cursor.fetchone()[0]
 
@@ -366,6 +438,7 @@ def list_uploaded_files():
                     filepath,
                     status,
                     metadata,
+                    user_name,
                     created_at,
                     last_modified_at
                 FROM uploaded_files
@@ -382,8 +455,9 @@ def list_uploaded_files():
                 "filepath": row[2],
                 "status": row[3],
                 "metadata": row[4],
-                "created_at": row[5],
-                "last_modified_at": row[6],
+                "user_name": row[5],
+                "created_at": row[6],
+                "last_modified_at": row[7],
             })
         
         return files
@@ -393,4 +467,56 @@ def list_uploaded_files():
         return []
     except Exception as e:
         print(f"Error retrieving uploaded files: {e}")
+        return []
+
+
+def list_uploaded_files_by_user(user_name: str):
+    """
+    Get a list of all uploaded files for a specific user.
+    
+    Args:
+        user_name (str): The username to filter by
+    
+    Returns:
+        list: List of uploaded file records for the specified user
+    """
+    try:
+        with with_db_cursor() as cursor:
+            cursor.execute("""
+                SELECT
+                    id,
+                    filename,
+                    filepath,
+                    status,
+                    metadata,
+                    user_name,
+                    created_at,
+                    last_modified_at
+                FROM uploaded_files
+                WHERE user_name = %s
+                ORDER BY created_at DESC
+            """, (user_name,))
+            
+            results = cursor.fetchall()
+        
+        files = []
+        for row in results:
+            files.append({
+                "id": row[0],
+                "filename": row[1],
+                "filepath": row[2],
+                "status": row[3],
+                "metadata": row[4],
+                "user_name": row[5],
+                "created_at": row[6],
+                "last_modified_at": row[7],
+            })
+        
+        return files
+        
+    except ConnectionError:
+        print("Could not connect to database.")
+        return []
+    except Exception as e:
+        print(f"Error retrieving uploaded files for user {user_name}: {e}")
         return []

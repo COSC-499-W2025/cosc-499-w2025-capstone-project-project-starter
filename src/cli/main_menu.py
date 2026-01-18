@@ -16,7 +16,8 @@ from .menus import (
     handle_generate_resume,
     handle_view_resume,
     handle_delete_resume,
-    handle_add_project_thumbnail
+    handle_add_project_thumbnail,
+    handle_llm_summary
 )
 from cli.user_menus import user_account_menu
 from account.user_manager import AuthManager
@@ -38,7 +39,8 @@ MENU_ITEMS = [
     "Delete Resume",                                      # 14
     "View Portfolio",                                     # 15
     "Add thumbnail to a project",                         # 16
-    "Exit"                                                # 17
+    "Run LLM summary (test.zip)",                         # 17
+    "Exit"                                                # 18
 ]
 
 def run_main_menu(consent_manager, collab_manager):
@@ -104,7 +106,8 @@ def run_main_menu(consent_manager, collab_manager):
             "14": lambda: handle_delete_resume(),
             "15": lambda: portfolio_menu(),
             "16": lambda: handle_add_project_thumbnail(),
-            "17": "EXIT"
+            "17": lambda: handle_llm_summary(),
+            "18": "EXIT"
         }
 
         handler = handlers.get(choice)

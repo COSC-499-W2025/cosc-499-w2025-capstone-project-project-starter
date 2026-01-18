@@ -95,6 +95,7 @@ class TestMainMenu:
             "Delete Resume",
             "View Portfolio",
             "Add thumbnail to a project",
+            "Run LLM summary (test.zip)",
             "Exit"
         ]
         for i, expected in enumerate(expected_items):
@@ -231,7 +232,8 @@ class TestMainMenu:
             handle_generate_resume,
             handle_view_resume,
             handle_delete_resume,
-            handle_add_project_thumbnail
+            handle_add_project_thumbnail,
+            handle_llm_summary
         )
         from cli.user_menus import user_account_menu
         
@@ -239,6 +241,7 @@ class TestMainMenu:
         assert callable(handle_upload_file)
         assert callable(handle_list_projects)
         assert callable(handle_add_project_thumbnail)
+        assert callable(handle_llm_summary)
         assert callable(user_account_menu)
     
     def test_invalid_session_continue_logic(self):
