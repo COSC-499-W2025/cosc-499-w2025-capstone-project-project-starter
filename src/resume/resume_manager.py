@@ -306,16 +306,16 @@ class ResumeManager:
                                 print("Invalid input. Enter a number.")
                         except (ValueError, KeyboardInterrupt):
                             print("\nUsing default username.")
-                            user_name = user_id
+                            display_name = user_name
                             break
             else:
                 # No authors detected, use login username or ask for custom name
                 print(f"\nNo author names detected in projects.")
                 use_custom = input("Enter your name for the resume (or press Enter to use login username): ").strip()
                 if use_custom:
-                    user_name = use_custom
+                    display_name = use_custom
                 else:
-                    user_name = user_id
+                    display_name = user_name
             
             summarizer = ProjectSummarizer()
             skill_mapper = SkillMapper()
