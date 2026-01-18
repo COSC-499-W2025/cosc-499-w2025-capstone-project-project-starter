@@ -1,3 +1,55 @@
+# Personal logs of Will Tilden (from T2 Week 2) as per the personal log format outlined in lecture slides
+
+## Applicable date range
+- Monday, January 12th to Sunday, January 18th
+
+## Type of tasks I worked on
+![Alt text](imgs/will_tilden_t2_w2.png)
+
+## Recap on your weeks goals
+
+- Which features were yours in the project plan for this milestone?
+
+    I completed feature number 28 under milestone 2: Customize and save the wording of a project used for a résumé item
+
+- Which tasks from the project board are associated with these features?
+
+    Task number #188 from the project board is assocated with this feature, as is issue #181
+        (i'm not sure if you guys want us to use issues or project board items or if those are the same or different, so I did one of both 
+        please lmk if that's the correct way you want things because it appears they're both called isues on github anyways 🤷‍♂️)
+
+        https://github.com/COSC-499-W2025/capstone-project-team-15/issues/181
+
+        https://github.com/COSC-499-W2025/capstone-project-team-15/issues/188
+
+    Testing and reviewing: I tested my own PR both with the test cases and manually. I also tested and reviewed Liam's PR and Alex's PR.
+
+        Liam's PR: https://github.com/COSC-499-W2025/capstone-project-team-15/pull/180
+
+        Alex's PR: 
+
+
+- Among these tasks, which have you completed / in progress in the last 2 weeks?
+
+    I started and completed this feature this week and had it reviewed and merged successfully this week in PR number #182
+
+        https://github.com/COSC-499-W2025/capstone-project-team-15/pull/182
+
+
+- Optional text: additional context that we should be aware of
+
+     Great week. Everyone made big contributions and we were all highly collegial. We had a big refactoring done by Liam, kudos to Liam, to get us on track for the API requirements of milestone 2, and the group worked well together. 
+
+- Working on in the next sprint
+
+    Nothing to connect to from last week and no blockers or issues to report from this week.
+
+    Next week I'm going to work on at least one, maybe 2 features. Numbers 26 and maybe 22 as well:
+
+    26 ➡️ Allow user to associate a portfolio image for a given project to use as the thumbnail
+    22 ➡️ Recognize duplicate files and maintains only one in the system
+
+
 # Personal logs of Will Tilden (from Week 14) as per the personal log format outlined in lecture slides
 
 ## Applicable date range
