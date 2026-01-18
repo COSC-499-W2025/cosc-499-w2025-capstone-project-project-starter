@@ -164,7 +164,12 @@ def handle_upload_file():
     """Handle file upload menu option."""
     filepath = input("Enter the path to your zip file: ")
     from upload_file import add_file_to_db
-    result = add_file_to_db(filepath)
+    from account.user_manager import AuthManager
+    
+    # Get current logged in user
+    current_username = AuthManager.get_current_username()
+    
+    result = add_file_to_db(filepath, user_name=current_username)
     
     if result.success:
         display_success(result)

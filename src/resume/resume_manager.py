@@ -80,6 +80,85 @@ class ResumeManager:
             return False
     
     @staticmethod
+    def clear_custom_project_wording(user_id: str, project_id: int) -> bool:
+        """
+        Clear custom wording for a project resume item.
+        Equivalent to saving an empty wording (fallback to stored/generated summary).
+        """
+        return ResumeManager.save_custom_project_wording(user_id, project_id, "")
+
+
+    @staticmethod
+    def list_custom_worded_projects(user_id: str) -> list[int]:
+        """
+        Return a list of project_ids that have custom resume wording saved.
+        """
+        try:
+            existing = ResumeManager.get_user_resume(user_id)
+            if not existing or "resume_data" not in existing:
+                return []
+
+            resume_data = existing.get("resume_data")
+
+            if not isinstance(resume_data, dict):
+                return []
+
+            custom_map = resume_data.get("custom_project_wording", {}) or {}
+            if not isinstance(custom_map, dict):
+                return []
+
+            project_ids: list[int] = []
+            for k, v in custom_map.items():
+                if isinstance(v, str) and v.strip():
+                    try:
+                        project_ids.append(int(k))
+                    except Exception:
+                        # ignore non-int keys
+                        continue
+
+            return sorted(project_ids)
+        except Exception as e:
+            print(f"[ERROR] Failed to list custom worded projects: {e}")
+            return []
+
+
+    @staticmethod
+    def save_custom_project_wording(user_id: str, project_id: int, wording: str) -> bool:
+        """
+        Save or clear custom resume wording for a specific project.
+
+        Stored under:
+          resume_data["custom_project_wording"][str(project_id)] = wording
+        """
+        try:
+            existing = ResumeManager.get_user_resume(user_id)
+
+            resume_data = existing.get("resume_data") if existing else {}
+            if not isinstance(resume_data, dict):
+                resume_data = {}
+
+            custom_map = resume_data.get("custom_project_wording", {})
+
+            if not isinstance(custom_map, dict):
+                custom_map = {}
+
+            key = str(project_id)
+            wording = (wording or "").strip()
+
+            if wording:
+                custom_map[key] = wording
+            else:
+                # empty wording clears customization
+                custom_map.pop(key, None)
+
+            resume_data["custom_project_wording"] = custom_map
+            return ResumeManager.store_user_resume(user_id, resume_data)
+
+        except Exception as e:
+            print(f"[ERROR] Failed to save custom project wording: {e}")
+            return False
+
+    @staticmethod
     def get_user_resume(user_id):
         """
         Retrieve the aggregated user resume.
@@ -223,7 +302,7 @@ class ResumeManager:
         return sorted(list(detected_frameworks))
     
     @staticmethod
-    def generate_user_resume(user_id, top_projects_count=5):
+    def generate_user_resume(user_id, top_projects_count=5, selection: dict | None = None):
         """
         Generate a user-aggregated resume from top ranked projects.
         
@@ -245,6 +324,17 @@ class ResumeManager:
             if not ranked_projects:
                 return None
             
+            # ---- NEW: apply selection filters ----
+            if selection:
+                # allow overriding top_projects_count
+                if "top_projects_count" in selection and isinstance(selection["top_projects_count"], int):
+                    top_projects_count = selection["top_projects_count"]
+
+                selected_ids = selection.get("selected_project_ids")
+                if selected_ids:
+                    ranked_projects = [p for p in ranked_projects if p.get("project_id") in selected_ids]
+            # ---- END NEW ----
+
             top_projects = ranked_projects[:top_projects_count]
             
             # Collect all authors from top projects to let user select their name
@@ -319,20 +409,42 @@ class ResumeManager:
             summarizer = ProjectSummarizer()
             skill_mapper = SkillMapper()
             
-            all_skills = set()
-            all_languages = set()
-            all_frameworks = set()
-            project_summaries = []
+            # load custom project wording map
+            custom_wording_map = {}
+            try:
+                existing_resume = ResumeManager.get_user_resume(user_id)
+                if existing_resume and isinstance(existing_resume.get("resume_data"), dict):
+                    custom_wording_map = existing_resume["resume_data"].get("custom_project_wording", {}) or {}
+                    if not isinstance(custom_wording_map, dict):
+                        custom_wording_map = {}
+            except Exception:
+                custom_wording_map = {}
+
+            # Aggregated resume fields (always initialized to avoid NameError)
+            all_skills: set = set()
+            all_languages: set = set()
+            all_frameworks: set = set()
+            project_summaries: list = []
             
+            include_skills = True
+            skills_mode = "categorized"   # "categorized" or "all"
+
+            if selection:
+                include_skills = selection.get("include_skills", True)
+                skills_mode = selection.get("skills_mode", "categorized")
+
             for project in top_projects:
                 try:
                     project_id = project['project_id']
                     
-                    # Get stored project summary from database (if available)
-                    stored_ranking = get_stored_ranking_by_project_id(project_id)
-                    project_summary_text = stored_ranking.get('summary', '') if stored_ranking else ''
-                    
-                    # If no summary in database, generate one using summarize_project
+                    # custom wording takes priority
+                    custom_text = custom_wording_map.get(str(project_id), "")
+                    project_summary_text = (custom_text or "").strip()
+
+                    if not project_summary_text:
+                        stored_ranking = get_stored_ranking_by_project_id(project_id)
+                        project_summary_text = stored_ranking.get('summary', '') if stored_ranking else ''
+
                     if not project_summary_text:
                         try:
                             project_summary_text = summarize_project(project_id)
@@ -366,15 +478,22 @@ class ResumeManager:
                         frameworks = ResumeManager._detect_frameworks_from_files(file_contents)
                         all_frameworks.update(frameworks)
                         
-                        # Extract skills from deep analysis
-                        code_analysis = summary.get('code_analysis', {})
-                        deep_analysis_skills = skill_mapper.extract_skills_from_deep_analysis(code_analysis)
-                        
-                        # Combine all skills for this project
-                        project_skills = set(project_languages)
-                        project_skills.update(frameworks)
-                        project_skills.update(deep_analysis_skills)
-                        all_skills.update(project_skills)
+                        # Only collect skills if enabled
+                        if include_skills:
+                            # Extract skills from deep analysis
+                            code_analysis = summary.get('code_analysis', {})
+                            deep_analysis_skills = skill_mapper.extract_skills_from_deep_analysis(code_analysis)
+
+                            # Combine all skills for this project
+                            project_skills = set(project_languages)
+                            project_skills.update(frameworks)
+                            project_skills.update(deep_analysis_skills)
+
+                            # all_skills is initialized before the loop (aggregates skills across projects)
+                            all_skills.update(project_skills)
+                        else:
+                            # Still keep per-project skills key stable, but empty
+                            project_skills = set()
                         
                         # Clean project name
                         project_name = project['filename']
@@ -414,8 +533,17 @@ class ResumeManager:
                     print(f"[ERROR] Failed to summarize project {project['project_id']}: {e}")
                     continue
             
-            # Categorize skills
-            categorized_skills = skill_mapper.categorize_skills(all_skills)
+            # Categorize skills (respect selection)
+            if include_skills:
+                all_skills_list = sorted(list(all_skills))
+                if skills_mode == "categorized":
+                    # SkillMapper expects a set for set operations (e.g., set difference)
+                    categorized_skills = skill_mapper.categorize_skills(all_skills)
+                else:
+                    categorized_skills = {}
+            else:
+                all_skills_list = []
+                categorized_skills = {}
             
             # Build comprehensive resume data
             resume_data = {
@@ -423,7 +551,7 @@ class ResumeManager:
                 'user_id': user_id,
                 'total_projects_analyzed': len(ranked_projects),
                 'top_projects_displayed': len(project_summaries),
-                'all_skills': sorted(list(all_skills)),
+                'all_skills': all_skills_list,
                 'categorized_skills': categorized_skills,
                 'languages': sorted(list(all_languages)),
                 'frameworks': sorted(list(all_frameworks)),
