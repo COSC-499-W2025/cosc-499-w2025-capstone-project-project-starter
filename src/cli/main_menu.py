@@ -15,7 +15,8 @@ from .menus import (
     portfolio_menu,
     handle_generate_resume,
     handle_view_resume,
-    handle_delete_resume
+    handle_delete_resume,
+    handle_add_project_thumbnail
 )
 from cli.user_menus import user_account_menu
 from account.user_manager import AuthManager
@@ -36,7 +37,8 @@ MENU_ITEMS = [
     "View Resume",                                        # 13
     "Delete Resume",                                      # 14
     "View Portfolio",                                     # 15
-    "Exit"                                                # 16
+    "Add thumbnail to a project",                         # 16
+    "Exit"                                                # 17
 ]
 
 def run_main_menu(consent_manager, collab_manager):
@@ -73,12 +75,12 @@ def run_main_menu(consent_manager, collab_manager):
         print("="*70) 
         
         if os.getenv("GITHUB_ACTIONS") == "true" or not sys.stdin.isatty():
-            choice = "16"
+            choice = "17"
         else:
             try:
-                choice = input("Choose an option (1-16): ").strip()
+                choice = input("Choose an option (1-17): ").strip()
             except EOFError:
-                choice = "16"
+                choice = "17"
         
         # Check authentication before processing any choice
         if not AuthManager.is_user_logged_in():
@@ -101,13 +103,14 @@ def run_main_menu(consent_manager, collab_manager):
             "13": lambda: handle_view_resume(),
             "14": lambda: handle_delete_resume(),
             "15": lambda: portfolio_menu(),
-            "16": "EXIT"
+            "16": lambda: handle_add_project_thumbnail(),
+            "17": "EXIT"
         }
 
         handler = handlers.get(choice)
 
         if handler is None:
-            print("Invalid choice. Please enter 1-16.")
+            print("Invalid choice. Please enter 1-17.")
             continue
 
         if handler == "EXIT":

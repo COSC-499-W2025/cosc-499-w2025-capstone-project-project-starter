@@ -40,7 +40,7 @@ class TestMainMenu:
     @patch('cli.main_menu.handle_analyze_metrics_and_summary')
     @patch('cli.main_menu.handle_list_projects')
     @patch('cli.main_menu.handle_upload_file')
-    @patch('builtins.input', return_value='16')
+    @patch('builtins.input', return_value='17')
     @patch('sys.stdout', new_callable=StringIO)
     def test_main_menu_exit_option(
         self,
@@ -62,7 +62,7 @@ class TestMainMenu:
         mock_portfolio,
         mock_user_account
     ):
-        """Test that exit option (16) works correctly"""
+        """Test that exit option (17) works correctly"""
         # Set up logged in user
         AuthManager._current_user = {'user_name': 'testuser', 'user_id': 1}
         
@@ -77,7 +77,7 @@ class TestMainMenu:
     
     def test_menu_items_complete(self):
         """Test that all menu items are properly defined"""
-        assert len(MENU_ITEMS) == 16
+        assert len(MENU_ITEMS) == 17
         expected_items = [
             "Upload a ZIP file",
             "List stored projects",
@@ -94,6 +94,7 @@ class TestMainMenu:
             "View Resume",
             "Delete Resume",
             "View Portfolio",
+            "Add thumbnail to a project",
             "Exit"
         ]
         for i, expected in enumerate(expected_items):
@@ -105,8 +106,8 @@ class TestMainMenu:
         from cli.main_menu import MENU_ITEMS
         
         # Verify menu structure
-        assert len(MENU_ITEMS) == 16
-        # Options 1-15 should have handlers, option 16 is "EXIT"
+        assert len(MENU_ITEMS) == 17
+        # Options 1-16 should have handlers, option 17 is "EXIT"
         # This tests the structure, actual handler calls are tested in integration
     
     @patch('cli.user_menus.login_menu', return_value=False)
@@ -169,12 +170,12 @@ class TestMainMenu:
     
     def test_eof_error_handling_logic(self):
         """Test that EOFError handling logic exists"""
-        # Test that the code handles EOFError by setting choice to "16"
+        # Test that the code handles EOFError by setting choice to "17"
         try:
             raise EOFError()
         except EOFError:
-            choice = "16"  # This is what the code does
-            assert choice == "16"
+            choice = "17"  # This is what the code does
+            assert choice == "17"
     
     def test_user_account_menu_display_logic(self):
         """Test that user account menu display logic works"""
@@ -208,7 +209,7 @@ class TestMainMenu:
     def test_menu_items_structure(self):
         """Test that MENU_ITEMS has correct structure"""
         assert isinstance(MENU_ITEMS, list)
-        assert len(MENU_ITEMS) == 16
+        assert len(MENU_ITEMS) == 17
         assert "Upload a ZIP file" in MENU_ITEMS
         assert "Exit" in MENU_ITEMS
         assert "User Account" in MENU_ITEMS
@@ -229,13 +230,15 @@ class TestMainMenu:
             portfolio_menu,
             handle_generate_resume,
             handle_view_resume,
-            handle_delete_resume
+            handle_delete_resume,
+            handle_add_project_thumbnail
         )
         from cli.user_menus import user_account_menu
         
         # Verify all handlers are callable
         assert callable(handle_upload_file)
         assert callable(handle_list_projects)
+        assert callable(handle_add_project_thumbnail)
         assert callable(user_account_menu)
     
     def test_invalid_session_continue_logic(self):
@@ -252,4 +255,3 @@ class TestMainMenu:
 
 if __name__ == '__main__':
     pytest.main([__file__, '-v'])
-

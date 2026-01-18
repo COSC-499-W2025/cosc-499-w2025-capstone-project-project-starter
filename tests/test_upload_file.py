@@ -11,7 +11,14 @@ from unittest.mock import Mock, patch, MagicMock
 # Adjust the path to import from src
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'src')))
 # Added WrongFormatError to make it easier to simulate the error types thrown by the validator in tests.
-from src.upload_file import add_file_to_db, UPLOAD_FOLDER, UploadResult, WrongFormatError
+from src.upload_file import (
+    add_file_to_db,
+    add_thumbnail_to_project,
+    init_uploaded_files_table,
+    UPLOAD_FOLDER,
+    UploadResult,
+    WrongFormatError,
+)
 
 
 class TestUploadFile:
@@ -347,6 +354,80 @@ class TestUploadFile:
         assert result.success is False
         assert result.error_type == "INVALID_ZIP"
         assert "has a .zip extension but is not a valid ZIP archive" in result.message
+
+
+@patch('src.upload_file.init_file_contents_table')
+@patch('src.upload_file.with_db_cursor')
+def test_init_uploaded_files_table_includes_thumbnail(mock_with_db_cursor, mock_init_file_contents_table):
+    """Ensure uploaded_files schema includes thumbnail column and migration."""
+    mock_cursor = Mock()
+    mock_context = MagicMock()
+    mock_context.__enter__.return_value = mock_cursor
+    mock_with_db_cursor.return_value = mock_context
+
+    init_uploaded_files_table()
+
+    executed_sql = " ".join(call.args[0] for call in mock_cursor.execute.call_args_list)
+    assert "CREATE TABLE IF NOT EXISTS uploaded_files" in executed_sql
+    assert "thumbnail BYTEA" in executed_sql
+    assert "ADD COLUMN IF NOT EXISTS thumbnail BYTEA" in executed_sql
+
+
+@patch('src.upload_file.with_db_cursor')
+@patch('builtins.open', create=True)
+@patch('src.upload_file.os.path.exists', return_value=True)
+def test_add_thumbnail_to_project_success(mock_exists, mock_open, mock_with_db_cursor):
+    """Thumbnail update should succeed for valid project and file."""
+    mock_file = MagicMock()
+    mock_file.read.return_value = b"thumb-bytes"
+    mock_open.return_value.__enter__.return_value = mock_file
+
+    mock_cursor = Mock()
+    mock_context = MagicMock()
+    mock_context.__enter__.return_value = mock_cursor
+    mock_with_db_cursor.return_value = mock_context
+    mock_cursor.fetchone.return_value = [1]
+
+    result = add_thumbnail_to_project(1, "/tmp/thumb.png")
+
+    assert isinstance(result, UploadResult)
+    assert result.success is True
+    assert result.error_type is None
+    assert result.data["project_id"] == 1
+    mock_cursor.execute.assert_called_once()
+
+
+@patch('src.upload_file.os.path.exists', return_value=False)
+def test_add_thumbnail_to_project_missing_file(mock_exists):
+    """Missing thumbnail file should return a friendly error."""
+    result = add_thumbnail_to_project(1, "/tmp/missing.png")
+
+    assert isinstance(result, UploadResult)
+    assert result.success is False
+    assert result.error_type == "THUMBNAIL_NOT_FOUND"
+    assert "does not exist" in result.message
+
+
+@patch('src.upload_file.with_db_cursor')
+@patch('builtins.open', create=True)
+@patch('src.upload_file.os.path.exists', return_value=True)
+def test_add_thumbnail_to_project_not_found(mock_exists, mock_open, mock_with_db_cursor):
+    """Non-existent project should return PROJECT_NOT_FOUND."""
+    mock_file = MagicMock()
+    mock_file.read.return_value = b"thumb-bytes"
+    mock_open.return_value.__enter__.return_value = mock_file
+
+    mock_cursor = Mock()
+    mock_context = MagicMock()
+    mock_context.__enter__.return_value = mock_cursor
+    mock_with_db_cursor.return_value = mock_context
+    mock_cursor.fetchone.return_value = None
+
+    result = add_thumbnail_to_project(999, "/tmp/thumb.png")
+
+    assert isinstance(result, UploadResult)
+    assert result.success is False
+    assert result.error_type == "PROJECT_NOT_FOUND"
 
 
 if __name__ == "__main__":
