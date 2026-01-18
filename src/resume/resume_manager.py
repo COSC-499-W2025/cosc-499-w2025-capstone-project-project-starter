@@ -80,6 +80,85 @@ class ResumeManager:
             return False
     
     @staticmethod
+    def clear_custom_project_wording(user_id: str, project_id: int) -> bool:
+        """
+        Clear custom wording for a project resume item.
+        Equivalent to saving an empty wording (fallback to stored/generated summary).
+        """
+        return ResumeManager.save_custom_project_wording(user_id, project_id, "")
+
+
+    @staticmethod
+    def list_custom_worded_projects(user_id: str) -> list[int]:
+        """
+        Return a list of project_ids that have custom resume wording saved.
+        """
+        try:
+            existing = ResumeManager.get_user_resume(user_id)
+            if not existing or "resume_data" not in existing:
+                return []
+
+            resume_data = existing.get("resume_data")
+
+            if not isinstance(resume_data, dict):
+                return []
+
+            custom_map = resume_data.get("custom_project_wording", {}) or {}
+            if not isinstance(custom_map, dict):
+                return []
+
+            project_ids: list[int] = []
+            for k, v in custom_map.items():
+                if isinstance(v, str) and v.strip():
+                    try:
+                        project_ids.append(int(k))
+                    except Exception:
+                        # ignore non-int keys
+                        continue
+
+            return sorted(project_ids)
+        except Exception as e:
+            print(f"[ERROR] Failed to list custom worded projects: {e}")
+            return []
+
+
+    @staticmethod
+    def save_custom_project_wording(user_id: str, project_id: int, wording: str) -> bool:
+        """
+        Save or clear custom resume wording for a specific project.
+
+        Stored under:
+          resume_data["custom_project_wording"][str(project_id)] = wording
+        """
+        try:
+            existing = ResumeManager.get_user_resume(user_id)
+
+            resume_data = existing.get("resume_data") if existing else {}
+            if not isinstance(resume_data, dict):
+                resume_data = {}
+
+            custom_map = resume_data.get("custom_project_wording", {})
+
+            if not isinstance(custom_map, dict):
+                custom_map = {}
+
+            key = str(project_id)
+            wording = (wording or "").strip()
+
+            if wording:
+                custom_map[key] = wording
+            else:
+                # empty wording clears customization
+                custom_map.pop(key, None)
+
+            resume_data["custom_project_wording"] = custom_map
+            return ResumeManager.store_user_resume(user_id, resume_data)
+
+        except Exception as e:
+            print(f"[ERROR] Failed to save custom project wording: {e}")
+            return False
+
+    @staticmethod
     def get_user_resume(user_id):
         """
         Retrieve the aggregated user resume.
@@ -330,6 +409,17 @@ class ResumeManager:
             summarizer = ProjectSummarizer()
             skill_mapper = SkillMapper()
             
+            # load custom project wording map
+            custom_wording_map = {}
+            try:
+                existing_resume = ResumeManager.get_user_resume(user_id)
+                if existing_resume and isinstance(existing_resume.get("resume_data"), dict):
+                    custom_wording_map = existing_resume["resume_data"].get("custom_project_wording", {}) or {}
+                    if not isinstance(custom_wording_map, dict):
+                        custom_wording_map = {}
+            except Exception:
+                custom_wording_map = {}
+
             # Aggregated resume fields (always initialized to avoid NameError)
             all_skills: set = set()
             all_languages: set = set()
@@ -347,11 +437,14 @@ class ResumeManager:
                 try:
                     project_id = project['project_id']
                     
-                    # Get stored project summary from database (if available)
-                    stored_ranking = get_stored_ranking_by_project_id(project_id)
-                    project_summary_text = stored_ranking.get('summary', '') if stored_ranking else ''
-                    
-                    # If no summary in database, generate one using summarize_project
+                    # custom wording takes priority
+                    custom_text = custom_wording_map.get(str(project_id), "")
+                    project_summary_text = (custom_text or "").strip()
+
+                    if not project_summary_text:
+                        stored_ranking = get_stored_ranking_by_project_id(project_id)
+                        project_summary_text = stored_ranking.get('summary', '') if stored_ranking else ''
+
                     if not project_summary_text:
                         try:
                             project_summary_text = summarize_project(project_id)
