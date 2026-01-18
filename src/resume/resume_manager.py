@@ -330,10 +330,11 @@ class ResumeManager:
             summarizer = ProjectSummarizer()
             skill_mapper = SkillMapper()
             
-            all_skills = set()
-            all_languages = set()
-            all_frameworks = set()
-            project_summaries = []
+            # Aggregated resume fields (always initialized to avoid NameError)
+            all_skills: set = set()
+            all_languages: set = set()
+            all_frameworks: set = set()
+            project_summaries: list = []
             
             include_skills = True
             skills_mode = "categorized"   # "categorized" or "all"
@@ -395,6 +396,7 @@ class ResumeManager:
                             project_skills.update(frameworks)
                             project_skills.update(deep_analysis_skills)
 
+                            # all_skills is initialized before the loop (aggregates skills across projects)
                             all_skills.update(project_skills)
                         else:
                             # Still keep per-project skills key stable, but empty
