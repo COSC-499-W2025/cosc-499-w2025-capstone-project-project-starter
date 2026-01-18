@@ -6,19 +6,26 @@ Supports both alphabetical and chronological ordering of projects.
 """
 import json
 from config.db_config import with_db_cursor
+from account.user_manager import AuthManager
 
-
-def list_projects(user_name):
+def list_projects(user_name=None):
     """
     List all stored projects (ZIP files) for a specific user in alphabetical order.
     Data Isolation: Only returns projects belonging to the specified user.
     
     Args:
-        user_name (str): Username to filter projects by
+        user_name (str, optional): Username to filter projects by. If None, uses current user.
     
     Returns:
         list: List of project dictionaries with id, filename, created_at, and file_count.
     """
+    # Get current user if user_name not provided
+    if user_name is None:
+        user_name = AuthManager.get_current_username()
+        if not user_name:
+            print("No user is currently logged in.")
+            return []
+    
     try:
         with with_db_cursor() as cursor:
             # Data Isolation: Filter projects by user_name to ensure users only see their own data
@@ -82,18 +89,25 @@ def list_projects(user_name):
         return []
 
 
-def list_project_files(project_id, user_name):
+def list_project_files(project_id, user_name=None):
     """
     List individual files within a specific project.
     Data Isolation: Verifies project belongs to the user before returning files.
     
     Args:
         project_id (int): The ID of the project to list files for
-        user_name (str): Username to verify project ownership
+        user_name (str, optional): Username to verify project ownership. If None, uses current user.
         
     Returns:
         list: List of file paths/names in the project
     """
+    # Get current user if user_name not provided
+    if user_name is None:
+        user_name = AuthManager.get_current_username()
+        if not user_name:
+            print("No user is currently logged in.")
+            return []
+    
     try:
         with with_db_cursor() as cursor:
             # Data Isolation: Verify project belongs to the specified user
@@ -136,18 +150,25 @@ def list_project_files(project_id, user_name):
         return []
 
 # this function will get a project by its id
-def get_project_by_id(project_id, user_name):
+def get_project_by_id(project_id, user_name=None):
     """
     Get a project by its ID for a specific user.
     Data Isolation: Only returns project if it belongs to the specified user.
     
     Args:
         project_id (int): The ID of the project to retrieve
-        user_name (str): Username to verify project ownership
+        user_name (str, optional): Username to verify project ownership. If None, uses current user.
         
     Returns:
         dict: Project information or None if not found or access denied
     """
+    # Get current user if user_name not provided
+    if user_name is None:
+        user_name = AuthManager.get_current_username()
+        if not user_name:
+            print("No user is currently logged in.")
+            return None
+    
     try:
         with with_db_cursor() as cursor:
             # Data Isolation: Verify project belongs to the specified user
@@ -183,17 +204,23 @@ def get_project_by_id(project_id, user_name):
         return None
 
 # this function will get the total number of projects in the database
-def get_project_count(user_name):
+def get_project_count(user_name=None):
     """
     Get the total number of projects for a specific user.
     Data Isolation: Only counts projects belonging to the specified user.
     
     Args:
-        user_name (str): Username to filter projects by
+        user_name (str, optional): Username to filter projects by. If None, uses current user.
         
     Returns:
         int: Number of projects owned by the user
     """
+    # Get current user if user_name not provided
+    if user_name is None:
+        user_name = AuthManager.get_current_username()
+        if not user_name:
+            return 0
+    
     try:
         with with_db_cursor() as cursor:
             # Data Isolation: Count only projects belonging to the specified user
@@ -213,19 +240,26 @@ def get_project_count(user_name):
         return 0
 
 
-def list_projects_chronologically(user_name):
+def list_projects_chronologically(user_name=None):
     """
     List all stored projects (ZIP files) for a specific user in chronological order by creation date.
     Data Isolation: Only returns projects belonging to the specified user.
     Requirement: Produce a chronological list of projects.
     
     Args:
-        user_name (str): Username to filter projects by
+        user_name (str, optional): Username to filter projects by. If None, uses current user.
     
     Returns:
         list: List of project dictionaries with id, filename, created_at, and file_count,
               ordered by created_at ascending (oldest first).
     """
+    # Get current user if user_name not provided
+    if user_name is None:
+        user_name = AuthManager.get_current_username()
+        if not user_name:
+            print("No user is currently logged in.")
+            return []
+    
     try:
         with with_db_cursor() as cursor:
             # Data Isolation: Filter projects by user_name to ensure users only see their own data

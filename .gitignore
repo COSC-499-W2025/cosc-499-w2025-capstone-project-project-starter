@@ -13,3 +13,10 @@ postgres/
 uploads/
 test_project/
 test_project.zip
+
+# Coverage reports
+.coverage
+.coverage.*
+htmlcov/
+*.cover
+.pytest_cache/

@@ -322,11 +322,15 @@ class TestRankingStorage:
         insert_calls = [str(call) for call in mock_cursor_obj.execute.call_args_list if "INSERT" in str(call[0])]
         assert len(insert_calls) == 2
     
+    @patch('analysis.project_ranking.AuthManager')
     @patch('analysis.project_ranking.get_stored_rankings')
     @patch('analysis.project_ranking.analyze_project_from_db')
     @patch('analysis.project_ranking.get_connection')
-    def test_rank_all_projects_uses_stored_scores(self, mock_conn, mock_analyze, mock_get_stored):
+    def test_rank_all_projects_uses_stored_scores(self, mock_conn, mock_analyze, mock_get_stored, mock_auth):
         """Test that stored scores are used when available (mocked, no DB changes)"""
+        # Mock AuthManager to return test user
+        mock_auth.get_current_username.return_value = 'test_user'
+        
         # Mock stored rankings with edited scores
         mock_get_stored.return_value = [
             {
@@ -364,12 +368,16 @@ class TestRankingStorage:
         # Verify get_stored_rankings was called to check for stored scores
         mock_get_stored.assert_called_once()
     
+    @patch('analysis.project_ranking.AuthManager')
     @patch('analysis.project_ranking.get_stored_rankings')
     @patch('analysis.project_ranking.calculate_project_score')
     @patch('analysis.project_ranking.analyze_project_from_db')
     @patch('analysis.project_ranking.get_connection')
-    def test_rank_all_projects_calls_deep_analysis(self, mock_conn, mock_analyze, mock_calculate, mock_get_stored):
+    def test_rank_all_projects_calls_deep_analysis(self, mock_conn, mock_analyze, mock_calculate, mock_get_stored, mock_auth):
         """Test that rank_all_projects passes project_id to calculate_project_score for deep analysis"""
+        # Mock AuthManager to return test user
+        mock_auth.get_current_username.return_value = 'test_user'
+        
         # Mock no stored rankings (so calculate_project_score will be called)
         mock_get_stored.return_value = []
         

@@ -184,21 +184,25 @@ def rank_all_projects(user_name=None) -> List[Dict[str, Any]]:
     Data Isolation: If user_name is provided, only ranks projects belonging to that user.
     
     Args:
-        user_name (str, optional): Username to filter projects. If None, ranks all projects.
+        user_name (str, optional): Username to filter projects. If None, uses current user.
     
     Returns:
         List[Dict[str, Any]]: List of ranked projects
     """
+    # Get current user if user_name not provided
+    if user_name is None:
+        user_name = AuthManager.get_current_username()
+        if not user_name:
+            print("No user is currently logged in.")
+            return []
+    
     try:
         with get_connection() as conn, conn.cursor() as cur:
-            # Data Isolation: Filter by user_name if provided
-            if user_name:
-                cur.execute(
-                    "SELECT id, filename, created_at FROM uploaded_files WHERE user_name = %s",
-                    (user_name,)
-                )
-            else:
-                cur.execute("SELECT id, filename, created_at FROM uploaded_files")
+            # Data Isolation: Filter by user_name
+            cur.execute(
+                "SELECT id, filename, created_at FROM uploaded_files WHERE user_name = %s",
+                (user_name,)
+            )
             projects = cur.fetchall()
 
         if not projects:
