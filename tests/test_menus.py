@@ -145,6 +145,26 @@ def test_handle_upload_file_success(mock_input, mock_add_file, mock_display_succ
     mock_display_success.assert_called_once()
 
 
+@patch("cli.menus.display_success")
+@patch("upload_file.add_thumbnail_to_project")
+@patch("builtins.input", return_value="/tmp/thumb.png")
+@patch("cli.menus.select_project_interactive", return_value={"id": 3, "filename": "demo.zip"})
+def test_handle_add_project_thumbnail_success(mock_select, mock_input, mock_add_thumb, mock_display_success):
+    """handle_add_project_thumbnail should save thumbnail and show success."""
+    mock_add_thumb.return_value = SimpleNamespace(success=True)
+    menus.handle_add_project_thumbnail()
+    mock_add_thumb.assert_called_once_with(3, "/tmp/thumb.png")
+    mock_display_success.assert_called_once()
+
+
+@patch("upload_file.add_thumbnail_to_project")
+@patch("cli.menus.select_project_interactive", return_value=None)
+def test_handle_add_project_thumbnail_no_selection(mock_select, mock_add_thumb):
+    """No selection should exit early without saving."""
+    menus.handle_add_project_thumbnail()
+    mock_add_thumb.assert_not_called()
+
+
 @patch("cli.menus.summarize_project", return_value="summary text")
 @patch("cli.menus.analyze_project_from_db")
 @patch("cli.menus.select_project_interactive", return_value={"id": 1, "filename": "file.py"})

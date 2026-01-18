@@ -49,6 +49,7 @@ def init_uploaded_files_table():
                     filepath VARCHAR(500) NOT NULL,
                     status VARCHAR(50) DEFAULT 'uploaded',
                     metadata JSONB,
+                    thumbnail BYTEA,
                     file_data BYTEA,
                     user_name VARCHAR(255),
                     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -68,6 +69,12 @@ def init_uploaded_files_table():
                 cursor.execute("""
                     ALTER TABLE uploaded_files
                     ADD COLUMN IF NOT EXISTS file_data BYTEA;
+                """)
+
+                # The old database may not have thumbnail.
+                cursor.execute("""
+                    ALTER TABLE uploaded_files
+                    ADD COLUMN IF NOT EXISTS thumbnail BYTEA;
                 """)
 
                 # The old database may not have last_modified_at.
@@ -352,6 +359,67 @@ def get_uploaded_file_contents(uploaded_file_id):
         list: List of file content records
     """
     return get_file_contents_by_upload_id(uploaded_file_id)
+
+
+def add_thumbnail_to_project(project_id, thumbnail_path) -> UploadResult:
+    """Attach a thumbnail image to an existing uploaded project."""
+    if not isinstance(project_id, int) or project_id <= 0:
+        return UploadResult(
+            success=False,
+            message="Invalid project ID.",
+            error_type="INVALID_PROJECT_ID",
+            data={"project_id": project_id},
+        )
+
+    if not os.path.exists(thumbnail_path):
+        return UploadResult(
+            success=False,
+            message=f"Thumbnail file does not exist: {thumbnail_path}.",
+            error_type="THUMBNAIL_NOT_FOUND",
+            data={"thumbnail_path": thumbnail_path},
+        )
+
+    try:
+        with open(thumbnail_path, "rb") as f:
+            thumbnail_bytes = f.read()
+        with with_db_cursor() as cursor:
+            cursor.execute("""
+                UPDATE uploaded_files
+                SET thumbnail = %s,
+                    last_modified_at = CURRENT_TIMESTAMP
+                WHERE id = %s
+                RETURNING id
+            """, (thumbnail_bytes, project_id))
+            updated = cursor.fetchone()
+
+        if not updated:
+            return UploadResult(
+                success=False,
+                message=f"No project found with ID {project_id}.",
+                error_type="PROJECT_NOT_FOUND",
+                data={"project_id": project_id},
+            )
+
+        return UploadResult(
+            success=True,
+            message="Thumbnail updated successfully.",
+            error_type=None,
+            data={"project_id": project_id, "thumbnail_path": thumbnail_path},
+        )
+    except ConnectionError:
+        return UploadResult(
+            success=False,
+            message="Could not connect to the database while saving the thumbnail.",
+            error_type="DATABASE_CONNECTION_ERROR",
+            data={"project_id": project_id},
+        )
+    except Exception as e:
+        return UploadResult(
+            success=False,
+            message=f"Failed to save thumbnail: {e}",
+            error_type="THUMBNAIL_SAVE_ERROR",
+            data={"project_id": project_id},
+        )
 
 
 def list_uploaded_files():

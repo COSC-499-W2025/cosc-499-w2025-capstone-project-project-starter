@@ -94,6 +94,7 @@ class TestMainMenu:
             "View Resume",
             "Delete Resume",
             "View Portfolio",
+            "Add thumbnail to a project",
             "Run LLM summary (test.zip)",
             "Exit"
         ]
@@ -170,7 +171,7 @@ class TestMainMenu:
     
     def test_eof_error_handling_logic(self):
         """Test that EOFError handling logic exists"""
-        # Test that the code handles EOFError by setting choice to "16"
+        # Test that the code handles EOFError by setting choice to "17"
         try:
             raise EOFError()
         except EOFError:
@@ -231,6 +232,7 @@ class TestMainMenu:
             handle_generate_resume,
             handle_view_resume,
             handle_delete_resume,
+            handle_add_project_thumbnail,
             handle_llm_summary
         )
         from cli.user_menus import user_account_menu
@@ -238,6 +240,7 @@ class TestMainMenu:
         # Verify all handlers are callable
         assert callable(handle_upload_file)
         assert callable(handle_list_projects)
+        assert callable(handle_add_project_thumbnail)
         assert callable(handle_llm_summary)
         assert callable(user_account_menu)
     

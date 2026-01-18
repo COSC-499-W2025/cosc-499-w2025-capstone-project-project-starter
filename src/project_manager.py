@@ -16,7 +16,7 @@ def list_projects():
     try:
         with with_db_cursor() as cursor:
             cursor.execute("""
-                SELECT id, filename, status, metadata, created_at
+                SELECT id, filename, status, metadata, created_at, thumbnail
                 FROM uploaded_files
                 ORDER BY filename ASC
             """)
@@ -34,7 +34,7 @@ def list_projects():
         project_list = []
         
         for project in projects:
-            project_id, filename, status, metadata, created_at = project
+            project_id, filename, status, metadata, created_at, thumbnail = project
             
             # Count files in metadata if available
             file_count = 0
@@ -48,17 +48,21 @@ def list_projects():
                 except (json.JSONDecodeError, TypeError):
                     pass
             
+            has_thumbnail = thumbnail is not None
+
             project_list.append({
                 'id': project_id,
                 'filename': filename,
                 'created_at': created_at,
-                'file_count': file_count
+                'file_count': file_count,
+                'has_thumbnail': has_thumbnail
             })
             
             # Display project info
             created_date = created_at.strftime("%Y-%m-%d") if created_at else "Unknown"
             print(f"\n{len(project_list)}. {filename}")
-            print(f"   ID: {project_id}, Created: {created_date}, Files: {file_count}")
+            thumbnail_label = "Yes" if has_thumbnail else "No"
+            print(f"   ID: {project_id}, Created: {created_date}, Files: {file_count}, Thumbnail: {thumbnail_label}")
         
         print("\n" + "-"*80)
         print(f"Total projects: {len(project_list)}")
