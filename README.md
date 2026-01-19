@@ -5,7 +5,7 @@
 - **Primary Group**: Graduating students and early-career professionals who regularly create digital work artifacts on their computers.
 - **Secondary Group**: Career counselors and academic advisors who guide students in using these insights to articulate professional growth.
 - **Other Stakeholders**: Employees and managers who can use the system to track and verify work contributions.
-- **Term 2 Logs**: [TeamLog](https://github.com/COSC-499-W2025/capstone-project-team-9/blob/Teamlog/docs/logs/team_logs/Term2WeeklyLogs.md), [individualLog](https://github.com/COSC-499-W2025/capstone-project-team-9/tree/PersonalLogs/docs/logs)
+- **Term 2 Logs**: [TeamLog](https://github.com/COSC-499-W2025/capstone-project-team-9/blob/Teamlog/docs/logs/team_logs/Term2WeeklyLogs.md), [Individual Log](https://github.com/COSC-499-W2025/capstone-project-team-9/tree/PersonalLogs/docs/logs)
 # **Milestone 1 Overview — Mining Digital Work Artifacts**
 
 This document includes both the **Work Breakdown Structure (WBS)** and the **System Architecture Diagram** for **Milestone #1 (October – December 07)** of the *Mining Digital Work Artifacts* project.
