@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import os
 import uuid
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Tuple
 
 from fastapi import FastAPI, UploadFile, File, HTTPException, Form, Query, Body
 from pydantic import BaseModel, Field
@@ -14,6 +14,10 @@ from src.db.session import get_engine
 from src.api.ingest import ingest_zip_to_db, save_upload_to_temp
 from src.api.report import build_project_report
 from src.db.consents import get_snapshot_owner_user_id, is_external_services_allowed
+
+from src.api.generation import generate_resume_item
+from src.db.session import get_engine
+from pydantic import BaseModel
 
 from src.db.user_config import (
     get_user_config,
@@ -68,6 +72,10 @@ class SetUserContributorIn(BaseModel):
 
 class ProjectUpdateIn(BaseModel):
     display_name: str
+
+class ResumeGenerateIn(BaseModel):
+    project_id: str
+    prefer_external_bullets: Optional[bool] = True
 
 
 def _rank_score(user_commits: int, total_commits: int) -> Optional[float]:

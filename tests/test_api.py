@@ -9,6 +9,13 @@ import json
 from sqlalchemy import text, bindparam
 from sqlalchemy.dialects.postgresql import JSONB
 
+from PIL import Image
+
+import tempfile
+from pathlib import Path
+from src.api.pdf_exporter import export_portfolio_top_projects_pdf
+
+
 
 def _u() -> str:
     return str(uuid.uuid4())
@@ -713,3 +720,64 @@ def test_project_display_name_update_and_resume_integration(client, monkeypatch,
     content = r_resume.json()["content"]
     assert content["project"]["name"] == new_name
     assert content["project"]["name"] != "ugly_filename_v1.zip"
+
+
+
+
+def test_export_portfolio_pdf_with_image(tmp_path):
+    """Test PDF generation with top projects including a valid portfolio image."""
+    
+    # Create a dummy image file
+    img_file = tmp_path / "dummy.png"
+    img = Image.new("RGB", (10, 10), color="red")  # 10x10 red square
+    img.save(img_file)
+
+    projects = [
+        {
+            "project_name": "Project Alpha",
+            "summary_text": "Summary text here.",
+            "resume_bullets": ["Bullet 1", "Bullet 2"],
+            "portfolio_image": str(img_file)
+        },
+        {
+            "project_name": "Project Beta",
+            "summary_text": "Another summary",
+            "resume_bullets": ["Bullet 3"],
+            "portfolio_image": "nonexistent.png"  # invalid path
+        }
+    ]
+
+    portfolio_data = {
+        "portfolio_id": "test_portfolio",
+        "generated_at": "2026-01-18",
+        "top_projects": projects
+    }
+
+    pdf_file = tmp_path / "portfolio_with_images.pdf"
+    result = export_portfolio_top_projects_pdf(portfolio_data, filename=str(pdf_file))
+
+    assert pdf_file.exists()
+
+
+def test_export_portfolio_pdf_empty(tmp_path):
+    """Test PDF generation with no projects (empty portfolio)."""
+    portfolio_data = {
+        "portfolio_id": "empty_portfolio",
+        "generated_at": "2026-01-18",
+        "top_projects": []
+    }
+    pdf_file = tmp_path / "empty_portfolio.pdf"
+    result = export_portfolio_top_projects_pdf(portfolio_data, filename=str(pdf_file))
+
+    assert pdf_file.exists()
+    assert pdf_file.stat().st_size > 0
+    assert result == str(pdf_file)
+
+
+def test_export_portfolio_pdf_invalid_data(tmp_path):
+    """Test PDF generation with invalid input (should not crash)."""
+    pdf_file = tmp_path / "invalid_portfolio.pdf"
+    result = export_portfolio_top_projects_pdf("not_a_dict", filename=str(pdf_file))
+    assert pdf_file.exists()
+    assert pdf_file.stat().st_size > 0
+    assert result == str(pdf_file)

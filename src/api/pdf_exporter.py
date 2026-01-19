@@ -6,6 +6,7 @@ Does not require the ML model.
 """
 
 from reportlab.lib.pagesizes import LETTER
+from reportlab.platypus import Image
 from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle
 from reportlab.lib.styles import getSampleStyleSheet
 from reportlab.lib import colors
@@ -215,14 +216,29 @@ def export_portfolio_top_projects_pdf(portfolio_summary: dict, filename: str = "
         name = str(item.get("project_name") or item.get("project_id") or f"Project {idx}")
         summary = str(item.get("summary_text") or "").strip()
         bullets = item.get("resume_bullets") or []
-
+    
+        # Add project title
         elements.append(Paragraph(f"{idx}. {name}", styles["Heading2"]))
         elements.append(Spacer(1, 6))
+    
+        # Add portfolio image if exists
+        image_path = item.get("portfolio_image")  # <- new field
+        if image_path and os.path.exists(image_path):
+            try:
+                img = Image(image_path)
+                img.drawHeight = 1.5 * 72  # 1.5 inches height
+                img.drawWidth = 2.5 * 72   # 2.5 inches width
+                elements.append(img)
+                elements.append(Spacer(1, 6))
+            except Exception as e:
+                print(f"⚠️ Could not add image {image_path}: {e}")
 
+        # Add summary
         if summary:
             elements.append(Paragraph(summary, styles["Normal"]))
             elements.append(Spacer(1, 6))
-
+    
+        # Add bullets
         if isinstance(bullets, list) and bullets:
             elements.append(Paragraph("Résumé bullets:", styles["Heading3"]))
             for b in bullets[:5]:
