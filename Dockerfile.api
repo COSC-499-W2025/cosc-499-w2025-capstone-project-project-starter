@@ -8,6 +8,7 @@ ENV PYTHONUNBUFFERED=1
 # No build toolchain needed because we use psycopg2-binary for API
 RUN apt-get update && apt-get install -y --no-install-recommends \
     ca-certificates \
+    git \
   && rm -rf /var/lib/apt/lists/*
 
 COPY requirements/api.txt /app/requirements/api.txt
