@@ -44,36 +44,44 @@ def test_display_portfolio_error(mock_stdout, mock_manager_cls, mock_formatter_c
     mock_formatter_cls.assert_not_called()
 
 
+@patch("portfolio.portfolio_display.AuthManager.get_current_user", return_value={"user_name": "test_user"})
+@patch("portfolio.portfolio_display.AuthManager.is_user_logged_in", return_value=True)
 @patch("portfolio.portfolio_display.display_portfolio")
 @patch("builtins.input", side_effect=["1", ""])
 @patch("sys.stdout", new_callable=StringIO)
-def test_portfolio_menu_option_1(mock_stdout, mock_input, mock_display):
+def test_portfolio_menu_option_1(mock_stdout, mock_input, mock_display, mock_logged_in, mock_get_user):
     """Menu option 1 should call display_portfolio with defaults."""
     pd.portfolio_menu()
-    mock_display.assert_called_once_with()
+    mock_display.assert_called_once_with(user_name="test_user")
 
 
+@patch("portfolio.portfolio_display.AuthManager.get_current_user", return_value={"user_name": "test_user"})
+@patch("portfolio.portfolio_display.AuthManager.is_user_logged_in", return_value=True)
 @patch("portfolio.portfolio_display.display_portfolio")
 @patch("builtins.input", side_effect=["2", ""])
-def test_portfolio_menu_option_2(mock_input, mock_display):
+def test_portfolio_menu_option_2(mock_input, mock_display, mock_logged_in, mock_get_user):
     """Menu option 2 should call display_portfolio with top_n=5."""
     pd.portfolio_menu()
-    mock_display.assert_called_once_with(top_n=5)
+    mock_display.assert_called_once_with(top_n=5, user_name="test_user")
 
 
+@patch("portfolio.portfolio_display.AuthManager.get_current_user", return_value={"user_name": "test_user"})
+@patch("portfolio.portfolio_display.AuthManager.is_user_logged_in", return_value=True)
 @patch("portfolio.portfolio_display.display_portfolio")
 @patch("builtins.input", side_effect=["3", ""])
-def test_portfolio_menu_option_3(mock_input, mock_display):
+def test_portfolio_menu_option_3(mock_input, mock_display, mock_logged_in, mock_get_user):
     """Menu option 3 should call display_portfolio with top_n=10."""
     pd.portfolio_menu()
-    mock_display.assert_called_once_with(top_n=10)
+    mock_display.assert_called_once_with(top_n=10, user_name="test_user")
 
 
+@patch("portfolio.portfolio_display.AuthManager.get_current_user", return_value={"user_name": "test_user"})
+@patch("portfolio.portfolio_display.AuthManager.is_user_logged_in", return_value=True)
 @patch("portfolio.portfolio_display.PortfolioFormatter")
 @patch("portfolio.portfolio_display.PortfolioManager")
 @patch("builtins.input", side_effect=["4", "y", "out", ""])
 @patch("sys.stdout", new_callable=StringIO)
-def test_portfolio_menu_option_4_save_markdown(mock_stdout, mock_input, mock_manager_cls, mock_formatter_cls):
+def test_portfolio_menu_option_4_save_markdown(mock_stdout, mock_input, mock_manager_cls, mock_formatter_cls, mock_logged_in, mock_get_user):
     """Option 4 should format markdown and save to a file when user opts in."""
     mock_manager = mock_manager_cls.return_value
     mock_manager.generate_portfolio_report.return_value = {"projects": []}
@@ -85,16 +93,19 @@ def test_portfolio_menu_option_4_save_markdown(mock_stdout, mock_input, mock_man
 
     # File should be written; verify via formatter call and file exists
     mock_formatter.format_markdown.assert_called_once_with({"projects": []})
+    mock_manager_cls.assert_called_once_with(user_name="test_user")
     assert os.path.exists("out.md")
     with open("out.md", "r", encoding="utf-8") as f:
         assert "MD CONTENT" in f.read()
     os.remove("out.md")
 
 
+@patch("portfolio.portfolio_display.AuthManager.get_current_user", return_value={"user_name": "test_user"})
+@patch("portfolio.portfolio_display.AuthManager.is_user_logged_in", return_value=True)
 @patch("portfolio.portfolio_display.PortfolioManager")
 @patch("builtins.input", side_effect=["4", "n", ""])
 @patch("sys.stdout", new_callable=StringIO)
-def test_portfolio_menu_option_4_print_markdown(mock_stdout, mock_input, mock_manager_cls):
+def test_portfolio_menu_option_4_print_markdown(mock_stdout, mock_input, mock_manager_cls, mock_logged_in, mock_get_user):
     """Option 4 should print markdown when not saving."""
     mock_manager = mock_manager_cls.return_value
     mock_manager.generate_portfolio_report.return_value = {"projects": []}
@@ -102,6 +113,7 @@ def test_portfolio_menu_option_4_print_markdown(mock_stdout, mock_input, mock_ma
     with patch.object(pd.PortfolioFormatter, "format_markdown", return_value="MD CONTENT"):
         pd.portfolio_menu()
     assert "MD CONTENT" in mock_stdout.getvalue()
+    mock_manager_cls.assert_called_once_with(user_name="test_user")
 
 
 @patch("builtins.input", return_value="5")
@@ -110,9 +122,11 @@ def test_portfolio_menu_option_5(mock_input):
     pd.portfolio_menu()
 
 
+@patch("portfolio.portfolio_display.AuthManager.get_current_user", return_value={"user_name": "test_user"})
+@patch("portfolio.portfolio_display.AuthManager.is_user_logged_in", return_value=True)
 @patch("builtins.input", return_value="bad")
 @patch("sys.stdout", new_callable=StringIO)
-def test_portfolio_menu_invalid_choice(mock_stdout, mock_input):
+def test_portfolio_menu_invalid_choice(mock_stdout, mock_input, mock_logged_in, mock_get_user):
     """Invalid choice should prompt an error message."""
     pd.portfolio_menu()
     assert "Invalid choice" in mock_stdout.getvalue()
