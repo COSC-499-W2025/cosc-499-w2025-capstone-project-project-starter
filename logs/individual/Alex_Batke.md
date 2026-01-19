@@ -1,4 +1,26 @@
 # Personal Log of Alex Batke
+
+# Rerm 2 Week 2
+
+## Applicable Date Range
+- Monday, January 11th to Sunday, January 18th
+
+## Peer Evaluation Screenshot
+![alt text](<imgs/alex_batke_T2W2.png>)
+
+
+### Recap On Your Weeks Goals
+- Which Features Were Yours in the Project Plan for this Milestone?
+  In addition to all my previously completed work, I worked implementing the image thumbnail API endpoint this week so the user could choose an image
+- Which Tasks from the Project Board are Associated with these Features?
+   The relevant issue was #193, which  was the marker for that endpoint
+- Among these tasks, which have you completed/in progress in the last 2 weeks?
+ The endpoint is implemented, and passes tests, but is shaky, my lack of experiance and understanding of APIs and how they work was a real hinderance this week
+- Planning for next sprint: 
+  Next sprint will be focusing on learning more about APIs and how they work, and finding a possbly eaiser to undersand task for a better contribution.
+- Optional text: additional context that we should be aware of:
+  Nothing further to comment on. On to next week
+
 # Week 14
 
 ## Applicable Date Range
