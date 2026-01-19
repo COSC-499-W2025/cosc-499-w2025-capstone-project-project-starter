@@ -413,7 +413,7 @@ class ResumeManager:
             # load custom project wording map
             custom_wording_map = {}
             try:
-                existing_resume = ResumeManager.get_user_resume(user_id)
+                existing_resume = ResumeManager.get_user_resume(user_name)
                 if existing_resume and isinstance(existing_resume.get("resume_data"), dict):
                     custom_wording_map = existing_resume["resume_data"].get("custom_project_wording", {}) or {}
                     if not isinstance(custom_wording_map, dict):
@@ -551,6 +551,7 @@ class ResumeManager:
             # Build comprehensive resume data
             resume_data = {
                 'display_name': display_name,
+                'user_id': user_name,
                 'user_name': user_name,
                 'total_projects_analyzed': len(ranked_projects),
                 'top_projects_displayed': len(project_summaries),

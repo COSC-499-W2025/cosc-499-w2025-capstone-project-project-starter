@@ -97,7 +97,7 @@ def test_generate_user_resume_uses_custom_wording(monkeypatch):
     # 1) Mock ranking output
     monkeypatch.setattr(
         "resume.resume_manager.rank_all_projects",
-        lambda: [{"project_id": project_id, "filename": "many_files.zip", "score": 99.0}]
+        lambda user_name=None: [{"project_id": project_id, "filename": "many_files.zip", "score": 99.0}]
     )
 
     # 2) Avoid author detection / prompts
@@ -122,11 +122,11 @@ def test_generate_user_resume_uses_custom_wording(monkeypatch):
 
     # 4) These fallbacks should NOT win over custom wording, but keep them safe
     monkeypatch.setattr("resume.resume_manager.get_stored_ranking_by_project_id", lambda pid: {"summary": "DB summary"})
-    monkeypatch.setattr("resume.resume_manager.summarize_project", lambda pid: "LLM summary")
+    monkeypatch.setattr("resume.resume_manager.summarize_project", lambda pid, user_name=None: "LLM summary")
 
     # 5) Minimal summarizer output so resume generation continues
     class DummySummarizer:
-        def generate_project_summary(self, pid):
+        def generate_project_summary(self, pid, user_name=None):
             return {
                 "languages": {"languages": ["Python"], "primary_language": "Python"},
                 "time_analysis": {"duration_days": 1, "intensity": "Short", "first_file": "", "last_file": ""},
