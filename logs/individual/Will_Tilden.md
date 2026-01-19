@@ -1,9 +1,7 @@
-## Will Tilden Personal Logs  //  Term 2 Week 2 – January 12–18, 2026
-
 # Weekly Navigation (Term 2)
 - [Term 2 Week 2](#term-2-week-2--january-1218-2026)
 
----
+## Will Tilden Personal Logs  //  Term 2 Week 2 – January 12–18, 2026
 
 ### Connection to Previous Week
 - Nothing to connect to from last week.
@@ -26,14 +24,14 @@
 ### Testing & Debugging Tasks
 - Performed manual testing and ran test cases on my own PR (#182).
 - Conducted testing and review of Liam's PR (#180).
-- Planned testing for Alex’s PR (upcoming).
+- Performed manual testing and ran test cases for Rylan's PR (#190).
 
 ---
 
 ### Reviewing & Collaboration Tasks
 - Reviewed Liam's PR (#180): <https://github.com/COSC-499-W2025/capstone-project-team-15/pull/180>
 - Maintained high collegiality with the team throughout the week.
-- Will be reviewing Alex's PR shortly.
+- Reviewed Rylan's PR (#190): <https://github.com/COSC-499-W2025/capstone-project-team-15/pull/190>
 
 ---
 
