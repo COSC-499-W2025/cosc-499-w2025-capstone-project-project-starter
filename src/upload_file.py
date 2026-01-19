@@ -4,7 +4,11 @@ import zipfile
 import json
 from config.db_config import with_db_cursor
 from parsing.file_validator import validate_uploaded_file, WrongFormatError
-from parsing.file_contents_manager import init_file_contents_table, extract_and_store_file_contents, get_file_contents_by_upload_id
+from parsing.file_contents_manager import (
+    init_file_contents_table,
+    extract_and_store_file_contents,
+    get_file_contents_by_upload_id,
+)
 from pathlib import Path
 
 UPLOAD_FOLDER = Path(os.getenv("UPLOAD_FOLDER", "uploads"))
@@ -45,6 +49,7 @@ def init_uploaded_files_table():
                     filepath VARCHAR(500) NOT NULL,
                     status VARCHAR(50) DEFAULT 'uploaded',
                     metadata JSONB,
+                    thumbnail BYTEA,
                     file_data BYTEA,
                     user_name VARCHAR(255),
                     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -64,6 +69,12 @@ def init_uploaded_files_table():
                 cursor.execute("""
                     ALTER TABLE uploaded_files
                     ADD COLUMN IF NOT EXISTS file_data BYTEA;
+                """)
+
+                # The old database may not have thumbnail.
+                cursor.execute("""
+                    ALTER TABLE uploaded_files
+                    ADD COLUMN IF NOT EXISTS thumbnail BYTEA;
                 """)
 
                 # The old database may not have last_modified_at.
@@ -176,10 +187,10 @@ def add_file_to_db(filepath, user_name: str = None) -> UploadResult:
             data={"filepath": filepath},
         )
 
-    # Prepare destination path
+    # 3. Prepare destination path
     dest_path = str(UPLOAD_FOLDER / filename)   # keep as str if the rest of your code expects str
 
-    # 3. Create upload directory (via helper)
+    # 4. Create upload directory (via helper)
     err = ensure_upload_dir()
     if err:
         return UploadResult(
@@ -189,7 +200,7 @@ def add_file_to_db(filepath, user_name: str = None) -> UploadResult:
             data={"destination": str(UPLOAD_FOLDER)}
         )
 
-    # 4. Copy file to upload folder
+    # 5. Copy file to upload folder
     try:
         shutil.copy(filepath, dest_path)
         print(f"File copied to {dest_path}")
@@ -206,7 +217,7 @@ def add_file_to_db(filepath, user_name: str = None) -> UploadResult:
             data={"source": filepath, "destination": dest_path},
         )
 
-    # 4.5 Key Change
+    # 5.5 Key Change
     # To prevent RAR/7z files from crashing after simply changing the extension to .zip.
     if not zipfile.is_zipfile(dest_path):
         return UploadResult(
@@ -220,7 +231,7 @@ def add_file_to_db(filepath, user_name: str = None) -> UploadResult:
             data={"filepath": dest_path},
         )
     
-    # 5. Extract metadata from zip
+    # 6. Extract metadata from zip
     file_contents = []
     try:
         # This has already been confirmed as a valid ZIP file, so the is_zipfile check will not be performed again.
@@ -240,11 +251,41 @@ def add_file_to_db(filepath, user_name: str = None) -> UploadResult:
             data={"filepath": dest_path},
         )
 
-    # 6. Save to database
+    # 6. Check for duplicate uploads and save to database
     try:
         with open(dest_path, "rb") as f:
             zip_bytes = f.read()
+
         with with_db_cursor() as cursor:
+            # 6.1 Check if an identical ZIP (same bytes) has already been uploaded
+            cursor.execute(
+                """
+                SELECT id, filename
+                FROM uploaded_files
+                WHERE file_data = %s
+                LIMIT 1
+                """,
+                (zip_bytes,),
+            )
+            existing = cursor.fetchone()
+
+            if existing:
+                existing_id, existing_filename = existing
+                return UploadResult(
+                    success=False,
+                    message=(
+                        "This ZIP file appears to have already been uploaded "
+                        f"as '{existing_filename}' (ID {existing_id}). "
+                        "Duplicate uploads are not allowed."
+                    ),
+                    error_type="DUPLICATE_UPLOAD",
+                    data={
+                        "existing_file_id": existing_id,
+                        "existing_filename": existing_filename,
+                    },
+                )
+
+            # 6.2 No duplicate found: insert new uploaded_files record
             cursor.execute("""
                 INSERT INTO uploaded_files (
                     filename,
@@ -318,6 +359,67 @@ def get_uploaded_file_contents(uploaded_file_id):
         list: List of file content records
     """
     return get_file_contents_by_upload_id(uploaded_file_id)
+
+
+def add_thumbnail_to_project(project_id, thumbnail_path) -> UploadResult:
+    """Attach a thumbnail image to an existing uploaded project."""
+    if not isinstance(project_id, int) or project_id <= 0:
+        return UploadResult(
+            success=False,
+            message="Invalid project ID.",
+            error_type="INVALID_PROJECT_ID",
+            data={"project_id": project_id},
+        )
+
+    if not os.path.exists(thumbnail_path):
+        return UploadResult(
+            success=False,
+            message=f"Thumbnail file does not exist: {thumbnail_path}.",
+            error_type="THUMBNAIL_NOT_FOUND",
+            data={"thumbnail_path": thumbnail_path},
+        )
+
+    try:
+        with open(thumbnail_path, "rb") as f:
+            thumbnail_bytes = f.read()
+        with with_db_cursor() as cursor:
+            cursor.execute("""
+                UPDATE uploaded_files
+                SET thumbnail = %s,
+                    last_modified_at = CURRENT_TIMESTAMP
+                WHERE id = %s
+                RETURNING id
+            """, (thumbnail_bytes, project_id))
+            updated = cursor.fetchone()
+
+        if not updated:
+            return UploadResult(
+                success=False,
+                message=f"No project found with ID {project_id}.",
+                error_type="PROJECT_NOT_FOUND",
+                data={"project_id": project_id},
+            )
+
+        return UploadResult(
+            success=True,
+            message="Thumbnail updated successfully.",
+            error_type=None,
+            data={"project_id": project_id, "thumbnail_path": thumbnail_path},
+        )
+    except ConnectionError:
+        return UploadResult(
+            success=False,
+            message="Could not connect to the database while saving the thumbnail.",
+            error_type="DATABASE_CONNECTION_ERROR",
+            data={"project_id": project_id},
+        )
+    except Exception as e:
+        return UploadResult(
+            success=False,
+            message=f"Failed to save thumbnail: {e}",
+            error_type="THUMBNAIL_SAVE_ERROR",
+            data={"project_id": project_id},
+        )
 
 
 def list_uploaded_files():

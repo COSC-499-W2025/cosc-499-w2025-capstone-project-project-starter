@@ -25,8 +25,8 @@ class TestProjectManager:
         
         # Mock database results with nested folder structure
         mock_projects = [
-            (1, "project_a.zip", "uploaded", '{"files": ["folder/file1.py", "folder/file2.js", "folder/"]}', datetime(2024, 1, 1, 10, 0, 0)),
-            (2, "project_b.zip", "uploaded", '{"files": ["readme.md", "src/main.py", "tests/test.py"]}', datetime(2024, 1, 2, 11, 0, 0))
+            (1, "project_a.zip", "uploaded", '{"files": ["folder/file1.py", "folder/file2.js", "folder/"]}', datetime(2024, 1, 1, 10, 0, 0), b"thumb"),
+            (2, "project_b.zip", "uploaded", '{"files": ["readme.md", "src/main.py", "tests/test.py"]}', datetime(2024, 1, 2, 11, 0, 0), None)
         ]
         mock_cursor.fetchall.return_value = mock_projects
         
@@ -43,11 +43,13 @@ class TestProjectManager:
         assert result[0]['filename'] == "project_a.zip"
         assert result[0]['file_count'] == 2  # 2 files (excluding directory "folder/")
         assert result[0]['created_at'] == datetime(2024, 1, 1, 10, 0, 0)
+        assert result[0]['has_thumbnail'] is True
         
         assert result[1]['id'] == 2
         assert result[1]['filename'] == "project_b.zip"
         assert result[1]['file_count'] == 3  # 3 files
         assert result[1]['created_at'] == datetime(2024, 1, 2, 11, 0, 0)
+        assert result[1]['has_thumbnail'] is False
     
     @patch('src.project_manager.with_db_cursor')
     # this test will test the list_projects function when there are no projects in the database

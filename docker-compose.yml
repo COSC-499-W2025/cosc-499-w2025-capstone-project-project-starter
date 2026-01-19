@@ -15,4 +15,32 @@ services:
       test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER}"]
       interval: 10s
       retries: 5
+    networks:
+      - artifact_network
+
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: artifact_api
+    restart: always
+    env_file:
+      - .env
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./src:/app/src
+      - ./utils:/app/utils
+    depends_on:
+      db:
+        condition: service_healthy
+    networks:
+      - artifact_network
+    environment:
+      - POSTGRES_HOST=db
+      - POSTGRES_PORT=5432
+
+networks:
+  artifact_network:
+    driver: bridge
 

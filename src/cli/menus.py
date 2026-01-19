@@ -178,6 +178,26 @@ def handle_upload_file():
         display_error(result)
 
 
+def handle_add_project_thumbnail():
+    """Handle adding a thumbnail image to an existing project."""
+    selected_project = select_project_interactive("Add thumbnail to project")
+    if not selected_project:
+        return
+
+    thumbnail_path = input("Enter the path to the thumbnail image: ").strip()
+    if not thumbnail_path:
+        print("No thumbnail path provided.")
+        return
+
+    from upload_file import add_thumbnail_to_project
+    result = add_thumbnail_to_project(int(selected_project['id']), thumbnail_path)
+
+    if result.success:
+        display_success(result)
+    else:
+        display_error(result)
+
+
 
 def handle_list_projects():
     """Handle list projects menu option."""
