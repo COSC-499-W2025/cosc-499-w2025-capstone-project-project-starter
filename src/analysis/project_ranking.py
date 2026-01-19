@@ -9,6 +9,7 @@ from project_summarizer import summarize_project
 from analysis.ranking_storage import save_rankings_to_db, get_stored_ranking_by_project_id, get_stored_rankings
 from analysis.local_analyzer import LocalAnalyzer
 from parsing.file_contents_manager import get_file_contents_by_upload_id
+from account.user_manager import AuthManager
 import os
 
 
@@ -176,14 +177,32 @@ def calculate_project_score(analysis_data: Dict[str, Any], project_id: Optional[
     return round(total_normalized_score, 2)
 
 
-def rank_all_projects() -> List[Dict[str, Any]]:
+def rank_all_projects(user_name=None) -> List[Dict[str, Any]]:
     """
-    Rank all uploaded projects in the database by composite score using key_metrics.
+    Rank all uploaded projects for the current user by composite score using key_metrics.
     Uses stored scores from database if available, otherwise calculates new scores.
+    Data Isolation: Only ranks projects belonging to the specified user (or current user if None).
+    
+    Args:
+        user_name (str, optional): Username to filter projects. If None, uses current logged-in user.
+    
+    Returns:
+        List[Dict[str, Any]]: List of ranked projects for the user, or empty list if no user logged in.
     """
+    # Get current user if user_name not provided
+    if user_name is None:
+        user_name = AuthManager.get_current_username()
+        if not user_name:
+            print("No user is currently logged in.")
+            return []
+    
     try:
         with get_connection() as conn, conn.cursor() as cur:
-            cur.execute("SELECT id, filename, created_at FROM uploaded_files")
+            # Data Isolation: Filter by user_name
+            cur.execute(
+                "SELECT id, filename, created_at FROM uploaded_files WHERE user_name = %s",
+                (user_name,)
+            )
             projects = cur.fetchall()
 
         if not projects:
@@ -255,9 +274,12 @@ def display_rankings(ranked_projects: List[Dict[str, Any]]):
 def rank_and_summarize_top_projects() -> None:
     """
     Rank all projects and summarize the top 3 projects (without displaying rankings).
+    Data Isolation: Uses current logged-in user.
     """
     print("\nRanking all projects...")
-    ranked_projects = rank_all_projects()
+    # Data Isolation: Get current user
+    current_username = AuthManager.get_current_username()
+    ranked_projects = rank_all_projects(user_name=current_username)
     
     if not ranked_projects:
         print("\nNo projects to rank.")
@@ -285,7 +307,9 @@ def rank_and_summarize_top_projects() -> None:
             else:
                 print("\nGenerating summary...")
                 try:
-                    summary = summarize_project(project_id)
+                    # Data Isolation: Pass user_name to verify ownership
+                    current_username = AuthManager.get_current_username()
+                    summary = summarize_project(project_id, user_name=current_username)
                     print(summary)
                 except Exception as e:
                     print(f"Error generating summary for project {project_id}: {e}")
@@ -319,7 +343,9 @@ def save_rankings_with_summaries(ranked_projects: List[Dict[str, Any]], generate
             else:
                 print(f"  [{i}/{len(ranked_projects)}] Generating summary for: {filename}")
                 try:
-                    summary = summarize_project(project_id)
+                    # Data Isolation: Pass user_name to verify ownership
+                    current_username = AuthManager.get_current_username()
+                    summary = summarize_project(project_id, user_name=current_username)
                     summaries[project_id] = summary
                 except Exception as e:
                     print(f"    Error generating summary: {e}")

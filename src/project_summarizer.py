@@ -15,6 +15,7 @@ from database.user_preferences import get_user_collaboration
 from common.constants import LANGUAGE_EXTENSIONS
 from typing import Dict, List, Set, Any
 from analysis.key_metrics import _fetch_activity_timestamps, _compute_timeline_metrics
+from account.user_manager import AuthManager
 
 def _collab_level_from_score(score: int) -> str:
     """Map score to high-level label."""
@@ -39,20 +40,28 @@ class ProjectSummarizer:
     def __init__(self):
         self.language_extensions = LANGUAGE_EXTENSIONS
     
-    def generate_project_summary(self, project_id):
+    def generate_project_summary(self, project_id, user_name=None):
         """
         Generate a comprehensive summary for a project.
+        Data Isolation: Verifies project ownership if user_name is provided.
         
         Args:
             project_id (int): The ID of the project to summarize
+            user_name (str, optional): Username for data isolation. If None, uses current user.
             
         Returns:
             dict: Complete project summary
         """
-        # Get project basic info
-        project_info = get_project_by_id(project_id)
+        # Get current user if user_name not provided
+        if user_name is None:
+            user_name = AuthManager.get_current_username()
+            if not user_name:
+                return {"error": "No user is currently logged in"}
+        
+        # Data Isolation: Get project info with user verification
+        project_info = get_project_by_id(project_id, user_name)
         if not project_info:
-            return {"error": "Project not found"}
+            return {"error": "Project not found or access denied"}
         
         # Get file contents and statistics
         file_contents = get_file_contents_by_upload_id(project_id)
@@ -333,35 +342,57 @@ class ProjectSummarizer:
         return "\n".join(output)
 
 
-def summarize_project(project_id):
+def summarize_project(project_id, user_name=None):
     """
     Convenience function to generate and display a project summary.
+    Data Isolation: Verifies project ownership before generating summary.
     
     Args:
         project_id (int): The ID of the project to summarize
+        user_name (str, optional): Username for data isolation. If None, uses current user.
         
     Returns:
         str: Formatted summary text
     """
+    # Get current user if user_name not provided
+    if user_name is None:
+        user_name = AuthManager.get_current_username()
+        if not user_name:
+            return "Error: No user is currently logged in."
+    
     summarizer = ProjectSummarizer()
-    summary = summarizer.generate_project_summary(project_id)
+    # Data Isolation: Pass user_name to verify project ownership
+    summary = summarizer.generate_project_summary(project_id, user_name=user_name)
     return summarizer.format_summary_for_display(summary)
 
 
-def get_available_projects():
+def get_available_projects(user_name=None):
     """
     Get a list of available projects for summarization.
+    Data Isolation: Returns only projects belonging to the specified user.
+    
+    Args:
+        user_name (str, optional): Username to filter projects. If None, uses current user.
     
     Returns:
-        list: List of project information
+        list: List of project information for the user
     """
+    # Get current user if user_name not provided
+    if user_name is None:
+        user_name = AuthManager.get_current_username()
+        if not user_name:
+            print("Error: No user is currently logged in.")
+            return []
+    
     try:
         with with_db_cursor() as cursor:
+            # Data Isolation: Filter projects by user_name
             cursor.execute("""
                 SELECT id, filename, created_at
                 FROM uploaded_files
+                WHERE user_name = %s
                 ORDER BY filename ASC
-            """)
+            """, (user_name,))
             
             projects = cursor.fetchall()
         return [{"id": row[0], "filename": row[1], "created_at": row[2]} for row in projects]

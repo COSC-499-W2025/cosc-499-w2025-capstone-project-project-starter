@@ -59,46 +59,63 @@ def test_select_project_invalid_then_valid(mock_stdout, mock_input, mock_get_pro
     assert "2024-01-01" in output
 
 
+@patch("project_display.AuthManager")
 @patch("project_display.list_projects", return_value=[_project(1, "one"), _project(2, "two")])
 @patch("builtins.input", return_value="q")
 @patch("sys.stdout", new_callable=StringIO)
-def test_list_projects_menu_quit(mock_stdout, mock_input, mock_list_projects):
+def test_list_projects_menu_quit(mock_stdout, mock_input, mock_list_projects, mock_auth):
     """List menu should allow quitting without loading files."""
+    # Mock AuthManager to return a valid username
+    mock_auth.get_current_username.return_value = 'test_user'
+    
     with patch("project_display.list_project_files") as mock_list_files:
         pd.list_projects_menu()
         mock_list_files.assert_not_called()
     assert "view files" in mock_stdout.getvalue()
 
 
+@patch("project_display.AuthManager")
 @patch("project_display.list_project_files", return_value=["a.py", "b.py"])
 @patch("project_display.list_projects", return_value=[_project(1, "one")])
 @patch("builtins.input", side_effect=["1", ""])
 @patch("sys.stdout", new_callable=StringIO)
-def test_list_projects_menu_shows_files(mock_stdout, mock_input, mock_list_projects, mock_list_files):
+def test_list_projects_menu_shows_files(mock_stdout, mock_input, mock_list_projects, mock_list_files, mock_auth):
     """Selecting a project should list its files and total count."""
+    # Mock AuthManager to return a valid username
+    mock_auth.get_current_username.return_value = 'test_user'
+    
     pd.list_projects_menu()
-    mock_list_files.assert_called_once_with(1)
+    # Verify list_project_files called with project_id and user_name
+    mock_list_files.assert_called_once_with(1, 'test_user')
     output = mock_stdout.getvalue()
     assert "Files in project: one" in output
     assert "Total files: 2" in output
 
 
+@patch("project_display.AuthManager")
 @patch("project_display.list_projects", return_value=[_project(1, "one")])
 @patch("builtins.input", return_value="abc")
 @patch("sys.stdout", new_callable=StringIO)
-def test_list_projects_menu_invalid_value(mock_stdout, mock_input, mock_list_projects):
+def test_list_projects_menu_invalid_value(mock_stdout, mock_input, mock_list_projects, mock_auth):
     """Non-numeric input should be handled gracefully."""
+    # Mock AuthManager to return a valid username
+    mock_auth.get_current_username.return_value = 'test_user'
+    
     with patch("project_display.list_project_files") as mock_list_files:
         pd.list_projects_menu()
         mock_list_files.assert_not_called()
     assert "Please enter a valid number" in mock_stdout.getvalue()
 
 
+@patch("project_display.AuthManager")
 @patch("project_display.list_projects", return_value=[_project(1, "one")])
 @patch("builtins.input", return_value="5")
 @patch("sys.stdout", new_callable=StringIO)
-def test_list_projects_menu_out_of_range(mock_stdout, mock_input, mock_list_projects):
+def test_list_projects_menu_out_of_range(mock_stdout, mock_input, mock_list_projects, mock_auth):
     """Out-of-range selection should show guidance."""
+    # Mock AuthManager to return a valid username
+    mock_auth.get_current_username.return_value = 'test_user'
+    
     with patch("project_display.list_project_files") as mock_list_files:
         pd.list_projects_menu()
         mock_list_files.assert_not_called()

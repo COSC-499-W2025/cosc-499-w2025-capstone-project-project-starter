@@ -6,14 +6,15 @@ Handles displaying portfolio information in the CLI.
 
 from portfolio.portfolio_manager import PortfolioManager
 from portfolio.portfolio_formatter import PortfolioFormatter
+from account.user_manager import AuthManager
 
 
-def display_portfolio(user_id: str = 'default_user', format_type: str = 'text', top_n: int = None):
+def display_portfolio(user_name: str = 'default_user', format_type: str = 'text', top_n: int = None):
     """
     Display analytical portfolio report.
     
     Args:
-        user_id: User identifier
+        user_name: Username (string) to filter projects
         format_type: Output format ('text', 'markdown')
         top_n: If specified, only show top N projects
     """
@@ -22,7 +23,7 @@ def display_portfolio(user_id: str = 'default_user', format_type: str = 'text', 
     print("="*80)
     print("Please wait, this may take a moment...\n")
     
-    manager = PortfolioManager(user_id)
+    manager = PortfolioManager(user_name)
     
     # Generate portfolio report using existing functions
     portfolio_data = manager.generate_portfolio_report(top_n=top_n)
@@ -43,6 +44,16 @@ def display_portfolio(user_id: str = 'default_user', format_type: str = 'text', 
 
 def portfolio_menu():
     """Interactive menu for portfolio options."""
+    
+    # Get current logged-in user
+    if not AuthManager.is_user_logged_in():
+        print("\nError: You must be logged in to view portfolio.")
+        input("\nPress Enter to continue...")
+        return
+    
+    current_user = AuthManager.get_current_user()
+    user_name = current_user.get('user_name', 'default_user') if current_user else 'default_user'
+    
     print("\n" + "="*80)
     print("PORTFOLIO MENU")
     print("="*80)
@@ -56,20 +67,20 @@ def portfolio_menu():
     choice = input("Choose an option (1-5): ").strip()
     
     if choice == '1':
-        display_portfolio()
+        display_portfolio(user_name=user_name)
         input("\nPress Enter to continue...")
     
     elif choice == '2':
-        display_portfolio(top_n=5)
+        display_portfolio(user_name=user_name, top_n=5)
         input("\nPress Enter to continue...")
     
     elif choice == '3':
-        display_portfolio(top_n=10)
+        display_portfolio(user_name=user_name, top_n=10)
         input("\nPress Enter to continue...")
     
     elif choice == '4':
         print("\nGenerating Markdown portfolio report...")
-        manager = PortfolioManager()
+        manager = PortfolioManager(user_name=user_name)
         portfolio_data = manager.generate_portfolio_report()
         
         if 'error' not in portfolio_data:

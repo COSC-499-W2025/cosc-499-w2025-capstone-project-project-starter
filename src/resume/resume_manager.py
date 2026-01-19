@@ -47,7 +47,7 @@ class ResumeManager:
             return False
     
     @staticmethod
-    def store_user_resume(user_id, resume_data):
+    def store_user_resume(user_name, resume_data):
         """
         Store or update a user-aggregated resume.
         
@@ -56,7 +56,7 @@ class ResumeManager:
         including top projects, skills, portfolio metrics, and experience duration.
         
         Args:
-            user_id (str): Unique user identifier
+            user_name (str): Username (string) to identify the user
             resume_data (dict): Aggregated resume data containing top projects and skills
             
         Returns:
@@ -71,7 +71,7 @@ class ResumeManager:
                     DO UPDATE SET 
                         resume_data = EXCLUDED.resume_data,
                         updated_at = CURRENT_TIMESTAMP
-                """, (user_id, json.dumps(resume_data)))
+                """, (user_name, json.dumps(resume_data)))
             
             return True
             
@@ -159,7 +159,7 @@ class ResumeManager:
             return False
 
     @staticmethod
-    def get_user_resume(user_id):
+    def get_user_resume(user_name):
         """
         Retrieve the aggregated user resume.
         
@@ -168,7 +168,7 @@ class ResumeManager:
         for tracking resume generation history.
         
         Args:
-            user_id (str): Unique user identifier
+            user_name (str): Username (string) to identify the user
             
         Returns:
             dict: Dictionary containing resume_data, created_at, and updated_at
@@ -180,7 +180,7 @@ class ResumeManager:
                     SELECT resume_data, created_at, updated_at
                     FROM generated_resumes
                     WHERE user_id = %s
-                """, (user_id,))
+                """, (user_name,))
                 
                 result = cursor.fetchone()
             
@@ -211,7 +211,7 @@ class ResumeManager:
             return None
     
     @staticmethod
-    def delete_user_resume(user_id):
+    def delete_user_resume(user_name):
         """
         Delete a user's resume.
         
@@ -220,7 +220,7 @@ class ResumeManager:
         data deletion for privacy compliance.
         
         Args:
-            user_id (str): Unique user identifier
+            user_name (str): Username (string) to identify the user
             
         Returns:
             bool: True if deletion successful, False otherwise
@@ -230,7 +230,7 @@ class ResumeManager:
                 cursor.execute("""
                     DELETE FROM generated_resumes
                     WHERE user_id = %s
-                """, (user_id,))
+                """, (user_name,))
             
             return True
             
@@ -239,7 +239,7 @@ class ResumeManager:
             return False
     
     @staticmethod
-    def resume_exists(user_id):
+    def resume_exists(user_name):
         """
         Check if a resume exists for the given user.
         
@@ -247,7 +247,7 @@ class ResumeManager:
         or retrieve an existing one.
         
         Args:
-            user_id (str): Unique user identifier
+            user_name (str): Username (string) to identify the user
             
         Returns:
             bool: True if resume exists, False otherwise
@@ -256,7 +256,7 @@ class ResumeManager:
             with with_db_cursor() as cursor:
                 cursor.execute("""
                     SELECT 1 FROM generated_resumes WHERE user_id = %s
-                """, (user_id,))
+                """, (user_name,))
                 
                 result = cursor.fetchone()
             
@@ -302,7 +302,7 @@ class ResumeManager:
         return sorted(list(detected_frameworks))
     
     @staticmethod
-    def generate_user_resume(user_id, top_projects_count=5, selection: dict | None = None):
+    def generate_user_resume(user_name, top_projects_count=5, selection: dict | None = None):
         """
         Generate a user-aggregated resume from top ranked projects.
         
@@ -311,7 +311,7 @@ class ResumeManager:
         Aggregates skills, metrics, and project information for portfolio building.
         
         Args:
-            user_id (str): Unique user identifier
+            user_name (str): Username (string) to identify the user
             top_projects_count (int): Number of top projects to include (default: 5)
             
         Returns:
@@ -319,7 +319,8 @@ class ResumeManager:
                   Returns None if generation fails or no projects exist
         """
         try:
-            ranked_projects = rank_all_projects()
+            # Data Isolation: Rank only projects belonging to this user
+            ranked_projects = rank_all_projects(user_name=user_name)
             
             if not ranked_projects:
                 return None
@@ -348,13 +349,13 @@ class ResumeManager:
                 except Exception:
                     continue
             
-            # Get user's name from detected authors (similar to choose_author_from_zip logic)
-            user_name = user_id  # Default fallback
+            # Get user's display name from detected authors (similar to choose_author_from_zip logic)
+            display_name = user_name  # Default fallback
             if all_authors:
                 git_username = get_user_git_username()
                 if git_username and git_username in all_authors:
                     # Auto-select if git username matches
-                    user_name = git_username
+                    display_name = git_username
                 else:
                     # Let user select their name from detected authors
                     authors_list = sorted(list(all_authors))
@@ -364,7 +365,7 @@ class ResumeManager:
                     print("Detected author names from your projects:")
                     for idx, name in enumerate(authors_list, start=1):
                         print(f"  {idx}. {name}")
-                    print(f"  {len(authors_list) + 1}. Use my login username: {user_id}")
+                    print(f"  {len(authors_list) + 1}. Use my login username: {user_name}")
                     print(f"  {len(authors_list) + 2}. Enter custom name")
                     
                     while True:
@@ -374,18 +375,18 @@ class ResumeManager:
                             if choice.isdigit():
                                 choice_num = int(choice)
                                 if 1 <= choice_num <= len(authors_list):
-                                    user_name = authors_list[choice_num - 1]
-                                    print(f"\nSelected: {user_name}")
+                                    display_name = authors_list[choice_num - 1]
+                                    print(f"\nSelected: {display_name}")
                                     break
                                 elif choice_num == len(authors_list) + 1:
-                                    user_name = user_id
-                                    print(f"\nUsing login username: {user_name}")
+                                    display_name = user_name
+                                    print(f"\nUsing login username: {display_name}")
                                     break
                                 elif choice_num == len(authors_list) + 2:
                                     custom_name = input("Enter your name: ").strip()
                                     if custom_name:
-                                        user_name = custom_name
-                                        print(f"\nUsing custom name: {user_name}")
+                                        display_name = custom_name
+                                        print(f"\nUsing custom name: {display_name}")
                                         break
                                     else:
                                         print("Please enter a valid name.")
@@ -395,16 +396,16 @@ class ResumeManager:
                                 print("Invalid input. Enter a number.")
                         except (ValueError, KeyboardInterrupt):
                             print("\nUsing default username.")
-                            user_name = user_id
+                            display_name = user_name
                             break
             else:
                 # No authors detected, use login username or ask for custom name
                 print(f"\nNo author names detected in projects.")
                 use_custom = input("Enter your name for the resume (or press Enter to use login username): ").strip()
                 if use_custom:
-                    user_name = use_custom
+                    display_name = use_custom
                 else:
-                    user_name = user_id
+                    display_name = user_name
             
             summarizer = ProjectSummarizer()
             skill_mapper = SkillMapper()
@@ -447,13 +448,15 @@ class ResumeManager:
 
                     if not project_summary_text:
                         try:
-                            project_summary_text = summarize_project(project_id)
+                            # Data Isolation: Pass user_name to verify project ownership
+                            project_summary_text = summarize_project(project_id, user_name=user_name)
                         except Exception as e:
                             print(f"[WARNING] Could not generate summary for project {project_id}: {e}")
                             project_summary_text = ''
                     
                     # Get comprehensive summary for additional data
-                    summary = summarizer.generate_project_summary(project_id)
+                    # Data Isolation: Pass user_name to verify project ownership
+                    summary = summarizer.generate_project_summary(project_id, user_name=user_name)
                     
                     if summary and 'error' not in summary:
                         # Extract languages
@@ -547,8 +550,8 @@ class ResumeManager:
             
             # Build comprehensive resume data
             resume_data = {
+                'display_name': display_name,
                 'user_name': user_name,
-                'user_id': user_id,
                 'total_projects_analyzed': len(ranked_projects),
                 'top_projects_displayed': len(project_summaries),
                 'all_skills': all_skills_list,

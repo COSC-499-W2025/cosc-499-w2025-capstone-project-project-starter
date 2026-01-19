@@ -151,9 +151,10 @@ class TestRankAndSummarizeTopProjects:
         
         # Verify summarize_project was called 3 times (for top 3, since no stored summaries)
         assert mock_summarize.call_count == 3
-        assert mock_summarize.call_args_list[0] == call(1)
-        assert mock_summarize.call_args_list[1] == call(2)
-        assert mock_summarize.call_args_list[2] == call(3)
+        # Verify calls include user_name parameter
+        assert mock_summarize.call_args_list[0] == call(1, user_name=None)
+        assert mock_summarize.call_args_list[1] == call(2, user_name=None)
+        assert mock_summarize.call_args_list[2] == call(3, user_name=None)
     
     @patch('analysis.project_ranking.rank_all_projects')
     def test_rank_and_summarize_no_projects(self, mock_rank_all):
@@ -186,7 +187,8 @@ class TestRankAndSummarizeTopProjects:
         
         # Should only summarize 1 project (min of 3 and actual count)
         assert mock_summarize.call_count == 1
-        assert mock_summarize.call_args_list[0] == call(1)
+        # Verify call includes user_name parameter
+        assert mock_summarize.call_args_list[0] == call(1, user_name=None)
         # Verify get_stored_ranking_by_project_id was called
         assert mock_get_stored.call_count == 1
     
@@ -210,12 +212,13 @@ class TestRankAndSummarizeTopProjects:
         
         # Should only summarize top 3, not all 5
         assert mock_summarize.call_count == 3
-        assert mock_summarize.call_args_list[0] == call(1)
-        assert mock_summarize.call_args_list[1] == call(2)
-        assert mock_summarize.call_args_list[2] == call(3)
+        # Verify calls include user_name parameter
+        assert mock_summarize.call_args_list[0] == call(1, user_name=None)
+        assert mock_summarize.call_args_list[1] == call(2, user_name=None)
+        assert mock_summarize.call_args_list[2] == call(3, user_name=None)
         # Verify project 4 and 5 were NOT summarized
-        assert call(4) not in mock_summarize.call_args_list
-        assert call(5) not in mock_summarize.call_args_list
+        assert call(4, user_name=None) not in mock_summarize.call_args_list
+        assert call(5, user_name=None) not in mock_summarize.call_args_list
         # Verify get_stored_ranking_by_project_id was called 3 times (for top 3)
         assert mock_get_stored.call_count == 3
     
@@ -241,7 +244,8 @@ class TestRankAndSummarizeTopProjects:
 
         mock_rank_all.assert_called_once()
         mock_get_stored.assert_called_once_with(1)
-        mock_summarize.assert_called_once_with(1)
+        # Verify call includes user_name parameter
+        mock_summarize.assert_called_once_with(1, user_name=None)
     
     @patch('analysis.project_ranking.get_stored_ranking_by_project_id')
     @patch('analysis.project_ranking.summarize_project')
@@ -318,11 +322,15 @@ class TestRankingStorage:
         insert_calls = [str(call) for call in mock_cursor_obj.execute.call_args_list if "INSERT" in str(call[0])]
         assert len(insert_calls) == 2
     
+    @patch('analysis.project_ranking.AuthManager')
     @patch('analysis.project_ranking.get_stored_rankings')
     @patch('analysis.project_ranking.analyze_project_from_db')
     @patch('analysis.project_ranking.get_connection')
-    def test_rank_all_projects_uses_stored_scores(self, mock_conn, mock_analyze, mock_get_stored):
+    def test_rank_all_projects_uses_stored_scores(self, mock_conn, mock_analyze, mock_get_stored, mock_auth):
         """Test that stored scores are used when available (mocked, no DB changes)"""
+        # Mock AuthManager to return test user
+        mock_auth.get_current_username.return_value = 'test_user'
+        
         # Mock stored rankings with edited scores
         mock_get_stored.return_value = [
             {
@@ -360,12 +368,16 @@ class TestRankingStorage:
         # Verify get_stored_rankings was called to check for stored scores
         mock_get_stored.assert_called_once()
     
+    @patch('analysis.project_ranking.AuthManager')
     @patch('analysis.project_ranking.get_stored_rankings')
     @patch('analysis.project_ranking.calculate_project_score')
     @patch('analysis.project_ranking.analyze_project_from_db')
     @patch('analysis.project_ranking.get_connection')
-    def test_rank_all_projects_calls_deep_analysis(self, mock_conn, mock_analyze, mock_calculate, mock_get_stored):
+    def test_rank_all_projects_calls_deep_analysis(self, mock_conn, mock_analyze, mock_calculate, mock_get_stored, mock_auth):
         """Test that rank_all_projects passes project_id to calculate_project_score for deep analysis"""
+        # Mock AuthManager to return test user
+        mock_auth.get_current_username.return_value = 'test_user'
+        
         # Mock no stored rankings (so calculate_project_score will be called)
         mock_get_stored.return_value = []
         

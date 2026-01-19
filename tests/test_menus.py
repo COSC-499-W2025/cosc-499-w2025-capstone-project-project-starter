@@ -145,6 +145,7 @@ def test_handle_upload_file_success(mock_input, mock_add_file, mock_display_succ
     mock_display_success.assert_called_once()
 
 
+@patch("cli.menus.AuthManager")
 @patch("cli.menus.display_success")
 @patch("upload_file.add_thumbnail_to_project")
 @patch("builtins.input", return_value="/tmp/thumb.png")
@@ -170,41 +171,55 @@ def test_handle_add_project_thumbnail_no_selection(mock_select, mock_add_thumb):
 @patch("cli.menus.select_project_interactive", return_value={"id": 1, "filename": "file.py"})
 @patch("builtins.input", return_value="")
 @patch("sys.stdout", new_callable=StringIO)
-def test_handle_analyze_metrics_and_summary(mock_stdout, mock_input, mock_select, mock_analyze, mock_summary):
+def test_handle_analyze_metrics_and_summary(mock_stdout, mock_input, mock_select, mock_analyze, mock_summary, mock_auth):
     """Combined metrics+summary flow should analyze and print summary."""
+    # Mock AuthManager to return a valid username
+    mock_auth.get_current_username.return_value = 'test_user'
+    
     menus.handle_analyze_metrics_and_summary()
 
     output = mock_stdout.getvalue()
     assert "FULL (metrics + summary)" in output
     mock_analyze.assert_called_once_with(1)
-    mock_summary.assert_called_once_with(1)
+    # Verify summarize_project called with user_name parameter
+    mock_summary.assert_called_once_with(1, user_name='test_user')
 
 
+@patch("cli.menus.AuthManager")
 @patch("cli.menus.save_rankings_with_summaries")
 @patch("cli.menus.display_rankings")
 @patch("cli.menus.rank_all_projects", return_value=[{"id": 1}])
 @patch("builtins.input", side_effect=["y", "n", ""])
 @patch("sys.stdout", new_callable=StringIO)
-def test_handle_rank_projects_save_flow(mock_stdout, mock_input, mock_rank, mock_display, mock_save):
+def test_handle_rank_projects_save_flow(mock_stdout, mock_input, mock_rank, mock_display, mock_save, mock_auth):
     """Ranking flow should optionally save rankings based on user input."""
+    # Mock AuthManager to return a valid username
+    mock_auth.get_current_username.return_value = 'test_user'
+    
     menus.handle_rank_projects()
 
-    mock_rank.assert_called_once()
+    # Verify rank_all_projects called with user_name parameter
+    mock_rank.assert_called_once_with(user_name='test_user')
     mock_display.assert_called_once()
     mock_save.assert_called_once_with([{"id": 1}], False)
     assert "Ranking all projects" in mock_stdout.getvalue()
 
 
+@patch("cli.menus.AuthManager")
 @patch("cli.menus.save_rankings_with_summaries")
 @patch("cli.menus.rank_all_projects", return_value=[{"id": 2}])
 @patch("cli.menus.rank_and_summarize_top_projects")
 @patch("builtins.input", side_effect=["y", "y", ""])
-def test_handle_rank_and_summarize_projects(mock_input, mock_rank_and_summarize, mock_rank_all, mock_save):
+def test_handle_rank_and_summarize_projects(mock_input, mock_rank_and_summarize, mock_rank_all, mock_save, mock_auth):
     """Rank and summarize flow should save when user opts in."""
+    # Mock AuthManager to return a valid username
+    mock_auth.get_current_username.return_value = 'test_user'
+    
     menus.handle_rank_and_summarize_projects()
 
     mock_rank_and_summarize.assert_called_once()
-    mock_rank_all.assert_called_once()
+    # Verify rank_all_projects called with user_name parameter
+    mock_rank_all.assert_called_once_with(user_name='test_user')
     mock_save.assert_called_once_with([{"id": 2}], True)
 
 
