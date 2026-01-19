@@ -1,0 +1,440 @@
+# Team-17 (COSC499 CAPSTONE SOFTWARE ENGINEERING PROJECT)
+
+## Team Log Table of Content
+
+- [Week 3 Team Log](#week-3-team-log)
+- [Week 4 Team Log](#week-4-team-log)
+- [Week 5 Team Log](#week-5-team-log)
+- [Week 6 Team Log](#week-6-team-log)
+- [Week 7 Team Log](#week-7-team-log)
+- [Week 8 Team Log](#week-8-team-log)
+- [Week 9 Team Log](#week-9-team-log)
+- [Week 10 Team Log](#week-10-team-log)
+- [Week 11 Team Log](#week-11-team-log)
+- [Week 12 Team Log](#week-12-team-log)
+- [Week 13 Team Log](#week-13-team-log)
+- [Week 14 Team Log](#week-14-team-log)
+
+## WEEK 3 TEAM LOG
+(SEP 15 - 21, 2025)
+
+### Recap of Milestone Goal - Week 3
+
+In Week 3, the team has performed brainstorming on the requirements of the project, and consolidated them into the Project Requirements Report, which will be uploaded to the Canvas.
+
+### Username and Student Name for Team 17
+
+| Student Name | Github Username |
+| ------------ | --------------- |
+| Yuxuan Sun | ErenSun408 |
+| Parsa Aminian | Pmoney1383 |
+| Raunak Khanna | ronziekhanna |
+| Shuyu Yan | yanshuyu280042 |
+| Michelle Zhou | mltzhou |
+| Nade Kang | kangnade |
+
+### Completed Tasks Week 3
+
+[Project Requirements Report](https://docs.google.com/document/d/1ZpG3Qs_pn9l6rbohNV1cGoopClzvmiS5qVH1lqKooFY/edit?tab=t.0)
+
+### In Progress Tasks Week 3
+
+Not Available for Week 3
+
+### Test Report Week 3
+
+Not Available for Week 3
+
+
+## WEEK 4 TEAM LOG
+(SEP 22 - 28, 2025)
+
+### Recap of Milestone Goal - Week 4
+
+In Week 4, the team has performed brainstorming on the Architucture Design Diagram, and Finished the Project Proposal, which will be uploaded to the Canvas.
+
+### Username and Student Name for Team 17
+
+| Student Name | Github Username |
+| ------------ | --------------- |
+| Yuxuan Sun | ErenSun408 |
+| Parsa Aminian | Pmoney1383 |
+| Raunak Khanna | ronziekhanna |
+| Shuyu Yan | yanshuyu280042 |
+| Michelle Zhou | mltzhou |
+
+### Completed Tasks Week 4
+
+[Architecture Design Diagram](https://docs.google.com/document/d/1fZNTCu4YO0CFwIvErlJ1agD4Zyxgh6q11CnjB686NzY/edit?usp=sharing)
+[Project Proposal](https://github.com/COSC-499-W2025/capstone-project-team-17-1/blob/main/docs/Plan/Project%20Porposal.md)
+<img width="1275" height="535" alt="Screenshot 2025-09-28 at 12 57 40 PM" src="https://github.com/user-attachments/assets/4c918636-7609-4d84-a58c-25207db324d5" />
+
+### Burnup chart Week 4
+
+<img width="1000" height="488" alt="Screenshot 2025-09-28 at 12 55 41 PM" src="https://github.com/user-attachments/assets/71cc03ec-777e-4992-ad9a-74ea3056033c" />
+
+###  In Progress Tasks Week 4
+
+<img width="1245" height="382" alt="Screenshot 2025-09-28 at 12 58 22 PM" src="https://github.com/user-attachments/assets/1d164b12-b15a-4fdc-ab4c-504f100e5187" />
+
+### Test Report Week 4
+
+Not Available for Week 4
+
+
+## WEEK 5 TEAM LOG
+(SEP 29 - Oct 5, 2025)
+
+### Recap of Milestone Goal - Week 5
+
+In Week 5, the team has discussed the basic construction of the app and completed the Level 0 and Level 1 DFD.
+
+### Username and Student Name for Team 17
+
+| Student Name | Github Username |
+| ------------ | --------------- |
+| Yuxuan Sun | ErenSun408 |
+| Parsa Aminian | Pmoney1383 |
+| Raunak Khanna | ronziekhanna |
+| Shuyu Yan | yanshuyu280042 |
+| Michelle Zhou | mltzhou |
+
+### Completed Tasks Week 5
+
+[Data Flow Diagram](https://github.com/COSC-499-W2025/capstone-project-team-17-1/blob/main/docs/design/L0%26L1%20DFD.png)
+
+<img width="1769" height="91" alt="image" src="https://github.com/user-attachments/assets/3f35aeaa-73a1-42c1-a46b-3a483471663c" />
+
+### Burnup chart Week 5
+
+<img width="1480" height="778" alt="91b403f0-1bb0-426f-9845-20515c70af5c" src="https://github.com/user-attachments/assets/f5f35467-e79d-49c1-8e98-188a817eeb3e" />
+
+### In Progress Tasks Week 5
+
+<img width="989" height="280" alt="image" src="https://github.com/user-attachments/assets/b1bd83d4-c99b-416b-b691-67d7c2443835" />
+
+### Test Report Week 5
+
+Not Available for Week 5
+
+
+## WEEK 6 TEAM LOG
+(Oct 6 - Oct 12, 2025)
+
+### Recap of Milestone Goal - Week 6
+
+In Week 6, our team reviewed all project artifacts, including every diagram, the requirements document, the Project Proposal, and the WBS, to ensure consistency and completeness. We finished setting up the local development environment and configured Docker for a reproducible build and run process. We also initialized the repository structure, documented setup steps, and agreed on coding conventions. Development began with the core logic: we wrote the initial, non-GUI modules and command line entry points, added basic tests to verify functionality, and confirmed that everything builds and runs successfully in Docker.
+
+### Username and Student Name for Team 17
+
+| Student Name | Github Username |
+| ------------ | --------------- |
+| Yuxuan Sun | ErenSun408 |
+| Parsa Aminian | Pmoney1383 |
+| Raunak Khanna | ronziekhanna |
+| Shuyu Yan | yanshuyu280042 |
+| Michelle Zhou | mltzhou |
+
+### Completed Tasks Week 6
+
+[All Diagram](https://docs.google.com/document/d/1ZnNXTiLX3bXALCe2Ug8rojZ3RkSmjPB-2_YgaCqQyPA/edit?tab=t.0)
+
+
+[Requirements](https://docs.google.com/document/d/1ZpG3Qs_pn9l6rbohNV1cGoopClzvmiS5qVH1lqKooFY/edit?tab=t.0)
+<img width="1233" height="520" alt="Screenshot 2025-10-12 at 11 50 43 PM" src="https://github.com/user-attachments/assets/7a0dca01-f7d7-44dc-974e-c7e08cc2c531" />
+
+[Project Proposal](https://docs.google.com/document/d/1yNkyeBqHvSgFAER2WQUW5GLdEmcIMknSAGh68UDHqCg/edit?tab=t.0)
+[System Architucture](https://docs.google.com/document/d/1fZNTCu4YO0CFwIvErlJ1agD4Zyxgh6q11CnjB686NzY/edit?tab=t.0)
+[WBS](https://docs.google.com/document/d/1wPQgS1NMM9Jt1JUTCCPeJgyASQXQxxf_LkWZkoiAauA/edit?tab=t.0)
+
+### Burnup chart Week 6
+
+<img width="2056" height="1204" alt="image" src="https://github.com/user-attachments/assets/f070db89-42f6-4d3d-b89a-f03ec31da6bc" />
+
+
+### In Progress Tasks Week 6
+<img width="1229" height="390" alt="Screenshot 2025-10-12 at 11 50 01 PM" src="https://github.com/user-attachments/assets/e0400b65-3f4c-418e-889a-c527e4f380d1" />
+
+### Test Report Week 6
+
+During Week 6, the team conducted focused testing on two functional requirements: #23 Store User Configurations for Future Use and #19 Return an Error if the Specified File is in the Wrong Format. The objective was to verify that user preferences can be properly saved and reloaded across sessions, and that the system correctly identifies and handles invalid file inputs. For #23, tests confirmed that user configurations were successfully stored and reloaded upon restarting the application, ensuring persistence of settings such as directory paths and consent options. For #19, the system was tested with multiple non-zip files, including .pdf, .jpg, and .exe, and consistently returned the expected standardized error response in JSON format. Both functionalities performed as intended, with only a minor delay observed during configuration reload, and were marked as passed.
+
+
+## WEEK 7 TEAM LOG
+(Oct 13 - Oct 19, 2025)
+
+### Recap of Milestone Goal - Week 7
+
+In Week 7, team members self-assigned issues based on the tasks assigned in the WBS and collaborated on development.
+
+### Username and Student Name for Team 17
+
+| Student Name | Github Username |
+| ------------ | --------------- |
+| Yuxuan Sun | ErenSun408 |
+| Parsa Aminian | Pmoney1383 |
+| Raunak Khanna | ronziekhanna |
+| Shuyu Yan | yanshuyu280042 |
+| Michelle Zhou | mltzhou |
+
+### Completed Tasks Week 7
+
+<img width="1770" height="194" alt="image" src="https://github.com/user-attachments/assets/dbcb8f99-f292-4d43-8f10-10fb81ae8337" />
+<img width="1770" height="94" alt="image" src="https://github.com/user-attachments/assets/38df4fb9-bf1b-40c6-8e00-fe18279e854f" />
+<img width="1769" height="91" alt="image" src="https://github.com/user-attachments/assets/14ef5445-0ec2-4331-8499-ee8b28c6f2f8" />
+<img width="1769" height="95" alt="image" src="https://github.com/user-attachments/assets/b50d2e9f-880c-4be8-b056-16dcff9012e5" />
+
+### Burnup chart Week 7
+
+<img width="1460" height="838" alt="image" src="https://github.com/user-attachments/assets/5ec1f6ce-d57f-46e9-81d1-c38496e73d32" />
+
+### In Progress Tasks Week 7
+
+<img width="1761" height="481" alt="image" src="https://github.com/user-attachments/assets/b8030dc4-8979-4ac1-9751-1e9a46ea8292" />
+
+### Test Report Week 7
+
+During Week 7, the team closed five issues: **#39** finalized the tech stack (Electron/Node/TypeScript) with scripts and a bootable skeleton; **#38** implemented heuristics to distinguish individual vs. collaborative projects and exposed the labels in filters; **#21** delivered the consent/settings UI with choices persisted across sessions; **#20** completed core ZIP parsing via a streaming iterator that emits normalized entries, with upload-flow integration tracked next; and **#49** triaged the upload bug—non-ZIP paths are stable and return standardized JSON via `fileValidator.js`, while ZIP uploads still surface “iterZipMetadata is not a function” until #20 is wired into the upload pipeline.
+
+<img width="465" height="195" alt="image" src="https://github.com/user-attachments/assets/ad338bd1-f2c0-4161-a193-1bee2ad5b34f" />
+
+
+## WEEK 8 TEAM LOG
+(Oct 20 - Oct 26, 2025)
+
+### Recap of Milestone Goal - Week 8
+
+In Week 8, team members self-assigned issues based on the tasks assigned in the WBS and collaborated on development.
+
+### Username and Student Name for Team 17
+
+| Student Name | Github Username |
+| ------------ | --------------- |
+| Yuxuan Sun | ErenSun408 |
+| Parsa Aminian | Pmoney1383 |
+| Raunak Khanna | ronziekhanna |
+| Shuyu Yan | yanshuyu280042 |
+| Michelle Zhou | mltzhou |
+
+### Completed Tasks Week 8
+<img width="1216" height="263" alt="Screenshot 2025-10-26 at 10 52 02 PM" src="https://github.com/user-attachments/assets/93985ea8-80e3-4b83-9e36-c6a6b9ac3c02" />
+<img width="1150" height="52" alt="Screenshot 2025-10-26 at 11 04 57 PM" src="https://github.com/user-attachments/assets/59e57b61-19fb-435f-a0d8-6bc4e55f4db2" />
+
+### Burnup chart Week 8
+<img width="1085" height="610" alt="Screenshot 2025-10-26 at 10 54 11 PM" src="https://github.com/user-attachments/assets/1a6bbf93-43e6-49b2-b738-ea948cd81197" />
+
+### In Progress Tasks Week 8
+<img width="1232" height="338" alt="Screenshot 2025-10-26 at 10 54 46 PM" src="https://github.com/user-attachments/assets/f3a3224b-681c-4b11-894d-28e8b457617c" />
+
+### Test Report Week 8
+During Week 8, the team focused on advancing core analysis capabilities and improving application usability across multiple modules. **#56 (Collaboration Analysis Module)** introduced logic to detect co-authorship patterns, review-based interactions, shared accounts, and configurable weight normalization. The implementation was validated through automated tests (`TestA–TestC`) and CSV formatting checks (`TestD`), confirming robustness even on empty repositories. **#58** enhanced frontend usability by polishing layout components, improving visual consistency, and adding a custom application icon to our Electron build, making the application feel more production-ready. **#59 (Feature: Extract Key Skills)** delivered contributor skill detection with adjustable filters and export features; manual and automated tests confirmed skill attribution accuracy and CSV export structure. Finally, **#63** enabled persistent data storage by integrating SQLite through Electron `userData`, with schema auto-loading and IPC support, verified via database initialization logs and table inspection. Overall, this week transitioned the system from isolated features toward an integrated analysis pipeline with data persistence, collaboration metrics, and user-facing analytics.
+
+<img width="595" height="247" alt="Screenshot 2025-10-26 at 10 59 53 PM" src="https://github.com/user-attachments/assets/df9b0e29-477e-4815-a2ca-b4bb78e6efae" />
+
+
+## WEEK 9 TEAM LOG 
+(Oct 27 - Nov 2, 2025)
+
+### Recap of Milestone Goal - Week 9
+
+In Week 9, team members self-assigned issues based on the tasks assigned in the WBS and collaborated on development.
+
+### Username and Student Name for Team 17
+
+| Student Name | Github Username |
+| ------------ | --------------- |
+| Yuxuan Sun | ErenSun408 |
+| Parsa Aminian | Pmoney1383 |
+| Raunak Khanna | ronziekhanna |
+| Shuyu Yan | yanshuyu280042 |
+| Michelle Zhou | mltzhou |
+
+### Completed Tasks Week 9
+<img width="1077" height="256" alt="Screenshot 2025-11-02 at 7 00 52 PM" src="https://github.com/user-attachments/assets/b3f4796a-b792-4d99-865b-9245c90ce6ff" />
+
+### Burnup chart Week 9
+<img width="1015" height="511" alt="Screenshot 2025-11-02 at 7 00 01 PM" src="https://github.com/user-attachments/assets/4037a778-15f5-4675-8876-9452f637bbce" />
+
+### In Progress Tasks Week 9
+<img width="1232" height="339" alt="Screenshot 2025-11-02 at 6 58 41 PM" src="https://github.com/user-attachments/assets/4f55494f-dcf4-494f-81a1-c72b4ae1a497" />
+
+### Test Report Week 9
+During Week 9, the team focused on strengthening backend intelligence, expanding test coverage, and advancing the system’s full Python migration. #72 introduced a weighted ranking algorithm that evaluates projects by contribution metrics, validated through tests and manual demo archives; #73 delivered a granular consent mechanism requiring explicit user authorization for external data sharing, verified via automated and CLI workflows; #74 added a `clean` subcommand to safely remove generated outputs with both unit and manual tests confirming correct directory handling; and #76 implemented safe insight deletion with comprehensive unittest coverage for refcount blocking, cascade dry-run, purge safety, audit trail, and soft-delete restoration. Together, these updates enhanced reliability, user control, and the consistency of Python-based backend operations.
+<img width="797" height="487" alt="Screenshot 2025-11-02 at 7 09 47 PM" src="https://github.com/user-attachments/assets/a5812076-38ad-44e1-9b4a-0df8ba56647c" />
+
+
+## WEEK 10 TEAM LOG 
+(Nov 3 - Nov 9, 2025)
+
+### Recap of Milestone Goal - Week 10
+
+In Week 10, team members self-assigned issues based on the tasks assigned in the WBS and collaborated on development.
+
+### Username and Student Name for Team 17
+
+| Student Name | Github Username |
+| ------------ | --------------- |
+| Yuxuan Sun | ErenSun408 |
+| Parsa Aminian | Pmoney1383 |
+| Raunak Khanna | ronziekhanna |
+| Shuyu Yan | yanshuyu280042 |
+| Michelle Zhou | mltzhou |
+
+### Completed Tasks Week 10
+<img width="1928" height="105" alt="image" src="https://github.com/user-attachments/assets/15f9a698-2671-42c6-9e15-b30779cf3a67" />
+<img width="1916" height="405" alt="image" src="https://github.com/user-attachments/assets/ea7370e7-25ef-48e9-87f4-9ac903825146" />
+
+### Burnup chart Week 10
+<img width="1635" height="953" alt="image" src="https://github.com/user-attachments/assets/27b9ec82-8fea-45d5-94d8-431dc62b2ac8" />
+
+### In Progress Tasks Week 10
+<img width="1944" height="309" alt="image" src="https://github.com/user-attachments/assets/a3237e66-c121-48a6-bb7f-3b4b8eacb3d0" />
+
+### Test Report Week 10
+During week 10, the team cleaned all js legacy and developed with full python language. #81 ships the Top Project Summaries suite, while removing unused Electron/JS assets and generated artifacts. #80 refactors metrics to Python with analyze_metrics(), and persistence via save_metrics(), init_db(), and metrics_api(). #82 introduces a backend to retrieve previously generated portfolio info, plus a _db_session that normalizes paths, disables WAL in tests, and always closes cached connections. #83 adjusts default analyse mode, syncs README, and halves config I/O. Together these changes improve reliability, portability, and maintainability, and set a solid base for downstream UI and analytics. #84 adds two CSV exports — project timelines and skills timelines — to chronologically track analyzed artifacts and skills across projects, also includes a schema-agnostic smoke test that validates CSV generation independent of database schema or uncommitted transactions, ensuring reliability across environments.
+
+## WEEK 11 TEAM LOG
+(Nov 10 - Nov 16, 2025)
+
+## WEEK 12 TEAM LOG 
+(Nov 17 - Nov 23, 2025)
+
+### Recap of Milestone Goal - Week 12
+In Week 12, team members self-assigned issues based on the tasks assigned in the WBS and collaborated on development.
+
+### Completed Tasks Week 12
+<img width="1188" height="287" alt="image" src="https://github.com/user-attachments/assets/499889f6-8e29-4eae-8c64-5fa7746525ed" />
+
+### Burnup chart Week 12
+<img width="833" height="624" alt="image" src="https://github.com/user-attachments/assets/06858518-edd7-4c65-81fa-44a7ae2e6f9a" />
+
+### In Progress Tasks Week 12
+<img width="1217" height="282" alt="image" src="https://github.com/user-attachments/assets/86482330-dc40-4910-9311-72c59a6da3ff" />
+
+### Test Report Week 12
+This week, the team focused on building the job description matching feature. We worked on parsing a job description from a text file, detecting important requirements, and comparing those against the skills and technologies extracted from user projects. From there, basic weights for overlap/similarity was calculated so that projects are ordered based on the strongest alignment. We also spent time wiring this into the existing analysis pipeline, making sure the new logic works well with the current database and structure.
+
+For next cycle, the team will focus on completing the remaining parts of the job description feature so it runs smoothly from input zip file to final results output. We will clean up and refractor the code so everything fits together without duplicated logic or confusing paths. Additionally, we will revise the output format so the projects appear similar to resume style wording. The team will also concentrate on preparing the presentation for Milestone #1, including a video demo showing the features and process of our digital artifacts mining application.
+
+## WEEK 13 TEAM LOG 
+(Nov24 - Nov 30, 2025)
+
+### Recap of Milestone Goal - Week 13
+
+In Week 13, team members self-assigned issues based on the tasks assigned in the WBS and collaborated on development.
+
+### Username and Student Name for Team 17
+
+| Student Name | Github Username |
+| ------------ | --------------- |
+| Yuxuan Sun | ErenSun408 |
+| Parsa Aminian | Pmoney1383 |
+| Raunak Khanna | ronziekhanna |
+| Shuyu Yan | yanshuyu280042 |
+| Michelle Zhou | mltzhou |
+
+### Completed Tasks Week 13
+<img width="1209" height="324" alt="Screenshot 2025-11-30 at 6 57 39 PM" src="https://github.com/user-attachments/assets/604bf101-6c6b-4d60-ba0d-b23e3406319e" />
+<img width="1180" height="193" alt="Screenshot 2025-11-30 at 6 57 22 PM" src="https://github.com/user-attachments/assets/2044d584-431e-4695-868b-bd130740bbcb" />
+
+### Burnup chart Week 13
+<img width="1018" height="576" alt="Screenshot 2025-11-30 at 7 06 43 PM" src="https://github.com/user-attachments/assets/ee1f3ad5-8c9d-4761-8725-a3e0eb403dc1" />
+
+### In Progress Tasks Week 13
+<img width="1221" height="195" alt="Screenshot 2025-11-30 at 7 00 42 PM" src="https://github.com/user-attachments/assets/f4b9d0d8-42dd-482b-aa18-52290226d058" />
+<img width="1227" height="63" alt="Screenshot 2025-11-30 at 7 01 00 PM" src="https://github.com/user-attachments/assets/aa72e629-f93b-467a-beda-2bd5f5b72e77" />
+
+### Test Report Week 13
+During week 13, the team validated new résumé, skills-timeline, and demo-output features through a mix of automated tests and manual checks. For the résumé module, pytest covers schema creation, filter behavior, preview-JSON mapping, and all export formats (Markdown/JSON/PDF). Manual preview was verified via python -m capstone.cli resume.
+
+The chronological-skills feature includes a unittest (tests.test_skill_timeline) plus manual inspection through sample_project.py. The demo-friendly company-profile output was tested with unittests confirming multi-skill extraction, company-profile construction, empty-text handling, and formatted bullet points. Résumé generation was manually tested by running capstone analyze demo.zip and producing JSON + PDF outputs, confirming correct snapshot saving and stable PDF generation.
+
+Overall, the week’s tests confirm correctness across schema, filters, previews, exports, skill timelines, and company-specific résumé generation.
+
+## WEEK 14 TEAM LOG
+(Dec1 - Dec7, 2025)
+
+### Recap of Milestone Goal - Week 14
+We integrated the new pipeline into the CLI, added the resume-generation command, and wired in the LLM client. We also enhanced the demo and documentation so the Milestone 1 workflow now runs end-to-end.
+
+### Username and Student Name for Team 17
+
+| Student Name | Github Username |
+| ------------ | --------------- |
+| Yuxuan Sun | ErenSun408 |
+| Parsa Aminian | Pmoney1383 |
+| Raunak Khanna | ronziekhanna |
+| Shuyu Yan | yanshuyu280042 |
+| Michelle Zhou | mltzhou |
+
+### Completed Tasks Week 14
+<img width="1453" height="833" alt="TEAMLOG14WEEK" src="https://github.com/user-attachments/assets/d09752a0-1fda-4cc4-a3e0-ec15db9fc1d2" />
+
+### Burnup chart Week 14
+<img width="1023" height="536" alt="TEAMLOGBURNUP14" src="https://github.com/user-attachments/assets/71ef7829-74f3-4265-b807-fc803ce6c9d0" />
+
+### In Progress Tasks Week 14 -- tasks for Milestone2
+<img width="1272" height="302" alt="Screenshot 2025-12-07 at 6 05 14 PM" src="https://github.com/user-attachments/assets/6b99f0a7-4813-464b-b1c4-333ffecb6d57" />
+
+### Test Report Week 14
+During week 14, the team validated the new end-to-end CLI pipeline and updated résumé/analysis commands with a mix of automated and manual tests. Pytest/unittest cases now cover CLI argument parsing, error handling for missing/invalid archives, and the integration of the pipeline into capstone.cli analyze (including JSON/CSV export checks). Manually, we ran python -m capstone.cli analyze demo.zip and the new résumé command on multiple demo archives to confirm that snapshots, logs, and LLM-generated summaries are produced correctly and the tool runs to completion without crashes.
+
+
+
+## WEEK 1 TEAM LOG (Term2)
+(Jan5 - Jan11, 2026)
+
+### Recap of Milestone Goal - Week 1
+The goal of this milestone is to build a service-oriented system that supports a human-in-the-loop workflow, allowing users to select, customize, and correct extracted information through API-based interactions rather than relying on fully automated extraction alone.
+
+### Username and Student Name for Team 17
+| Student Name | Github Username |
+| ------------ | --------------- |
+| Yuxuan Sun | ErenSun408 |
+| Parsa Aminian | Pmoney1383 |
+| Raunak Khanna | ronziekhanna |
+| Shuyu Yan | yanshuyu280042 |
+| Michelle Zhou | mltzhou |
+
+### Burnup chart Week 1
+<img width="1651" height="951" alt="image" src="https://github.com/user-attachments/assets/b583ca3d-f785-4884-9eb4-ff7dc63df524" />
+
+### Completed Tasks Week 1
+<img width="1921" height="205" alt="image" src="https://github.com/user-attachments/assets/1623f5c5-413d-4274-9ce8-53dc6d07a9db" />
+<img width="1920" height="201" alt="image" src="https://github.com/user-attachments/assets/afc2aeb2-cf25-477b-a3d3-ca1a1292fa19" />
+
+### In Progress Tasks Week 1 
+<img width="1949" height="1128" alt="image" src="https://github.com/user-attachments/assets/19a7e300-9b37-4201-b6cb-c022945e58a9" />
+
+### Test Report Week 1
+This week, the team improved contributor analysis, data determinism, and user-facing customization. PR #147 added résumé-specific project descriptions with API and CLI support to enable a human-in-the-loop workflow. PR #148 made latest snapshot selection deterministic and Windows-safe, with additional unit tests for edge cases. PR #151 introduced an API endpoint exposing structured evidence of success from the latest portfolio snapshot. PR #152 enhanced contributor rankings by incorporating reviews and lines changed, added a contribution scoring formula, and introduced a new capstone import-repo <url> command while improving contributor identity resolution.
+
+
+## WEEK 2 TEAM LOG (Term2)
+(Jan12 - Jan18, 2026)
+
+### Recap of Milestone Goal - Week 2
+The goal of this milestone is to build a service-oriented system that supports a human-in-the-loop workflow, allowing users to select, customize, and correct extracted information through API-based interactions rather than relying on fully automated extraction alone.
+
+### Username and Student Name for Team 17
+| Student Name | Github Username |
+| ------------ | --------------- |
+| Yuxuan Sun | ErenSun408 |
+| Parsa Aminian | Pmoney1383 |
+| Raunak Khanna | ronziekhanna |
+| Shuyu Yan | yanshuyu280042 |
+| Michelle Zhou | mltzhou |
+
+### Burnup chart Week 2
+<img width="1040" height="580" alt="Screenshot 2026-01-18 at 10 16 31 PM" src="https://github.com/user-attachments/assets/89d17713-a5d5-4279-8b8f-5ee47a0f8859" />
+
+### Completed Tasks Week 2
+<img width="1215" height="77" alt="Screenshot 2026-01-18 at 11 27 35 PM" src="https://github.com/user-attachments/assets/97587be4-0622-4ee2-9a66-1f788b4e6f45" />
+<img width="1217" height="136" alt="Screenshot 2026-01-18 at 10 17 43 PM" src="https://github.com/user-attachments/assets/165c1c17-641a-4f29-a7f8-1ad3b6382283" />
+<img width="1213" height="139" alt="Screenshot 2026-01-18 at 10 17 32 PM" src="https://github.com/user-attachments/assets/796e7f82-95b1-488c-b747-86355f140272" />
+
+### In Progress Tasks Week 2
+<img width="1230" height="776" alt="Screenshot 2026-01-18 at 10 18 48 PM" src="https://github.com/user-attachments/assets/7f64783d-d6dc-452a-82d9-25d9e129b3d8" />
+
+### Test Report Week 2
+This week, the team expanded CLI and backend functionality and validated new features through automated and manual testing. PR #160 added a summarize-top-projects CLI subcommand to generate summaries of top-ranked projects from the latest analysis snapshots, with JSON/Markdown output and unit tests for command registration and execution. PR #157 introduced a new GET /portfolios/evidence endpoint to expose structured evidence of success and extended the latest portfolio API to support portfolio vs. résumé views, with automated tests covering common and edge cases. PR #156 completed résumé textual display and customization across API and CLI, adding clear priority rules and a user-friendly preview flow with supporting tests. PR #159 enabled GitHub repository import via URL and improved contributor rankings using commits, reviews, and lines changed, validated through unit tests and manual CLI workflows. PR #162 implemented a fully functional start menu that unifies core workflows under a single entry point, normalizes snapshot handling across formats, fixes portfolio summary argument passing, and adds defensive checks and unit tests to ensure robust menu behavior.
