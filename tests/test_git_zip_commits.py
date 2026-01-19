@@ -35,22 +35,6 @@ def create_git_repo_zip(zip_path: str):
         import shutil
         shutil.rmtree(tmpdir, ignore_errors=True)
 
-# -----------------------------
-# Function to extract commits
-# -----------------------------
-def extract_commits_from_git_zip(zip_path: str):
-    tmpdir = tempfile.mkdtemp()
-    try:
-        # Unzip repo
-        with zipfile.ZipFile(zip_path, "r") as zf:
-            zf.extractall(tmpdir)
-
-        # Open Git repo
-        repo = Repo(tmpdir)
-        commits = list(repo.iter_commits("master"))
-        return [c.message.strip() for c in commits]
-    finally:
-        shutil.rmtree(tmpdir, ignore_errors=True)
 
 # -----------------------------
 # Test

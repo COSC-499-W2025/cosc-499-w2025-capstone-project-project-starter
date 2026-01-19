@@ -5,6 +5,7 @@ import os
 import posixpath
 import tempfile
 import zipfile
+import shutil
 from dataclasses import dataclass
 from typing import Dict, List, Optional, Tuple
 from datetime import datetime
@@ -105,41 +106,38 @@ def save_upload_to_temp(upload_bytes: bytes) -> str:
         f.write(upload_bytes)
     return path
 
-def extract_commits_from_git_zip(zip_path: str) -> list[dict]:
-    """
-    Extract commits from a ZIP that contains a .git directory.
-    """
 
-    with tempfile.TemporaryDirectory() as tmpdir:
-        # 1. Extract ZIP
+# -----------------------------
+# Function to extract commits
+# -----------------------------
+def extract_commits_from_git_zip(zip_path: str):
+    tmpdir = tempfile.mkdtemp()
+    try:
+        # Unzip repo
         with zipfile.ZipFile(zip_path, "r") as zf:
             zf.extractall(tmpdir)
 
-        # 2. Find repo root (handles single top-level folder)
-        entries = os.listdir(tmpdir)
-        if len(entries) == 1:
-            repo_path = os.path.join(tmpdir, entries[0])
-        else:
-            repo_path = tmpdir
+        # Open Git repo
+        repo = Repo(tmpdir)
+        commits = list(repo.iter_commits("master"))
+        return [c.message.strip() for c in commits]
+    finally:
+        shutil.rmtree(tmpdir, ignore_errors=True)
 
-        # 3. Validate git repo
-        try:
-            repo = Repo(repo_path)
-        except InvalidGitRepositoryError:
-            raise ValueError("ZIP does not contain a valid git repository (.git missing)")
 
-        # 4. Extract commits
-        commits = []
-        for c in repo.iter_commits("--all"):
-            commits.append({
-                "hexsha": c.hexsha,
-                "author_name": c.author.name,
-                "author_email": c.author.email,
-                "committed_datetime": c.committed_datetime.isoformat(),
-                "message": c.message.strip(),
-            })
+def find_git_repo(path: str) -> Repo:
+    """
+    Recursively search for a .git folder starting at path.
+    Returns a Repo object if found, else raises InvalidGitRepositoryError.
+    """
+    for root, dirs, files in os.walk(path):
+        if '.git' in dirs:
+            try:
+                return Repo(root)
+            except InvalidGitRepositoryError:
+                continue
+    raise InvalidGitRepositoryError(f"No git repo found in {path}")
 
-        return commits
 
 def ingest_zip_to_db(
     *,
