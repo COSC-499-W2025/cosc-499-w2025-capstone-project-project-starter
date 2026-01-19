@@ -1,3 +1,46 @@
+[Most Recent Log!](#personal-log-for-rylan-millar-33334400-term-2-week-2-january-12---18)
+---
+---
+
+
+# Personal Log for Rylan Millar (33334400) Term 2 Week 2 (January 12 - 18)
+
+## Features from the project plan this week
+- Implement Github Collaboration Module
+
+## Tasks from the project board associated with these features
+- Distinguish individual projects from collaborative projects (#142)
+- Extrapolate individual contributions for a given collaboration project (#143)
+
+## Completed and In Progress
+- Distinguish individual projects from collaborative projects (#142) (**Complete**)
+- Extrapolate individual contributions for a given collaboration project (#143) (**Complete**)
+
+## What went well
+- I was able to contribute some physical code
+- I feel like my contributions are useful to project
+- The Github Collaboration Module checks if there is a repo and then show individual contributions based on commit history
+- I was also able to extract the commit message for every commit
+
+## What did not go well
+- Nothing, I think the team is locked in and making solid progress
+
+## Reflections
+- I was able to to implement an important part of the project with the Github module because we will expand on this module for other requirements of the project
+
+## Plans for next sprint
+- Update metadata extraction to extract more types of metadata
+- Update the system so that the metadata that is extracted, is stored in the database
+- Update the github module to give users a key role for a given project
+- Housekeeping and adding comments
+
+## Peer evaluation screenshot Term 2 Week 2
+
+![alt text](<imgs/rylan_millar_t2w2.png>)
+
+---
+---
+
 # Personal Log for Rylan Millar (33334400) Week 14 (December 1-7)
 
 ## Features from the project plan this week
