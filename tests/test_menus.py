@@ -158,12 +158,12 @@ def test_handle_add_project_thumbnail_success(mock_select, mock_input, mock_add_
     mock_display_success.assert_called_once()
 
 
-#@patch("upload_file.add_thumbnail_to_project")
-#@patch("cli.menus.select_project_interactive", return_value=None)
-#def test_handle_add_project_thumbnail_no_selection(mock_select, mock_add_thumb):
-    #"""No selection should exit early without saving."""
-    #menus.handle_add_project_thumbnail()
-    #mock_add_thumb.assert_not_called()
+@patch("upload_file.add_thumbnail_to_project")
+@patch("cli.menus.select_project_interactive", return_value=None)
+def test_handle_add_project_thumbnail_no_selection(mock_select, mock_add_thumb):
+    """No selection should exit early without saving."""
+    menus.handle_add_project_thumbnail()
+    mock_add_thumb.assert_not_called()
 
 
 @patch("cli.menus.summarize_project", return_value="summary text")
