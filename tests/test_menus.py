@@ -145,7 +145,6 @@ def test_handle_upload_file_success(mock_input, mock_add_file, mock_display_succ
     mock_display_success.assert_called_once()
 
 
-@patch("cli.menus.AuthManager")
 @patch("cli.menus.display_success")
 @patch("upload_file.add_thumbnail_to_project")
 @patch("builtins.input", return_value="/tmp/thumb.png")
@@ -166,16 +165,21 @@ def test_handle_add_project_thumbnail_no_selection(mock_select, mock_add_thumb):
     mock_add_thumb.assert_not_called()
 
 
+@patch("cli.menus.AuthManager.get_current_username", return_value="test_user")
 @patch("cli.menus.summarize_project", return_value="summary text")
 @patch("cli.menus.analyze_project_from_db")
 @patch("cli.menus.select_project_interactive", return_value={"id": 1, "filename": "file.py"})
 @patch("builtins.input", return_value="")
 @patch("sys.stdout", new_callable=StringIO)
-def test_handle_analyze_metrics_and_summary(mock_stdout, mock_input, mock_select, mock_analyze, mock_summary, mock_auth):
+def test_handle_analyze_metrics_and_summary(
+    mock_stdout,
+    mock_input,
+    mock_select,
+    mock_analyze,
+    mock_summary,
+    mock_get_username,
+):
     """Combined metrics+summary flow should analyze and print summary."""
-    # Mock AuthManager to return a valid username
-    mock_auth.get_current_username.return_value = 'test_user'
-    
     menus.handle_analyze_metrics_and_summary()
 
     output = mock_stdout.getvalue()
