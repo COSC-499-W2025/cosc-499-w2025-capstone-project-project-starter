@@ -51,6 +51,7 @@ def init_uploaded_files_table():
                     metadata JSONB,
                     thumbnail BYTEA,
                     file_data BYTEA,
+                    contributor_name VARCHAR(255),
                     user_name VARCHAR(255),
                     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                     CONSTRAINT fk_user_name
@@ -81,6 +82,11 @@ def init_uploaded_files_table():
                 cursor.execute("""
                     ALTER TABLE uploaded_files
                     ADD COLUMN IF NOT EXISTS last_modified_at TIMESTAMP;
+                """)
+                # The old database may not have contributor_name.
+                cursor.execute("""
+                    ALTER TABLE uploaded_files
+                    ADD COLUMN IF NOT EXISTS contributor_name VARCHAR(255);
                 """)
 
                 # The old database may not have user_name.
