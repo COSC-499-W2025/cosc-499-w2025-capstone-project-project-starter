@@ -1,8 +1,12 @@
 """FastAPI application entry point."""
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
+from fastapi.responses import FileResponse, JSONResponse
 from api.routes import health
 from api.routes import project
+from api.routes import auth
+import os
 from api.routes import consent
 
 app = FastAPI(
@@ -23,9 +27,31 @@ app.add_middleware(
 # Include routers
 app.include_router(health.router, prefix="/api", tags=["health"])
 app.include_router(project.router, prefix="/api", tags=["projects"])
+app.include_router(auth.router, prefix="/api/auth", tags=["authentication"])
+
 app.include_router(consent.router, prefix="/api", tags=["consent"])
 
 @app.get("/")
-async def root():
-    """Root endpoint."""
-    return {"message": "Artifact API is running", "version": "1.0.0"}
+async def root(request: Request):
+    """Serve the frontend login page or API info based on Accept header."""
+    # Check if client accepts HTML (browser request)
+    accept_header = request.headers.get("accept", "")
+    wants_html = "text/html" in accept_header
+    
+    # If client wants HTML, try to serve frontend
+    if wants_html:
+        possible_paths = [
+            "/app/frontend/index.html",  # Docker container path
+            "frontend/index.html",        # Local development path
+            "../frontend/index.html",     # Alternative local path
+        ]
+        
+        for path in possible_paths:
+            if os.path.exists(path):
+                return FileResponse(path)
+    
+    # Return JSON for API clients or if frontend not found
+    return JSONResponse({
+        "message": "Artifact API is running",
+        "version": "1.0.0"
+    })

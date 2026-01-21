@@ -9,6 +9,7 @@ RUN pip install --no-cache-dir -r requirements.txt
 # Copy application code
 COPY src/ ./src/
 COPY utils/ ./utils/
+COPY frontend/ ./frontend/
 
 # Set Python path to include src directory
 ENV PYTHONPATH=/app/src
