@@ -88,11 +88,32 @@ class ProjectSummarizer:
         if not file_contents:
             return {"error": "No file contents found for this project"}
         
+        # Handle created_at - could be datetime object or ISO string from API
+        created_at = project_info.get('created_at')
+        if created_at:
+            if isinstance(created_at, str):
+                # Already a string from API - format it nicely
+                try:
+                    # Parse ISO string and reformat
+                    from datetime import datetime
+                    dt = datetime.fromisoformat(created_at.replace('Z', '+00:00'))
+                    created_at_str = dt.strftime("%Y-%m-%d %H:%M:%S")
+                except (ValueError, AttributeError):
+                    # If parsing fails, use the string as-is or extract date part
+                    created_at_str = created_at.split('T')[0] if 'T' in created_at else created_at
+            elif hasattr(created_at, 'strftime'):
+                # datetime object
+                created_at_str = created_at.strftime("%Y-%m-%d %H:%M:%S")
+            else:
+                created_at_str = str(created_at)
+        else:
+            created_at_str = "Unknown"
+        
         summary = {
             "project_info": {
                 "id": project_info['id'],
                 "filename": project_info['filename'],
-                "created_at": project_info['created_at'].strftime("%Y-%m-%d %H:%M:%S") if project_info['created_at'] else "Unknown"
+                "created_at": created_at_str
             },
             "languages": self._detect_languages(file_contents),
             "collaboration_analysis": self._analyze_collaboration(project_id),

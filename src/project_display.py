@@ -92,6 +92,37 @@ def list_projects_menu():
         # Fallback to direct call if API fails
         print(f"API call failed, using direct database access: {e}")
         projects = list_projects(current_username)
+    
+    # Display projects if any exist
+    if not projects:
+        print("No projects found in database.")
+        return
+    
+    print("-"*80)
+    print("Stored Projects (Alphabetical Order)")
+    print("-"*80)
+    
+    for i, proj in enumerate(projects, 1):
+        # Handle datetime conversion for display
+        created_at = proj.get('created_at')
+        if created_at:
+            if isinstance(created_at, str):
+                # Parse ISO string date (YYYY-MM-DD or full ISO format)
+                created_date = created_at.split('T')[0] if 'T' in created_at else created_at
+            else:
+                # datetime object
+                created_date = created_at.strftime("%Y-%m-%d")
+        else:
+            created_date = "Unknown"
+        
+        thumbnail_label = "Yes" if proj.get('has_thumbnail', False) else "No"
+        print(f"\n{i}. {proj['filename']}")
+        print(f"   ID: {proj['id']}, Created: {created_date}, Files: {proj.get('file_count', 0)}, Thumbnail: {thumbnail_label}")
+    
+    print("\n" + "-"*80)
+    print(f"Total projects: {len(projects)}")
+    print("-"*80)
+    
     if projects:
         print("\nWould you like to view files for a specific project?")
         view_choice = input("Enter project number to view files, or 'q' to go back: ").strip()
