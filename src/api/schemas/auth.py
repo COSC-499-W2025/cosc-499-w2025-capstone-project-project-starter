@@ -1,5 +1,5 @@
 """Authentication request/response schemas."""
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, ConfigDict
 from typing import Optional
 from datetime import datetime
 
@@ -12,14 +12,13 @@ class LoginRequest(BaseModel):
 
 class UserInfo(BaseModel):
     """User information returned after successful authentication."""
+    model_config = ConfigDict(from_attributes=True)
+    
     user_id: int
     user_name: str
     create_time: Optional[datetime] = None
     last_login_time: Optional[datetime] = None
     is_login: bool = False
-
-    class Config:
-        from_attributes = True
 
 
 class LoginResponse(BaseModel):
