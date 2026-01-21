@@ -3,135 +3,584 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Artifact API - Connectivity Test</title>
+    <title>Artifact - Login</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
     <style>
+        :root {
+            --bg-primary: #0f0f12;
+            --bg-secondary: #1a1a21;
+            --bg-card: #22222d;
+            --accent-primary: #6366f1;
+            --accent-hover: #818cf8;
+            --accent-glow: rgba(99, 102, 241, 0.3);
+            --text-primary: #f4f4f5;
+            --text-secondary: #a1a1aa;
+            --text-muted: #71717a;
+            --border-color: #2e2e3a;
+            --error-color: #ef4444;
+            --success-color: #22c55e;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
         body {
-            font-family: Arial, sans-serif;
-            max-width: 800px;
-            margin: 50px auto;
+            font-family: 'DM Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+            background: var(--bg-primary);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: var(--text-primary);
+        }
+
+        .login-container {
+            width: 100%;
+            max-width: 420px;
             padding: 20px;
-            background-color: #f5f5f5;
         }
-        .container {
-            background: white;
-            padding: 30px;
-            border-radius: 8px;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+
+        .login-card {
+            background: var(--bg-card);
+            border: 1px solid var(--border-color);
+            border-radius: 16px;
+            padding: 40px;
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
         }
-        h1 {
-            color: #333;
+
+        .logo {
+            text-align: center;
+            margin-bottom: 32px;
         }
-        button {
-            background-color: #4CAF50;
-            color: white;
-            padding: 10px 20px;
+
+        .logo h1 {
+            font-size: 28px;
+            font-weight: 700;
+            letter-spacing: -0.5px;
+            color: var(--text-primary);
+        }
+
+        .logo p {
+            color: var(--text-muted);
+            font-size: 14px;
+            margin-top: 8px;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        .form-group label {
+            display: block;
+            font-size: 13px;
+            font-weight: 500;
+            color: var(--text-secondary);
+            margin-bottom: 8px;
+        }
+
+        .input-wrapper {
+            position: relative;
+        }
+
+        .form-group input {
+            width: 100%;
+            padding: 14px 16px;
+            background: var(--bg-secondary);
+            border: 1px solid var(--border-color);
+            border-radius: 10px;
+            color: var(--text-primary);
+            font-size: 15px;
+            font-family: inherit;
+            transition: all 0.2s ease;
+        }
+
+        .form-group input:focus {
+            outline: none;
+            border-color: var(--accent-primary);
+            box-shadow: 0 0 0 3px var(--accent-glow);
+        }
+
+        .form-group input::placeholder {
+            color: var(--text-muted);
+        }
+
+        .password-toggle {
+            position: absolute;
+            right: 14px;
+            top: 50%;
+            transform: translateY(-50%);
+            background: none;
             border: none;
-            border-radius: 4px;
+            color: var(--text-muted);
             cursor: pointer;
-            margin: 5px;
+            padding: 4px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: color 0.2s;
+        }
+
+        .password-toggle:hover {
+            color: var(--text-secondary);
+        }
+
+        .password-toggle svg {
+            width: 20px;
+            height: 20px;
+        }
+
+        .btn-login {
+            width: 100%;
+            padding: 14px 24px;
+            background: var(--accent-primary);
+            border: none;
+            border-radius: 10px;
+            color: white;
+            font-size: 15px;
+            font-weight: 600;
+            font-family: inherit;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            margin-top: 8px;
+        }
+
+        .btn-login:hover:not(:disabled) {
+            background: var(--accent-hover);
+        }
+
+        .btn-login:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+        }
+
+        .btn-login.loading {
+            position: relative;
+            color: transparent;
+        }
+
+        .btn-login.loading::after {
+            content: '';
+            position: absolute;
+            width: 20px;
+            height: 20px;
+            top: 50%;
+            left: 50%;
+            margin-left: -10px;
+            margin-top: -10px;
+            border: 2px solid transparent;
+            border-top-color: white;
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        .message {
+            padding: 12px 16px;
+            border-radius: 8px;
+            font-size: 14px;
+            margin-bottom: 20px;
+            display: none;
+        }
+
+        .message.error {
+            display: block;
+            background: rgba(239, 68, 68, 0.1);
+            border: 1px solid rgba(239, 68, 68, 0.3);
+            color: var(--error-color);
+        }
+
+        .message.success {
+            display: block;
+            background: rgba(34, 197, 94, 0.1);
+            border: 1px solid rgba(34, 197, 94, 0.3);
+            color: var(--success-color);
+        }
+
+        .footer-links {
+            text-align: center;
+            margin-top: 24px;
+            padding-top: 24px;
+            border-top: 1px solid var(--border-color);
+        }
+
+        .footer-links p {
+            color: var(--text-muted);
             font-size: 14px;
         }
-        button:hover {
-            background-color: #45a049;
+
+        .footer-links a {
+            color: var(--accent-primary);
+            text-decoration: none;
+            font-weight: 500;
+            transition: color 0.2s;
         }
-        .result {
-            margin-top: 20px;
-            padding: 15px;
-            border-radius: 4px;
-            background-color: #f9f9f9;
-            border-left: 4px solid #4CAF50;
+
+        .footer-links a:hover {
+            color: var(--accent-hover);
         }
-        .error {
-            border-left-color: #f44336;
-            background-color: #ffebee;
+
+        /* Success state */
+        .welcome-view {
+            display: none;
+            text-align: center;
         }
-        pre {
-            background-color: #f5f5f5;
-            padding: 10px;
-            border-radius: 4px;
-            overflow-x: auto;
+
+        .welcome-view.active {
+            display: block;
         }
-        .status {
-            display: inline-block;
-            padding: 5px 10px;
-            border-radius: 3px;
-            font-weight: bold;
-            margin-left: 10px;
+
+        .login-form.hidden {
+            display: none;
         }
-        .status.success {
-            background-color: #4CAF50;
-            color: white;
+
+        .welcome-icon {
+            width: 64px;
+            height: 64px;
+            background: rgba(34, 197, 94, 0.1);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 0 auto 20px;
         }
-        .status.error {
-            background-color: #f44336;
-            color: white;
+
+        .welcome-icon svg {
+            width: 32px;
+            height: 32px;
+            color: var(--success-color);
+        }
+
+        .welcome-view h2 {
+            font-size: 22px;
+            margin-bottom: 8px;
+        }
+
+        .welcome-view p {
+            color: var(--text-secondary);
+            margin-bottom: 24px;
+        }
+
+        .user-info {
+            background: var(--bg-secondary);
+            border-radius: 10px;
+            padding: 16px;
+            margin-bottom: 24px;
+            text-align: left;
+        }
+
+        .user-info-row {
+            display: flex;
+            justify-content: space-between;
+            padding: 8px 0;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        .user-info-row:last-child {
+            border-bottom: none;
+        }
+
+        .user-info-label {
+            color: var(--text-muted);
+            font-size: 13px;
+        }
+
+        .user-info-value {
+            color: var(--text-primary);
+            font-size: 14px;
+            font-weight: 500;
+        }
+
+        .btn-logout {
+            width: 100%;
+            padding: 14px 24px;
+            background: transparent;
+            border: 1px solid var(--border-color);
+            border-radius: 10px;
+            color: var(--text-secondary);
+            font-size: 15px;
+            font-weight: 500;
+            font-family: inherit;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .btn-logout:hover {
+            border-color: var(--error-color);
+            color: var(--error-color);
         }
     </style>
 </head>
 <body>
-    <div class="container">
-        <h1>Artifact API - Connectivity Test</h1>
-        <p>Test endpoints to verify API connectivity:</p>
-        
-        <button onclick="testRoot()">Test Root Endpoint</button>
-        <button onclick="testHealth()">Test Health Check</button>
-        <button onclick="testDbHealth()">Test DB Health</button>
-        <button onclick="testProjects()">Test Projects Endpoint</button>
-        
-        <div id="result"></div>
+    <div class="login-container">
+        <div class="login-card">
+            <div class="logo">
+                <h1>Artifact</h1>
+                <p>Digital Work Portfolio Manager</p>
+            </div>
+
+            <!-- Login Form -->
+            <form id="loginForm" class="login-form">
+                <div id="messageBox" class="message"></div>
+                
+                <div class="form-group">
+                    <label for="username">Username</label>
+                    <input 
+                        type="text" 
+                        id="username" 
+                        name="username" 
+                        placeholder="Enter your username"
+                        autocomplete="username"
+                        required
+                    >
+                </div>
+
+                <div class="form-group">
+                    <label for="password">Password</label>
+                    <div class="input-wrapper">
+                        <input 
+                            type="password" 
+                            id="password" 
+                            name="password" 
+                            placeholder="Enter your password"
+                            autocomplete="current-password"
+                            required
+                        >
+                        <button type="button" class="password-toggle" id="togglePassword" aria-label="Toggle password visibility">
+                            <svg id="eyeIcon" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                            </svg>
+                        </button>
+                    </div>
+                </div>
+
+                <button type="submit" class="btn-login" id="loginBtn">
+                    Sign In
+                </button>
+
+                <div class="footer-links">
+                    <p>Don't have an account? <a href="#" id="registerLink">Create one</a></p>
+                </div>
+            </form>
+
+            <!-- Welcome View (shown after successful login) -->
+            <div id="welcomeView" class="welcome-view">
+                <div class="welcome-icon">
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+                    </svg>
+                </div>
+                <h2>Welcome back!</h2>
+                <p id="welcomeMessage">You are now logged in.</p>
+                
+                <div class="user-info" id="userInfoDisplay">
+                    <div class="user-info-row">
+                        <span class="user-info-label">Username</span>
+                        <span class="user-info-value" id="displayUsername">-</span>
+                    </div>
+                    <div class="user-info-row">
+                        <span class="user-info-label">User ID</span>
+                        <span class="user-info-value" id="displayUserId">-</span>
+                    </div>
+                    <div class="user-info-row">
+                        <span class="user-info-label">Last Login</span>
+                        <span class="user-info-value" id="displayLastLogin">-</span>
+                    </div>
+                </div>
+
+                <button type="button" class="btn-logout" id="logoutBtn">
+                    Sign Out
+                </button>
+            </div>
+        </div>
     </div>
 
     <script>
-        const API_BASE_URL = 'http://localhost:8000';
+        const API_BASE_URL = window.location.origin;
+        
+        // DOM Elements
+        const loginForm = document.getElementById('loginForm');
+        const welcomeView = document.getElementById('welcomeView');
+        const messageBox = document.getElementById('messageBox');
+        const loginBtn = document.getElementById('loginBtn');
+        const logoutBtn = document.getElementById('logoutBtn');
+        const usernameInput = document.getElementById('username');
+        const passwordInput = document.getElementById('password');
+        const togglePassword = document.getElementById('togglePassword');
+        const eyeIcon = document.getElementById('eyeIcon');
+        const registerLink = document.getElementById('registerLink');
 
-        async function makeRequest(endpoint, description) {
-            const resultDiv = document.getElementById('result');
-            resultDiv.innerHTML = `<p>Testing ${description}...</p>`;
+        // Check if user is already logged in on page load
+        document.addEventListener('DOMContentLoaded', () => {
+            const storedUser = localStorage.getItem('user');
+            if (storedUser) {
+                try {
+                    const user = JSON.parse(storedUser);
+                    showWelcomeView(user);
+                } catch (e) {
+                    localStorage.removeItem('user');
+                }
+            }
+        });
+
+        // Password visibility toggle
+        togglePassword.addEventListener('click', () => {
+            const type = passwordInput.type === 'password' ? 'text' : 'password';
+            passwordInput.type = type;
             
-            try {
-                const response = await fetch(`${API_BASE_URL}${endpoint}`);
-                const data = await response.json();
-                
-                const statusClass = response.ok ? 'success' : 'error';
-                const statusText = response.ok ? 'SUCCESS' : 'ERROR';
-                
-                resultDiv.innerHTML = `
-                    <div class="result ${response.ok ? '' : 'error'}">
-                        <h3>${description} 
-                            <span class="status ${statusClass}">${statusText} (${response.status})</span>
-                        </h3>
-                        <p><strong>Endpoint:</strong> ${endpoint}</p>
-                        <pre>${JSON.stringify(data, null, 2)}</pre>
-                    </div>
+            // Update icon
+            if (type === 'text') {
+                eyeIcon.innerHTML = `
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21" />
                 `;
-            } catch (error) {
-                resultDiv.innerHTML = `
-                    <div class="result error">
-                        <h3>${description} 
-                            <span class="status error">ERROR</span>
-                        </h3>
-                        <p><strong>Error:</strong> ${error.message}</p>
-                        <p>Make sure the API is running on ${API_BASE_URL}</p>
-                    </div>
+            } else {
+                eyeIcon.innerHTML = `
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
                 `;
             }
+        });
+
+        // Show message helper
+        function showMessage(message, type) {
+            messageBox.textContent = message;
+            messageBox.className = `message ${type}`;
         }
 
-        function testRoot() {
-            makeRequest('/', 'Root Endpoint');
+        // Clear message
+        function clearMessage() {
+            messageBox.className = 'message';
+            messageBox.textContent = '';
         }
 
-        function testHealth() {
-            makeRequest('/api/health', 'Health Check');
+        // Format date for display
+        function formatDate(dateString) {
+            if (!dateString) return 'Never';
+            const date = new Date(dateString);
+            return date.toLocaleString();
         }
 
-        function testDbHealth() {
-            makeRequest('/api/health/db', 'Database Health Check');
+        // Show welcome view after successful login
+        function showWelcomeView(user) {
+            loginForm.classList.add('hidden');
+            welcomeView.classList.add('active');
+            
+            document.getElementById('displayUsername').textContent = user.user_name;
+            document.getElementById('displayUserId').textContent = user.user_id;
+            document.getElementById('displayLastLogin').textContent = formatDate(user.last_login_time);
+            document.getElementById('welcomeMessage').textContent = `Welcome, ${user.user_name}!`;
         }
 
-        function testProjects() {
-            makeRequest('/api/projects', 'Projects Endpoint');
+        // Show login form
+        function showLoginForm() {
+            welcomeView.classList.remove('active');
+            loginForm.classList.remove('hidden');
+            clearMessage();
+            usernameInput.value = '';
+            passwordInput.value = '';
         }
+
+        // Login form submission
+        loginForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const username = usernameInput.value.trim();
+            const password = passwordInput.value;
+
+            // Client-side validation
+            if (!username) {
+                showMessage('Please enter your username', 'error');
+                usernameInput.focus();
+                return;
+            }
+
+            if (!password) {
+                showMessage('Please enter your password', 'error');
+                passwordInput.focus();
+                return;
+            }
+
+            // Show loading state
+            loginBtn.classList.add('loading');
+            loginBtn.disabled = true;
+            clearMessage();
+
+            try {
+                const response = await fetch(`${API_BASE_URL}/api/auth/login`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ username, password }),
+                });
+
+                const data = await response.json();
+
+                if (data.success && data.user) {
+                    // Store user info in localStorage
+                    localStorage.setItem('user', JSON.stringify(data.user));
+                    showWelcomeView(data.user);
+                } else {
+                    showMessage(data.message || 'Login failed. Please try again.', 'error');
+                }
+            } catch (error) {
+                console.error('Login error:', error);
+                showMessage('Unable to connect to the server. Please check if the API is running.', 'error');
+            } finally {
+                loginBtn.classList.remove('loading');
+                loginBtn.disabled = false;
+            }
+        });
+
+        // Logout button
+        logoutBtn.addEventListener('click', async () => {
+            const storedUser = localStorage.getItem('user');
+            if (!storedUser) {
+                showLoginForm();
+                return;
+            }
+
+            try {
+                const user = JSON.parse(storedUser);
+                
+                const response = await fetch(`${API_BASE_URL}/api/auth/logout`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ username: user.user_name }),
+                });
+
+                const data = await response.json();
+                
+                // Clear localStorage regardless of server response
+                localStorage.removeItem('user');
+                showLoginForm();
+                
+                if (data.success) {
+                    showMessage('You have been logged out successfully.', 'success');
+                }
+            } catch (error) {
+                console.error('Logout error:', error);
+                // Still clear local storage and show login form
+                localStorage.removeItem('user');
+                showLoginForm();
+            }
+        });
+
+        // Register link (placeholder - to be implemented in future PR)
+        registerLink.addEventListener('click', (e) => {
+            e.preventDefault();
+            showMessage('Registration will be available soon!', 'error');
+        });
     </script>
 </body>
 </html>
