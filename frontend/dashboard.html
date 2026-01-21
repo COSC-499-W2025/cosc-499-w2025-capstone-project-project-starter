@@ -1,0 +1,297 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Artifact - Dashboard</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: system-ui, sans-serif; background: #0f0f12; color: #f4f4f5; padding: 20px; }
+        .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; padding: 15px; background: #1a1a21; border-radius: 8px; }
+        .menu-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 10px; margin-bottom: 20px; }
+        .menu-btn { padding: 15px; background: #22222d; border: 1px solid #2e2e3a; border-radius: 8px; color: #f4f4f5; cursor: pointer; text-align: left; }
+        .menu-btn:hover { background: #2e2e3a; border-color: #6366f1; }
+        .view-panel { background: #1a1a21; border: 1px solid #2e2e3a; border-radius: 8px; padding: 20px; margin-top: 20px; }
+        .view-panel h3 { margin-bottom: 15px; }
+        .btn { padding: 10px 20px; background: #6366f1; border: none; border-radius: 6px; color: white; cursor: pointer; margin: 5px; }
+        .btn:hover { background: #818cf8; }
+        .btn-secondary { background: #2e2e3a; }
+        .btn-secondary:hover { background: #3e3e4a; }
+        input[type="file"], input[type="text"] { padding: 8px; background: #22222d; border: 1px solid #2e2e3a; border-radius: 6px; color: #f4f4f5; width: 100%; margin: 5px 0; }
+        .project-list { max-height: 400px; overflow-y: auto; border: 1px solid #2e2e3a; border-radius: 6px; padding: 10px; margin: 10px 0; }
+        .project-item { padding: 10px; border-bottom: 1px solid #2e2e3a; cursor: pointer; }
+        .project-item:hover { background: #22222d; }
+        .project-item.selected { background: #2e2e3a; border-color: #6366f1; }
+        .message { padding: 12px; border-radius: 6px; margin: 10px 0; }
+        .message.error { background: rgba(239, 68, 68, 0.1); border: 1px solid rgba(239, 68, 68, 0.3); color: #ef4444; }
+        .message.success { background: rgba(34, 197, 94, 0.1); border: 1px solid rgba(34, 197, 94, 0.3); color: #22c55e; }
+        .result { margin-top: 15px; padding: 15px; background: #22222d; border-radius: 6px; white-space: pre-wrap; }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>Artifact Dashboard - <span id="username"></span></h1>
+        <button class="btn btn-secondary" onclick="logout()">Sign Out</button>
+    </div>
+    
+    <div id="messageBox" class="message" style="display: none;"></div>
+    
+    <div class="menu-grid">
+        <button class="menu-btn" onclick="showView('upload')">1. Upload ZIP</button>
+        <button class="menu-btn" onclick="showView('list')">2. List Projects</button>
+        <button class="menu-btn" onclick="showView('analyze-full')">3. Analyze (Full)</button>
+        <button class="menu-btn" onclick="showView('analyze-privacy')">4. Analyze (Privacy)</button>
+        <button class="menu-btn" onclick="showView('rank')">5. Rank Projects</button>
+        <button class="menu-btn" onclick="showView('rank-top3')">6. Rank Top 3</button>
+        <button class="menu-btn" onclick="showView('rankings')">7. View Rankings</button>
+        <button class="menu-btn" onclick="showView('external')">8. External Services</button>
+        <button class="menu-btn" onclick="showView('cleanup')">9. Cleanup Insights</button>
+        <button class="menu-btn" onclick="showView('preferences')">10. Preferences</button>
+        <button class="menu-btn" onclick="showView('account')">11. Account</button>
+        <button class="menu-btn" onclick="showView('resume-gen')">12. Generate Resume</button>
+        <button class="menu-btn" onclick="showView('resume-view')">13. View Resume</button>
+        <button class="menu-btn" onclick="showView('resume-delete')">14. Delete Resume</button>
+        <button class="menu-btn" onclick="showView('portfolio')">15. View Portfolio</button>
+        <button class="menu-btn" onclick="showView('thumbnail')">16. Add Thumbnail</button>
+        <button class="menu-btn" onclick="showView('llm-summary')">17. LLM Summary</button>
+    </div>
+    
+    <div id="viewContainer"></div>
+
+    <script>
+        const API_BASE_URL = window.location.origin;
+        let currentUser = null;
+        let projects = [];
+        let selectedProjectId = null;
+
+        // Check auth on load
+        document.addEventListener('DOMContentLoaded', () => {
+            const storedUser = localStorage.getItem('user');
+            if (!storedUser) {
+                window.location.href = 'index.html';
+                return;
+            }
+            try {
+                currentUser = JSON.parse(storedUser);
+                document.getElementById('username').textContent = currentUser.user_name;
+                loadProjects();
+            } catch (e) {
+                localStorage.removeItem('user');
+                window.location.href = 'index.html';
+            }
+        });
+
+        function showMessage(text, type) {
+            const msg = document.getElementById('messageBox');
+            msg.textContent = text;
+            msg.className = `message ${type}`;
+            msg.style.display = 'block';
+            setTimeout(() => msg.style.display = 'none', 5000);
+        }
+
+        async function loadProjects() {
+            try {
+                const response = await fetch(`${API_BASE_URL}/api/projects?user_name=${currentUser.user_name}`);
+                const data = await response.json();
+                if (data.success) projects = data.projects || [];
+            } catch (e) {
+                console.error('Failed to load projects:', e);
+            }
+        }
+
+        function renderProjectsList(containerId, onSelect) {
+            const container = document.getElementById(containerId);
+            if (!projects.length) {
+                container.innerHTML = '<p>No projects found</p>';
+                return;
+            }
+            container.innerHTML = projects.map(p => 
+                `<div class="project-item" onclick="selectProject(${p.id}, '${containerId}', '${onSelect}')">
+                    <strong>${p.filename}</strong> (ID: ${p.id})<br>
+                    <small>Files: ${p.file_count || 0} | Created: ${new Date(p.created_at).toLocaleDateString()}</small>
+                </div>`
+            ).join('');
+        }
+
+        function selectProject(id, containerId, callback) {
+            selectedProjectId = id;
+            document.querySelectorAll(`#${containerId} .project-item`).forEach(el => el.classList.remove('selected'));
+            event.target.closest('.project-item').classList.add('selected');
+            if (window[callback]) window[callback](id);
+        }
+
+        function showView(viewName) {
+            const container = document.getElementById('viewContainer');
+            selectedProjectId = null;
+            
+            const views = {
+                'upload': `<div class="view-panel"><h3>Upload ZIP File</h3><input type="file" id="zipFile" accept=".zip" /><button class="btn" onclick="uploadFile()">Upload</button><div id="uploadResult"></div></div>`,
+                'list': `<div class="view-panel"><h3>Stored Projects</h3><button class="btn" onclick="refreshProjects()">Refresh</button><div id="projectsList" class="project-list"></div></div>`,
+                'analyze-full': `<div class="view-panel"><h3>Analyze Project (Full Mode)</h3><div id="analyzeProjectsList" class="project-list"></div><button class="btn" onclick="analyzeProject('full')">Analyze Selected</button><div id="analyzeResult" class="result"></div></div>`,
+                'analyze-privacy': `<div class="view-panel"><h3>Analyze Project (Privacy Mode)</h3><div id="analyzePrivacyProjectsList" class="project-list"></div><button class="btn" onclick="analyzeProject('privacy')">Analyze Selected</button><div id="analyzePrivacyResult" class="result"></div></div>`,
+                'rank': `<div class="view-panel"><h3>Rank All Projects</h3><button class="btn" onclick="rankProjects()">Rank Projects</button><div id="rankResult" class="result"></div></div>`,
+                'rank-top3': `<div class="view-panel"><h3>Rank and Summarize Top 3</h3><button class="btn" onclick="rankTop3()">Rank & Summarize</button><div id="rankTop3Result" class="result"></div></div>`,
+                'rankings': `<div class="view-panel"><h3>View and Edit Rankings</h3><button class="btn" onclick="loadRankings()">Load Rankings</button><div id="rankingsList" class="result"></div></div>`,
+                'external': `<div class="view-panel"><h3>External Service Settings</h3><p>Manage external service permissions</p><div id="externalServicesResult" class="result"></div></div>`,
+                'cleanup': `<div class="view-panel"><h3>Cleanup Insights</h3><div id="cleanupProjectsList" class="project-list"></div><button class="btn" onclick="cleanupInsights()">Cleanup Selected</button><div id="cleanupResult" class="result"></div></div>`,
+                'preferences': `<div class="view-panel"><h3>User Preferences</h3><label>Git Username:</label><input type="text" id="gitUsername" /><button class="btn" onclick="savePreferences()">Save</button><div id="preferencesResult" class="result"></div></div>`,
+                'account': `<div class="view-panel"><h3>User Account</h3><p>Username: ${currentUser?.user_name || ''}</p><p>User ID: ${currentUser?.user_id || ''}</p><p>Last Login: ${new Date(currentUser?.last_login_time).toLocaleString()}</p></div>`,
+                'resume-gen': `<div class="view-panel"><h3>Generate Resume</h3><button class="btn" onclick="generateResume()">Generate</button><div id="resumeGenResult" class="result"></div></div>`,
+                'resume-view': `<div class="view-panel"><h3>View Resume</h3><button class="btn" onclick="viewResume()">Load Resume</button><div id="resumeViewResult" class="result"></div></div>`,
+                'resume-delete': `<div class="view-panel"><h3>Delete Resume</h3><button class="btn" onclick="deleteResume()">Delete</button><div id="resumeDeleteResult" class="result"></div></div>`,
+                'portfolio': `<div class="view-panel"><h3>View Portfolio</h3><button class="btn" onclick="viewPortfolio()">Load Portfolio</button><div id="portfolioResult" class="result"></div></div>`,
+                'thumbnail': `<div class="view-panel"><h3>Add Thumbnail to Project</h3><div id="thumbnailProjectsList" class="project-list"></div><input type="file" id="thumbnailFile" accept="image/*" /><button class="btn" onclick="addThumbnail()">Upload Thumbnail</button><div id="thumbnailResult" class="result"></div></div>`,
+                'llm-summary': `<div class="view-panel"><h3>Run LLM Summary</h3><div id="llmProjectsList" class="project-list"></div><button class="btn" onclick="runLLMSummary()">Run Summary</button><div id="llmSummaryResult" class="result"></div></div>`
+            };
+            
+            container.innerHTML = views[viewName] || '<div class="view-panel"><p>View not found</p></div>';
+            
+            if (viewName === 'list' || viewName === 'analyze-full' || viewName === 'analyze-privacy' || 
+                viewName === 'cleanup' || viewName === 'thumbnail' || viewName === 'llm-summary') {
+                setTimeout(() => {
+                    const listId = viewName === 'list' ? 'projectsList' : 
+                                  viewName === 'analyze-full' ? 'analyzeProjectsList' :
+                                  viewName === 'analyze-privacy' ? 'analyzePrivacyProjectsList' :
+                                  viewName === 'cleanup' ? 'cleanupProjectsList' :
+                                  viewName === 'thumbnail' ? 'thumbnailProjectsList' : 'llmProjectsList';
+                    renderProjectsList(listId, 'onProjectSelect');
+                }, 100);
+            }
+        }
+
+        async function uploadFile() {
+            const fileInput = document.getElementById('zipFile');
+            const resultDiv = document.getElementById('uploadResult');
+            if (!fileInput?.files[0]) {
+                showMessage('Please select a file', 'error');
+                return;
+            }
+            const formData = new FormData();
+            formData.append('file', fileInput.files[0]);
+            resultDiv.innerHTML = 'Uploading...';
+            try {
+                const response = await fetch(`${API_BASE_URL}/api/projects/upload?user_name=${currentUser.user_name}`, {
+                    method: 'POST',
+                    body: formData
+                });
+                const data = await response.json();
+                if (data.success) {
+                    resultDiv.innerHTML = `Upload successful! Project ID: ${data.project_id}`;
+                    showMessage('Upload successful!', 'success');
+                    loadProjects();
+                } else {
+                    resultDiv.innerHTML = data.message || 'Upload failed';
+                    showMessage('Upload failed', 'error');
+                }
+            } catch (e) {
+                resultDiv.innerHTML = `Error: ${e.message}`;
+                showMessage('Upload error', 'error');
+            }
+        }
+
+        function refreshProjects() {
+            loadProjects().then(() => {
+                renderProjectsList('projectsList', 'onProjectSelect');
+                showMessage('Projects refreshed', 'success');
+            });
+        }
+
+        function onProjectSelect(id) {
+            selectedProjectId = id;
+        }
+
+        async function analyzeProject(mode) {
+            if (!selectedProjectId) {
+                showMessage('Please select a project', 'error');
+                return;
+            }
+            const resultId = mode === 'full' ? 'analyzeResult' : 'analyzePrivacyResult';
+            document.getElementById(resultId).innerHTML = 'Analyzing... (API endpoint needed)';
+            showMessage('Analysis feature requires API endpoint', 'error');
+        }
+
+        async function rankProjects() {
+            document.getElementById('rankResult').innerHTML = 'Ranking... (API endpoint needed)';
+            showMessage('Ranking feature requires API endpoint', 'error');
+        }
+
+        async function rankTop3() {
+            document.getElementById('rankTop3Result').innerHTML = 'Ranking and summarizing... (API endpoint needed)';
+            showMessage('Rank top 3 feature requires API endpoint', 'error');
+        }
+
+        async function loadRankings() {
+            document.getElementById('rankingsList').innerHTML = 'Loading rankings... (API endpoint needed)';
+            showMessage('Rankings feature requires API endpoint', 'error');
+        }
+
+        async function cleanupInsights() {
+            if (!selectedProjectId) {
+                showMessage('Please select a project', 'error');
+                return;
+            }
+            document.getElementById('cleanupResult').innerHTML = 'Cleaning up... (API endpoint needed)';
+            showMessage('Cleanup feature requires API endpoint', 'error');
+        }
+
+        async function savePreferences() {
+            const gitUsername = document.getElementById('gitUsername')?.value;
+            document.getElementById('preferencesResult').innerHTML = 'Saving... (API endpoint needed)';
+            showMessage('Preferences feature requires API endpoint', 'error');
+        }
+
+        async function generateResume() {
+            document.getElementById('resumeGenResult').innerHTML = 'Generating resume... (API endpoint needed)';
+            showMessage('Resume generation requires API endpoint', 'error');
+        }
+
+        async function viewResume() {
+            document.getElementById('resumeViewResult').innerHTML = 'Loading resume... (API endpoint needed)';
+            showMessage('View resume requires API endpoint', 'error');
+        }
+
+        async function deleteResume() {
+            document.getElementById('resumeDeleteResult').innerHTML = 'Deleting resume... (API endpoint needed)';
+            showMessage('Delete resume requires API endpoint', 'error');
+        }
+
+        async function viewPortfolio() {
+            document.getElementById('portfolioResult').innerHTML = 'Loading portfolio... (API endpoint needed)';
+            showMessage('Portfolio feature requires API endpoint', 'error');
+        }
+
+        async function addThumbnail() {
+            if (!selectedProjectId) {
+                showMessage('Please select a project', 'error');
+                return;
+            }
+            document.getElementById('thumbnailResult').innerHTML = 'Uploading thumbnail... (API endpoint needed)';
+            showMessage('Thumbnail feature requires API endpoint', 'error');
+        }
+
+        async function runLLMSummary() {
+            if (!selectedProjectId) {
+                showMessage('Please select a project', 'error');
+                return;
+            }
+            document.getElementById('llmSummaryResult').innerHTML = 'Running LLM summary... (API endpoint needed)';
+            showMessage('LLM summary requires API endpoint', 'error');
+        }
+
+        async function logout() {
+            try {
+                await fetch(`${API_BASE_URL}/api/auth/logout`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ username: currentUser.user_name }),
+                });
+            } catch (e) {
+                console.error('Logout error:', e);
+            } finally {
+                localStorage.removeItem('user');
+                window.location.href = 'index.html';
+            }
+        }
+    </script>
+</body>
+</html>

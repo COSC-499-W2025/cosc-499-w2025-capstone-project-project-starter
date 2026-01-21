@@ -527,7 +527,8 @@
                 if (data.success && data.user) {
                     // Store user info in localStorage
                     localStorage.setItem('user', JSON.stringify(data.user));
-                    showWelcomeView(data.user);
+                    // Redirect to dashboard
+                    window.location.href = 'dashboard.html';
                 } else {
                     showMessage(data.message || 'Login failed. Please try again.', 'error');
                 }
