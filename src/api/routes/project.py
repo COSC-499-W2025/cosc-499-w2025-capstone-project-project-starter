@@ -89,7 +89,16 @@ async def get_projects(
     try:
         if user_name:
             # Use project_manager for user-specific projects
+            # list_projects returns a list of dicts, so we use it directly
             projects = list_projects(user_name=user_name)
+            # Convert datetime objects to ISO strings for API response
+            for proj in projects:
+                created_at = proj.get('created_at')
+                if created_at:
+                    if hasattr(created_at, 'isoformat'):
+                        proj['created_at'] = created_at.isoformat()
+                    else:
+                        proj['created_at'] = str(created_at)
         else:
             # Get all projects from uploaded_files
             projects_data = list_uploaded_files()
