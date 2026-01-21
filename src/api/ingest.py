@@ -5,13 +5,16 @@ import os
 import posixpath
 import tempfile
 import zipfile
+import shutil
 from dataclasses import dataclass
 from typing import Dict, List, Optional, Tuple
+from datetime import datetime
 
 from sqlalchemy import text
 from sqlalchemy.engine import Engine
 
 from src.db.consents import latest_consent_granted
+from git import Repo, InvalidGitRepositoryError
 
 
 @dataclass(frozen=True)
@@ -102,6 +105,38 @@ def save_upload_to_temp(upload_bytes: bytes) -> str:
     with open(path, "wb") as f:
         f.write(upload_bytes)
     return path
+
+
+# -----------------------------
+# Function to extract commits
+# -----------------------------
+def extract_commits_from_git_zip(zip_path: str):
+    tmpdir = tempfile.mkdtemp()
+    try:
+        # Unzip repo
+        with zipfile.ZipFile(zip_path, "r") as zf:
+            zf.extractall(tmpdir)
+
+        # Open Git repo
+        repo = Repo(tmpdir)
+        commits = list(repo.iter_commits("master"))
+        return [c.message.strip() for c in commits]
+    finally:
+        shutil.rmtree(tmpdir, ignore_errors=True)
+
+
+def find_git_repo(path: str) -> Repo:
+    """
+    Recursively search for a .git folder starting at path.
+    Returns a Repo object if found, else raises InvalidGitRepositoryError.
+    """
+    for root, dirs, files in os.walk(path):
+        if '.git' in dirs:
+            try:
+                return Repo(root)
+            except InvalidGitRepositoryError:
+                continue
+    raise InvalidGitRepositoryError(f"No git repo found in {path}")
 
 
 def ingest_zip_to_db(

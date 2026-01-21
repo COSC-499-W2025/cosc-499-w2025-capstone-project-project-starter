@@ -3,6 +3,10 @@ from __future__ import annotations
 import os
 import uuid
 from typing import Any, Dict, List, Optional, Tuple
+import tempfile
+import zipfile
+from typing import Any, Dict, List, Optional
+from git import Repo, InvalidGitRepositoryError
 
 from fastapi import FastAPI, UploadFile, File, HTTPException, Form, Query, Body
 from pydantic import BaseModel, Field
@@ -11,7 +15,7 @@ from sqlalchemy import text, bindparam
 from sqlalchemy.dialects.postgresql import ARRAY, UUID
 from fastapi.responses import Response
 from src.db.session import get_engine
-from src.api.ingest import ingest_zip_to_db, save_upload_to_temp
+from src.api.ingest import ingest_zip_to_db, save_upload_to_temp, extract_commits_from_git_zip, find_git_repo
 from src.api.report import build_project_report
 from src.db.consents import get_snapshot_owner_user_id, is_external_services_allowed
 
@@ -1147,6 +1151,29 @@ def delete_analysis_by_id(analysis_id: str):
         return delete_analysis(engine, analysis_id)
     except KeyError:
         raise HTTPException(status_code=404, detail="Analysis not found")
+
+
+@app.post("/extract-commits/")
+async def extract_commits(file: UploadFile):
+    # Save uploaded zip to a temp file
+    tmp_zip = tempfile.NamedTemporaryFile(delete=False, suffix=".zip")
+    tmp_zip.write(await file.read())
+    tmp_zip.close()
+
+    # Extract zip to temp dir
+    tmp_dir = tempfile.mkdtemp()
+    with zipfile.ZipFile(tmp_zip.name, 'r') as zf:
+        zf.extractall(tmp_dir)
+
+    # Find the git repo
+    try:
+        repo = find_git_repo(tmp_dir)
+    except InvalidGitRepositoryError:
+        return {"error": "Uploaded zip is not a valid git repo"}
+
+    # Extract commits
+    commits = [{"message": c.message, "author": c.author.name, "hexsha": c.hexsha} for c in repo.iter_commits()]
+    return {"commits": commits}
 
 
 @app.get("/portfolio/{portfolio_id}/projects/chronological")
