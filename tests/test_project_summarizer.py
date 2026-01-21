@@ -326,31 +326,28 @@ class TestGetAvailableProjects:
     """Test suite for the get_available_projects function"""
     
     @patch('src.project_summarizer.AuthManager')
-    @patch('src.project_summarizer.with_db_cursor')
-    def test_get_available_projects_success(self, mock_with_db_cursor, mock_auth):
-        """Test successful retrieval of available projects"""
+    @patch('src.project_summarizer.get_api_client')
+    def test_get_available_projects_success(self, mock_get_client, mock_auth):
+        """Test successful retrieval of available projects via API"""
         # Mock AuthManager to return a valid username
         mock_auth.get_current_username.return_value = 'test_user'
         
-        # Mock database cursor
-        mock_cursor = Mock()
-        mock_context = MagicMock()
-        mock_context.__enter__.return_value = mock_cursor
-        mock_with_db_cursor.return_value = mock_context
-        
-        # Mock database results
-        mock_projects = [
-            (1, 'project1.zip', datetime(2024, 1, 1, 10, 0, 0)),
-            (2, 'project2.zip', datetime(2024, 1, 2, 11, 0, 0))
-        ]
-        mock_cursor.fetchall.return_value = mock_projects
+        # Mock API client
+        mock_client = mock_get_client.return_value
+        mock_client.get_projects.return_value = {
+            'success': True,
+            'count': 2,
+            'projects': [
+                {'id': 1, 'filename': 'project1.zip', 'created_at': '2024-01-01T10:00:00'},
+                {'id': 2, 'filename': 'project2.zip', 'created_at': '2024-01-02T11:00:00'}
+            ]
+        }
         
         projects = get_available_projects()
         
-        # Verify the function calls
-        mock_with_db_cursor.assert_called_once()
-        mock_cursor.execute.assert_called_once()
-        mock_cursor.fetchall.assert_called_once()
+        # Verify the API client was called
+        mock_get_client.assert_called_once()
+        mock_client.get_projects.assert_called_once_with(user_name='test_user')
         
         # Check results
         assert len(projects) == 2

@@ -5,6 +5,7 @@ This module ties together display, storage, and validation logic.
 
 from consent.consent_display import ConsentDisplay
 from consent.consent_storage import ConsentStorage
+from api.client import get_api_client
 
 
 class ConsentManager:
@@ -49,12 +50,23 @@ class ConsentManager:
         ConsentDisplay.show_consent_message()
         consent_granted = ConsentDisplay.prompt_for_consent()
         
-        # Store the consent decision
-        if self.storage.store_consent(consent_granted, self.user_id):
-            return consent_granted
-        else:
-            print("Error storing consent.")
-            return False
+        # Store the consent decision via API
+        try:
+            client = get_api_client()
+            api_result = client.post_privacy_consent(consent_granted, self.user_id)
+            if api_result.get('success', False):
+                return consent_granted
+            else:
+                print("Error storing consent via API.")
+                return False
+        except Exception as e:
+            # Fallback to direct storage if API fails
+            print(f"API call failed, using direct storage: {e}")
+            if self.storage.store_consent(consent_granted, self.user_id):
+                return consent_granted
+            else:
+                print("Error storing consent.")
+                return False
     
     def has_access(self):
         """

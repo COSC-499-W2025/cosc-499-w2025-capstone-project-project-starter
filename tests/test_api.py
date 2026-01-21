@@ -93,10 +93,12 @@ class TestProjectsEndpoint:
         
         assert response.status_code == 200
         data = response.json()
-        assert "message" in data
+        assert "success" in data
         assert "projects" in data
-        assert data["message"] == "Projects endpoint is working"
+        assert "count" in data
+        assert data["success"] is True
         assert isinstance(data["projects"], list)
+        assert isinstance(data["count"], int)
 
 
 class TestAPIDocumentation:
