@@ -164,18 +164,37 @@ def ask_user_preferences(consent_manager, collab_manager, is_start):
 def handle_upload_file():
     """Handle file upload menu option."""
     filepath = input("Enter the path to your zip file: ")
-    from upload_file import add_file_to_db
+    from api.client import get_api_client
+    from upload_file import UploadResult
     from account.user_manager import AuthManager
     
     # Get current logged in user
     current_username = AuthManager.get_current_username()
     
-    result = add_file_to_db(filepath, user_name=current_username)
-    
-    if result.success:
-        display_success(result)
-    else:
-        display_error(result)
+    try:
+        client = get_api_client()
+        api_result = client.upload_project(filepath, user_name=current_username)
+        
+        # Convert API response to UploadResult for compatibility
+        result = UploadResult(
+            success=api_result.get('success', False),
+            message=api_result.get('message', ''),
+            error_type=api_result.get('error_type'),
+            data=api_result.get('data', {})
+        )
+        
+        if result.success:
+            display_success(result)
+        else:
+            display_error(result)
+    except Exception as e:
+        # Fallback to direct call if API fails
+        from upload_file import add_file_to_db
+        result = add_file_to_db(filepath, user_name=current_username)
+        if result.success:
+            display_success(result)
+        else:
+            display_error(result)
 
 
 def handle_add_project_thumbnail():
