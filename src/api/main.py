@@ -7,6 +7,7 @@ from api.routes import health
 from api.routes import project
 from api.routes import auth
 import os
+from api.routes import consent
 
 app = FastAPI(
     title="Artifact API",
@@ -28,6 +29,7 @@ app.include_router(health.router, prefix="/api", tags=["health"])
 app.include_router(project.router, prefix="/api", tags=["projects"])
 app.include_router(auth.router, prefix="/api/auth", tags=["authentication"])
 
+app.include_router(consent.router, prefix="/api", tags=["consent"])
 
 @app.get("/")
 async def root(request: Request):

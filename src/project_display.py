@@ -5,6 +5,7 @@ Handles all user interface interactions for listing and selecting projects.
 from project_manager import list_projects, list_project_files
 from project_summarizer import get_available_projects
 from account.user_manager import AuthManager
+from api.client import get_api_client
 
 
 def select_project_interactive(title: str):
@@ -30,7 +31,17 @@ def select_project_interactive(title: str):
 
     print("Available projects:")
     for i, project in enumerate(projects, 1):
-        created_date = project['created_at'].strftime("%Y-%m-%d") if project['created_at'] else "Unknown"
+        # Handle both datetime objects and ISO string dates from API
+        created_at = project.get('created_at')
+        if created_at:
+            if isinstance(created_at, str):
+                # Parse ISO string date (YYYY-MM-DD or full ISO format)
+                created_date = created_at.split('T')[0] if 'T' in created_at else created_at
+            else:
+                # datetime object
+                created_date = created_at.strftime("%Y-%m-%d")
+        else:
+            created_date = "Unknown"
         print(f"{i}. {project['filename']} (ID: {project['id']}, Created: {created_date})")
 
     print("-"*50)
@@ -61,8 +72,57 @@ def list_projects_menu():
         print("Error: No user is currently logged in.")
         return
     
-    # Data Isolation: Pass user_name to list only current user's projects
-    projects = list_projects(current_username)
+    # Use API to get projects
+    try:
+        client = get_api_client()
+        api_response = client.get_projects(user_name=current_username)
+        projects_data = api_response.get('projects', [])
+        
+        # Convert API response to format expected by existing code
+        projects = []
+        for proj in projects_data:
+            projects.append({
+                'id': proj['id'],
+                'filename': proj['filename'],
+                'created_at': proj.get('created_at'),  # Will be string from API
+                'file_count': proj.get('file_count', 0),
+                'has_thumbnail': proj.get('has_thumbnail', False)
+            })
+    except Exception as e:
+        # Fallback to direct call if API fails
+        print(f"API call failed, using direct database access: {e}")
+        projects = list_projects(current_username)
+    
+    # Display projects if any exist
+    if not projects:
+        print("No projects found in database.")
+        return
+    
+    print("-"*80)
+    print("Stored Projects (Alphabetical Order)")
+    print("-"*80)
+    
+    for i, proj in enumerate(projects, 1):
+        # Handle datetime conversion for display
+        created_at = proj.get('created_at')
+        if created_at:
+            if isinstance(created_at, str):
+                # Parse ISO string date (YYYY-MM-DD or full ISO format)
+                created_date = created_at.split('T')[0] if 'T' in created_at else created_at
+            else:
+                # datetime object
+                created_date = created_at.strftime("%Y-%m-%d")
+        else:
+            created_date = "Unknown"
+        
+        thumbnail_label = "Yes" if proj.get('has_thumbnail', False) else "No"
+        print(f"\n{i}. {proj['filename']}")
+        print(f"   ID: {proj['id']}, Created: {created_date}, Files: {proj.get('file_count', 0)}, Thumbnail: {thumbnail_label}")
+    
+    print("\n" + "-"*80)
+    print(f"Total projects: {len(projects)}")
+    print("-"*80)
+    
     if projects:
         print("\nWould you like to view files for a specific project?")
         view_choice = input("Enter project number to view files, or 'q' to go back: ").strip()

@@ -16,6 +16,7 @@ from common.constants import LANGUAGE_EXTENSIONS
 from typing import Dict, List, Set, Any
 from analysis.key_metrics import _fetch_activity_timestamps, _compute_timeline_metrics
 from account.user_manager import AuthManager
+from api.client import get_api_client
 
 def _collab_level_from_score(score: int) -> str:
     """Map score to high-level label."""
@@ -58,10 +59,27 @@ class ProjectSummarizer:
             if not user_name:
                 return {"error": "No user is currently logged in"}
         
-        # Data Isolation: Get project info with user verification
-        project_info = get_project_by_id(project_id, user_name)
-        if not project_info:
-            return {"error": "Project not found or access denied"}
+        # Data Isolation: Get project info with user verification via API
+        try:
+            client = get_api_client()
+            api_response = client.get_project_by_id(project_id, user_name=user_name)
+            project_data = api_response.get('project', {})
+            if not project_data:
+                return {"error": "Project not found or access denied"}
+            # Convert API response to expected format
+            project_info = {
+                'id': project_data['id'],
+                'filename': project_data['filename'],
+                'filepath': project_data.get('filepath', ''),
+                'status': project_data.get('status', 'unknown'),
+                'metadata': project_data.get('metadata'),
+                'created_at': project_data.get('created_at')  # Will be string from API
+            }
+        except Exception as e:
+            # Fallback to direct call if API fails
+            project_info = get_project_by_id(project_id, user_name)
+            if not project_info:
+                return {"error": "Project not found or access denied"}
         
         # Get file contents and statistics
         file_contents = get_file_contents_by_upload_id(project_id)
@@ -70,11 +88,32 @@ class ProjectSummarizer:
         if not file_contents:
             return {"error": "No file contents found for this project"}
         
+        # Handle created_at - could be datetime object or ISO string from API
+        created_at = project_info.get('created_at')
+        if created_at:
+            if isinstance(created_at, str):
+                # Already a string from API - format it nicely
+                try:
+                    # Parse ISO string and reformat
+                    from datetime import datetime
+                    dt = datetime.fromisoformat(created_at.replace('Z', '+00:00'))
+                    created_at_str = dt.strftime("%Y-%m-%d %H:%M:%S")
+                except (ValueError, AttributeError):
+                    # If parsing fails, use the string as-is or extract date part
+                    created_at_str = created_at.split('T')[0] if 'T' in created_at else created_at
+            elif hasattr(created_at, 'strftime'):
+                # datetime object
+                created_at_str = created_at.strftime("%Y-%m-%d %H:%M:%S")
+            else:
+                created_at_str = str(created_at)
+        else:
+            created_at_str = "Unknown"
+        
         summary = {
             "project_info": {
                 "id": project_info['id'],
                 "filename": project_info['filename'],
-                "created_at": project_info['created_at'].strftime("%Y-%m-%d %H:%M:%S") if project_info['created_at'] else "Unknown"
+                "created_at": created_at_str
             },
             "languages": self._detect_languages(file_contents),
             "collaboration_analysis": self._analyze_collaboration(project_id),
@@ -385,21 +424,38 @@ def get_available_projects(user_name=None):
             return []
     
     try:
-        with with_db_cursor() as cursor:
-            # Data Isolation: Filter projects by user_name
-            cursor.execute("""
-                SELECT id, filename, created_at
-                FROM uploaded_files
-                WHERE user_name = %s
-                ORDER BY filename ASC
-            """, (user_name,))
-            
-            projects = cursor.fetchall()
-        return [{"id": row[0], "filename": row[1], "created_at": row[2]} for row in projects]
+        # Use API to get projects
+        client = get_api_client()
+        api_response = client.get_projects(user_name=user_name)
+        projects_data = api_response.get('projects', [])
         
-    except ConnectionError:
-        print("Could not connect to database.")
-        return []
+        # Convert API response to expected format
+        projects = []
+        for proj in projects_data:
+            projects.append({
+                "id": proj['id'],
+                "filename": proj['filename'],
+                "created_at": proj.get('created_at')  # Will be string from API
+            })
+        return projects
     except Exception as e:
-        print(f"Error retrieving projects: {e}")
-        return []
+        # Fallback to direct database call if API fails
+        print(f"API call failed, using direct database access: {e}")
+        try:
+            with with_db_cursor() as cursor:
+                # Data Isolation: Filter projects by user_name
+                cursor.execute("""
+                    SELECT id, filename, created_at
+                    FROM uploaded_files
+                    WHERE user_name = %s
+                    ORDER BY filename ASC
+                """, (user_name,))
+                
+                projects = cursor.fetchall()
+            return [{"id": row[0], "filename": row[1], "created_at": row[2]} for row in projects]
+        except ConnectionError:
+            print("Could not connect to database.")
+            return []
+        except Exception as e2:
+            print(f"Error retrieving projects: {e2}")
+            return []
