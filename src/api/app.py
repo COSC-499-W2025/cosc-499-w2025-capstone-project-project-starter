@@ -1,3 +1,4 @@
+
 from __future__ import annotations
 
 import os
@@ -5,6 +6,7 @@ import uuid
 from typing import Any, Dict, List, Optional
 
 from fastapi import FastAPI, UploadFile, File, HTTPException, Form, Query, Body
+from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 from sqlalchemy import text
 from sqlalchemy import text, bindparam
@@ -44,6 +46,18 @@ from src.db.deletion import (
 
 app = FastAPI(title="Artifact Miner API", version="0.1.0")
 
+origins = [
+    "http://localhost:3000",
+]
+
+# CORS middleware - adjust for production as needed
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=origins,  # Allows all origins - okay for development
+    allow_credentials=True,
+    allow_methods=["*"],  # Allows all methods (GET, POST, etc.)
+    allow_headers=["*"],  # Allows all headers
+)
 
 class PrivacyConsentIn(BaseModel):
     user_id: str | None = None
@@ -160,7 +174,7 @@ async def upload_project(
 
 
 @app.get("/snapshots/{snapshot_id}/analyses")
-def list_snapshot_analyses(snapshot_id: str):
+def list_snapshot_analyses(snapshot_id: str):  
     engine = get_engine()
     with engine.connect() as conn:
         rows = conn.execute(
