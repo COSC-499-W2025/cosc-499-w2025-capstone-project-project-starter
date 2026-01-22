@@ -8,6 +8,7 @@ from api.routes import project
 from api.routes import auth
 import os
 from api.routes import consent
+from api.routes import resume_portfolio
 
 app = FastAPI(
     title="Artifact API",
@@ -28,8 +29,8 @@ app.add_middleware(
 app.include_router(health.router, prefix="/api", tags=["health"])
 app.include_router(project.router, prefix="/api", tags=["projects"])
 app.include_router(auth.router, prefix="/api/auth", tags=["authentication"])
-
 app.include_router(consent.router, prefix="/api", tags=["consent"])
+app.include_router(resume_portfolio.router, prefix="/api", tags=["resume", "portfolio"])
 
 def find_frontend_file(filename: str) -> str:
     """Find frontend file in various possible locations."""

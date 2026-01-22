@@ -6,6 +6,11 @@ import tempfile
 import os
 from upload_file import add_file_to_db, list_uploaded_files
 from project_manager import list_projects, get_project_by_id
+from project_analyzer import analyze_project_by_id
+from analysis.project_ranking import rank_all_projects, save_rankings_with_summaries, rank_and_summarize_top_projects
+from analysis.ranking_storage import get_stored_rankings
+from tools.cleanup_insights import delete_insights
+from database.user_preferences import update_user_git_username, get_user_git_username
 
 router = APIRouter()
 
@@ -203,3 +208,73 @@ async def get_project_by_id_endpoint(
             status_code=500,
             detail=f"Error retrieving project: {str(e)}"
         )
+
+
+@router.post("/projects/{project_id}/analyze")
+async def analyze_project(project_id: int, user_name: Optional[str] = Query(None)):
+    """Analyze a project."""
+    try:
+        from project_analyzer import ProjectAnalyzer
+        analyzer = ProjectAnalyzer(user_name or 'default_user')
+        results = analyzer.analyze_uploaded_project(project_id)
+        if not results.get('success'):
+            raise HTTPException(status_code=400, detail=results.get('error', 'Analysis failed'))
+        return {"success": True, "analysis": results}
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error analyzing project: {str(e)}")
+
+
+@router.post("/projects/rank")
+async def rank_projects(user_name: Optional[str] = Query(None)):
+    """Rank all projects."""
+    try:
+        ranked = rank_all_projects(user_name=user_name)
+        save_rankings_with_summaries(ranked, generate_summaries=True)
+        return {"success": True, "ranked_projects": ranked[:10], "count": len(ranked)}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error ranking projects: {str(e)}")
+
+
+@router.post("/projects/rank-top3")
+async def rank_top3(user_name: Optional[str] = Query(None)):
+    """Rank and summarize top 3 projects."""
+    try:
+        rank_and_summarize_top_projects()
+        ranked = rank_all_projects(user_name=user_name)
+        return {"success": True, "top3": ranked[:3]}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error ranking top 3: {str(e)}")
+
+
+@router.get("/projects/rankings")
+async def get_rankings():
+    """Get stored rankings."""
+    try:
+        rankings = get_stored_rankings()
+        return {"success": True, "rankings": rankings}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error retrieving rankings: {str(e)}")
+
+
+@router.delete("/projects/{project_id}/insights")
+async def cleanup_project_insights(project_id: int):
+    """Delete project insights."""
+    try:
+        deleted = delete_insights(project_id)
+        return {"success": True, "deleted": {"metrics": deleted[0], "files": deleted[1], "projects": deleted[2]}}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error cleaning up insights: {str(e)}")
+
+
+@router.post("/preferences")
+async def update_preferences(request: dict):
+    """Update user preferences."""
+    try:
+        git_username = request.get('git_username')
+        if git_username:
+            update_user_git_username(git_username)
+        return {"success": True, "git_username": get_user_git_username()}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error updating preferences: {str(e)}")
