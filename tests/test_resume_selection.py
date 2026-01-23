@@ -99,7 +99,7 @@ class TestResumeSelection:
         result = ResumeManager.generate_user_resume("test_user", top_projects_count=1, selection=selection)
 
         assert result is not None
-        assert result["user_id"] == "test_user"
+        assert result["user_name"] == "test_user"
 
         # Skills should be empty but keys must still exist
         assert result["all_skills"] == []

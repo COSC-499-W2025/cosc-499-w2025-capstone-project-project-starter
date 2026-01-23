@@ -21,7 +21,7 @@ class TestResumeFormatterJSON:
     def sample_resume(self):
         """Sample resume data for testing."""
         return {
-            'user_id': 'test_user',
+            'user_name': 'test_user',
             'total_projects_analyzed': 10,
             'top_projects_displayed': 5,
             'all_skills': ['Python', 'JavaScript', 'React'],
@@ -66,7 +66,7 @@ class TestResumeFormatterJSON:
         
         assert result is not None
         assert isinstance(result, str)
-        assert '"user_id"' in result
+        assert '"user_name"' in result
         assert '"total_projects_analyzed"' in result
     
     def test_format_json_empty_data(self):
@@ -81,7 +81,7 @@ class TestResumeFormatterJSON:
         formatted = ResumeFormatter.format_json(sample_resume)
         
         parsed = json.loads(formatted)
-        assert parsed['user_id'] == 'test_user'
+        assert parsed['user_name'] == 'test_user'
         assert parsed['total_projects_analyzed'] == 10
     
     def test_format_json_exception_handling(self):
@@ -517,7 +517,6 @@ class TestResumeFormatterPDF:
         """Sample resume data for PDF testing."""
         return {
             'user_name': 'Test User',
-            'user_id': 'test_user',
             'total_projects_analyzed': 5,
             'top_projects_displayed': 2,
             'all_skills': ['Python', 'JavaScript', 'React', 'Docker'],
