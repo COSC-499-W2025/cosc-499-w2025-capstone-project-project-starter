@@ -25,58 +25,59 @@ class ResumeManager:
         """
         try:
             with with_db_cursor() as cursor:
+                # First, create table if it doesn't exist (with new structure)
                 cursor.execute("""
                     CREATE TABLE IF NOT EXISTS generated_resumes (
                         id SERIAL PRIMARY KEY,
                         user_name VARCHAR(255) NOT NULL UNIQUE,
                         resume_data JSONB NOT NULL,
                         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                        CONSTRAINT fk_user_name
-                            FOREIGN KEY (user_name)
-                            REFERENCES user_informations(user_name)
-                            ON DELETE CASCADE
-                            ON UPDATE CASCADE
+                        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
                     );
                 """)
                 
+                # Migration: If old table exists with user_id, migrate to user_name
+                # This must happen before creating the index or adding constraints
+                cursor.execute("""
+                    DO $$
+                    BEGIN
+                        -- Check if user_id column exists (old schema)
+                        IF EXISTS (
+                            SELECT 1 FROM information_schema.columns 
+                            WHERE table_name='generated_resumes' AND column_name='user_id'
+                        ) THEN
+                            -- Rename user_id to user_name
+                            ALTER TABLE generated_resumes RENAME COLUMN user_id TO user_name;
+                            
+                            -- Drop old index if exists
+                            DROP INDEX IF EXISTS idx_generated_resumes_user_id;
+                        END IF;
+                    END $$;
+                """)
+                
+                # Create index on user_name (works for both new and migrated tables)
                 cursor.execute("""
                     CREATE INDEX IF NOT EXISTS idx_generated_resumes_user_name 
                     ON generated_resumes(user_name);
                 """)
                 
-                # Migration: If old table exists with user_id, migrate to user_name
-                try:
-                    cursor.execute("""
-                        DO $$
-                        BEGIN
-                            IF EXISTS (
-                                SELECT 1 FROM information_schema.columns 
-                                WHERE table_name='generated_resumes' AND column_name='user_id'
-                            ) THEN
-                                -- Rename user_id to user_name
-                                ALTER TABLE generated_resumes RENAME COLUMN user_id TO user_name;
-                                
-                                -- Drop old index if exists
-                                DROP INDEX IF EXISTS idx_generated_resumes_user_id;
-                                
-                                -- Add foreign key constraint if not exists
-                                IF NOT EXISTS (
-                                    SELECT 1 FROM information_schema.table_constraints 
-                                    WHERE constraint_name = 'fk_user_name' AND table_name = 'generated_resumes'
-                                ) THEN
-                                    ALTER TABLE generated_resumes
-                                    ADD CONSTRAINT fk_user_name
-                                    FOREIGN KEY (user_name)
-                                    REFERENCES user_informations(user_name)
-                                    ON DELETE CASCADE
-                                    ON UPDATE CASCADE;
-                                END IF;
-                            END IF;
-                        END $$;
-                    """)
-                except Exception as migration_error:
-                    print(f"[WARNING] Migration error (may be ignorable): {migration_error}")
+                # Add foreign key constraint if it doesn't exist
+                cursor.execute("""
+                    DO $$
+                    BEGIN
+                        IF NOT EXISTS (
+                            SELECT 1 FROM information_schema.table_constraints 
+                            WHERE constraint_name = 'fk_user_name' AND table_name = 'generated_resumes'
+                        ) THEN
+                            ALTER TABLE generated_resumes
+                            ADD CONSTRAINT fk_user_name
+                            FOREIGN KEY (user_name)
+                            REFERENCES user_informations(user_name)
+                            ON DELETE CASCADE
+                            ON UPDATE CASCADE;
+                        END IF;
+                    END $$;
+                """)
             
             print("[SUCCESS] Resume table initialized successfully")
             return True
