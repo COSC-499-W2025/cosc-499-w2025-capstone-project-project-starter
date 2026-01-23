@@ -9,15 +9,24 @@ from portfolio.portfolio_formatter import PortfolioFormatter
 from account.user_manager import AuthManager
 
 
-def display_portfolio(user_name: str = 'default_user', format_type: str = 'text', top_n: int = None):
+def display_portfolio(user_name: str = None, format_type: str = 'text', top_n: int = None):
     """
     Display analytical portfolio report.
     
     Args:
-        user_name: Username (string) to filter projects
+        user_name: Username (string) to filter projects.
+                  If None, uses the currently logged-in user.
         format_type: Output format ('text', 'markdown')
         top_n: If specified, only show top N projects
     """
+    # Get current logged-in user if user_name not provided
+    if user_name is None:
+        if not AuthManager.is_user_logged_in():
+            print("\nError: You must be logged in to view portfolio.")
+            return
+        current_user = AuthManager.get_current_user()
+        user_name = current_user.get('user_name', 'default_user') if current_user else 'default_user'
+    
     print("\n" + "="*80)
     print("GENERATING PORTFOLIO REPORT...")
     print("="*80)

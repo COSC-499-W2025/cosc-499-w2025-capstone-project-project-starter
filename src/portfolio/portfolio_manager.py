@@ -20,19 +20,27 @@ from consent.consent_storage import ConsentStorage
 from external_services.permission_manager import ExternalServicePermission
 from analysis.analysis_router import AnalysisRouter
 from resume.resume_manager import ResumeManager
+from account.user_manager import AuthManager
 import json
 
 
 class PortfolioManager:
     """Manages portfolio report generation using existing analysis functions."""
     
-    def __init__(self, user_name: str = 'default_user'):
+    def __init__(self, user_name: str = None):
         """
         Initialize portfolio manager.
         
         Args:
-            user_name: Username (string) to filter projects and data
+            user_name: Username (string) to filter projects and data.
+                      If None, uses the currently logged-in user.
         """
+        # Get current logged-in user if user_name not provided
+        if user_name is None:
+            user_name = AuthManager.get_current_username()
+            if not user_name:
+                user_name = 'default_user'  # Fallback for non-logged-in scenarios
+        
         self.user_name = user_name
         self.summarizer = ProjectSummarizer()
         self.project_analyzer = ProjectAnalyzer(user_name)
@@ -414,8 +422,8 @@ class PortfolioManager:
             ordered chronologically by first appearance.
         """
         try:
-            # Get projects in chronological order
-            projects = list_projects_chronologically()
+            # Get projects in chronological order for this user
+            projects = list_projects_chronologically(user_name=self.user_name)
             
             if not projects:
                 return []
