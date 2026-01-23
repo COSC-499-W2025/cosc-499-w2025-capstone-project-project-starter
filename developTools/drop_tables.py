@@ -28,13 +28,13 @@ class TableManager:
             self.conn = get_connection()
             if self.conn:
                 self.cursor = self.conn.cursor()
-                print("✓ Database connection successful!\n")
+                print("V Database connection successful!\n")
                 return True
             else:
-                print("✗ Database connection failed!")
+                print("X Database connection failed!")
                 return False
         except Exception as e:
-            print(f"✗ Error connecting to database: {e}")
+            print(f"X Error connecting to database: {e}")
             return False
     
     def get_all_tables(self) -> List[Tuple[str, str]]:
@@ -52,7 +52,7 @@ class TableManager:
             tables = self.cursor.fetchall()
             return tables
         except Exception as e:
-            print(f"✗ Error getting table list: {e}")
+            print(f"X Error getting table list: {e}")
             return []
     
     def get_table_info(self, schema: str, table: str) -> dict:
@@ -78,8 +78,8 @@ class TableManager:
             }
         except Exception as e:
             return {
-                'rows': '未知',
-                'columns': '未知',
+                'rows': 'Unknown',
+                'columns': 'Unknown',
                 'error': str(e)
             }
     
@@ -92,7 +92,7 @@ class TableManager:
             self.conn.commit()
             return True
         except Exception as e:
-            print(f"  ✗ Drop failed: {e}")
+            print(f"  X Drop failed: {e}")
             self.conn.rollback()
             return False
     
@@ -154,8 +154,8 @@ def main():
     print("=" * 80)
     print("Database Table Management Tool".center(80))
     print("=" * 80)
-    print("\n⚠️  WARNING: This tool is for development environments only!")
-    print("⚠️  Dropping tables will permanently delete all data - this cannot be undone!\n")
+    print("\n WARNING: This tool is for development environments only!")
+    print(" Dropping tables will permanently delete all data - this cannot be undone!\n")
     
     # Connect to database
     manager = TableManager()
@@ -195,10 +195,10 @@ def main():
                     else:
                         print(f"Warning: Number {idx} is out of range, ignored.")
             except ValueError:
-                print("✗ Invalid input format!")
+                print("X Invalid input format!")
                 return
         else:
-            print("✗ Invalid choice!")
+            print("X Invalid choice!")
             return
         
         if not tables_to_delete:
@@ -224,7 +224,7 @@ def main():
         for schema, table in tables_to_delete:
             print(f"Dropping {schema}.{table}...", end=" ")
             if manager.drop_table(schema, table, use_cascade):
-                print("✓ Success")
+                print("V Success")
                 success_count += 1
             else:
                 fail_count += 1
@@ -235,7 +235,7 @@ def main():
     except KeyboardInterrupt:
         print("\n\nOperation interrupted by user.")
     except Exception as e:
-        print(f"\n✗ Error occurred: {e}")
+        print(f"\nX Error occurred: {e}")
     finally:
         manager.close()
         print("\nDatabase connection closed.")
