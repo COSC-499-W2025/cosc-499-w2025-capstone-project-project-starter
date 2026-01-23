@@ -22,6 +22,7 @@ def test_display_portfolio_success(mock_stdout, mock_manager_cls, mock_formatter
     mock_formatter = mock_formatter_cls.return_value
     mock_formatter.get_formatted_portfolio.return_value = "FORMATTED"
 
+    # Explicitly pass user_name to bypass login check
     pd.display_portfolio(user_name="u1", format_type="text", top_n=3)
 
     mock_manager_cls.assert_called_once_with("u1")
@@ -30,10 +31,12 @@ def test_display_portfolio_success(mock_stdout, mock_manager_cls, mock_formatter
     assert "FORMATTED" in mock_stdout.getvalue()
 
 
+@patch("portfolio.portfolio_display.AuthManager.get_current_user", return_value={"user_name": "test_user"})
+@patch("portfolio.portfolio_display.AuthManager.is_user_logged_in", return_value=True)
 @patch("portfolio.portfolio_display.PortfolioFormatter")
 @patch("portfolio.portfolio_display.PortfolioManager")
 @patch("sys.stdout", new_callable=StringIO)
-def test_display_portfolio_error(mock_stdout, mock_manager_cls, mock_formatter_cls):
+def test_display_portfolio_error(mock_stdout, mock_manager_cls, mock_formatter_cls, mock_logged_in, mock_get_user):
     """Errors from portfolio generation should be shown and stop formatting."""
     mock_manager = mock_manager_cls.return_value
     mock_manager.generate_portfolio_report.return_value = {"error": "boom"}
