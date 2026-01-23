@@ -13,6 +13,30 @@ from pathlib import Path
 
 UPLOAD_FOLDER = Path(os.getenv("UPLOAD_FOLDER", "uploads"))
 
+def sanitize_filename(filename: str) -> str:
+    """
+    Sanitize a filename to prevent path traversal and other security issues.
+    
+    Args:
+        filename: The original filename
+        
+    Returns:
+        A sanitized filename safe for use in file paths
+    """
+    if not filename:
+        return "upload.zip"
+    
+    # Extract just the basename to remove any path components
+    basename = os.path.basename(filename)
+    
+    # Limit length to 255 characters (database constraint)
+    if len(basename) > 255:
+        name, ext = os.path.splitext(basename)
+        # Truncate name part, keeping extension
+        basename = name[:255 - len(ext)] + ext
+    
+    return basename
+
 class UploadResult:
     """Encapsulates the result of an upload operation"""
     def __init__(self, success: bool, message: str, error_type: str = None, data: dict = None):
@@ -140,7 +164,7 @@ def init_uploaded_files_table():
         raise
 
 
-def add_file_to_db(filepath, user_name: str = None) -> UploadResult:
+def add_file_to_db(filepath, user_name: str = None, original_filename: str = None) -> UploadResult:
     # 1. Check if file exists
     # Return detailed error if not found
     if not os.path.exists(filepath):
@@ -155,7 +179,12 @@ def add_file_to_db(filepath, user_name: str = None) -> UploadResult:
         )
 
     # Obtain the filename in advance for easier use in error messages.
-    filename = os.path.basename(filepath)
+    # Use original_filename if provided (from web upload), otherwise use basename
+    # Sanitize the filename to prevent security issues
+    if original_filename:
+        filename = sanitize_filename(original_filename)
+    else:
+        filename = os.path.basename(filepath)
 
     # 2. Validate file format (extension, size, etc.)
     try:

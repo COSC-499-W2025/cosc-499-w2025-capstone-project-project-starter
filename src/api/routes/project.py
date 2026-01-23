@@ -46,8 +46,8 @@ async def upload_project(
             temp_file.write(content)
             temp_path = temp_file.name
         
-        # Use existing upload function
-        result = add_file_to_db(temp_path, user_name=user_name)
+        # Use existing upload function, passing the original filename
+        result = add_file_to_db(temp_path, user_name=user_name, original_filename=file.filename)
         
         # Clean up temp file
         try:
