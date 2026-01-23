@@ -89,13 +89,53 @@
             setTimeout(() => msg.style.display = 'none', 5000);
         }
 
+        async function apiCall(endpoint, options = {}) {
+            try {
+                const response = await fetch(`${API_BASE_URL}${endpoint}`, {
+                    headers: { 'Content-Type': 'application/json', ...options.headers },
+                    ...options
+                });
+                const data = await response.json();
+                if (!response.ok) throw new Error(data.detail || 'Request failed');
+                return data;
+            } catch (e) {
+                showMessage(e.message || 'Request failed', 'error');
+                throw e;
+            }
+        }
+
         async function loadProjects() {
             try {
-                const response = await fetch(`${API_BASE_URL}/api/projects?user_name=${currentUser.user_name}`);
-                const data = await response.json();
+                const data = await apiCall(`/api/projects?user_name=${currentUser.user_name}`);
                 if (data.success) projects = data.projects || [];
             } catch (e) {
                 console.error('Failed to load projects:', e);
+            }
+        }
+
+        async function getProjectDetails(id) {
+            try {
+                return await apiCall(`/api/projects/${id}?user_name=${currentUser.user_name}`);
+            } catch (e) {
+                return null;
+            }
+        }
+
+        async function submitPrivacyConsent(consentGiven) {
+            try {
+                const data = await apiCall('/api/privacy-consent', {
+                    method: 'POST',
+                    body: JSON.stringify({
+                        consent_given: consentGiven,
+                        user_id: currentUser.user_id || currentUser.user_name
+                    })
+                });
+                if (data.success) {
+                    showMessage(`Privacy consent ${consentGiven ? 'granted' : 'denied'}`, 'success');
+                }
+                return data;
+            } catch (e) {
+                return null;
             }
         }
 
@@ -126,7 +166,7 @@
             
             const views = {
                 'upload': `<div class="view-panel"><h3>Upload ZIP File</h3><input type="file" id="zipFile" accept=".zip" /><button class="btn" onclick="uploadFile()">Upload</button><div id="uploadResult"></div></div>`,
-                'list': `<div class="view-panel"><h3>Stored Projects</h3><button class="btn" onclick="refreshProjects()">Refresh</button><div id="projectsList" class="project-list"></div></div>`,
+                'list': `<div class="view-panel"><h3>Stored Projects</h3><button class="btn" onclick="refreshProjects()">Refresh</button><button class="btn btn-secondary" onclick="loadSkills()">View Skills</button><div id="projectsList" class="project-list"></div><div id="skillsResult" class="result"></div></div>`,
                 'analyze-full': `<div class="view-panel"><h3>Analyze Project (Full Mode)</h3><div id="analyzeProjectsList" class="project-list"></div><button class="btn" onclick="analyzeProject('full')">Analyze Selected</button><div id="analyzeResult" class="result"></div></div>`,
                 'analyze-privacy': `<div class="view-panel"><h3>Analyze Project (Privacy Mode)</h3><div id="analyzePrivacyProjectsList" class="project-list"></div><button class="btn" onclick="analyzeProject('privacy')">Analyze Selected</button><div id="analyzePrivacyResult" class="result"></div></div>`,
                 'rank': `<div class="view-panel"><h3>Rank All Projects</h3><button class="btn" onclick="rankProjects()">Rank Projects</button><div id="rankResult" class="result"></div></div>`,
@@ -134,12 +174,12 @@
                 'rankings': `<div class="view-panel"><h3>View and Edit Rankings</h3><button class="btn" onclick="loadRankings()">Load Rankings</button><div id="rankingsList" class="result"></div></div>`,
                 'external': `<div class="view-panel"><h3>External Service Settings</h3><p>Manage external service permissions</p><div id="externalServicesResult" class="result"></div></div>`,
                 'cleanup': `<div class="view-panel"><h3>Cleanup Insights</h3><div id="cleanupProjectsList" class="project-list"></div><button class="btn" onclick="cleanupInsights()">Cleanup Selected</button><div id="cleanupResult" class="result"></div></div>`,
-                'preferences': `<div class="view-panel"><h3>User Preferences</h3><label>Git Username:</label><input type="text" id="gitUsername" /><button class="btn" onclick="savePreferences()">Save</button><div id="preferencesResult" class="result"></div></div>`,
+                'preferences': `<div class="view-panel"><h3>User Preferences</h3><label>Privacy Consent:</label><button class="btn" onclick="submitPrivacyConsent(true)">Grant</button><button class="btn btn-secondary" onclick="submitPrivacyConsent(false)">Deny</button><label>Git Username:</label><input type="text" id="gitUsername" /><button class="btn" onclick="savePreferences()">Save</button><div id="preferencesResult" class="result"></div></div>`,
                 'account': `<div class="view-panel"><h3>User Account</h3><p>Username: ${currentUser?.user_name || ''}</p><p>User ID: ${currentUser?.user_id || ''}</p><p>Last Login: ${new Date(currentUser?.last_login_time).toLocaleString()}</p></div>`,
                 'resume-gen': `<div class="view-panel"><h3>Generate Resume</h3><button class="btn" onclick="generateResume()">Generate</button><div id="resumeGenResult" class="result"></div></div>`,
                 'resume-view': `<div class="view-panel"><h3>View Resume</h3><button class="btn" onclick="viewResume()">Load Resume</button><div id="resumeViewResult" class="result"></div></div>`,
                 'resume-delete': `<div class="view-panel"><h3>Delete Resume</h3><button class="btn" onclick="deleteResume()">Delete</button><div id="resumeDeleteResult" class="result"></div></div>`,
-                'portfolio': `<div class="view-panel"><h3>View Portfolio</h3><button class="btn" onclick="viewPortfolio()">Load Portfolio</button><div id="portfolioResult" class="result"></div></div>`,
+                'portfolio': `<div class="view-panel"><h3>View Portfolio</h3><button class="btn" onclick="viewPortfolio()">Load Portfolio</button><button class="btn btn-secondary" onclick="generatePortfolio()">Generate New</button><div id="portfolioResult" class="result"></div></div>`,
                 'thumbnail': `<div class="view-panel"><h3>Add Thumbnail to Project</h3><div id="thumbnailProjectsList" class="project-list"></div><input type="file" id="thumbnailFile" accept="image/*" /><button class="btn" onclick="addThumbnail()">Upload Thumbnail</button><div id="thumbnailResult" class="result"></div></div>`,
                 'llm-summary': `<div class="view-panel"><h3>Run LLM Summary</h3><div id="llmProjectsList" class="project-list"></div><button class="btn" onclick="runLLMSummary()">Run Summary</button><div id="llmSummaryResult" class="result"></div></div>`
             };
@@ -206,23 +246,61 @@
                 return;
             }
             const resultId = mode === 'full' ? 'analyzeResult' : 'analyzePrivacyResult';
-            document.getElementById(resultId).innerHTML = 'Analyzing... (API endpoint needed)';
-            showMessage('Analysis feature requires API endpoint', 'error');
+            const resultDiv = document.getElementById(resultId);
+            resultDiv.innerHTML = 'Analyzing...';
+            try {
+                const data = await apiCall(`/api/projects/${selectedProjectId}/analyze?user_name=${currentUser.user_name}`, { method: 'POST' });
+                if (data.success) {
+                    const a = data.analysis;
+                    const langs = a.languages || {};
+                    const stats = a.file_statistics || {};
+                    resultDiv.innerHTML = `Analysis Complete!\nStrategy: ${a.analysis_strategy || 'local'}\nLanguages: ${Object.keys(langs).length}\nFiles: ${stats.total_files || 0}\nLines: ${stats.total_lines || 0}`;
+                    showMessage('Analysis complete', 'success');
+                }
+            } catch (e) {
+                resultDiv.innerHTML = `Error: ${e.message}`;
+            }
         }
 
         async function rankProjects() {
-            document.getElementById('rankResult').innerHTML = 'Ranking... (API endpoint needed)';
-            showMessage('Ranking feature requires API endpoint', 'error');
+            const resultDiv = document.getElementById('rankResult');
+            resultDiv.innerHTML = 'Ranking...';
+            try {
+                const data = await apiCall(`/api/projects/rank?user_name=${currentUser.user_name}`, { method: 'POST' });
+                if (data.success) {
+                    resultDiv.innerHTML = `Ranked ${data.count} projects\nTop: ${data.ranked_projects.map((p, i) => `${i+1}. ${p.filename} (${p.score})`).join('\n')}`;
+                    showMessage('Projects ranked', 'success');
+                }
+            } catch (e) {
+                resultDiv.innerHTML = `Error: ${e.message}`;
+            }
         }
 
         async function rankTop3() {
-            document.getElementById('rankTop3Result').innerHTML = 'Ranking and summarizing... (API endpoint needed)';
-            showMessage('Rank top 3 feature requires API endpoint', 'error');
+            const resultDiv = document.getElementById('rankTop3Result');
+            resultDiv.innerHTML = 'Ranking and summarizing...';
+            try {
+                const data = await apiCall(`/api/projects/rank-top3?user_name=${currentUser.user_name}`, { method: 'POST' });
+                if (data.success) {
+                    resultDiv.innerHTML = `Top 3 Projects:\n${data.top3.map((p, i) => `${i+1}. ${p.filename} (Score: ${p.score})`).join('\n')}`;
+                    showMessage('Top 3 ranked and summarized', 'success');
+                }
+            } catch (e) {
+                resultDiv.innerHTML = `Error: ${e.message}`;
+            }
         }
 
         async function loadRankings() {
-            document.getElementById('rankingsList').innerHTML = 'Loading rankings... (API endpoint needed)';
-            showMessage('Rankings feature requires API endpoint', 'error');
+            const resultDiv = document.getElementById('rankingsList');
+            resultDiv.innerHTML = 'Loading...';
+            try {
+                const data = await apiCall('/api/projects/rankings');
+                if (data.success) {
+                    resultDiv.innerHTML = data.rankings.length ? data.rankings.map(r => `${r.rank_position}. Project ${r.project_id} (Score: ${r.score})`).join('\n') : 'No rankings found';
+                }
+            } catch (e) {
+                resultDiv.innerHTML = `Error: ${e.message}`;
+            }
         }
 
         async function cleanupInsights() {
@@ -230,34 +308,130 @@
                 showMessage('Please select a project', 'error');
                 return;
             }
-            document.getElementById('cleanupResult').innerHTML = 'Cleaning up... (API endpoint needed)';
-            showMessage('Cleanup feature requires API endpoint', 'error');
+            if (!confirm('Delete all insights for this project?')) return;
+            const resultDiv = document.getElementById('cleanupResult');
+            resultDiv.innerHTML = 'Cleaning up...';
+            try {
+                const data = await apiCall(`/api/projects/${selectedProjectId}/insights`, { method: 'DELETE' });
+                if (data.success) {
+                    resultDiv.innerHTML = `Deleted: ${data.deleted.metrics} metrics, ${data.deleted.files} files, ${data.deleted.projects} projects`;
+                    showMessage('Insights cleaned up', 'success');
+                    loadProjects();
+                }
+            } catch (e) {
+                resultDiv.innerHTML = `Error: ${e.message}`;
+            }
+        }
+
+        async function loadSkills() {
+            const resultDiv = document.getElementById('skillsResult');
+            resultDiv.innerHTML = 'Loading skills...';
+            try {
+                const data = await apiCall(`/api/skills?user_name=${currentUser.user_name}`);
+                if (data.success) {
+                    const skills = data.skills || [];
+                    const langs = data.languages || [];
+                    resultDiv.innerHTML = `Skills (${skills.length}): ${skills.slice(0, 10).join(', ')}${skills.length > 10 ? '...' : ''}\nLanguages: ${langs.join(', ') || 'None'}`;
+                }
+            } catch (e) {
+                resultDiv.innerHTML = `Error: ${e.message}`;
+            }
         }
 
         async function savePreferences() {
             const gitUsername = document.getElementById('gitUsername')?.value;
-            document.getElementById('preferencesResult').innerHTML = 'Saving... (API endpoint needed)';
-            showMessage('Preferences feature requires API endpoint', 'error');
+            const resultDiv = document.getElementById('preferencesResult');
+            resultDiv.innerHTML = 'Saving...';
+            try {
+                const data = await apiCall('/api/preferences', {
+                    method: 'POST',
+                    body: JSON.stringify({ git_username: gitUsername || null })
+                });
+                if (data.success) {
+                    resultDiv.innerHTML = `Saved! Git username: ${data.git_username || 'None'}`;
+                    showMessage('Preferences saved', 'success');
+                }
+            } catch (e) {
+                resultDiv.innerHTML = `Error: ${e.message}`;
+            }
         }
 
         async function generateResume() {
-            document.getElementById('resumeGenResult').innerHTML = 'Generating resume... (API endpoint needed)';
-            showMessage('Resume generation requires API endpoint', 'error');
+            const resultDiv = document.getElementById('resumeGenResult');
+            resultDiv.innerHTML = 'Generating resume...';
+            try {
+                const data = await apiCall(`/api/resume/generate?user_name=${currentUser.user_name}`, {
+                    method: 'POST',
+                    body: JSON.stringify({ top_projects_count: 5 })
+                });
+                if (data.success) {
+                    resultDiv.innerHTML = `Resume generated! Projects: ${data.resume.top_projects_displayed}, Skills: ${data.resume.all_skills?.length || 0}`;
+                    showMessage('Resume generated successfully', 'success');
+                }
+            } catch (e) {
+                resultDiv.innerHTML = `Error: ${e.message}`;
+            }
         }
 
         async function viewResume() {
-            document.getElementById('resumeViewResult').innerHTML = 'Loading resume... (API endpoint needed)';
-            showMessage('View resume requires API endpoint', 'error');
+            const resultDiv = document.getElementById('resumeViewResult');
+            resultDiv.innerHTML = 'Loading resume...';
+            try {
+                const data = await apiCall(`/api/resume/${currentUser.user_name}`);
+                if (data.success) {
+                    const r = data.resume.resume_data;
+                    resultDiv.innerHTML = `Name: ${r.display_name}\nProjects: ${r.top_projects_displayed}/${r.total_projects_analyzed}\nSkills: ${r.all_skills?.length || 0}\nLanguages: ${r.languages?.join(', ') || 'None'}`;
+                }
+            } catch (e) {
+                resultDiv.innerHTML = `Error: ${e.message}`;
+            }
         }
 
         async function deleteResume() {
-            document.getElementById('resumeDeleteResult').innerHTML = 'Deleting resume... (API endpoint needed)';
-            showMessage('Delete resume requires API endpoint', 'error');
+            const resultDiv = document.getElementById('resumeDeleteResult');
+            if (!confirm('Delete your resume?')) return;
+            resultDiv.innerHTML = 'Deleting...';
+            try {
+                const data = await apiCall(`/api/resume/${currentUser.user_name}`, { method: 'DELETE' });
+                if (data.success) {
+                    resultDiv.innerHTML = 'Resume deleted';
+                    showMessage('Resume deleted', 'success');
+                }
+            } catch (e) {
+                resultDiv.innerHTML = `Error: ${e.message}`;
+            }
         }
 
         async function viewPortfolio() {
-            document.getElementById('portfolioResult').innerHTML = 'Loading portfolio... (API endpoint needed)';
-            showMessage('Portfolio feature requires API endpoint', 'error');
+            const resultDiv = document.getElementById('portfolioResult');
+            resultDiv.innerHTML = 'Loading portfolio...';
+            try {
+                const data = await apiCall(`/api/portfolio/${currentUser.user_name}`);
+                if (data.success) {
+                    const p = data.portfolio;
+                    resultDiv.innerHTML = `Portfolio Summary\nProjects: ${p.summary?.total_projects || 0}\nTotal LOC: ${p.summary?.total_lines_of_code || 0}\nLanguages: ${p.summary?.unique_languages || 0}`;
+                }
+            } catch (e) {
+                resultDiv.innerHTML = `Error: ${e.message}`;
+            }
+        }
+
+        async function generatePortfolio() {
+            const resultDiv = document.getElementById('portfolioResult');
+            resultDiv.innerHTML = 'Generating portfolio...';
+            try {
+                const data = await apiCall(`/api/portfolio/generate?user_name=${currentUser.user_name}`, {
+                    method: 'POST',
+                    body: JSON.stringify({ top_n: null })
+                });
+                if (data.success) {
+                    const p = data.portfolio;
+                    resultDiv.innerHTML = `Portfolio Generated!\nProjects: ${p.summary?.total_projects || 0}\nTotal LOC: ${p.summary?.total_lines_of_code || 0}\nLanguages: ${p.summary?.unique_languages || 0}`;
+                    showMessage('Portfolio generated successfully', 'success');
+                }
+            } catch (e) {
+                resultDiv.innerHTML = `Error: ${e.message}`;
+            }
         }
 
         async function addThumbnail() {
