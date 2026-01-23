@@ -257,7 +257,7 @@ def test_handle_rank_and_summarize_projects(mock_input, mock_rank_and_summarize,
         "4",
         "10",
         "2",  # change rank
-        "5",
+        "6",  # back to main menu (option changed from 5 to 6)
     ],
 )
 @patch("sys.stdout", new_callable=StringIO)
@@ -278,6 +278,36 @@ def test_handle_view_edit_rankings_full_loop(
     assert "Successfully updated score" in out
     assert "Successfully updated summary" in out
     assert "Successfully updated rank position" in out
+
+
+@patch("analysis.ranking_storage.clean_error_summaries", return_value=True)
+@patch("cli.menus.get_stored_rankings", return_value=[{"rank_position": 1, "project_id": 10, "score": 9.0, "ranking_data": {"filename": "example"}, "summary": "Existing"}])
+@patch("builtins.input", side_effect=["5", "y", "6"])
+@patch("sys.stdout", new_callable=StringIO)
+def test_handle_view_edit_rankings_clean_error_summaries(
+    mock_stdout, mock_input, mock_get_rankings, mock_clean
+):
+    """Test the clean error summaries option in edit rankings menu."""
+    menus.handle_view_edit_rankings()
+    
+    mock_clean.assert_called_once()
+    out = mock_stdout.getvalue()
+    assert "Error summaries cleaned successfully" in out
+
+
+@patch("analysis.ranking_storage.clean_error_summaries", return_value=True)
+@patch("cli.menus.get_stored_rankings", return_value=[{"rank_position": 1, "project_id": 10, "score": 9.0, "ranking_data": {"filename": "example"}, "summary": "Existing"}])
+@patch("builtins.input", side_effect=["5", "n", "6"])
+@patch("sys.stdout", new_callable=StringIO)
+def test_handle_view_edit_rankings_clean_error_summaries_cancelled(
+    mock_stdout, mock_input, mock_get_rankings, mock_clean
+):
+    """Test cancelling the clean error summaries option."""
+    menus.handle_view_edit_rankings()
+    
+    mock_clean.assert_not_called()
+    out = mock_stdout.getvalue()
+    assert "Cancelled" in out
 
 
 @patch("cli.menus.delete_insights", return_value=(1, 1, 1))
