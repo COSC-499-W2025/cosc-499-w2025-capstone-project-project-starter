@@ -21,23 +21,62 @@ class ResumeManager:
         Initialize the generated_resumes table in the database.
         Creates table structure for storing user-aggregated resume data.
         Uses JSONB for flexible resume content storage across different resume types.
+        Uses user_name from user_informations as foreign key.
         """
         try:
             with with_db_cursor() as cursor:
                 cursor.execute("""
                     CREATE TABLE IF NOT EXISTS generated_resumes (
                         id SERIAL PRIMARY KEY,
-                        user_id VARCHAR(255) NOT NULL UNIQUE,
+                        user_name VARCHAR(255) NOT NULL UNIQUE,
                         resume_data JSONB NOT NULL,
                         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                        CONSTRAINT fk_user_name
+                            FOREIGN KEY (user_name)
+                            REFERENCES user_informations(user_name)
+                            ON DELETE CASCADE
+                            ON UPDATE CASCADE
                     );
                 """)
                 
                 cursor.execute("""
-                    CREATE INDEX IF NOT EXISTS idx_generated_resumes_user_id 
-                    ON generated_resumes(user_id);
+                    CREATE INDEX IF NOT EXISTS idx_generated_resumes_user_name 
+                    ON generated_resumes(user_name);
                 """)
+                
+                # Migration: If old table exists with user_id, migrate to user_name
+                try:
+                    cursor.execute("""
+                        DO $$
+                        BEGIN
+                            IF EXISTS (
+                                SELECT 1 FROM information_schema.columns 
+                                WHERE table_name='generated_resumes' AND column_name='user_id'
+                            ) THEN
+                                -- Rename user_id to user_name
+                                ALTER TABLE generated_resumes RENAME COLUMN user_id TO user_name;
+                                
+                                -- Drop old index if exists
+                                DROP INDEX IF EXISTS idx_generated_resumes_user_id;
+                                
+                                -- Add foreign key constraint if not exists
+                                IF NOT EXISTS (
+                                    SELECT 1 FROM information_schema.table_constraints 
+                                    WHERE constraint_name = 'fk_user_name' AND table_name = 'generated_resumes'
+                                ) THEN
+                                    ALTER TABLE generated_resumes
+                                    ADD CONSTRAINT fk_user_name
+                                    FOREIGN KEY (user_name)
+                                    REFERENCES user_informations(user_name)
+                                    ON DELETE CASCADE
+                                    ON UPDATE CASCADE;
+                                END IF;
+                            END IF;
+                        END $$;
+                    """)
+                except Exception as migration_error:
+                    print(f"[WARNING] Migration error (may be ignorable): {migration_error}")
             
             print("[SUCCESS] Resume table initialized successfully")
             return True
@@ -65,9 +104,9 @@ class ResumeManager:
         try:
             with with_db_cursor() as cursor:
                 cursor.execute("""
-                    INSERT INTO generated_resumes (user_id, resume_data)
+                    INSERT INTO generated_resumes (user_name, resume_data)
                     VALUES (%s, %s)
-                    ON CONFLICT (user_id)
+                    ON CONFLICT (user_name)
                     DO UPDATE SET 
                         resume_data = EXCLUDED.resume_data,
                         updated_at = CURRENT_TIMESTAMP
@@ -179,7 +218,7 @@ class ResumeManager:
                 cursor.execute("""
                     SELECT resume_data, created_at, updated_at
                     FROM generated_resumes
-                    WHERE user_id = %s
+                    WHERE user_name = %s
                 """, (user_name,))
                 
                 result = cursor.fetchone()
@@ -229,7 +268,7 @@ class ResumeManager:
             with with_db_cursor() as cursor:
                 cursor.execute("""
                     DELETE FROM generated_resumes
-                    WHERE user_id = %s
+                    WHERE user_name = %s
                 """, (user_name,))
             
             return True
@@ -255,7 +294,7 @@ class ResumeManager:
         try:
             with with_db_cursor() as cursor:
                 cursor.execute("""
-                    SELECT 1 FROM generated_resumes WHERE user_id = %s
+                    SELECT 1 FROM generated_resumes WHERE user_name = %s
                 """, (user_name,))
                 
                 result = cursor.fetchone()
@@ -551,7 +590,6 @@ class ResumeManager:
             # Build comprehensive resume data
             resume_data = {
                 'display_name': display_name,
-                'user_id': user_name,
                 'user_name': user_name,
                 'total_projects_analyzed': len(ranked_projects),
                 'top_projects_displayed': len(project_summaries),
