@@ -26,6 +26,15 @@
         .message.error { background: rgba(239, 68, 68, 0.1); border: 1px solid rgba(239, 68, 68, 0.3); color: #ef4444; }
         .message.success { background: rgba(34, 197, 94, 0.1); border: 1px solid rgba(34, 197, 94, 0.3); color: #22c55e; }
         .result { margin-top: 15px; padding: 15px; background: #22222d; border-radius: 6px; white-space: pre-wrap; }
+        .analysis-section { margin: 15px 0; padding: 15px; background: #1a1a21; border-radius: 6px; border-left: 3px solid #6366f1; }
+        .analysis-section h4 { color: #818cf8; margin-bottom: 10px; font-size: 1.1em; }
+        .analysis-item { margin: 8px 0; padding: 8px; background: #22222d; border-radius: 4px; }
+        .analysis-label { color: #a1a1aa; font-weight: 600; }
+        .analysis-value { color: #f4f4f5; margin-left: 10px; }
+        .analysis-list { list-style: none; padding-left: 0; }
+        .analysis-list li { padding: 5px 0; border-bottom: 1px solid #2e2e3a; }
+        .analysis-list li:last-child { border-bottom: none; }
+        .badge { display: inline-block; padding: 4px 8px; background: #6366f1; border-radius: 4px; font-size: 0.85em; margin: 2px; }
     </style>
 </head>
 <body>
@@ -240,6 +249,149 @@
             selectedProjectId = id;
         }
 
+        function formatAnalysisResults(analysis) {
+            let html = '<div class="analysis-section">';
+            html += '<h4>Analysis Overview</h4>';
+            
+            // Project Info
+            const projInfo = analysis.project_info || {};
+            html += `<div class="analysis-item"><span class="analysis-label">Project:</span><span class="analysis-value">${projInfo.filename || 'Unknown'}</span></div>`;
+            html += `<div class="analysis-item"><span class="analysis-label">Strategy:</span><span class="analysis-value">${analysis.analysis_strategy || 'local'}</span></div>`;
+            
+            // Languages
+            const langs = analysis.languages || {};
+            if (langs.primary_language) {
+                html += '<div class="analysis-item">';
+                html += `<span class="analysis-label">Primary Language:</span><span class="analysis-value">${langs.primary_language}</span>`;
+                html += '</div>';
+            }
+            if (langs.detected_languages && langs.detected_languages.length > 0) {
+                html += '<div class="analysis-item">';
+                html += `<span class="analysis-label">All Languages (${langs.detected_languages.length}):</span>`;
+                html += '<div style="margin-top: 5px;">';
+                langs.detected_languages.forEach(lang => {
+                    const count = langs.file_counts?.[lang] || 0;
+                    const pct = langs.language_percentages?.[lang] || 0;
+                    html += `<span class="badge">${lang} (${count} files, ${pct}%)</span>`;
+                });
+                html += '</div></div>';
+            }
+            
+            html += '</div>';
+            
+            // File Statistics
+            const stats = analysis.file_statistics || {};
+            if (stats.total_files !== undefined) {
+                html += '<div class="analysis-section">';
+                html += '<h4> - File Statistics</h4>';
+                html += `<div class="analysis-item"><span class="analysis-label">Total Files:</span><span class="analysis-value">${stats.total_files}</span></div>`;
+                html += `<div class="analysis-item"><span class="analysis-label">Total Size:</span><span class="analysis-value">${stats.total_size_mb || 0} MB</span></div>`;
+                html += `<div class="analysis-item"><span class="analysis-label">Text Files:</span><span class="analysis-value">${stats.text_files || 0}</span></div>`;
+                html += `<div class="analysis-item"><span class="analysis-label">Binary Files:</span><span class="analysis-value">${stats.binary_files || 0}</span></div>`;
+                html += `<div class="analysis-item"><span class="analysis-label">Lines of Code:</span><span class="analysis-value">${stats.total_lines_of_code || 0}</span></div>`;
+                html += '</div>';
+            }
+            
+            // Frameworks
+            const frameworks = analysis.frameworks || [];
+            if (frameworks.length > 0) {
+                html += '<div class="analysis-section">';
+                html += '<h4> - Frameworks & Technologies</h4>';
+                html += '<div class="analysis-item">';
+                frameworks.forEach(fw => {
+                    html += `<span class="badge">${fw}</span>`;
+                });
+                html += '</div></div>';
+            }
+            
+            // Skills
+            const skills = analysis.skills || [];
+            if (skills.length > 0) {
+                html += '<div class="analysis-section">';
+                html += '<h4> - Skills Detected</h4>';
+                html += '<div class="analysis-item">';
+                skills.forEach(skill => {
+                    html += `<span class="badge">${skill}</span>`;
+                });
+                html += '</div></div>';
+            }
+            
+            // Project Structure
+            const structure = analysis.project_structure || {};
+            if (structure.total_folders !== undefined) {
+                html += '<div class="analysis-section">';
+                html += '<h4> - Project Structure</h4>';
+                html += `<div class="analysis-item"><span class="analysis-label">Total Folders:</span><span class="analysis-value">${structure.total_folders}</span></div>`;
+                html += `<div class="analysis-item"><span class="analysis-label">Max Depth:</span><span class="analysis-value">${structure.max_depth}</span></div>`;
+                const features = [];
+                if (structure.has_tests) features.push('Tests');
+                if (structure.has_docs) features.push('Documentation');
+                if (structure.has_config) features.push('Configuration');
+                if (features.length > 0) {
+                    html += `<div class="analysis-item"><span class="analysis-label">Features:</span><span class="analysis-value">${features.join(', ')}</span></div>`;
+                }
+                html += '</div>';
+            }
+            
+            // Contribution Metrics
+            const contrib = analysis.contribution_metrics || {};
+            if (contrib.code_files !== undefined) {
+                html += '<div class="analysis-section">';
+                html += '<h4> - Contribution Metrics</h4>';
+                html += `<div class="analysis-item"><span class="analysis-label">Code Files:</span><span class="analysis-value">${contrib.code_files}</span></div>`;
+                html += `<div class="analysis-item"><span class="analysis-label">Test Files:</span><span class="analysis-value">${contrib.test_files || 0}</span></div>`;
+                html += `<div class="analysis-item"><span class="analysis-label">Documentation Files:</span><span class="analysis-value">${contrib.documentation_files || 0}</span></div>`;
+                html += `<div class="analysis-item"><span class="analysis-label">Configuration Files:</span><span class="analysis-value">${contrib.configuration_files || 0}</span></div>`;
+                if (contrib.activity_distribution) {
+                    html += '<div class="analysis-item" style="margin-top: 10px;">';
+                    html += '<span class="analysis-label">Activity Distribution:</span>';
+                    html += '<div style="margin-top: 5px;">';
+                    const dist = contrib.activity_distribution;
+                    html += `<div>Code: ${dist.code || 0}% | Testing: ${dist.testing || 0}% | Documentation: ${dist.documentation || 0}% | Configuration: ${dist.configuration || 0}%</div>`;
+                    html += '</div></div>';
+                }
+                html += '</div>';
+            }
+            
+            // Deep Analysis
+            if (analysis.deep_analysis && Object.keys(analysis.deep_analysis).length > 0) {
+                html += '<div class="analysis-section">';
+                html += '<h4> - Deep Code Analysis</h4>';
+                const deep = analysis.deep_analysis;
+                
+                if (deep.code_quality_summary) {
+                    const quality = deep.code_quality_summary;
+                    if (quality.average_quality_score) {
+                        html += `<div class="analysis-item"><span class="analysis-label">Code Quality Score:</span><span class="analysis-value">${quality.average_quality_score.toFixed(1)}/100</span></div>`;
+                    }
+                }
+                
+                if (deep.oop_principles_summary) {
+                    const oop = deep.oop_principles_summary;
+                    const oopCount = (oop.abstraction?.count || 0) + (oop.encapsulation?.count || 0) + 
+                                    (oop.polymorphism?.count || 0) + (oop.inheritance?.count || 0);
+                    if (oopCount > 0) {
+                        html += '<div class="analysis-item">';
+                        html += '<span class="analysis-label">OOP Principles Detected:</span>';
+                        html += '<div style="margin-top: 5px;">';
+                        if (oop.abstraction?.count) html += `<span class="badge">Abstraction (${oop.abstraction.count})</span>`;
+                        if (oop.encapsulation?.count) html += `<span class="badge">Encapsulation (${oop.encapsulation.count})</span>`;
+                        if (oop.polymorphism?.count) html += `<span class="badge">Polymorphism (${oop.polymorphism.count})</span>`;
+                        if (oop.inheritance?.count) html += `<span class="badge">Inheritance (${oop.inheritance.count})</span>`;
+                        html += '</div></div>';
+                    }
+                }
+                
+                if (deep.optimization_summary && deep.optimization_summary.length > 0) {
+                    html += `<div class="analysis-item"><span class="analysis-label">Optimizations Detected:</span><span class="analysis-value">${deep.optimization_summary.length}</span></div>`;
+                }
+                
+                html += '</div>';
+            }
+            
+            return html;
+        }
+
         async function analyzeProject(mode) {
             if (!selectedProjectId) {
                 showMessage('Please select a project', 'error');
@@ -251,14 +403,15 @@
             try {
                 const data = await apiCall(`/api/projects/${selectedProjectId}/analyze?user_name=${currentUser.user_name}`, { method: 'POST' });
                 if (data.success) {
-                    const a = data.analysis;
-                    const langs = a.languages || {};
-                    const stats = a.file_statistics || {};
-                    resultDiv.innerHTML = `Analysis Complete!\nStrategy: ${a.analysis_strategy || 'local'}\nLanguages: ${Object.keys(langs).length}\nFiles: ${stats.total_files || 0}\nLines: ${stats.total_lines || 0}`;
+                    resultDiv.innerHTML = formatAnalysisResults(data.analysis);
                     showMessage('Analysis complete', 'success');
+                } else {
+                    resultDiv.innerHTML = `Error: ${data.error || 'Analysis failed'}`;
+                    showMessage('Analysis failed', 'error');
                 }
             } catch (e) {
                 resultDiv.innerHTML = `Error: ${e.message}`;
+                showMessage('Analysis failed', 'error');
             }
         }
 
