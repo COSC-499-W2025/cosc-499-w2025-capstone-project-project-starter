@@ -796,11 +796,36 @@ def generate_resume(payload: ResumeGenerateIn):
 def download_resume_pdf(resume_id: str):
     engine = get_engine()
     try:
+        # 1. Get the resume data
         item = get_resume_item(engine=engine, resume_id=resume_id)
+        
+        # 2. Fetch the user's config to get preferences
+        from sqlalchemy import text
+        with engine.connect() as conn:
+            query = text("""
+                SELECT uc.config_json 
+                FROM user_config uc
+                JOIN portfolios po ON uc.user_id = po.user_id
+                JOIN projects pr ON po.id = pr.portfolio_id
+                JOIN resume_items ri ON pr.id = ri.project_id
+                WHERE ri.id = :rid
+            """)
+            result = conn.execute(query, {"rid": resume_id}).mappings().first()
+
+            print(f"DEBUG: Found config for resume {resume_id}: {result is not None}")
+            
+            # Extract the filters if they exist, otherwise empty dict
+            user_config = result["config_json"] if result else {}
+            filters = user_config.get("resume_filters", {})
+
+            print(f"DEBUG: Filters being sent to exporter: {filters}")
+
     except KeyError:
         raise HTTPException(status_code=404, detail="Resume item not found")
 
-    pdf_bytes = export_resume_item_pdf_bytes(item)
+    # 3. Pass the filters into the exporter we just modified
+    pdf_bytes = export_resume_item_pdf_bytes(item, filters=filters)
+    
     filename = f"resume-{resume_id}.pdf"
 
     return Response(

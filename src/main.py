@@ -309,6 +309,40 @@ def cmd_config_patch(args: argparse.Namespace, st: DemoState) -> int:
     print(_pretty(out))
     return 0
 
+def cmd_config_set_prefs(args: argparse.Namespace, st: DemoState) -> int:
+    api = ApiClient(st.api_url)
+    user_id = args.user_id or st.user_id
+    if not user_id:
+        _eprint("missing user_id (pass --user-id or create consent first)")
+        return 2
+
+    # Build the preferences object based on user flags
+    # We only include keys the user actually specified in the command
+    prefs = {}
+    if args.show_summary is not None:
+        prefs["show_summary"] = args.show_summary
+    if args.show_bullets is not None:
+        prefs["show_bullets"] = args.show_bullets
+    if args.max_bullets is not None:
+        prefs["max_bullets"] = args.max_bullets
+    
+    # NEW: Toggle for Resume ID and Timestamp
+    if args.show_metadata is not None:
+        prefs["show_metadata"] = args.show_metadata
+
+    if not prefs:
+        _eprint("No preferences specified. Use --show-summary, --show-bullets, --show-metadata, etc.")
+        return 2
+
+    # We wrap it in a 'resume_filters' key so it doesn't clutter the top level of config_json
+    payload = {"resume_filters": prefs}
+    
+    # We use PATCH so it merges with existing config instead of wiping it
+    out = api.patch(f"/users/{user_id}/config", json_body=payload)
+    
+    print("✨ Preferences updated in database:")
+    print(_pretty(out))
+    return 0
 
 def cmd_identity_rules(args: argparse.Namespace, st: DemoState, state_path: Path) -> int:
     api = ApiClient(st.api_url)
@@ -832,6 +866,14 @@ def build_parser() -> argparse.ArgumentParser:
     sp3.add_argument("--user-id", default=None)
     sp3.set_defaults(_handler="config_patch")
 
+    sp_prefs = csub.add_parser("set-preferences", help="Toggle resume visibility settings")
+    sp_prefs.add_argument("--user-id", default=None)
+    sp_prefs.add_argument("--show-summary", type=_bool_flag, help="Toggle project summary (on/off)")
+    sp_prefs.add_argument("--show-metadata", type=_bool_flag, help="Toggle metadata (on/off)")
+    sp_prefs.add_argument("--show-bullets", type=_bool_flag, help="Toggle resume bullets (on/off)")
+    sp_prefs.add_argument("--max-bullets", type=int, help="Limit number of bullets shown")
+    sp_prefs.set_defaults(_handler="config_set_prefs")
+
     sp = sub.add_parser("identity", help="Identity mapping utilities (user contribution linking)")
     isub = sp.add_subparsers(dest="identity_cmd", required=True)
 
@@ -1025,6 +1067,10 @@ def main(argv: Optional[List[str]] = None) -> int:
             rc = cmd_config_put(args, st)
         elif h == "config_patch":
             rc = cmd_config_patch(args, st)
+        elif h == "config_set_prefs":
+            rc = cmd_config_set_prefs(args, st)
+        elif h == "identity_rules":
+            rc = cmd_identity_rules(args, st, state_path)
         elif h == "identity_rules":
             rc = cmd_identity_rules(args, st, state_path)
         elif h == "identity_autolink":

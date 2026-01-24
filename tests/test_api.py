@@ -2,6 +2,7 @@ import uuid
 from datetime import datetime, timezone
 import io
 import zipfile
+from pypdf import PdfReader
 
 from sqlalchemy import text
 import re
@@ -713,3 +714,40 @@ def test_project_display_name_update_and_resume_integration(client, monkeypatch,
     content = r_resume.json()["content"]
     assert content["project"]["name"] == new_name
     assert content["project"]["name"] != "ugly_filename_v1.zip"
+
+
+def test_pdf_metadata_and_bullet_toggles(client, monkeypatch, tmp_path):
+    test_blob_dir = tmp_path / "test_blobs"
+    test_blob_dir.mkdir()
+    monkeypatch.setenv("ARTIFACT_MINER_BLOBSTORE", str(test_blob_dir))
+    
+    r_consent = client.post("/privacy-consent", json={"consent_type": "data_access", "granted": True, "version": 1})
+    user_id = r_consent.json()["user_id"]
+
+    zip_buf = _create_dummy_zip()
+    r_upload = client.post(
+        "/projects/upload",
+        files={"file": ("test.zip", zip_buf, "application/zip")},
+        data={"user_id": user_id}
+    )
+    project_id = r_upload.json()["created"][0]["project_id"]
+
+    client.patch(f"/users/{user_id}/config", json={
+        "resume_filters": {"show_metadata": False, "max_bullets": 1}
+    })
+
+    r_gen = client.post("/resume/generate", json={"project_id": project_id})
+    assert r_gen.status_code == 200
+    resume_id = r_gen.json()["resume_id"]
+
+    r_pdf = client.get(f"/resume/{resume_id}/pdf?user_id={user_id}")
+    assert r_pdf.status_code == 200
+
+    pdf_reader = PdfReader(io.BytesIO(r_pdf.content))
+    page_text = pdf_reader.pages[0].extract_text()
+    bullet_count = page_text.count("-") 
+    
+
+    assert bullet_count == 1, f"Expected 1 bullet, but found {bullet_count}"
+    assert "Resume Item ID:" not in page_text
+    assert len(page_text) > 0
