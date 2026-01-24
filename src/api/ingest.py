@@ -119,7 +119,7 @@ def extract_commits_from_git_zip(zip_path: str):
 
         # Open Git repo
         repo = Repo(tmpdir)
-        commits = list(repo.iter_commits("main"))
+        commits = list(repo.iter_commits("master"))
         return [c.message.strip() for c in commits]
     finally:
         shutil.rmtree(tmpdir, ignore_errors=True)
