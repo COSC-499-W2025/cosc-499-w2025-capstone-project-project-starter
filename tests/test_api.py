@@ -2,6 +2,7 @@ import uuid
 from datetime import datetime, timezone
 import io
 import zipfile
+from pypdf import PdfReader
 
 from sqlalchemy import text
 import re
@@ -713,3 +714,126 @@ def test_project_display_name_update_and_resume_integration(client, monkeypatch,
     content = r_resume.json()["content"]
     assert content["project"]["name"] == new_name
     assert content["project"]["name"] != "ugly_filename_v1.zip"
+
+def test_pdf_hide_all_content(client, monkeypatch, tmp_path):
+    """Verifies that setting all toggles to False results in a nearly empty PDF (Title only)."""
+    # Setup environment
+    test_blob_dir = tmp_path / "test_blobs_hide_all"
+    test_blob_dir.mkdir()
+    monkeypatch.setenv("ARTIFACT_MINER_BLOBSTORE", str(test_blob_dir))
+    
+    # 1. User & Project Setup
+    r_consent = client.post("/privacy-consent", json={"consent_type": "data_access", "granted": True, "version": 1})
+    user_id = r_consent.json()["user_id"]
+    
+    zip_buf = _create_dummy_zip()
+    r_upload = client.post("/projects/upload", files={"file": ("test.zip", zip_buf, "application/zip")}, data={"user_id": user_id})
+    project_id = r_upload.json()["created"][0]["project_id"]
+
+    # 2. Config: Set EVERYTHING to False
+    client.patch(f"/users/{user_id}/config", json={
+        "resume_filters": {
+            "show_metadata": False,
+            "show_summary": False,
+            "show_bullets": False
+        }
+    })
+
+    # 3. Generate & Fetch
+    r_gen = client.post("/resume/generate", json={"project_id": project_id})
+    resume_id = r_gen.json()["resume_id"]
+    r_pdf = client.get(f"/resume/{resume_id}/pdf?user_id={user_id}")
+    
+    # 4. Verification
+    pdf_reader = PdfReader(io.BytesIO(r_pdf.content))
+    page_text = pdf_reader.pages[0].extract_text()
+
+    # Assert that everything appears to be gone, the summary, the metadata, and the resume bullets and heading
+    assert "Resume Item ID:" not in page_text
+    assert "Summary" not in page_text
+    assert "Resume Bullets" not in page_text
+    assert "-" not in page_text 
+
+
+def test_pdf_hide_summary_keep_bullets(client, monkeypatch, tmp_path):
+    """Verifies that we can hide the summary but still see the bullets."""
+    # Setup environment
+    test_blob_dir = tmp_path / "test_blobs_summary_toggle"
+    test_blob_dir.mkdir()
+    monkeypatch.setenv("ARTIFACT_MINER_BLOBSTORE", str(test_blob_dir))
+    
+    r_consent = client.post("/privacy-consent", json={"consent_type": "data_access", "granted": True, "version": 1})
+    user_id = r_consent.json()["user_id"]
+    
+    zip_buf = _create_dummy_zip()
+    r_upload = client.post("/projects/upload", files={"file": ("test.zip", zip_buf, "application/zip")}, data={"user_id": user_id})
+    project_id = r_upload.json()["created"][0]["project_id"]
+
+    # 2. Config: Hide summary, keep bullets (max 2)
+    client.patch(f"/users/{user_id}/config", json={
+        "resume_filters": {
+            "show_summary": False,
+            "show_bullets": True,
+            "max_bullets": 2
+        }
+    })
+
+    # 3. Generate & Fetch
+    r_gen = client.post("/resume/generate", json={"project_id": project_id})
+    resume_id = r_gen.json()["resume_id"]
+    r_pdf = client.get(f"/resume/{resume_id}/pdf?user_id={user_id}")
+    
+    # 4. Verification
+    pdf_reader = PdfReader(io.BytesIO(r_pdf.content))
+    page_text = pdf_reader.pages[0].extract_text()
+
+    # check that the heading and text are gone, but that the bullets (at least one) and the metadata are still there
+    assert "Summary" not in page_text
+    assert "-" in page_text
+    assert "Resume Item ID:" in page_text
+
+def test_pdf_metadata_and_bullet_toggles(client, monkeypatch, tmp_path):
+    """Verifies that we can hide metadata and limit the number of bullets while keeping the summary."""
+    # Setup environment: Create a temporary directory for file storage to avoid cluttering local space
+    test_blob_dir = tmp_path / "test_blobs"
+    test_blob_dir.mkdir()
+    monkeypatch.setenv("ARTIFACT_MINER_BLOBSTORE", str(test_blob_dir))
+    
+    # 1. User & Consent: Create a user and grant privacy consent so the API allows data processing
+    r_consent = client.post("/privacy-consent", json={"consent_type": "data_access", "granted": True, "version": 1})
+    user_id = r_consent.json()["user_id"]
+
+    # 2. Project Upload: Upload a dummy ZIP file to associate with the resume generation
+    zip_buf = _create_dummy_zip()
+    r_upload = client.post(
+        "/projects/upload",
+        files={"file": ("test.zip", zip_buf, "application/zip")},
+        data={"user_id": user_id}
+    )
+    project_id = r_upload.json()["created"][0]["project_id"]
+
+    # 3. Config: Set filters to hide metadata and limit bullets to exactly 1
+    client.patch(f"/users/{user_id}/config", json={
+        "resume_filters": {"show_metadata": False, "max_bullets": 1}
+    })
+
+    # 4. Generate: Trigger the AI/Logic to create the resume content in the database
+    r_gen = client.post("/resume/generate", json={"project_id": project_id})
+    assert r_gen.status_code == 200
+    resume_id = r_gen.json()["resume_id"]
+
+    # 5. Export: Retrieve the generated PDF using the user's specific filter settings
+    r_pdf = client.get(f"/resume/{resume_id}/pdf?user_id={user_id}")
+    assert r_pdf.status_code == 200
+
+    # 6. Verification: Extract text from the PDF and verify the toggles were respected
+    pdf_reader = PdfReader(io.BytesIO(r_pdf.content))
+    page_text = pdf_reader.pages[0].extract_text()
+    
+    # Count occurrences of the hyphen character used for bullets
+    bullet_count = page_text.count("-") 
+    
+    # Assertions: Verify one bullet, no metadata ID, and that the Summary header is still visible
+    assert bullet_count == 1, f"Expected 1 bullet, but found {bullet_count}"
+    assert "Resume Item ID:" not in page_text
+    assert "Summary" in page_text
