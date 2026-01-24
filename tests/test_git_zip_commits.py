@@ -13,8 +13,8 @@ from src.api.ingest import extract_commits_from_git_zip
 def create_git_repo_zip(zip_path: str):
     tmpdir = tempfile.mkdtemp()  # temp dir for repo
     try:
-        # Init repo
-        repo = Repo.init(tmpdir)
+        # Init repo with initial_branch = main to ensure consistency across systems
+        repo = Repo.init(tmpdir, initial_branch='main')
 
         # Add a file and commit
         file_path = os.path.join(tmpdir, "file.txt")
