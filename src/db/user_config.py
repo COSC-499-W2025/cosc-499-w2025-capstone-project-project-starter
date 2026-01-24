@@ -16,7 +16,50 @@ DEFAULT_CONFIG: Dict[str, Any] = {
         "project_contributor_map": {},
     },
     "ranking": {
-        # Reserved for milestone 2. Current behavior is fixed in code.
+        # Milestone 2: user-controlled re-ranking.
+        # mode: auto | weighted | manual
+        "mode": "auto",
+        # weights used by mode=weighted
+        "weights": {
+            # Mirrors the existing default heuristic.
+            "user_commits": 1.0,
+            "other_commits": 0.10,
+            "contributor_count": 0.0,
+        },
+        # If true, projects without user_commits may still receive a score (weighted mode).
+        "allow_no_user_score": False,
+        # Explicit ordering for mode=manual (project ids). Unlisted projects follow auto order.
+        "manual_project_order": [],
+        # Explicit numeric ranks: project_id -> number (lower is better). Takes precedence.
+        "manual_ranks": {},
+    },
+
+    # Milestone 2: corrections to chronology.
+    "chronology": {
+        # Explicit ordering for portfolio chronology views.
+        "project_order": [],
+        # Project date overrides: project_id -> ISO timestamp/date string used for chronology sorting.
+        "project_dates": {},
+        # Skill first-seen overrides: skill_name -> ISO timestamp/date string.
+        "skill_first_seen": {},
+        # Optional explicit skill ordering (skill names).
+        "skill_order": [],
+    },
+
+    # Milestone 2: skills to highlight in portfolio/resume outputs.
+    "highlights": {
+        "skills": [],
+    },
+
+    # Milestone 2: projects selected for showcase.
+    "showcase": {
+        "selected_project_ids": [],
+    },
+
+    # Milestone 2: attributes selection for project comparison.
+    "comparison": {
+        # If non-empty, limits attributes returned by /projects/compare.
+        "attributes": [],
     },
 }
 
@@ -71,11 +114,117 @@ def _normalize_config(cfg: Any) -> Dict[str, Any]:
 
     out["identity"] = identity_out
 
-    # ranking defaults + normalization (reserved for milestone 2, must be a dict)
+    # ranking defaults + normalization
     ranking = out.get("ranking")
     if not isinstance(ranking, dict):
         ranking = {}
-    out["ranking"] = dict(ranking)
+    r = dict(ranking)
+
+    mode = str(r.get("mode") or "auto").strip().lower()
+    if mode not in {"auto", "weighted", "manual"}:
+        mode = "auto"
+    r["mode"] = mode
+
+    weights = r.get("weights")
+    if not isinstance(weights, dict):
+        weights = {}
+    w = dict(weights)
+    # coerce numerics, keep defaults if malformed
+    def _f(key: str, default: float) -> float:
+        try:
+            return float(w.get(key, default))
+        except Exception:
+            return float(default)
+
+    r["weights"] = {
+        "user_commits": _f("user_commits", 1.0),
+        "other_commits": _f("other_commits", 0.10),
+        "contributor_count": _f("contributor_count", 0.0),
+    }
+
+    r["allow_no_user_score"] = bool(r.get("allow_no_user_score", False))
+
+    mpo = r.get("manual_project_order")
+    if not isinstance(mpo, list):
+        mpo = []
+    r["manual_project_order"] = [str(x) for x in mpo if str(x).strip()]
+
+    mr = r.get("manual_ranks")
+    if not isinstance(mr, dict):
+        mr = {}
+    mr_out: Dict[str, float] = {}
+    for k, v in mr.items():
+        ks = str(k).strip()
+        if not ks:
+            continue
+        try:
+            mr_out[ks] = float(v)
+        except Exception:
+            continue
+    r["manual_ranks"] = mr_out
+
+    out["ranking"] = r
+
+    # chronology defaults + normalization
+    chronology = out.get("chronology")
+    if not isinstance(chronology, dict):
+        chronology = {}
+    ch = dict(chronology)
+
+    po = ch.get("project_order")
+    if not isinstance(po, list):
+        po = []
+    ch["project_order"] = [str(x) for x in po if str(x).strip()]
+
+    pd = ch.get("project_dates")
+    if not isinstance(pd, dict):
+        pd = {}
+    ch["project_dates"] = {str(k): str(v) for k, v in pd.items() if str(k).strip() and str(v).strip()}
+
+    sf = ch.get("skill_first_seen")
+    if not isinstance(sf, dict):
+        sf = {}
+    ch["skill_first_seen"] = {str(k): str(v) for k, v in sf.items() if str(k).strip() and str(v).strip()}
+
+    so = ch.get("skill_order")
+    if not isinstance(so, list):
+        so = []
+    ch["skill_order"] = [str(x) for x in so if str(x).strip()]
+
+    out["chronology"] = ch
+
+    # highlights defaults + normalization
+    highlights = out.get("highlights")
+    if not isinstance(highlights, dict):
+        highlights = {}
+    hi = dict(highlights)
+    hs = hi.get("skills")
+    if not isinstance(hs, list):
+        hs = []
+    hi["skills"] = [str(x) for x in hs if str(x).strip()]
+    out["highlights"] = hi
+
+    # showcase defaults + normalization
+    showcase = out.get("showcase")
+    if not isinstance(showcase, dict):
+        showcase = {}
+    sc = dict(showcase)
+    sel = sc.get("selected_project_ids")
+    if not isinstance(sel, list):
+        sel = []
+    sc["selected_project_ids"] = [str(x) for x in sel if str(x).strip()]
+    out["showcase"] = sc
+
+    # comparison defaults + normalization
+    comparison = out.get("comparison")
+    if not isinstance(comparison, dict):
+        comparison = {}
+    cp = dict(comparison)
+    attrs = cp.get("attributes")
+    if not isinstance(attrs, list):
+        attrs = []
+    cp["attributes"] = [str(x) for x in attrs if str(x).strip()]
+    out["comparison"] = cp
 
     return out
 
