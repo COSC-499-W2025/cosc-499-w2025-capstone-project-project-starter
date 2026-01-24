@@ -7,12 +7,85 @@ Note: This tool is for development environments only. Do NOT use in production!
 
 import os
 import sys
+import random
+import string
 from typing import List, Tuple
 
 # Add project root directory to path
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
 from src.config.db_config import get_connection
+
+
+def check_environment_safety() -> bool:
+    """
+    Verify that the script is running in a safe development environment.
+    This includes multiple safety checks to prevent accidental production use.
+    """
+    print("=" * 80)
+    print("ENVIRONMENT SAFETY CHECKS".center(80))
+    print("=" * 80)
+    
+    # Check 1: Ensure running in interactive terminal (not automated script)
+    if not sys.stdin.isatty() or not sys.stdout.isatty():
+        print("\nX ERROR: This script must be run in an interactive terminal.")
+        print("  It cannot be executed in automated scripts or pipelines.")
+        return False
+    print("✓ Check 1: Running in interactive terminal")
+    
+    # Check 2: Verify environment variable indicates development environment
+    env_mode = os.getenv("ENVIRONMENT", "").lower()
+    postgres_host = os.getenv("POSTGRES_HOST", "").lower()
+    
+    # Reject if explicitly production
+    if env_mode in ["production", "prod", "live"]:
+        print("\nX ERROR: ENVIRONMENT is set to PRODUCTION.")
+        print("  This script is FORBIDDEN in production environments!")
+        return False
+    
+    # Reject if production database host detected
+    production_indicators = ["prod", "production", "live", "aws", "azure", "cloud"]
+    if any(indicator in postgres_host for indicator in production_indicators):
+        print("\nX ERROR: Production database host detected.")
+        print(f"  POSTGRES_HOST contains production indicator: {postgres_host}")
+        return False
+    
+    # Warn if not explicitly development
+    if env_mode not in ["development", "dev", "local"]:
+        print(f"\n  WARNING: ENVIRONMENT is '{env_mode}' (not explicitly 'development').")
+        print("  This script should only run in development environments.")
+        confirm = input("  Are you SURE you're in a development environment? (type 'I AM SURE'): ")
+        if confirm != "I AM SURE":
+            print("\nX Safety check failed.")
+            return False
+    else:
+        print(f"V Check 2: Environment is '{env_mode}' (development mode)")
+    
+    # Check 3: Database host safety check
+    if postgres_host in ["localhost", "127.0.0.1", "db", ""]:
+        print(f"V Check 3: Database host is '{postgres_host or 'localhost'}' (local)")
+    else:
+        print(f"\n  WARNING: Database host is '{postgres_host}' (non-standard local host).")
+        confirm = input("  Confirm this is a DEVELOPMENT database (type 'DEV DATABASE'): ")
+        if confirm != "DEV DATABASE":
+            print("\nX Safety check failed.")
+            return False
+    
+    # Check 4: Generate random confirmation code
+    confirmation_code = ''.join(random.choices(string.ascii_uppercase + string.digits, k=6))
+    print(f"\nV All automated checks passed.")
+    print("\n" + "=" * 80)
+    print("MANUAL CONFIRMATION REQUIRED".center(80))
+    print("=" * 80)
+    print(f"\nTo proceed, type this confirmation code: {confirmation_code}")
+    user_input = input("Confirmation code: ").strip()
+    
+    if user_input != confirmation_code:
+        print("\nX Incorrect confirmation code. Aborting.")
+        return False
+    
+    print("\nV Confirmation code accepted.\n")
+    return True
 
 
 class TableManager:
@@ -155,8 +228,13 @@ def main():
     print("Database Table Management Tool".center(80))
     print("=" * 80)
     print("\n WARNING: This tool is for development environments only!")
-    print(" Dropping tables will permanently delete all data - this cannot be undone!\n")
-    
+    print(" Dropping tables will permanently delete all data - this cannot be undone!\n")    
+    # Run environment safety checks first
+    if not check_environment_safety():
+        print("\n" + "=" * 80)
+        print("Script execution blocked for safety reasons.")
+        print("=" * 80)
+        sys.exit(1)    
     # Connect to database
     manager = TableManager()
     if not manager.connect():
