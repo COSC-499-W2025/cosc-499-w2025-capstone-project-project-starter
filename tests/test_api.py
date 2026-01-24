@@ -837,3 +837,110 @@ def test_pdf_metadata_and_bullet_toggles(client, monkeypatch, tmp_path):
     assert bullet_count == 1, f"Expected 1 bullet, but found {bullet_count}"
     assert "Resume Item ID:" not in page_text
     assert "Summary" in page_text
+
+def test_projects_compare_endpoint_attribute_precedence_and_highlights(client, engine):
+    # Setup: one user/portfolio with two projects, each having a local_ml analysis with a python skill.
+    user_id = _u()
+    portfolio_id = _u()
+    p1 = _u()
+    p2 = _u()
+    s1 = _u()
+    s2 = _u()
+    a1 = _u()
+    a2 = _u()
+
+    with engine.begin() as conn:
+        conn.execute(text("INSERT INTO users (id) VALUES (:id)"), {"id": user_id})
+        conn.execute(
+            text("INSERT INTO portfolios (id, user_id, name) VALUES (:id, :uid, 'default')"),
+            {"id": portfolio_id, "uid": user_id},
+        )
+        conn.execute(
+            text("INSERT INTO projects (id, portfolio_id, name) VALUES (:id, :pf, 'P1')"),
+            {"id": p1, "pf": portfolio_id},
+        )
+        conn.execute(
+            text("INSERT INTO projects (id, portfolio_id, name) VALUES (:id, :pf, 'P2')"),
+            {"id": p2, "pf": portfolio_id},
+        )
+        conn.execute(
+            text(
+                "INSERT INTO snapshots (id, project_id, source_zip_name, source_zip_sha256, snapshot_label) "
+                "VALUES (:id, :pid, 'z1.zip', :zh, 'S1')"
+            ),
+            {"id": s1, "pid": p1, "zh": "1" * 64},
+        )
+        conn.execute(
+            text(
+                "INSERT INTO snapshots (id, project_id, source_zip_name, source_zip_sha256, snapshot_label) "
+                "VALUES (:id, :pid, 'z2.zip', :zh, 'S2')"
+            ),
+            {"id": s2, "pid": p2, "zh": "2" * 64},
+        )
+
+        # Seed local_ml output_json with skills so build_project_report can derive skills_top.
+        ml_out_1 = {
+            "skills": [
+                {"skill": "python", "first_seen_ts": "2020-01-01T00:00:00+00:00", "max_prob": 0.95, "hits": 10}
+            ]
+        }
+        ml_out_2 = {
+            "skills": [
+                {"skill": "python", "first_seen_ts": "2020-06-01T00:00:00+00:00", "max_prob": 0.90, "hits": 8}
+            ]
+        }
+
+        conn.execute(
+            text(
+                """
+                INSERT INTO analyses (id, snapshot_id, analysis_type, status, output_json, completed_at)
+                VALUES (:id, :sid, 'local_ml', 'complete', CAST(:out AS jsonb), NOW())
+                """
+            ),
+            {"id": a1, "sid": s1, "out": json.dumps(ml_out_1)},
+        )
+        conn.execute(
+            text(
+                """
+                INSERT INTO analyses (id, snapshot_id, analysis_type, status, output_json, completed_at)
+                VALUES (:id, :sid, 'local_ml', 'complete', CAST(:out AS jsonb), NOW())
+                """
+            ),
+            {"id": a2, "sid": s2, "out": json.dumps(ml_out_2)},
+        )
+
+    # User config controls attribute selection when attributes= is not provided.
+    r_cfg = client.patch(
+        f"/users/{user_id}/config",
+        json={
+            "comparison": {"attributes": ["meta", "skills_top"]},
+            "highlights": {"skills": ["python"]},
+        },
+    )
+    assert r_cfg.status_code == 200
+
+    # 1) No explicit attributes => use user_config.comparison.attributes
+    r = client.get(f"/projects/compare?project_ids={p1}&project_ids={p2}")
+    assert r.status_code == 200
+    body = r.json()
+    assert body["portfolio_id"] == portfolio_id
+    assert body["project_ids"] == [p1, p2]
+    assert body["attributes"] == ["meta", "skills_top"]
+    assert body["highlight_skills"] == ["python"]
+    assert len(body["projects"]) == 2
+
+    for proj in body["projects"]:
+        assert proj["project_id"] in (p1, p2)
+        assert "meta" in proj
+        assert "skills_top" in proj
+        py_rows = [s for s in proj["skills_top"] if (s.get("skill") or "").casefold() == "python"]
+        assert len(py_rows) >= 1
+        assert py_rows[0].get("is_highlight") is True
+
+    # 2) Explicit attributes query param overrides user_config and supports comma-separated ids.
+    r2 = client.get(f"/projects/compare?project_ids={p1},{p2}&attributes=meta")
+    assert r2.status_code == 200
+    body2 = r2.json()
+    assert body2["project_ids"] == [p1, p2]
+    assert body2["attributes"] == ["meta"]
+    assert all(("meta" in p and "skills_top" not in p) for p in body2["projects"])
