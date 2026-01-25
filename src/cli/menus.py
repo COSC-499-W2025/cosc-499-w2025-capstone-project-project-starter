@@ -272,6 +272,8 @@ def handle_zip_success_report():
     """Show a success report for a selected zip project."""
     from analysis import analyze_zip_project
     from project_manager import get_project_by_id
+    from parsing.file_contents_manager import get_zip_file
+    import tempfile
 
     print("\n" + "-"*50)
     print("Project Success Report (ZIP)")
@@ -287,18 +289,27 @@ def handle_zip_success_report():
         input("\nPress Enter to continue...")
         return
 
-    zip_path = project.get("filepath")
-    if not zip_path or not os.path.exists(zip_path):
-        print(f"ZIP file not found: {zip_path}")
+    zip_bytes = get_zip_file(project_id)
+    if not zip_bytes:
+        print("ZIP file not found for this project.")
         input("\nPress Enter to continue...")
         return
 
     try:
-        result = analyze_zip_project(zip_path)
+        with tempfile.NamedTemporaryFile(suffix=".zip", delete=False) as tmp_file:
+            tmp_file.write(zip_bytes)
+            temp_zip_path = tmp_file.name
+        result = analyze_zip_project(temp_zip_path)
     except Exception as exc:
         print(f"Failed to analyze ZIP: {exc}")
         input("\nPress Enter to continue...")
         return
+    finally:
+        if "temp_zip_path" in locals() and os.path.exists(temp_zip_path):
+            try:
+                os.remove(temp_zip_path)
+            except OSError:
+                pass
 
     success = result.get("success", {})
     signals = result.get("signals", {})

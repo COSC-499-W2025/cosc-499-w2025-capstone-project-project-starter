@@ -216,24 +216,25 @@ def test_handle_rank_projects_save_flow(mock_stdout, mock_input, mock_rank, mock
     "signals": {"has_entrypoint": True},
     "evidence": {"entrypoints": ["index.html"]},
 })
+@patch("parsing.file_contents_manager.get_zip_file", return_value=b"zip-bytes")
 @patch("project_manager.get_project_by_id", return_value={"id": 1, "filepath": "/tmp/demo.zip"})
 @patch("cli.menus.select_project_interactive", return_value={"id": 1, "filename": "demo.zip"})
-@patch("cli.menus.os.path.exists", return_value=True)
 @patch("builtins.input", return_value="")
 @patch("sys.stdout", new_callable=StringIO)
 def test_handle_zip_success_report(
     mock_stdout,
     mock_input,
-    mock_exists,
     mock_select,
     mock_get_project,
+    mock_get_zip,
     mock_analyze,
 ):
     menus.handle_zip_success_report()
 
     mock_select.assert_called_once()
     mock_get_project.assert_called_once_with(1)
-    mock_analyze.assert_called_once_with("/tmp/demo.zip")
+    mock_get_zip.assert_called_once_with(1)
+    mock_analyze.assert_called_once()
     output = mock_stdout.getvalue()
     assert "Project Success Report (ZIP)" in output
     assert "Status : partial" in output
