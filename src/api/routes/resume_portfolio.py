@@ -5,6 +5,7 @@ from pydantic import BaseModel
 from resume.resume_manager import ResumeManager
 from portfolio.portfolio_manager import PortfolioManager
 from portfolio.skill_mapper import SkillMapper
+from common.schemas import CustomWordingSaveRequest, SimpleMessageResponse
 
 router = APIRouter()
 
@@ -110,10 +111,9 @@ async def list_resume_custom_wording(user_id: str):
 
 
 @router.post("/resume/{user_id}/custom-wording")
-async def save_resume_custom_wording(user_id: str, request: ResumeEditRequest):
+async def save_resume_custom_wording(user_id: str, request: CustomWordingSaveRequest):
     """
-    Save/overwrite custom wording for a project.
-    (We reuse ResumeEditRequest to avoid schema churn in PR1.)
+    Save or overwrite custom wording for a project using a dedicated request schema.
     """
     try:
         if request.project_id <= 0:
