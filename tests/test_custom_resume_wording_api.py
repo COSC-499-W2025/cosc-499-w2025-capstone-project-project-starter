@@ -48,7 +48,7 @@ class TestCustomResumeWordingAPI:
             "/api/resume/test_user/custom-wording",
             json={"project_id": 0, "wording": "x"}
         )
-        assert r.status_code == 400
+        assert r.status_code == 422
 
     def test_clear_custom_wording_invalid_project_id(self):
         r = client.delete("/api/resume/test_user/custom-wording/0")
