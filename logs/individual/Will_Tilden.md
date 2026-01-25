@@ -1,5 +1,59 @@
 # Weekly Navigation (Term 2)
-- [Term 2 Week 2](#term-2-week-2--january-1218-2026)
+- [Term 2 Week 3](#term-2-week-3--january-1218-2026)
+
+## Will Tilden Personal Logs  //  Term 2 Week 3 – January 19–25, 2026
+
+### Connection to Previous Week
+- Last week I worked on a somewhat similar task from the milestone requirements where I added the ability for the user to specifiy the name of their project as they want it to appear on their resume
+- This week was a somewhat similar feature, another requirement from the milestone 2 list, where I allow users the ability to toggle on and off what sections do and don't show on the resume
+- The two changes involved similar processes which is why I was glad to do one after the other, as they were similar in the nature of how to set them up and get them working
+
+---
+
+### Coding Tasks
+- Completed feature number 23 under milestone 2: Allow users to choose which information is represented -> issue number 197
+- Fixed bug where a test was failing on some operating systems and passing on others -> issue number 199
+- Successfully started, completed, and merged the feature and the bug fix within this week.
+- Submitted and merged PR of feature 23 (#198): (https://github.com/COSC-499-W2025/capstone-project-team-15/pull/198)
+- Submitted and merged PR of bug (#199): (https://github.com/COSC-499-W2025/capstone-project-team-15/pull/202)
+---
+
+### Testing & Debugging Tasks
+- Performed manual testing and ran test cases on my own PR (#198). https://github.com/COSC-499-W2025/capstone-project-team-15/pull/198
+- Conducted testing and review of Luis's PR (#203). https://github.com/COSC-499-W2025/capstone-project-team-15/pull/203
+- Performed manual testing and ran test cases for Alex's PR note this PR may be getting delayed to next week as Alex has mentioned he wants to add more (#194) https://github.com/COSC-499-W2025/capstone-project-team-15/pull/194
+- Performed manual testing and ran tests cases on my PR of the bugfix that I did (#202) https://github.com/COSC-499-W2025/capstone-project-team-15/pull/202
+
+---
+
+### Reviewing & Collaboration Tasks
+- Reviewed Luis's PR (#203): <https://github.com/COSC-499-W2025/capstone-project-team-15/pull/203>
+- Maintained high collegiality with the team throughout the week.
+- Reviewed Alex's PR (#194): <https://github.com/COSC-499-W2025/capstone-project-team-15/pull/194>
+
+---
+
+### Issues or Blockers
+- No blockers or issues to report from this week.
+- Myself and the team are feeling confident going into peer testing this week
+
+---
+
+### Plan for Next Week
+- For next week I am looking at making a larger contribution and am looking at a few different requirements from the milestone 2 list and am considering doing 2 or possibly all three of them:
+  
+    - #27:Customize and save information about a portfolio showcase project
+    - #29: Display textual information about a project as a portfolio showcase
+    - #30: Display textual information about a project as a résumé item
+
+- I suspect these can be batched together a bit more easily than other features as they all involved the addition of textual information to the resume so they might even make sense to batch together
+
+---
+
+### Peer evaluation Term 2 Week 3
+![Alt text](imgs/will_tilden_t2_w3.png)
+
+---
 
 ## Will Tilden Personal Logs  //  Term 2 Week 2 – January 12–18, 2026
 
