@@ -83,3 +83,17 @@ class PortfolioCardResponse(BaseModel):
             }
         }
     )
+
+class CustomWordingSaveRequest(BaseModel):
+    project_id: int = Field(..., ge=1)
+    wording: str = Field(..., description="Custom résumé wording for this project")
+
+
+class CustomWordingListResponse(BaseModel):
+    success: bool = True
+    project_ids: List[int] = Field(default_factory=list)
+
+
+class SimpleMessageResponse(BaseModel):
+    success: bool = True
+    message: str

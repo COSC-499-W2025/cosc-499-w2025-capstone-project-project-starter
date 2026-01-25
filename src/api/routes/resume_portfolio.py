@@ -5,6 +5,7 @@ from pydantic import BaseModel
 from resume.resume_manager import ResumeManager
 from portfolio.portfolio_manager import PortfolioManager
 from portfolio.skill_mapper import SkillMapper
+from common.schemas import CustomWordingSaveRequest, SimpleMessageResponse
 
 router = APIRouter()
 
@@ -98,6 +99,49 @@ async def edit_resume(user_id: str, request: ResumeEditRequest):
         raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error editing resume: {str(e)}")
+
+@router.get("/resume/{user_id}/custom-wording")
+async def list_resume_custom_wording(user_id: str):
+    """List project_ids that have custom wording saved."""
+    try:
+        project_ids = ResumeManager.list_custom_worded_projects(user_id)
+        return {"success": True, "project_ids": project_ids}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error listing custom wording: {str(e)}")
+
+
+@router.post("/resume/{user_id}/custom-wording")
+async def save_resume_custom_wording(user_id: str, request: CustomWordingSaveRequest):
+    """
+    Save or overwrite custom wording for a project using a dedicated request schema.
+    """
+    try:
+        if request.project_id <= 0:
+            raise HTTPException(status_code=400, detail="project_id must be positive")
+
+        if ResumeManager.save_custom_project_wording(user_id, request.project_id, request.wording):
+            return {"success": True, "message": "Custom wording saved"}
+        raise HTTPException(status_code=500, detail="Failed to save custom wording")
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error saving custom wording: {str(e)}")
+
+
+@router.delete("/resume/{user_id}/custom-wording/{project_id}")
+async def clear_resume_custom_wording(user_id: str, project_id: int):
+    """Clear custom wording for a project."""
+    try:
+        if project_id <= 0:
+            raise HTTPException(status_code=400, detail="project_id must be positive")
+
+        if ResumeManager.clear_custom_project_wording(user_id, project_id):
+            return {"success": True, "message": "Custom wording cleared"}
+        raise HTTPException(status_code=500, detail="Failed to clear custom wording")
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error clearing custom wording: {str(e)}")
 
 
 @router.delete("/resume/{user_id}")

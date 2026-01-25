@@ -121,6 +121,17 @@ class APIClient:
             params['user_name'] = user_name
         
         return self._make_request('GET', f'/projects/{project_id}', params=params)
+    
+    def list_resume_custom_wording(self, user_id: str) -> Dict[str, Any]:
+        return self._make_request('GET', f'/resume/{user_id}/custom-wording')
+
+    def save_resume_custom_wording(self, user_id: str, project_id: int, wording: str) -> Dict[str, Any]:
+        data = {"project_id": project_id, "wording": wording}
+        return self._make_request('POST', f'/resume/{user_id}/custom-wording', json=data)
+
+    def clear_resume_custom_wording(self, user_id: str, project_id: int) -> Dict[str, Any]:
+        return self._make_request('DELETE', f'/resume/{user_id}/custom-wording/{project_id}')
+
 
 
 # Global client instance
