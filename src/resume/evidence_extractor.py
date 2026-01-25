@@ -33,31 +33,34 @@ def build_evidence(project_summary: Dict[str, Any]) -> List[str]:
     evidence: List[str] = []
 
     # --- Pull data from common locations (best-effort) ---
-    languages_block = project_summary.get("languages", {}) or {}
-    detected_langs = languages_block.get("languages") or languages_block.get("detected_languages") or []
+    languages_block = _as_dict(project_summary.get("languages"))
+    detected_langs = _as_list(
+    languages_block.get("languages") or languages_block.get("detected_languages")
+    )
+
     primary_lang = languages_block.get("primary_language", "Unknown")
 
-    frameworks = project_summary.get("frameworks", []) or []
+    frameworks = _as_list(project_summary.get("frameworks"))
     if isinstance(frameworks, dict):
         frameworks = list(frameworks.keys())
 
-    time_analysis = project_summary.get("time_analysis", {}) or {}
+    time_analysis = _as_dict(project_summary.get("time_analysis"))
     duration_days = _safe_int(time_analysis.get("duration_days"), default=0)
     intensity = (time_analysis.get("intensity") or "").strip()
     first_file = (time_analysis.get("first_file") or "").strip()
     last_file = (time_analysis.get("last_file") or "").strip()
 
-    collab_analysis = project_summary.get("collaboration_analysis", {}) or {}
+    collab_analysis = _as_dict(project_summary.get("collaboration_analysis"))
     collab_level = (collab_analysis.get("collaboration_level") or "").strip()
 
-    code_analysis = project_summary.get("code_analysis", {}) or {}
+    code_analysis = _as_dict(project_summary.get("code_analysis"))
     quality_score = _extract_quality_score(code_analysis)
 
-    structure = project_summary.get("project_structure", {}) or {}
+    structure = _as_dict(project_summary.get("project_structure"))
     has_tests = bool(structure.get("has_tests", False))
     has_docs = bool(structure.get("has_docs", False))
 
-    stats = project_summary.get("file_statistics", {}) or {}
+    stats = _as_dict(project_summary.get("file_statistics"))
     # Some pipelines may store these under different keys; handle common variants.
     loc = _safe_int(
         stats.get("total_lines_of_code", stats.get("lines_of_code", stats.get("total_loc", 0))),
@@ -252,3 +255,23 @@ def _dedupe_preserve_order(items: List[str]) -> List[str]:
         seen.add(key)
         out.append(it)
     return out
+
+def _as_dict(val: Any) -> Dict[str, Any]:
+    return val if isinstance(val, dict) else {}
+
+
+def _as_list(val: Any) -> List[Any]:
+    # normalize common inputs into a list (best-effort)
+    if val is None:
+        return []
+    if isinstance(val, list):
+        return val
+    if isinstance(val, (tuple, set)):
+        return list(val)
+    if isinstance(val, dict):
+        return list(val.keys())
+    if isinstance(val, str):
+        s = val.strip()
+        return [s] if s else []
+    # number/bool/other -> treat as empty
+    return []
