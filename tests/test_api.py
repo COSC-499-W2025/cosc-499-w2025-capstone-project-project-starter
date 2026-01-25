@@ -781,3 +781,14 @@ def test_export_portfolio_pdf_invalid_data(tmp_path):
     assert pdf_file.exists()
     assert pdf_file.stat().st_size > 0
     assert result == str(pdf_file)
+
+
+def test_set_project_image_project_not_found(client):
+    response = client.put(
+        "/projects/aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa/image",
+        files={"file": ("test.png", b"fakeimage", "image/png")},
+    )
+
+    assert response.status_code == 404
+    assert response.json()["detail"] == "Project not found"
+
