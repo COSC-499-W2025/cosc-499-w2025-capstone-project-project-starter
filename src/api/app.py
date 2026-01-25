@@ -1,12 +1,13 @@
 from __future__ import annotations
 
+from curses import raw
 import os
 import uuid
 import tempfile
 import zipfile
+import json
 from typing import Any, Dict, List, Optional
 from git import Repo, InvalidGitRepositoryError
-
 from fastapi import FastAPI, UploadFile, File, HTTPException, Form, Query, Body
 from pydantic import BaseModel, Field
 from sqlalchemy import text
@@ -17,6 +18,10 @@ from src.db.session import get_engine
 from src.api.ingest import ingest_zip_to_db, save_upload_to_temp, extract_commits_from_git_zip, find_git_repo
 from src.api.report import build_project_report
 from src.db.consents import get_snapshot_owner_user_id, is_external_services_allowed
+from src.db.session import get_engine
+from sqlalchemy import text
+from src.db.session import get_engine
+from sqlalchemy import text
 
 from src.db.user_config import (
     get_user_config,
@@ -74,6 +79,13 @@ class SetUserContributorIn(BaseModel):
 class ProjectUpdateIn(BaseModel):
     display_name: str
 
+class ResumeEditRequest(BaseModel):
+    summary_text: Optional[str] = None
+    resume_bullets: Optional[List[str]] = None
+
+class PortfolioEditRequest(BaseModel):
+    title: Optional[str] = None
+    summary_text: Optional[str] = None
 
 def _rank_score(user_commits: int, total_commits: int) -> Optional[float]:
     # Deterministic and transparent. Only meaningful if user_commits > 0.
@@ -967,6 +979,45 @@ def generate_resume(payload: ResumeGenerateIn):
     except KeyError:
         raise HTTPException(status_code=404, detail="Project not found")
 
+@app.post("/resume/{resume_id}/edit")
+def edit_resume(resume_id: str, body: ResumeEditRequest):
+    from src.db.session import get_engine
+    from sqlalchemy import text
+    import json
+
+    engine = get_engine()
+
+    with engine.begin() as conn:
+        row = conn.execute(
+            text("SELECT content_json FROM resume_items WHERE id = :id"),
+            {"id": resume_id},
+        ).mappings().first()
+
+        if not row:
+            raise HTTPException(status_code=404, detail="Resume not found")
+
+        raw = row["content_json"]
+        content = json.loads(raw) if isinstance(raw, str) else raw
+
+        if body.summary_text is not None:
+            content["summary_text"] = body.summary_text
+
+        if body.resume_bullets is not None:
+            content["resume_bullets"] = body.resume_bullets
+
+        conn.execute(
+            text("UPDATE resume_items SET content_json = :c WHERE id = :id"),
+            {
+                "id": resume_id,
+                "c": json.dumps(content),
+            },
+        )
+
+    return {
+        "resume_id": resume_id,   # ← THIS is what the test needs
+        "content": content,
+    }
+
 @app.get("/resume/{resume_id}/pdf")
 def download_resume_pdf(resume_id: str):
     engine = get_engine()
@@ -1040,6 +1091,37 @@ def generate_portfolio(payload: PortfolioGenerateIn):
     except KeyError:
         raise HTTPException(status_code=404, detail="Portfolio not found")
 
+@app.post("/portfolio/{showcase_id}/edit")
+def edit_portfolio_showcase(showcase_id: str, body: PortfolioEditRequest):
+    engine = get_engine()
+
+    with engine.begin() as conn:
+        row = conn.execute(
+            text("SELECT content_json FROM portfolio_showcases WHERE id = :id"),
+            {"id": showcase_id},
+        ).mappings().first()
+
+        if not row:
+            raise HTTPException(status_code=404, detail="Showcase not found")
+
+        content = row["content_json"]
+
+        if body.title is not None:
+            content["title"] = body.title
+
+        if body.summary_text is not None:
+            content["summary_text"] = body.summary_text
+
+        conn.execute(
+            text(
+                "UPDATE portfolio_showcases SET content_json = :c WHERE id = :id"
+            ),
+            {"id": showcase_id,"c": json.dumps(content),
+            },
+)
+
+
+    return {"showcase_id": showcase_id, "content": content}
 
 @app.get("/portfolio/{portfolio_id}/generated")
 def get_generated_portfolio_artifacts(portfolio_id: str, limit: int = Query(default=50, ge=1, le=200)):
