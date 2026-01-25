@@ -21,7 +21,7 @@
 ### Testing & Debugging Tasks
 - Performed manual testing and ran test cases on my own PR (#198). https://github.com/COSC-499-W2025/capstone-project-team-15/pull/198
 - Conducted testing and review of Luis's PR (#203). https://github.com/COSC-499-W2025/capstone-project-team-15/pull/203
-- Performed manual testing and ran test cases for Alex's PR note this PR may be getting delayed to next week as Alex has mentioned he wants to add more (#194) https://github.com/COSC-499-W2025/capstone-project-team-15/pull/194
+- Performed manual testing and ran test cases for Alex's PR (#194) https://github.com/COSC-499-W2025/capstone-project-team-15/pull/194
 - Performed manual testing and ran tests cases on my PR of the bugfix that I did (#202) https://github.com/COSC-499-W2025/capstone-project-team-15/pull/202
 
 ---
@@ -29,7 +29,8 @@
 ### Reviewing & Collaboration Tasks
 - Reviewed Luis's PR (#203): <https://github.com/COSC-499-W2025/capstone-project-team-15/pull/203>
 - Maintained high collegiality with the team throughout the week.
-- Reviewed Alex's PR (#194): <https://github.com/COSC-499-W2025/capstone-project-team-15/pull/194>
+- I was the first to review Alex's PR (#194): <https://github.com/COSC-499-W2025/capstone-project-team-15/pull/194>
+  - ^note that the above PR may not have gotten merged this week but I did still review it first and provided meaningful feedback
 
 ---
 
