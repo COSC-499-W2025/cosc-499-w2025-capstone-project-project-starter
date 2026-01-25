@@ -122,6 +122,14 @@ class ResumeFormatter:
                         lines.append(f"**Technologies:** {', '.join(project_skills[:12])}")
                         lines.append("")
                     
+                    # Evidence bullets if available
+                    evidence = project.get('evidence', [])
+                    if evidence:
+                        lines.append("**Evidence:**")
+                        for ev in evidence[:3]:
+                            lines.append(f"- {ev}")
+                        lines.append("")
+                    
                     # Collaboration info if available
                     collab_level = project.get('collaboration_level', '')
                     if collab_level and collab_level != 'Unknown' and 'individual' not in collab_level.lower():
@@ -250,6 +258,14 @@ class ResumeFormatter:
                         lines.append(f"  Technologies: {', '.join(project_skills[:12])}")
                         lines.append("")
                     
+                    # Evidence bullets if available
+                    evidence = project.get('evidence', [])
+                    if evidence:
+                        lines.append("  Evidence:")
+                        for ev in evidence[:3]:
+                            lines.append(f"   - {ev}")
+                        lines.append("")
+
                     # Collaboration info if available
                     collab_level = project.get('collaboration_level', '')
                     if collab_level and collab_level != 'Unknown' and 'individual' not in collab_level.lower():
@@ -457,6 +473,15 @@ class ResumeFormatter:
                         story.append(Paragraph(tech_text, normal_style))
                         story.append(Spacer(1, 5))
                     
+                    # Evidence bullets if available
+                    evidence = project.get('evidence', [])
+                    if evidence:
+                        story.append(Paragraph("<b>Evidence:</b>", normal_style))
+                        for ev in evidence[:3]:
+                            ev_escaped = ev.replace('&', '&amp;').replace('<', '&lt;').replace('>', '&gt;')
+                            story.append(Paragraph(ev_escaped, normal_style))
+                        story.append(Spacer(1, 5))
+
                     # Collaboration info if available
                     collab_level = project.get('collaboration_level', '')
                     if collab_level and collab_level != 'Unknown' and 'individual' not in collab_level.lower():

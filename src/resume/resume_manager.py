@@ -9,6 +9,7 @@ from portfolio.skill_mapper import SkillMapper
 from account.user_manager import AuthManager
 from collaborative.identify_projects import _identify_authors_from_zip, _extract_common_names_from_filenames
 from database.user_preferences import get_user_git_username
+from resume.evidence_extractor import build_evidence
 import json
 
 
@@ -515,6 +516,32 @@ class ResumeManager:
                         if not clean_name or len(clean_name) < 2:
                             clean_name = project_name.replace('.zip', '')
                         
+                        # Optional: gather file stats for evidence (LOC, file count)
+                        file_stats = {}
+                        try:
+                            file_stats = get_file_statistics(project_id) or {}
+                        except Exception:
+                            file_stats = {}
+                        
+
+                        evidence = build_evidence(
+                            {
+                                "languages": {"languages": project_languages, "primary_language": primary_language},
+                                "frameworks": frameworks,
+                                "time_analysis": {
+                                    "duration_days": duration_days,
+                                    "intensity": intensity,
+                                    "first_file": first_file,
+                                    "last_file": last_file,
+                                },
+                                "collaboration_analysis": {"collaboration_level": collaboration_level},
+                                "code_analysis": summary.get("code_analysis", {}),
+                                "project_info": summary.get("project_info", {}),
+                                "project_structure": summary.get("project_structure", {}),
+                                "file_statistics": file_stats,
+                            }
+                        )
+
                         # Build enriched project summary for resume
                         project_summaries.append({
                             'project_name': clean_name,
@@ -529,7 +556,8 @@ class ResumeManager:
                             'last_file': last_file,
                             'collaboration_level': collaboration_level,
                             'summary': project_summary_text,  # Use stored summary from database
-                            'project_info': summary.get('project_info', {})
+                            'project_info': summary.get('project_info', {}),
+                            'evidence': evidence
                         })
                 
                 except Exception as e:
