@@ -675,6 +675,45 @@ def cmd_delete_showcase(args: argparse.Namespace, st: DemoState, state_path: Pat
     print(_pretty(out))
     return 0
 
+def cmd_project_set_image(args: argparse.Namespace, st: DemoState) -> int:
+    api = ApiClient(st.api_url)
+
+    # Determine project_id
+    pid = args.project_id or st.last_project_id
+    if not pid:
+        _eprint("missing project_id (pass --project-id or upload/list first)")
+        return 2
+
+    # Validate file path
+    file_path = _require_file(args.file)
+
+    # Auto-detect MIME type (simple but effective)
+    ext = file_path.suffix.lower()
+    mime = "image/png"
+    if ext in [".jpg", ".jpeg"]:
+        mime = "image/jpeg"
+    elif ext == ".gif":
+        mime = "image/gif"
+
+    # Upload
+    with open(file_path, "rb") as fp:
+        files = {"file": (file_path.name, fp, mime)}
+        r = api._req("PUT", f"/projects/{pid}/image", files=files)
+
+    # Raise if not 2xx
+    api._raise_for_status(r)
+
+    # Parse JSON
+    out = r.json()
+
+    # Update state
+    st.last_project_id = pid
+    st.last_upload = out
+
+    print(_pretty(out))
+    return 0
+
+
 
 def cmd_demo(args: argparse.Namespace, st: DemoState, state_path: Path) -> int:
     """
@@ -986,6 +1025,13 @@ def build_parser() -> argparse.ArgumentParser:
     sp4.add_argument("showcase_id", nargs="?", default=None)
     sp4.set_defaults(_handler="delete_showcase")
 
+    sp = sub.add_parser("project-set-image", help="Upload a thumbnail image for a project")
+    sp.add_argument("file", help="Path to the image file (PNG recommended)")
+    sp.add_argument("--project-id", default=None, help="Project ID (defaults to last_project_id)")
+    sp.set_defaults(_handler="project_set_image")
+
+
+
     sp = sub.add_parser("demo", help="One-command end-to-end marking flow (consent -> upload -> outputs -> pdf)")
     sp.add_argument("zip", help="Path to .zip containing one or more projects")
     sp.add_argument("--user-id", default=None)
@@ -1077,6 +1123,8 @@ def main(argv: Optional[List[str]] = None) -> int:
             rc = cmd_delete_resume(args, st, state_path)
         elif h == "delete_showcase":
             rc = cmd_delete_showcase(args, st, state_path)
+        elif h == "project_set_image":
+            rc = cmd_project_set_image(args, st)
         elif h == "demo":
             rc = cmd_demo(args, st, state_path)
         else:
