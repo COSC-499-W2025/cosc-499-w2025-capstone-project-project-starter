@@ -11,9 +11,26 @@ from typing import Optional
 from sqlalchemy.orm import DeclarativeBase
 from sqlalchemy import text
 from sqlalchemy.engine import Engine
+from sqlalchemy.dialects.postgresql import UUID as PGUUID, JSONB
+
+
+from sqlalchemy import (
+    Column,
+    String,
+    Text,
+    DateTime,
+    BigInteger,
+    ForeignKey,
+    func,
+    text,
+)
+
 
 class Base(DeclarativeBase):
     pass
+
+
+
 
 #defining this twice is kinda stupid but so is python
 @dataclass(frozen=True)
@@ -50,3 +67,57 @@ def fetch_snapshot_files(engine: Engine, snapshot_id: str) -> List[SnapshotFileR
         )
         for r in rows
     ]
+
+
+class FileBlob(Base):
+    __tablename__ = "file_blobs"
+
+    sha256 = Column(String(64), primary_key=True)
+    size_bytes = Column(BigInteger, nullable=False)
+    mime_type = Column(String(128), nullable=True)
+    stored_path = Column(Text, nullable=False)
+    created_at = Column(DateTime(timezone=True), nullable=False, server_default=func.now())
+
+
+class PortfolioShowcase(Base):
+    __tablename__ = "portfolio_showcases"
+
+    id = Column(
+        PGUUID(as_uuid=True),
+        primary_key=True,
+        server_default=text("gen_random_uuid()"),
+    )
+
+    project_id = Column(
+        PGUUID(as_uuid=True),
+        ForeignKey("projects.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+
+    content_json = Column(
+        JSONB,
+        nullable=False,
+        server_default=text("'{}'::jsonb"),
+    )
+
+    thumbnail_blob_sha256 = Column(
+        String(64),
+        ForeignKey("file_blobs.sha256", ondelete="SET NULL"),
+        nullable=True,
+    )
+
+    created_at = Column(DateTime(timezone=True), nullable=False, server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), nullable=False, server_default=func.now(), onupdate=func.now())
+
+
+class Project(Base): 
+    __tablename__ = "projects" 
+    id = Column(PGUUID(as_uuid=True), primary_key=True)
+    portfolio_id = Column(PGUUID(as_uuid=True), ForeignKey("portfolios.id"), nullable=False) 
+    name = Column(String, nullable=False) 
+    project_type = Column(String, nullable=False) 
+    collaboration_type = Column(String, nullable=False) 
+    user_role = Column(String, nullable=True) 
+    evidence_json = Column(JSONB, nullable=False, server_default="{}") 
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
