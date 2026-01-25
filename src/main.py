@@ -1071,8 +1071,6 @@ def main(argv: Optional[List[str]] = None) -> int:
             rc = cmd_config_set_prefs(args, st)
         elif h == "identity_rules":
             rc = cmd_identity_rules(args, st, state_path)
-        elif h == "identity_rules":
-            rc = cmd_identity_rules(args, st, state_path)
         elif h == "identity_autolink":
             rc = cmd_identity_autolink(args, st)
         elif h == "upload":
