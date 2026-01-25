@@ -319,9 +319,10 @@ def handle_view_edit_rankings():
         print("2. Edit score for a project")
         print("3. Edit summary for a project")
         print("4. Change rank position for a project")
-        print("5. Back to main menu")
+        print("5. Clean error summaries from database")
+        print("6. Back to main menu")
         
-        choice = input("\nChoose an option (1-5): ").strip()
+        choice = input("\nChoose an option (1-6): ").strip()
         
         if choice == '1':
             # View full details
@@ -418,10 +419,22 @@ def handle_view_edit_rankings():
                 print("Invalid project ID.")
         
         elif choice == '5':
+            # Clean error summaries
+            from analysis.ranking_storage import clean_error_summaries
+            confirm = input("\nThis will remove all error messages from stored summaries. Continue? (y/n): ").strip().lower()
+            if confirm in ['y', 'yes']:
+                if clean_error_summaries():
+                    print("\n✓ Error summaries cleaned successfully")
+                else:
+                    print("\n✗ Failed to clean error summaries")
+            else:
+                print("Cancelled.")
+        
+        elif choice == '6':
             break
         
         else:
-            print("Invalid choice. Please enter 1-5.")
+            print("Invalid choice. Please enter 1-6.")
 
 
 def handle_cleanup_insights():

@@ -18,7 +18,7 @@ def test_save_custom_project_wording_updates_resume_data(monkeypatch):
     monkeypatch.setattr(
         ResumeManager,
         "get_user_resume",
-        lambda uid: {"resume_data": {"user_id": uid, "top_projects": []}, "created_at": None, "updated_at": None}
+        lambda uid: {"resume_data": {"user_name": uid, "top_projects": []}, "created_at": None, "updated_at": None}
     )
 
     captured = {}

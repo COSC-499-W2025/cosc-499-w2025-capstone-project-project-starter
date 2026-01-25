@@ -27,7 +27,8 @@ class TestResumeTableInitialization:
         result = ResumeManager.init_resume_table()
         
         assert result == True
-        assert mock_cursor.execute.call_count == 2
+        # 4 execute calls: CREATE TABLE, migration check, CREATE INDEX, and FK constraint
+        assert mock_cursor.execute.call_count == 4
         assert mock_with_db_cursor.called
     
     @patch('resume.resume_manager.with_db_cursor')

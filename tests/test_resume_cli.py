@@ -248,7 +248,7 @@ class TestHandleViewResume:
         
         # Mock resume data
         mock_resume_data = {
-            'user_id': 'test_user',
+            'user_name': 'test_user',
             'all_skills': ['Python'],
             'summary_stats': {}
         }
@@ -286,7 +286,7 @@ class TestHandleViewResume:
         mock_exists.return_value = True
         
         # Mock resume data
-        mock_resume_data = {'user_id': 'test_user'}
+        mock_resume_data = {'user_name': 'test_user'}
         mock_get_resume.return_value = {
             'resume_data': mock_resume_data
         }
@@ -321,7 +321,7 @@ class TestHandleViewResume:
         mock_exists.return_value = True
         
         # Mock resume data
-        mock_resume_data = {'user_id': 'test_user'}
+        mock_resume_data = {'user_name': 'test_user'}
         mock_get_resume.return_value = {
             'resume_data': mock_resume_data
         }
@@ -330,7 +330,7 @@ class TestHandleViewResume:
         mock_input.side_effect = ['3', '']
         
         # Mock formatted output
-        mock_format.return_value = '{"user_id": "test_user"}'
+        mock_format.return_value = '{"user_name": "test_user"}'
         
         # Execute
         handle_view_resume()
@@ -381,7 +381,7 @@ class TestHandleViewResume:
         mock_exists.return_value = True
         
         # Mock resume data
-        mock_resume_data = {'user_id': 'test_user'}
+        mock_resume_data = {'user_name': 'test_user'}
         mock_get_resume.return_value = {
             'resume_data': mock_resume_data
         }
@@ -419,7 +419,7 @@ class TestHandlePDFExport:
         mock_getsize.return_value = 12345
         
         # Mock resume data
-        mock_resume_data = {'user_id': 'default_user'}
+        mock_resume_data = {'user_name': 'default_user'}
         
         # Execute
         _handle_pdf_export(mock_resume_data)
@@ -449,7 +449,7 @@ class TestHandlePDFExport:
         mock_getsize.return_value = 12345
         
         # Mock resume data
-        mock_resume_data = {'user_id': 'default_user'}
+        mock_resume_data = {'user_name': 'default_user'}
         
         # Execute
         _handle_pdf_export(mock_resume_data)
@@ -476,7 +476,7 @@ class TestHandlePDFExport:
         mock_getsize.return_value = 12345
         
         # Mock resume data
-        mock_resume_data = {'user_id': 'default_user'}
+        mock_resume_data = {'user_name': 'default_user'}
         
         # Execute
         _handle_pdf_export(mock_resume_data)
@@ -500,7 +500,7 @@ class TestHandlePDFExport:
         mock_format_pdf.return_value = False
         
         # Mock resume data
-        mock_resume_data = {'user_id': 'default_user'}
+        mock_resume_data = {'user_name': 'default_user'}
         
         # Execute - should not raise exception
         _handle_pdf_export(mock_resume_data)
@@ -529,7 +529,7 @@ class TestHandlePDFExport:
         mock_resume_exists.return_value = True
         
         # Mock resume data
-        mock_resume_data = {'user_id': 'test_user'}
+        mock_resume_data = {'user_name': 'test_user'}
         mock_get_resume.return_value = {
             'resume_data': mock_resume_data
         }

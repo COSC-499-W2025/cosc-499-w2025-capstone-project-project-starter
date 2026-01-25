@@ -282,3 +282,32 @@ def delete_stored_rankings() -> bool:
         print(f"Error deleting stored rankings: {e}")
         return False
 
+
+def clean_error_summaries() -> bool:
+    """
+    Remove error messages from stored summaries in the database.
+    This clears out invalid summaries that start with 'Error:'.
+    
+    Returns:
+        bool: True if cleanup was successful, False otherwise
+    """
+    try:
+        with with_db_cursor() as cursor:
+            # Update summaries that are error messages to NULL
+            cursor.execute("""
+                UPDATE project_rankings
+                SET summary = NULL, updated_at = CURRENT_TIMESTAMP
+                WHERE summary LIKE 'Error:%'
+            """)
+            
+            affected_rows = cursor.rowcount
+            if affected_rows > 0:
+                print(f"Cleaned {affected_rows} error summaries from database")
+            else:
+                print("No error summaries found in database")
+            
+            return True
+    except Exception as e:
+        print(f"Error cleaning error summaries: {e}")
+        return False
+

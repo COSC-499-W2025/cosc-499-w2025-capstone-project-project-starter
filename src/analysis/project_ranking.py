@@ -301,11 +301,17 @@ def rank_and_summarize_top_projects() -> None:
             
             # Check if summary exists in database
             stored_ranking = get_stored_ranking_by_project_id(project_id)
-            if stored_ranking and stored_ranking.get('summary'):
+            stored_summary = stored_ranking.get('summary') if stored_ranking else None
+            
+            # Check if stored summary is valid (not an error message)
+            if stored_summary and not stored_summary.startswith('Error:'):
                 print("\nUsing stored summary from database...")
-                print(stored_ranking['summary'])
+                print(stored_summary)
             else:
-                print("\nGenerating summary...")
+                if stored_summary and stored_summary.startswith('Error:'):
+                    print("\nStored summary contains error, regenerating...")
+                else:
+                    print("\nGenerating summary...")
                 try:
                     # Data Isolation: Pass user_name to verify ownership
                     current_username = AuthManager.get_current_username()
@@ -337,19 +343,29 @@ def save_rankings_with_summaries(ranked_projects: List[Dict[str, Any]], generate
             
             # Check if summary exists in database first
             stored_ranking = get_stored_ranking_by_project_id(project_id)
-            if stored_ranking and stored_ranking.get('summary'):
+            stored_summary = stored_ranking.get('summary') if stored_ranking else None
+            
+            # Only use stored summary if it's valid (not an error message)
+            if stored_summary and not stored_summary.startswith('Error:'):
                 print(f"  [{i}/{len(ranked_projects)}] Using stored summary for: {filename}")
-                summaries[project_id] = stored_ranking['summary']
+                summaries[project_id] = stored_summary
             else:
-                print(f"  [{i}/{len(ranked_projects)}] Generating summary for: {filename}")
+                if stored_summary and stored_summary.startswith('Error:'):
+                    print(f"  [{i}/{len(ranked_projects)}] Stored summary invalid, regenerating for: {filename}")
+                else:
+                    print(f"  [{i}/{len(ranked_projects)}] Generating summary for: {filename}")
                 try:
                     # Data Isolation: Pass user_name to verify ownership
                     current_username = AuthManager.get_current_username()
                     summary = summarize_project(project_id, user_name=current_username)
-                    summaries[project_id] = summary
+                    # Only store the summary if it's not an error
+                    if not summary.startswith('Error:'):
+                        summaries[project_id] = summary
+                    else:
+                        print(f"    Skipping storage of error message")
                 except Exception as e:
                     print(f"    Error generating summary: {e}")
-                    summaries[project_id] = f"Error generating summary: {e}"
+                    # Don't store error messages in the database
     
     print("\nSaving rankings and summaries to database...")
     success = save_rankings_to_db(ranked_projects, summaries if summaries else None)
