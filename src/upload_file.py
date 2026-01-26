@@ -293,15 +293,28 @@ def add_file_to_db(filepath, user_name: str = None, original_filename: str = Non
 
         with with_db_cursor() as cursor:
             # 6.1 Check if an identical ZIP (same bytes) has already been uploaded
-            cursor.execute(
-                """
-                SELECT id, filename
-                FROM uploaded_files
-                WHERE file_data = %s
-                LIMIT 1
-                """,
-                (zip_bytes,),
-            )
+            # Only check for duplicates from the same user to respect user isolation
+            if user_name:
+                cursor.execute(
+                    """
+                    SELECT id, filename
+                    FROM uploaded_files
+                    WHERE file_data = %s AND user_name = %s
+                    LIMIT 1
+                    """,
+                    (zip_bytes, user_name),
+                )
+            else:
+                # If no user_name provided, check across all users (backward compatibility)
+                cursor.execute(
+                    """
+                    SELECT id, filename
+                    FROM uploaded_files
+                    WHERE file_data = %s
+                    LIMIT 1
+                    """,
+                    (zip_bytes,),
+                )
             existing = cursor.fetchone()
 
             if existing:
