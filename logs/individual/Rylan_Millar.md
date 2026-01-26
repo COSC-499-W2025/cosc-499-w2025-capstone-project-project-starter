@@ -1,7 +1,45 @@
-[Most Recent Log!](#personal-log-for-rylan-millar-33334400-term-2-week-2-january-12---18)
+[Most Recent Log!](#personal-log-for-rylan-millar-33334400-term-2-week-3-january-19---25)
 ---
 ---
 
+
+# Personal Log for Rylan Millar (33334400) Term 2 Week 3 (January 19 - 25)
+
+## Features from the project plan this week
+- Giving user's a key role
+- Preparing for Peer Testing 1
+- Create API endpoints for all features
+
+## Tasks from the project board associated with these features
+- Requirement #24 - Giving User's a Key Role (#210)
+
+## Completed and In Progress
+- Requirement #24 - Giving User's a Key Role (#210) (**COMPLETE**)
+
+## What went well
+- I was able to contribute some physical code
+- I feel like my contributions are useful to project
+- The Github Collaboration Module was updated to check how many commits a user has and if they are a top contributor
+- I was also able to extract the commit message for every commit
+
+## What did not go well
+- Nothing, I think the team is locked in and making solid progress
+
+## Reflections
+- I was able to to implement an important part of the project with the Github module because we will expand on this module for other requirements of the project
+
+## Plans for next sprint
+- Update metadata extraction to extract more types of metadata
+- Update the system so that the metadata that is extracted, is stored in the database
+- Update the github module to give users a key role for a given project
+- Housekeeping and adding comments
+
+## Peer evaluation screenshot Term 2 Week 3
+
+![alt text](<imgs/rylan_millar_t2w3.png>)
+
+---
+---
 
 # Personal Log for Rylan Millar (33334400) Term 2 Week 2 (January 12 - 18)
 
