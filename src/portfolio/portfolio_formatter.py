@@ -7,6 +7,7 @@ Formats portfolio data into human-readable output formats AND structured API res
 import json
 from typing import Dict, Any, Optional, List
 from src.common.schemas import PortfolioCardResponse, TechStack
+from src.resume.evidence_extractor import build_evidence 
 
 class PortfolioFormatter:
     """Formats portfolio data into various output formats."""
@@ -307,56 +308,71 @@ class PortfolioFormatter:
             print(f"[ERROR] Unknown format type: {format_type}. Using text format.")
             return PortfolioFormatter.format_text(portfolio_data)
     @staticmethod
-    def format_project_card(project_data: Dict[str, Any]) -> PortfolioCardResponse:
+    def format_project_card(project_data: Dict[str, Any], user_options: Optional[Dict[str, Any]] = None) -> PortfolioCardResponse:
         """
         Transforms raw project analysis data into a rich Portfolio Showcase Card.
         Fulfills Milestone 2 Requirement: 'Display textual information about a project as a portfolio showcase'
         
         Args:
             project_data (dict): Single project dictionary from ProjectAnalyzer.
+            user_options (dict, optional): User overrides for title, description, or role.
             
         Returns:
             PortfolioCardResponse: Pydantic model for API response.
         """
-        # 1. Basic Info Extraction
+        if user_options is None:
+            user_options = {}
+        # 1. Title Selection
         info = project_data.get('project_info', {})
         # Use filename as fallback title if needed
         raw_name = info.get('filename', 'Untitled Project')
-        clean_title = PortfolioFormatter._clean_title_helper(raw_name)
+        
+        # Title Logic: User Override > Auto-Cleaned
+        if user_options.get('custom_title'):
+            clean_title = user_options['custom_title']
+        else:
+            clean_title = PortfolioFormatter._clean_title_helper(raw_name)
         
         # 2. Descriptions (Elevator Pitch vs Full)
-        # In a real scenario, these might come from an LLM summary. 
-        # For now, we generate a structured summary based on stats.
         stats = project_data.get('file_statistics', {})
         total_loc = stats.get('total_lines_of_code', 0)
         file_count = stats.get('total_files', 0)
         
-        short_desc = f"A robust software solution comprising {file_count} modules and {total_loc}+ lines of code."
-        
-        primary_lang = project_data.get('languages', {}).get('primary_language', 'Code')
-        full_desc = (
-            f"{clean_title} is a specialized application developed primarily in {primary_lang}. "
-            f"It demonstrates best practices in software engineering, handling {file_count} files "
-            f"and optimizing performance across the {total_loc} line codebase."
-        )
+        # User Override: Description
+        if user_options.get('custom_description'):
+            full_desc = user_options['custom_description']
+            # Truncate for short desc if not provided separately
+            short_desc = (full_desc[:200] + '...') if len(full_desc) > 200 else full_desc
+        else:
+            short_desc = f"A robust software solution comprising {file_count} modules and {total_loc}+ lines of code."
+            primary_lang = project_data.get('languages', {}).get('primary_language', 'Code')
+            full_desc = (
+                f"{clean_title} is a specialized application developed primarily in {primary_lang}. "
+                f"It demonstrates best practices in software engineering, handling {file_count} files "
+                f"and optimizing performance across the {total_loc} line codebase."
+            )
 
         # 3. Tech Stack Mapping
         technologies = PortfolioFormatter._map_technologies(project_data)
 
-        # 4. Success Metrics (Evidence of Success)
-        metrics = PortfolioFormatter._generate_success_metrics(project_data)
+        # 4. Success Metrics (Refactored to use Shared Logic from Evan's module)
+        # This calls src.resume.evidence_extractor.build_evidence
+        metrics = build_evidence(project_data)
 
-        # 5. Collaborators (Placeholder until integrated with identifying_contributors.py)
-        # Check if 'collaboration_analysis' exists in the input dictionary
+        # 5. Collaborators
+        # Check if 'collaboration_analysis' exists (from identify_contributors.py)
         collaborators = project_data.get('collaboration_analysis', {}).get('contributors', [])
 
+        # User Override: Role
+        my_role = user_options.get('custom_role', "Lead Developer")
+
         return PortfolioCardResponse(
-            project_id=f"proj_{info.get('id', 0)}", # Simple ID generation
+            project_id=f"proj_{info.get('id', 0)}",
             title=clean_title,
             short_description=short_desc,
             full_description=full_desc,
             image_url=None, # Placeholder: Evan's Image Module will inject this later
-            my_role="Lead Developer", # Default: Eric's User Prefs will override this later
+            my_role=my_role,
             collaborators=collaborators,
             success_metrics=metrics,
             technologies=technologies
@@ -390,32 +406,4 @@ class PortfolioFormatter:
         for fw in frameworks:
             tech_list.append(TechStack(name=fw, category="Framework"))
             
-        return tech_list[:8] # Cap at 8 tags for visual clarity
-
-    @staticmethod
-    def _generate_success_metrics(data: Dict[str, Any]) -> List[str]:
-        """
-        Helper: Derives 'Evidence of Success' from static analysis metrics.
-        Fulfills Milestone 2 Requirement: 'Incorporate evidence of success'
-        """
-        metrics = []
-        structure = data.get('project_structure', {})
-        stats = data.get('file_statistics', {})
-        
-        # Metric 1: Scale
-        if stats.get('total_lines_of_code', 0) > 1000:
-            metrics.append("Large Scale Architecture")
-            
-        # Metric 2: Reliability
-        if structure.get('has_tests'):
-            metrics.append("Verified Reliability (Unit Tests)")
-            
-        # Metric 3: Documentation
-        if structure.get('has_docs'):
-            metrics.append("Well Documented")
-            
-        # Metric 4: Complexity (Mock logic)
-        if len(data.get('languages', {}).get('detected_languages', [])) > 2:
-            metrics.append("Multi-Language Integration")
-            
-        return metrics
+        return tech_list[:8]
