@@ -342,11 +342,15 @@ def test_handle_view_edit_rankings_clean_error_summaries_cancelled(
 
 
 @patch("cli.menus.delete_insights", return_value=(1, 1, 1))
+@patch("project_manager.get_project_by_id", return_value={"id": 42})
 @patch("builtins.input", side_effect=["42", "y"])
 @patch("sys.stdout", new_callable=StringIO)
-def test_handle_cleanup_insights_confirms_and_deletes(mock_stdout, mock_input, mock_delete):
+def test_handle_cleanup_insights_confirms_and_deletes(
+    mock_stdout, mock_input, mock_get_project, mock_delete
+):
     """cleanup menu should call delete_insights when user confirms."""
     menus.handle_cleanup_insights()
+    mock_get_project.assert_called_once_with(42)
     mock_delete.assert_called_once_with(42)
     assert "Deleted: project_metrics=1" in mock_stdout.getvalue()
 
@@ -357,6 +361,76 @@ def test_portfolio_menu_delegates(mock_portfolio_menu):
     menus.portfolio_menu()
     mock_portfolio_menu.assert_called_once()
 
+
+@patch("cli.menus.handle_cleanup_insights")
+@patch("cli.menus.handle_add_project_thumbnail")
+@patch("cli.menus.handle_list_projects")
+@patch("cli.menus.handle_upload_file")
+@patch("builtins.input", side_effect=["1", "5"])
+@patch("sys.stdout", new_callable=StringIO)
+def test_project_menu_routes_and_back(
+    mock_stdout,
+    mock_input,
+    mock_upload,
+    mock_list,
+    mock_thumbnail,
+    mock_cleanup,
+):
+    """project_menu should route to handlers and return on back."""
+    menus.project_menu()
+    mock_upload.assert_called_once()
+    mock_list.assert_not_called()
+    mock_thumbnail.assert_not_called()
+    mock_cleanup.assert_not_called()
+
+
+@patch("cli.menus.ask_user_preferences")
+@patch("cli.menus.manage_external_services_menu")
+@patch("cli.user_menus.user_account_menu")
+@patch("builtins.input", side_effect=["1", "4"])
+@patch("sys.stdout", new_callable=StringIO)
+def test_settings_menu_routes_and_back(
+    mock_stdout,
+    mock_input,
+    mock_user_account_menu,
+    mock_manage_external,
+    mock_prefs,
+):
+    """settings_menu should route to handlers and return on back."""
+    menus.settings_menu(MagicMock(), MagicMock())
+    mock_manage_external.assert_called_once()
+    mock_prefs.assert_not_called()
+    mock_user_account_menu.assert_not_called()
+
+
+@patch("cli.menus.handle_upload_file")
+@patch("builtins.input", side_effect=["1", "6", "5"])
+@patch("sys.stdout", new_callable=StringIO)
+def test_project_menu_invalid_choice_then_back(
+    mock_stdout,
+    mock_input,
+    mock_upload,
+):
+    """project_menu should handle invalid input and continue."""
+    menus.project_menu()
+    output = mock_stdout.getvalue()
+    assert "Invalid choice" in output
+    mock_upload.assert_called_once()
+
+
+@patch("cli.menus.manage_external_services_menu")
+@patch("builtins.input", side_effect=["9", "4"])
+@patch("sys.stdout", new_callable=StringIO)
+def test_settings_menu_invalid_choice_then_back(
+    mock_stdout,
+    mock_input,
+    mock_manage_external,
+):
+    """settings_menu should handle invalid input and continue."""
+    menus.settings_menu(MagicMock(), MagicMock())
+    output = mock_stdout.getvalue()
+    assert "Invalid choice" in output
+    mock_manage_external.assert_not_called()
 
 @patch("account.user_manager.AuthManager.get_current_user")
 @patch("account.user_manager.AuthManager.is_user_logged_in")

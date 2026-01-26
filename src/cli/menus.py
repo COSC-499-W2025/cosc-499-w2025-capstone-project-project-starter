@@ -46,29 +46,29 @@ def analyze_project_menu():
         return
 
 
-def settings_menu(consent_manager, collab_manager):
-    """Unified settings menu that consolidates all settings-related options."""
+def project_menu():
+    """Unified menu to manage projects"""
     from cli.user_menus import user_account_menu
     
     SETTINGS_OPTIONS = [
-        "External Service Settings",
-        "Delete Project Data",
-        "User Preferences",
-        "User Account",
+        "Upload a ZIP file",
+        "List stored projects",
+        "Add a thumbnail to a project",
+        "Delete a project",
         "Back to main menu"
     ]
     
     handlers = {
-        "1": lambda: manage_external_services_menu(),
-        "2": lambda: handle_cleanup_insights(),
-        "3": lambda: ask_user_preferences(consent_manager, collab_manager, False),
-        "4": lambda: user_account_menu(),
+        "1": lambda: handle_upload_file(),
+        "2": lambda: handle_list_projects(),
+        "3": lambda: handle_add_project_thumbnail(),
+        "4": lambda: handle_cleanup_insights(),
         "5": "BACK"
     }
     
     while True:
         print("\n" + "="*70)
-        print("SETTINGS")
+        print("PROJECTS OPTIONS")
         print("="*70)
         for idx, option in enumerate(SETTINGS_OPTIONS, start=1):
             print(f"{idx}. {option}")
@@ -83,6 +83,43 @@ def settings_menu(consent_manager, collab_manager):
             handler()
         else:
             print("Invalid choice. Please enter 1, 2, 3, 4, or 5.")
+
+
+def settings_menu(consent_manager, collab_manager):
+    """Unified settings menu that consolidates all settings-related options."""
+    from cli.user_menus import user_account_menu
+    
+    SETTINGS_OPTIONS = [
+        "External Service Settings",
+        "User Preferences",
+        "User Account",
+        "Back to main menu"
+    ]
+    
+    handlers = {
+        "1": lambda: manage_external_services_menu(),
+        "2": lambda: ask_user_preferences(consent_manager, collab_manager, False),
+        "3": lambda: user_account_menu(),
+        "4": "BACK"
+    }
+    
+    while True:
+        print("\n" + "="*70)
+        print("SETTINGS")
+        print("="*70)
+        for idx, option in enumerate(SETTINGS_OPTIONS, start=1):
+            print(f"{idx}. {option}")
+        print("="*70)
+        
+        choice = input("Choose an option (1-4): ").strip()
+        handler = handlers.get(choice)
+        
+        if handler == "BACK":
+            return
+        elif handler:
+            handler()
+        else:
+            print("Invalid choice. Please enter 1, 2, 3, or 4.")
 
 
 def manage_external_services_menu():
@@ -553,12 +590,20 @@ def handle_cleanup_insights():
     """Handle delete project data menu option."""
     pid = input("Enter project ID to delete data for: ").strip()
     if pid.isdigit():
+        from project_manager import get_project_by_id
+
+        project_id = int(pid)
+        project = get_project_by_id(project_id)
+        if not project:
+            print(f"No project found with ID {project_id}.")
+            return
+
         confirm = input(
             f"Delete all data for project {pid}? "
             f"This cannot be undone. (y/n): "
         ).strip().lower()
         if confirm in ('y', 'yes'):
-            m, f, p = delete_insights(int(pid))
+            m, f, p = delete_insights(project_id)
             print(f"Deleted: project_metrics={m}, file_contents={f}, uploaded_files={p}")
         else:
             print("Cancelled.")
