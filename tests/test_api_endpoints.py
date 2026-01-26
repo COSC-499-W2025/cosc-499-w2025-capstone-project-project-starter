@@ -114,12 +114,12 @@ class TestProjectUploadEndpoint:
 
 
 class TestPrivacyConsentEndpoint:
-    """Test POST /api/privacy-consent endpoint."""
+    """Test POST /api/settings/privacy endpoint (unified settings)."""
     
-    @patch('api.routes.consent.ConsentStorage.store_consent')
-    @patch('api.routes.consent.ConsentStorage.get_consent_status')
+    @patch('api.routes.settings.ConsentStorage.store_consent')
+    @patch('api.routes.settings.ConsentStorage.get_consent_status')
     def test_post_consent_granted(self, mock_get_status, mock_store):
-        """Test storing consent when granted."""
+        """Test storing consent when granted via settings endpoint."""
         mock_store.return_value = True
         mock_get_status.return_value = {
             'consent_given': True,
@@ -130,7 +130,7 @@ class TestPrivacyConsentEndpoint:
         
         client = TestClient(app)
         response = client.post(
-            "/api/privacy-consent",
+            "/api/settings/privacy",
             json={"consent_given": True, "user_id": "test_user"}
         )
         
@@ -139,12 +139,13 @@ class TestPrivacyConsentEndpoint:
         assert data["success"] is True
         assert data["consent_given"] is True
         assert data["user_id"] == "test_user"
+        assert "privacy" in data
         mock_store.assert_called_once_with(consent_given=True, user_id="test_user")
     
-    @patch('api.routes.consent.ConsentStorage.store_consent')
-    @patch('api.routes.consent.ConsentStorage.get_consent_status')
+    @patch('api.routes.settings.ConsentStorage.store_consent')
+    @patch('api.routes.settings.ConsentStorage.get_consent_status')
     def test_post_consent_denied(self, mock_get_status, mock_store):
-        """Test storing consent when denied."""
+        """Test storing consent when denied via settings endpoint."""
         mock_store.return_value = True
         mock_get_status.return_value = {
             'consent_given': False,
@@ -155,7 +156,7 @@ class TestPrivacyConsentEndpoint:
         
         client = TestClient(app)
         response = client.post(
-            "/api/privacy-consent",
+            "/api/settings/privacy",
             json={"consent_given": False}
         )
         
@@ -163,20 +164,124 @@ class TestPrivacyConsentEndpoint:
         data = response.json()
         assert data["consent_given"] is False
         assert data["user_id"] == "default_user"  # Default value
+        assert "privacy" in data
     
-    @patch('api.routes.consent.ConsentStorage.store_consent')
+    @patch('api.routes.settings.ConsentStorage.store_consent')
     def test_post_consent_storage_failure(self, mock_store):
-        """Test handling when consent storage fails."""
+        """Test handling when consent storage fails via settings endpoint."""
         mock_store.return_value = False
         
         client = TestClient(app)
         response = client.post(
-            "/api/privacy-consent",
+            "/api/settings/privacy",
             json={"consent_given": True}
         )
         
         assert response.status_code == 500
         assert "Failed to store consent" in response.json()["detail"]
+
+
+class TestSettingsEndpoints:
+    """Test unified settings endpoints."""
+    
+    @patch('api.routes.settings.get_user_by_username')
+    def test_get_account_settings(self, mock_get_user):
+        """Test GET /api/settings/account endpoint."""
+        from datetime import datetime
+        mock_get_user.return_value = {
+            'user_id': 1,
+            'user_name': 'test_user',
+            'create_time': datetime(2024, 1, 1, 0, 0, 0),
+            'last_login_time': datetime(2024, 1, 2, 0, 0, 0),
+            'is_login': True
+        }
+        
+        client = TestClient(app)
+        response = client.get("/api/settings/account?username=test_user")
+        
+        assert response.status_code == 200
+        data = response.json()
+        assert data["success"] is True
+        assert data["account"]["user_name"] == "test_user"
+        assert data["account"]["is_login"] is True
+    
+    @patch('api.routes.settings.get_user_git_username')
+    def test_get_general_settings(self, mock_get_git):
+        """Test GET /api/settings/general endpoint."""
+        mock_get_git.return_value = "test_github_user"
+        
+        client = TestClient(app)
+        response = client.get("/api/settings/general")
+        
+        assert response.status_code == 200
+        data = response.json()
+        assert data["success"] is True
+        assert data["general"]["git_username"] == "test_github_user"
+    
+    @patch('api.routes.settings.update_user_git_username')
+    @patch('api.routes.settings.get_user_git_username')
+    def test_update_general_settings(self, mock_get_git, mock_update_git):
+        """Test POST /api/settings/general endpoint."""
+        mock_get_git.return_value = "new_github_user"
+        
+        client = TestClient(app)
+        response = client.post(
+            "/api/settings/general",
+            json={"git_username": "new_github_user"}
+        )
+        
+        assert response.status_code == 200
+        data = response.json()
+        assert data["success"] is True
+        assert data["general"]["git_username"] == "new_github_user"
+        mock_update_git.assert_called_once_with("new_github_user")
+    
+    @patch('api.routes.settings.ConsentStorage.get_consent_status')
+    def test_get_privacy_settings(self, mock_get_status):
+        """Test GET /api/settings/privacy endpoint."""
+        mock_get_status.return_value = {
+            'consent_given': True,
+            'consent_date': '2024-01-01T00:00:00'
+        }
+        
+        client = TestClient(app)
+        response = client.get("/api/settings/privacy?user_id=test_user")
+        
+        assert response.status_code == 200
+        data = response.json()
+        assert data["success"] is True
+        assert "privacy" in data
+
+
+class TestDeleteProjectDataEndpoint:
+    """Test DELETE /api/projects/{id}/data endpoint (renamed from /insights)."""
+    
+    @patch('api.routes.project.delete_insights')
+    def test_delete_project_data_success(self, mock_delete):
+        """Test successfully deleting project data."""
+        mock_delete.return_value = (3, 5, 1)  # metrics, files, projects
+        
+        client = TestClient(app)
+        response = client.delete("/api/projects/123/data")
+        
+        assert response.status_code == 200
+        data = response.json()
+        assert data["success"] is True
+        assert data["deleted"]["metrics"] == 3
+        assert data["deleted"]["files"] == 5
+        assert data["deleted"]["projects"] == 1
+        mock_delete.assert_called_once_with(123)
+    
+    @patch('api.routes.project.delete_insights')
+    def test_delete_project_data_error(self, mock_delete):
+        """Test error handling when deleting project data fails."""
+        mock_delete.side_effect = Exception("Database error")
+        
+        client = TestClient(app)
+        response = client.delete("/api/projects/123/data")
+        
+        assert response.status_code == 500
+        assert "Error deleting project data" in response.json()["detail"]
 
 
 class TestGetProjectsEndpoint:

@@ -46,11 +46,75 @@ def analyze_project_menu():
         return
 
 
+def settings_menu(consent_manager, collab_manager):
+    """Unified settings menu that consolidates all settings-related options."""
+    from cli.user_menus import user_account_menu
+    
+    SETTINGS_OPTIONS = [
+        "External Service Settings",
+        "Delete Project Data",
+        "User Preferences",
+        "User Account",
+        "Back to main menu"
+    ]
+    
+    handlers = {
+        "1": lambda: manage_external_services_menu(),
+        "2": lambda: handle_cleanup_insights(),
+        "3": lambda: ask_user_preferences(consent_manager, collab_manager, False),
+        "4": lambda: user_account_menu(),
+        "5": "BACK"
+    }
+    
+    while True:
+        print("\n" + "="*70)
+        print("SETTINGS")
+        print("="*70)
+        for idx, option in enumerate(SETTINGS_OPTIONS, start=1):
+            print(f"{idx}. {option}")
+        print("="*70)
+        
+        choice = input("Choose an option (1-5): ").strip()
+        handler = handlers.get(choice)
+        
+        if handler == "BACK":
+            return
+        elif handler:
+            handler()
+        else:
+            print("Invalid choice. Please enter 1, 2, 3, 4, or 5.")
+
+
 def manage_external_services_menu():
-    """
-    Manage external service permissions (settings menu).
-    Issue #10: Allow user to manage external service preferences.
-    """
+    """Manage external service permissions (settings menu)."""
+    def view_status():
+        permission_manager = ExternalServicePermission('default_user')
+        has_permission = permission_manager.has_permission('LLM')
+        status_messages = {
+            None: "No permission set (will be asked on first analysis)",
+            True: "External service permission GRANTED\n  Enhanced analysis is enabled",
+            False: "External service permission DECLINED\n  Local analysis only (data stays private)"
+        }
+        print("\n" + "="*50)
+        print(f"Status: {status_messages[has_permission]}")
+        print("="*50)
+    
+    def revoke_permission():
+        confirm = input("\nAre you sure you want to revoke external service permission? (yes/no): ").strip().lower()
+        if confirm in ['yes', 'y']:
+            ExternalServicePrompt.store_permission('default_user', 'LLM', False)
+            print("\nExternal service permission has been REVOKED")
+            print("  Local analysis will be used (your data stays private)")
+        else:
+            print("\nAction cancelled")
+    
+    handlers = {
+        "1": view_status,
+        "2": lambda: request_external_service_permission('default_user', 'LLM'),
+        "3": revoke_permission,
+        "4": "BACK"
+    }
+    
     print("\n" + "-"*50)
     print("External Service Settings")
     print("-"*50)
@@ -61,39 +125,12 @@ def manage_external_services_menu():
     print("-"*50)
     
     choice = input("Choose an option (1-4): ").strip()
+    handler = handlers.get(choice)
     
-    if choice == '1':
-        # View current status
-        permission_manager = ExternalServicePermission('default_user')
-        has_permission = permission_manager.has_permission('LLM')
-        
-        print("\n" + "="*50)
-        if has_permission is None:
-            print("Status: No permission set (will be asked on first analysis)")
-        elif has_permission:
-            print("Status: External service permission GRANTED")
-            print("  Enhanced analysis is enabled")
-        else:
-            print("Status: External service permission DECLINED")
-            print("  Local analysis only (data stays private)")
-        print("="*50)
-        
-    elif choice == '2':
-        # Grant/Update permission
-        request_external_service_permission('default_user', 'LLM')
-        
-    elif choice == '3':
-        # Revoke permission
-        confirm = input("\nAre you sure you want to revoke external service permission? (yes/no): ").strip().lower()
-        if confirm in ['yes', 'y']:
-            ExternalServicePrompt.store_permission('default_user', 'LLM', False)
-            print("\nExternal service permission has been REVOKED")
-            print("  Local analysis will be used (your data stays private)")
-        else:
-            print("\nAction cancelled")
-    
-    elif choice == '4':
+    if handler == "BACK":
         return
+    elif handler:
+        handler()
     else:
         print("Invalid choice. Please enter 1, 2, 3, or 4.")
 
@@ -513,11 +550,11 @@ def handle_view_edit_rankings():
 
 
 def handle_cleanup_insights():
-    """Handle cleanup insights menu option."""
-    pid = input("Enter project ID to clean: ").strip()
+    """Handle delete project data menu option."""
+    pid = input("Enter project ID to delete data for: ").strip()
     if pid.isdigit():
         confirm = input(
-            f"Delete insights and the uploaded file for project {pid}? "
+            f"Delete all data for project {pid}? "
             f"This cannot be undone. (y/n): "
         ).strip().lower()
         if confirm in ('y', 'yes'):
