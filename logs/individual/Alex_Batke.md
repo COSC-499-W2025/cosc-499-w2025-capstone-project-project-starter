@@ -1,5 +1,28 @@
 # Personal Log of Alex Batke
 
+# Personal Log of Alex Batke
+
+# Rerm 2 Week 3
+
+## Applicable Date Range
+- Monday, January 19th to Sunday, January 25th
+
+## Peer Evaluation Screenshot
+![alt text](<imgs/alex_batke_T2W3.png>)
+
+
+### Recap On Your Weeks Goals
+- Which Features Were Yours in the Project Plan for this Milestone?
+  In addition to all my previously completed work, I worked on reimplementing our thumbnail image API endpoint. This would allow a user to call the endpoint from the command line and 
+- Which Tasks from the Project Board are Associated with these Features?
+   The relevant issue was #193, which  was the marker for that endpoint and choose an image via a filepath
+- Among these tasks, which have you completed/in progress in the last 2 weeks?
+ The endpoint is now full implemented and passes tests. It is now more robust due to the additional tests it goes through and an overall better understanding of the needed logic for the endpoint.
+- Planning for next sprint: 
+  Next sprint will be focusing on getting the uploaded image to appear on the pdf resume, and to look at any further API work that may need to be completed before peer testing.
+- Optional text: additional context that we should be aware of:
+  No further comments. On to next week!
+
 # Rerm 2 Week 2
 
 ## Applicable Date Range
