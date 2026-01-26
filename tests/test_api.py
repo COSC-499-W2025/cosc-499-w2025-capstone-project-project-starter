@@ -2,6 +2,7 @@ import uuid
 from datetime import datetime, timezone
 import io
 import zipfile
+from pypdf import PdfReader
 
 from sqlalchemy import text
 import re
@@ -792,3 +793,406 @@ def test_set_project_image_project_not_found(client):
     assert response.status_code == 404
     assert response.json()["detail"] == "Project not found"
 
+
+def test_pdf_hide_all_content(client, monkeypatch, tmp_path):
+    """Verifies that setting all toggles to False results in a nearly empty PDF (Title only)."""
+    # Setup environment
+    test_blob_dir = tmp_path / "test_blobs_hide_all"
+    test_blob_dir.mkdir()
+    monkeypatch.setenv("ARTIFACT_MINER_BLOBSTORE", str(test_blob_dir))
+    
+    # 1. User & Project Setup
+    r_consent = client.post("/privacy-consent", json={"consent_type": "data_access", "granted": True, "version": 1})
+    user_id = r_consent.json()["user_id"]
+    
+    zip_buf = _create_dummy_zip()
+    r_upload = client.post("/projects/upload", files={"file": ("test.zip", zip_buf, "application/zip")}, data={"user_id": user_id})
+    project_id = r_upload.json()["created"][0]["project_id"]
+
+    # 2. Config: Set EVERYTHING to False
+    client.patch(f"/users/{user_id}/config", json={
+        "resume_filters": {
+            "show_metadata": False,
+            "show_summary": False,
+            "show_bullets": False
+        }
+    })
+
+    # 3. Generate & Fetch
+    r_gen = client.post("/resume/generate", json={"project_id": project_id})
+    resume_id = r_gen.json()["resume_id"]
+    r_pdf = client.get(f"/resume/{resume_id}/pdf?user_id={user_id}")
+    
+    # 4. Verification
+    pdf_reader = PdfReader(io.BytesIO(r_pdf.content))
+    page_text = pdf_reader.pages[0].extract_text()
+
+    # Assert that everything appears to be gone, the summary, the metadata, and the resume bullets and heading
+    assert "Resume Item ID:" not in page_text
+    assert "Summary" not in page_text
+    assert "Resume Bullets" not in page_text
+    assert "-" not in page_text 
+
+
+def test_pdf_hide_summary_keep_bullets(client, monkeypatch, tmp_path):
+    """Verifies that we can hide the summary but still see the bullets."""
+    # Setup environment
+    test_blob_dir = tmp_path / "test_blobs_summary_toggle"
+    test_blob_dir.mkdir()
+    monkeypatch.setenv("ARTIFACT_MINER_BLOBSTORE", str(test_blob_dir))
+    
+    r_consent = client.post("/privacy-consent", json={"consent_type": "data_access", "granted": True, "version": 1})
+    user_id = r_consent.json()["user_id"]
+    
+    zip_buf = _create_dummy_zip()
+    r_upload = client.post("/projects/upload", files={"file": ("test.zip", zip_buf, "application/zip")}, data={"user_id": user_id})
+    project_id = r_upload.json()["created"][0]["project_id"]
+
+    # 2. Config: Hide summary, keep bullets (max 2)
+    client.patch(f"/users/{user_id}/config", json={
+        "resume_filters": {
+            "show_summary": False,
+            "show_bullets": True,
+            "max_bullets": 2
+        }
+    })
+
+    # 3. Generate & Fetch
+    r_gen = client.post("/resume/generate", json={"project_id": project_id})
+    resume_id = r_gen.json()["resume_id"]
+    r_pdf = client.get(f"/resume/{resume_id}/pdf?user_id={user_id}")
+    
+    # 4. Verification
+    pdf_reader = PdfReader(io.BytesIO(r_pdf.content))
+    page_text = pdf_reader.pages[0].extract_text()
+
+    # check that the heading and text are gone, but that the bullets (at least one) and the metadata are still there
+    assert "Summary" not in page_text
+    assert "-" in page_text
+    assert "Resume Item ID:" in page_text
+
+def test_pdf_metadata_and_bullet_toggles(client, monkeypatch, tmp_path):
+    """Verifies that we can hide metadata and limit the number of bullets while keeping the summary."""
+    # Setup environment: Create a temporary directory for file storage to avoid cluttering local space
+    test_blob_dir = tmp_path / "test_blobs"
+    test_blob_dir.mkdir()
+    monkeypatch.setenv("ARTIFACT_MINER_BLOBSTORE", str(test_blob_dir))
+    
+    # 1. User & Consent: Create a user and grant privacy consent so the API allows data processing
+    r_consent = client.post("/privacy-consent", json={"consent_type": "data_access", "granted": True, "version": 1})
+    user_id = r_consent.json()["user_id"]
+
+    # 2. Project Upload: Upload a dummy ZIP file to associate with the resume generation
+    zip_buf = _create_dummy_zip()
+    r_upload = client.post(
+        "/projects/upload",
+        files={"file": ("test.zip", zip_buf, "application/zip")},
+        data={"user_id": user_id}
+    )
+    project_id = r_upload.json()["created"][0]["project_id"]
+
+    # 3. Config: Set filters to hide metadata and limit bullets to exactly 1
+    client.patch(f"/users/{user_id}/config", json={
+        "resume_filters": {"show_metadata": False, "max_bullets": 1}
+    })
+
+    # 4. Generate: Trigger the AI/Logic to create the resume content in the database
+    r_gen = client.post("/resume/generate", json={"project_id": project_id})
+    assert r_gen.status_code == 200
+    resume_id = r_gen.json()["resume_id"]
+
+    # 5. Export: Retrieve the generated PDF using the user's specific filter settings
+    r_pdf = client.get(f"/resume/{resume_id}/pdf?user_id={user_id}")
+    assert r_pdf.status_code == 200
+
+    # 6. Verification: Extract text from the PDF and verify the toggles were respected
+    pdf_reader = PdfReader(io.BytesIO(r_pdf.content))
+    page_text = pdf_reader.pages[0].extract_text()
+    
+    # Count occurrences of the hyphen character used for bullets
+    bullet_count = page_text.count("-") 
+    
+    # Assertions: Verify one bullet, no metadata ID, and that the Summary header is still visible
+    assert bullet_count == 1, f"Expected 1 bullet, but found {bullet_count}"
+    assert "Resume Item ID:" not in page_text
+    assert "Summary" in page_text
+
+def test_projects_compare_endpoint_attribute_precedence_and_highlights(client, engine):
+    # Setup: one user/portfolio with two projects, each having a local_ml analysis with a python skill.
+    user_id = _u()
+    portfolio_id = _u()
+    p1 = _u()
+    p2 = _u()
+    s1 = _u()
+    s2 = _u()
+    a1 = _u()
+    a2 = _u()
+
+    with engine.begin() as conn:
+        conn.execute(text("INSERT INTO users (id) VALUES (:id)"), {"id": user_id})
+        conn.execute(
+            text("INSERT INTO portfolios (id, user_id, name) VALUES (:id, :uid, 'default')"),
+            {"id": portfolio_id, "uid": user_id},
+        )
+        conn.execute(
+            text("INSERT INTO projects (id, portfolio_id, name) VALUES (:id, :pf, 'P1')"),
+            {"id": p1, "pf": portfolio_id},
+        )
+        conn.execute(
+            text("INSERT INTO projects (id, portfolio_id, name) VALUES (:id, :pf, 'P2')"),
+            {"id": p2, "pf": portfolio_id},
+        )
+        conn.execute(
+            text(
+                "INSERT INTO snapshots (id, project_id, source_zip_name, source_zip_sha256, snapshot_label) "
+                "VALUES (:id, :pid, 'z1.zip', :zh, 'S1')"
+            ),
+            {"id": s1, "pid": p1, "zh": "1" * 64},
+        )
+        conn.execute(
+            text(
+                "INSERT INTO snapshots (id, project_id, source_zip_name, source_zip_sha256, snapshot_label) "
+                "VALUES (:id, :pid, 'z2.zip', :zh, 'S2')"
+            ),
+            {"id": s2, "pid": p2, "zh": "2" * 64},
+        )
+
+        # Seed local_ml output_json with skills so build_project_report can derive skills_top.
+        ml_out_1 = {
+            "skills": [
+                {"skill": "python", "first_seen_ts": "2020-01-01T00:00:00+00:00", "max_prob": 0.95, "hits": 10}
+            ]
+        }
+        ml_out_2 = {
+            "skills": [
+                {"skill": "python", "first_seen_ts": "2020-06-01T00:00:00+00:00", "max_prob": 0.90, "hits": 8}
+            ]
+        }
+
+        conn.execute(
+            text(
+                """
+                INSERT INTO analyses (id, snapshot_id, analysis_type, status, output_json, completed_at)
+                VALUES (:id, :sid, 'local_ml', 'complete', CAST(:out AS jsonb), NOW())
+                """
+            ),
+            {"id": a1, "sid": s1, "out": json.dumps(ml_out_1)},
+        )
+        conn.execute(
+            text(
+                """
+                INSERT INTO analyses (id, snapshot_id, analysis_type, status, output_json, completed_at)
+                VALUES (:id, :sid, 'local_ml', 'complete', CAST(:out AS jsonb), NOW())
+                """
+            ),
+            {"id": a2, "sid": s2, "out": json.dumps(ml_out_2)},
+        )
+
+    # User config controls attribute selection when attributes= is not provided.
+    r_cfg = client.patch(
+        f"/users/{user_id}/config",
+        json={
+            "comparison": {"attributes": ["meta", "skills_top"]},
+            "highlights": {"skills": ["python"]},
+        },
+    )
+    assert r_cfg.status_code == 200
+
+    # 1) No explicit attributes => use user_config.comparison.attributes
+    r = client.get(f"/projects/compare?project_ids={p1}&project_ids={p2}")
+    assert r.status_code == 200
+    body = r.json()
+    assert body["portfolio_id"] == portfolio_id
+    assert body["project_ids"] == [p1, p2]
+    assert body["attributes"] == ["meta", "skills_top"]
+    assert body["highlight_skills"] == ["python"]
+    assert len(body["projects"]) == 2
+
+    for proj in body["projects"]:
+        assert proj["project_id"] in (p1, p2)
+        assert "meta" in proj
+        assert "skills_top" in proj
+        py_rows = [s for s in proj["skills_top"] if (s.get("skill") or "").casefold() == "python"]
+        assert len(py_rows) >= 1
+        assert py_rows[0].get("is_highlight") is True
+
+    # 2) Explicit attributes query param overrides user_config and supports comma-separated ids.
+    r2 = client.get(f"/projects/compare?project_ids={p1},{p2}&attributes=meta")
+    assert r2.status_code == 200
+    body2 = r2.json()
+    assert body2["project_ids"] == [p1, p2]
+    assert body2["attributes"] == ["meta"]
+    assert all(("meta" in p and "skills_top" not in p) for p in body2["projects"])
+    
+import os
+import uuid
+import tempfile
+
+from fastapi.testclient import TestClient
+from src.api.app import app
+
+client = TestClient(app)
+
+TEST_DATA_DIR = "tests/data"
+
+
+def test_incremental_project_upload():
+    """
+    Req #21:
+    The system must allow incremental information by adding another
+    zipped folder of files for the same project at a later point in time.
+    """
+
+    zip_v1 = os.path.join(TEST_DATA_DIR, "code_collab_proj_v1.zip")
+    zip_v2 = os.path.join(TEST_DATA_DIR, "code_collab_proj_v2.zip")
+
+    project_name = f"req21-test-{uuid.uuid4()}"
+
+    with tempfile.TemporaryDirectory() as tmp_blobstore:
+        # Point the blobstore to a temporary folder so it's writable in tests
+        os.environ["ARTIFACT_MINER_BLOBSTORE"] = tmp_blobstore
+
+        # ---- Grant privacy consent ----
+        consent_response = client.post(
+            "/privacy-consent",
+            json={
+                "user_id": None,              # Let the server create a new user
+                "consent_type": "data_access",
+                "granted": True,
+                "version": 1
+            }
+        )
+        assert consent_response.status_code == 200
+        user_id = consent_response.json()["user_id"]
+
+        # ---- Upload first snapshot ----
+        with open(zip_v1, "rb") as f:
+            response_v1 = client.post(
+                "/projects/upload",
+                data={
+                    "project_name": project_name,
+                    "user_id": user_id
+                },
+                files={
+                    "file": ("code_collab_proj_v1.zip", f, "application/zip")
+                },
+            )
+
+        assert response_v1.status_code == 200
+        data_v1 = response_v1.json()
+        assert "created" in data_v1
+        assert len(data_v1["created"]) >= 1
+        project_id = data_v1["created"][0]["project_id"]
+
+        # ---- Upload second snapshot (incremental update) ----
+        with open(zip_v2, "rb") as f:
+            response_v2 = client.post(
+                "/projects/upload",
+                data={
+                    "project_name": project_name,
+                    "user_id": user_id
+                },
+                files={
+                    "file": ("code_collab_proj_v2.zip", f, "application/zip")
+                },
+            )
+
+        assert response_v2.status_code == 200
+        data_v2 = response_v2.json()
+
+        # The same project should appear in "created" or "skipped"
+        created_projects = data_v2.get("created", [])
+        skipped_projects = data_v2.get("skipped", [])
+
+        all_project_ids = [p["project_id"] for p in created_projects + skipped_projects]
+
+        # Ensure the same project ID is present (incremental)
+        assert project_id in all_project_ids
+
+        # Optional: ensure only one project was created, others are skipped
+        assert len([p for p in created_projects if p["project_id"] == project_id]) <= 1
+
+def test_resume_edit(client: TestClient):
+    # 1. Consent
+    r = client.post("/privacy-consent", json={
+        "user_id": None,
+        "consent_type": "data_access",
+        "granted": True,
+        "version": 1
+    })
+    user_id = r.json()["user_id"]
+
+    # 2. Upload project
+    with open("tests/data/code_collab_proj_v1.zip", "rb") as f:
+        upload = client.post(
+            "/projects/upload",
+            data={"user_id": user_id, "project_name": "req32-resume"},
+            files={"file": ("p.zip", f, "application/zip")},
+        )
+    assert upload.status_code == 200
+
+    # 3. Get a project_id from uploaded projects (created or skipped)
+    created_projects = upload.json().get("created", [])
+    skipped_projects = upload.json().get("skipped", [])
+    all_projects = created_projects + skipped_projects
+    assert len(all_projects) > 0, "No projects found to generate resume"
+    project_id = all_projects[0]["project_id"]
+
+    # 4. Generate resume using project_id
+    gen = client.post("/resume/generate", json={"project_id": project_id})
+    assert gen.status_code == 200
+
+    resume_json = gen.json()
+    resume_id = resume_json.get("resume_id")
+    assert resume_id is not None, "resume_id should be returned"
+
+    # 5. Edit the resume
+    edit = client.post(f"/resume/{resume_id}/edit", json={
+        "summary_text": "Edited summary",
+        "resume_bullets": ["Edited bullet 1", "Edited bullet 2"]
+    })
+    assert edit.status_code == 200
+
+    content = edit.json()["content"]
+    assert content["summary_text"] == "Edited summary"
+    assert content["resume_bullets"] == ["Edited bullet 1", "Edited bullet 2"]
+
+def test_portfolio_edit(client):
+    # 1. Consent
+    r = client.post("/privacy-consent", json={
+        "user_id": None,
+        "consent_type": "data_access",
+        "granted": True,
+        "version": 1
+    })
+    user_id = r.json()["user_id"]
+
+    # 2. Upload
+    with open("tests/data/code_collab_proj_v1.zip", "rb") as f:
+        upload = client.post(
+            "/projects/upload",
+            data={"user_id": user_id, "project_name": "req32-portfolio"},
+            files={"file": ("p.zip", f, "application/zip")},
+        )
+
+    # 3. Get portfolio
+    projects = client.get(f"/projects?user_id={user_id}").json()
+    portfolio_id = projects["portfolio_id"]
+
+    # 4. Generate portfolio
+    gen = client.post("/portfolio/generate", json={"portfolio_id": portfolio_id})
+    showcase_id = gen.json()["showcase_ids"][0]
+
+    # 5. Edit showcase
+    edit = client.post(
+        f"/portfolio/{showcase_id}/edit",
+        json={
+            "title": "Edited Title",
+            "summary_text": "Edited portfolio summary"
+        }
+    )
+
+    assert edit.status_code == 200
+    data = edit.json()
+    assert data["content"]["title"] == "Edited Title"
+    assert data["content"]["summary_text"] == "Edited portfolio summary"
