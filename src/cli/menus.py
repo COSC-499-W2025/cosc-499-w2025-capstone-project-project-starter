@@ -430,11 +430,10 @@ def handle_view_edit_rankings():
         print("1. View full details for a project")
         print("2. Edit score for a project")
         print("3. Edit summary for a project")
-        print("4. Change rank position for a project")
-        print("5. Clean error summaries from database")
-        print("6. Back to main menu")
+        print("4. Clean error summaries from database")
+        print("5. Back to main menu")
         
-        choice = input("\nChoose an option (1-6): ").strip()
+        choice = input("\nChoose an option (1-5): ").strip()
         
         if choice == '1':
             # View full details
@@ -512,25 +511,6 @@ def handle_view_edit_rankings():
                 print("Invalid project ID.")
         
         elif choice == '4':
-            # Change rank position
-            project_id = input("Enter project ID to change rank: ").strip()
-            if project_id.isdigit():
-                new_position = input("Enter new rank position: ").strip()
-                try:
-                    pos_int = int(new_position)
-                    if pos_int < 1:
-                        print("Rank position must be at least 1.")
-                    else:
-                        if update_ranking_position(int(project_id), pos_int):
-                            print(f"\n Successfully updated rank position for project {project_id} to {pos_int}")
-                        else:
-                            print(f"\n Failed to update rank position. Project {project_id} may not exist in stored rankings.")
-                except ValueError:
-                    print("Invalid position. Please enter a number.")
-            else:
-                print("Invalid project ID.")
-        
-        elif choice == '5':
             # Clean error summaries
             from analysis.ranking_storage import clean_error_summaries
             confirm = input("\nThis will remove all error messages from stored summaries. Continue? (y/n): ").strip().lower()
@@ -542,11 +522,11 @@ def handle_view_edit_rankings():
             else:
                 print("Cancelled.")
         
-        elif choice == '6':
+        elif choice == '5':
             break
         
         else:
-            print("Invalid choice. Please enter 1-6.")
+            print("Invalid choice. Please enter 1-5.")
 
 
 def handle_cleanup_insights():

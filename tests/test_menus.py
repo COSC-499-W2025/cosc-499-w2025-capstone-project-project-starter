@@ -258,9 +258,9 @@ def test_handle_rank_and_summarize_projects(mock_input, mock_rank_and_summarize,
     mock_save.assert_called_once_with([{"id": 2}], True)
 
 
-@patch("cli.menus.update_ranking_position", return_value=True)
 @patch("cli.menus.update_ranking_summary", return_value=True)
 @patch("cli.menus.update_ranking_score", return_value=True)
+@patch("analysis.ranking_storage.clean_error_summaries", return_value=True)
 @patch(
     "cli.menus.get_stored_ranking_by_project_id",
     return_value={
@@ -286,9 +286,8 @@ def test_handle_rank_and_summarize_projects(mock_input, mock_rank_and_summarize,
         "Updated summary",
         "",  # end summary input
         "4",
-        "10",
-        "2",  # change rank
-        "6",  # back to main menu (option changed from 5 to 6)
+        "y",  # clean error summaries
+        "5",  # back to main menu
     ],
 )
 @patch("sys.stdout", new_callable=StringIO)
@@ -297,9 +296,9 @@ def test_handle_view_edit_rankings_full_loop(
     mock_input,
     mock_get_rankings,
     mock_get_by_id,
+    mock_clean,
     mock_update_score,
     mock_update_summary,
-    mock_update_position,
 ):
     """Exercise the edit rankings menu through multiple options."""
     menus.handle_view_edit_rankings()
@@ -308,12 +307,12 @@ def test_handle_view_edit_rankings_full_loop(
     assert "VIEW AND EDIT STORED RANKINGS" in out
     assert "Successfully updated score" in out
     assert "Successfully updated summary" in out
-    assert "Successfully updated rank position" in out
+    assert "Error summaries cleaned successfully" in out
 
 
 @patch("analysis.ranking_storage.clean_error_summaries", return_value=True)
 @patch("cli.menus.get_stored_rankings", return_value=[{"rank_position": 1, "project_id": 10, "score": 9.0, "ranking_data": {"filename": "example"}, "summary": "Existing"}])
-@patch("builtins.input", side_effect=["5", "y", "6"])
+@patch("builtins.input", side_effect=["4", "y", "5"])
 @patch("sys.stdout", new_callable=StringIO)
 def test_handle_view_edit_rankings_clean_error_summaries(
     mock_stdout, mock_input, mock_get_rankings, mock_clean
@@ -328,7 +327,7 @@ def test_handle_view_edit_rankings_clean_error_summaries(
 
 @patch("analysis.ranking_storage.clean_error_summaries", return_value=True)
 @patch("cli.menus.get_stored_rankings", return_value=[{"rank_position": 1, "project_id": 10, "score": 9.0, "ranking_data": {"filename": "example"}, "summary": "Existing"}])
-@patch("builtins.input", side_effect=["5", "n", "6"])
+@patch("builtins.input", side_effect=["4", "n", "5"])
 @patch("sys.stdout", new_callable=StringIO)
 def test_handle_view_edit_rankings_clean_error_summaries_cancelled(
     mock_stdout, mock_input, mock_get_rankings, mock_clean
