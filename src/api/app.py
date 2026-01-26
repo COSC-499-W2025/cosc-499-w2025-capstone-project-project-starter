@@ -3,24 +3,30 @@ from __future__ import annotations
 from curses import raw
 import os
 import uuid
+from uuid import UUID as PyUUID
+from typing import Any, Dict, List, Optional, Tuple
 import tempfile
 import zipfile
 import json
 from typing import Any, Dict, List, Optional
 from git import Repo, InvalidGitRepositoryError
-from fastapi import FastAPI, UploadFile, File, HTTPException, Form, Query, Body
+import hashlib
+
+from fastapi import FastAPI, UploadFile, File, HTTPException, Form, Query, Body, Depends
 from pydantic import BaseModel, Field
 from sqlalchemy import text
 from sqlalchemy import text, bindparam
+from sqlalchemy.orm import Session
 from sqlalchemy.dialects.postgresql import ARRAY, UUID
 from fastapi.responses import Response
 from src.db.session import get_engine
 from src.api.ingest import ingest_zip_to_db, save_upload_to_temp, extract_commits_from_git_zip, find_git_repo
 from src.api.report import build_project_report
-from src.db.consents import get_snapshot_owner_user_id, is_external_services_allowed
-from src.db.session import get_engine
-from sqlalchemy import text
-from src.db.session import get_engine
+from src.db.consents import get_snapshot_owner_user_id, is_external_services_allowed 
+from src.api.generation import generate_resume_item
+from src.db.session import get_engine, get_db
+from src.db.base import FileBlob, PortfolioShowcase, Project
+from pydantic import BaseModel
 from sqlalchemy import text
 
 from src.db.user_config import (
@@ -79,6 +85,13 @@ class SetUserContributorIn(BaseModel):
 class ProjectUpdateIn(BaseModel):
     display_name: str
 
+class ResumeGenerateIn(BaseModel):
+    project_id: str
+    prefer_external_bullets: Optional[bool] = True
+
+class ProjectImagePath(BaseModel):
+    filepath: str
+
 class ResumeEditRequest(BaseModel):
     summary_text: Optional[str] = None
     resume_bullets: Optional[List[str]] = None
@@ -93,6 +106,36 @@ def _rank_score(user_commits: int, total_commits: int) -> Optional[float]:
         return None
     other = max(0, int(total_commits) - int(user_commits))
     return float(int(user_commits)) + 0.10 * float(other)
+
+def _get_or_create_showcase(conn, project_id: str) -> str:
+    sid = conn.execute(
+        text(
+            """
+            SELECT id
+            FROM portfolio_showcases
+            WHERE project_id = :pid
+            ORDER BY created_at ASC
+            LIMIT 1
+            """
+        ),
+        {"pid": project_id},
+    ).scalar()
+
+    if sid:
+        return str(sid)
+
+    sid = conn.execute(
+        text(
+            """
+            INSERT INTO portfolio_showcases (project_id, content_json)
+            VALUES (:pid, '{}'::jsonb)
+            RETURNING id
+            """
+        ),
+        {"pid": project_id},
+    ).scalar_one()
+
+    return str(sid)
 
 
 @app.get("/health")
@@ -1669,4 +1712,110 @@ def list_portfolio_skills_chronological(
         "direction": direction,
         "limit": int(limit),
         "skill_events": events,
+    }
+
+
+@app.put("/projects/{project_id}/image")
+async def set_project_image(
+    project_id: PyUUID,
+    file: UploadFile = File(...),
+    db: Session = Depends(get_db),
+):
+    # 1) Early FK check -> clearer 404 than FK error later
+    exists = db.execute(
+        text("SELECT 1 FROM projects WHERE id = :pid"),
+        {"pid": str(project_id)}
+    ).scalar()
+    if not exists:
+        raise HTTPException(status_code=404, detail="Project not found")
+
+    # 2) Read data and hash
+    data = await file.read()
+    if not data:
+        raise HTTPException(status_code=400, detail="Uploaded file is empty")
+    sha256 = hashlib.sha256(data).hexdigest()
+
+    # 3) Upsert FileBlob by sha256 (no duplicate rows)
+    blob = db.query(FileBlob).filter(FileBlob.sha256 == sha256).one_or_none()
+    if blob is None:
+        # Infer a basic mime from filename or request content type
+        _, ext = os.path.splitext(file.filename or "")
+        ext = ext.lower().lstrip(".")
+        mime = f"image/{ext}" if ext else (file.content_type or None)
+
+        # You can store the original filename, or a persisted path if you save the file to disk
+        stored_path = (file.filename or "")[:1024]
+
+        blob = FileBlob(
+            sha256=sha256,
+            size_bytes=len(data),
+            mime_type=mime,
+            stored_path=stored_path,
+        )
+        db.add(blob)
+
+    # 4) Create/update the project’s showcase to point to this blob
+    showcase = (
+        db.query(PortfolioShowcase)
+        .filter(PortfolioShowcase.project_id == project_id)
+        .one_or_none()
+    )
+    if showcase is None:
+        showcase = PortfolioShowcase(project_id=project_id, thumbnail_blob_sha256=sha256)
+        db.add(showcase)
+    else:
+        showcase.thumbnail_blob_sha256 = sha256
+
+    # 5) Commit once
+    db.commit()
+
+    return {
+        "project_id": str(project_id),
+        "thumbnail_blob_sha256": sha256,
+    }
+
+
+
+@app.delete("/projects/{project_id}/image")
+def delete_project_image(project_id: str):
+    engine = get_engine()
+    with engine.begin() as conn:
+        row = conn.execute(
+            text(
+                """
+                SELECT id, thumbnail_blob_sha256
+                FROM portfolio_showcases
+                WHERE project_id = :pid
+                """
+            ),
+            {"pid": project_id},
+        ).mappings().first()
+
+        if not row or not row["thumbnail_blob_sha256"]:
+            raise HTTPException(status_code=404, detail="Project image not found")
+
+        conn.execute(
+            text(
+                """
+                UPDATE portfolio_showcases
+                SET thumbnail_blob_sha256 = NULL,
+                    updated_at = NOW()
+                WHERE id = :sid
+                """
+            ),
+            {"sid": row["id"]},
+        )
+
+    return {"project_id": project_id, "deleted": True}
+
+
+@app.put("/__debug/echo-upload")
+async def echo_upload(file: UploadFile = File(...)):
+    data = await file.read()
+    import hashlib
+    return {
+        "filename": file.filename,
+        "content_type": file.content_type,
+        "size": len(data),
+        "sha256": hashlib.sha256(data).hexdigest(),
     }
