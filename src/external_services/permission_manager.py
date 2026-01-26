@@ -35,7 +35,7 @@ class ExternalServicePermission:
             service_name (str): Name of the external service
         
         Returns:
-            bool: True if permission granted, False otherwise
+            bool | None: True/False if permission exists, None if no record
         """
         permission = self.config.get_permission(self.user_id, service_name)
-        return permission if permission is not None else False
+        return permission

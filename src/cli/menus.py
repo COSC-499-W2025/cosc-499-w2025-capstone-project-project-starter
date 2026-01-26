@@ -46,9 +46,52 @@ def analyze_project_menu():
         return
 
 
+def analysis_menu():
+    permission_manager = ExternalServicePermission(AuthManager.get_current_username() or 'default_user')
+    if permission_manager.has_permission('LLM') is True:
+        handle_analyze_metrics_and_summary()
+    else:
+        analyze_project_menu()
+
+
+def resume_menu():
+    """Unified resume menu that consolidates all resume-related options."""
+    
+    SETTINGS_OPTIONS = [
+        "Generate Resume",
+        "Export Resume",
+        "Delete Resume",
+        "Back to main menu"
+    ]
+    
+    handlers = {
+        "1": lambda: handle_generate_resume(),
+        "2": lambda: handle_view_resume(),
+        "3": lambda: handle_delete_resume(),
+        "4": "BACK"
+    }
+    
+    while True:
+        print("\n" + "="*70)
+        print("RESUME OPTIONS")
+        print("="*70)
+        for idx, option in enumerate(SETTINGS_OPTIONS, start=1):
+            print(f"{idx}. {option}")
+        print("="*70)
+        
+        choice = input("Choose an option (1-4): ").strip()
+        handler = handlers.get(choice)
+        
+        if handler == "BACK":
+            return
+        elif handler:
+            handler()
+        else:
+            print("Invalid choice. Please enter 1, 2, 3, or 4.")
+
+
 def project_menu():
     """Unified menu to manage projects"""
-    from cli.user_menus import user_account_menu
     
     SETTINGS_OPTIONS = [
         "Upload a ZIP file",
@@ -124,8 +167,9 @@ def settings_menu(consent_manager, collab_manager):
 
 def manage_external_services_menu():
     """Manage external service permissions (settings menu)."""
+    current_user = AuthManager.get_current_username() or 'default_user'
     def view_status():
-        permission_manager = ExternalServicePermission('default_user')
+        permission_manager = ExternalServicePermission(current_user)
         has_permission = permission_manager.has_permission('LLM')
         status_messages = {
             None: "No permission set (will be asked on first analysis)",
@@ -139,7 +183,7 @@ def manage_external_services_menu():
     def revoke_permission():
         confirm = input("\nAre you sure you want to revoke external service permission? (yes/no): ").strip().lower()
         if confirm in ['yes', 'y']:
-            ExternalServicePrompt.store_permission('default_user', 'LLM', False)
+            ExternalServicePrompt.store_permission(current_user, 'LLM', False)
             print("\nExternal service permission has been REVOKED")
             print("  Local analysis will be used (your data stays private)")
         else:
@@ -147,7 +191,7 @@ def manage_external_services_menu():
     
     handlers = {
         "1": view_status,
-        "2": lambda: request_external_service_permission('default_user', 'LLM'),
+        "2": lambda: request_external_service_permission(current_user, 'LLM'),
         "3": revoke_permission,
         "4": "BACK"
     }

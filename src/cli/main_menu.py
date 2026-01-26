@@ -3,16 +3,13 @@ import os
 import sys
 from .menus import (
     project_menu,
-    handle_analyze_metrics_and_summary,
-    analyze_project_menu,
+    analysis_menu,
     handle_rank_projects,
     handle_rank_and_summarize_projects,
     handle_view_edit_rankings,
     settings_menu,
+    resume_menu,
     portfolio_menu,
-    handle_generate_resume,
-    handle_view_resume,
-    handle_delete_resume,
     handle_llm_summary,
     handle_zip_success_report
 )
@@ -20,19 +17,16 @@ from account.user_manager import AuthManager
 
 MENU_ITEMS = [
     "List/Manage projects",                               # 1
-    "Analyze a project (FULL MODE: metrics + summary)",   # 2
-    "Analyze a project (PRIVACY MODE: analysis with local fallback)",  # 3
-    "Rank all projects",                                  # 4
-    "Rank and summarize top 3 projects",                  # 5
-    "View and edit stored rankings",                      # 6
-    "Settings",                                           # 7
-    "Generate Resume",                                    # 8
-    "View Resume",                                        # 9
-    "Delete Resume",                                      # 10
-    "View Portfolio",                                     # 11
-    "Run LLM summary (test.zip)",                         # 12
-    "Project success report (ZIP)",                       # 13
-    "Exit"                                                # 14
+    "Analyze a project",                                  # 2
+    "Rank all projects",                                  # 3
+    "Rank and summarize top 3 projects",                  # 4
+    "View and edit stored rankings",                      # 5
+    "Settings",                                           # 6
+    "Resume",                                             # 7
+    "Portfolio",                                          # 8
+    "Run LLM summary (test.zip)",                         # 9
+    "Project success report (ZIP)",                       # 10
+    "Exit"                                                # 11
 ]
 
 def run_main_menu(consent_manager, collab_manager):
@@ -61,12 +55,12 @@ def run_main_menu(consent_manager, collab_manager):
         print("="*70) 
         
         if os.getenv("GITHUB_ACTIONS") == "true" or not sys.stdin.isatty():
-            choice = "14"
+            choice = "11"
         else:
             try:
-                choice = input("Choose an option (1-14): ").strip()
+                choice = input("Choose an option (1-11): ").strip()
             except EOFError:
-                choice = "14"
+                choice = "11"
         
         # Check authentication before processing any choice
         if not AuthManager.is_user_logged_in():
@@ -75,25 +69,22 @@ def run_main_menu(consent_manager, collab_manager):
             
         handlers = {
             "1": lambda: project_menu(),
-            "2": lambda: handle_analyze_metrics_and_summary(),
-            "3": lambda: analyze_project_menu(),
-            "4": lambda: handle_rank_projects(),
-            "5": lambda: handle_rank_and_summarize_projects(),
-            "6": lambda: handle_view_edit_rankings(),
-            "7": lambda: settings_menu(consent_manager, collab_manager),
-            "8": lambda: handle_generate_resume(),
-            "9": lambda: handle_view_resume(),
-            "10": lambda: handle_delete_resume(),
-            "11": lambda: portfolio_menu(),
-            "12": lambda: handle_llm_summary(),
-            "13": lambda: handle_zip_success_report(),
-            "14": "EXIT"
+            "2": lambda: analysis_menu(),
+            "3": lambda: handle_rank_projects(),
+            "4": lambda: handle_rank_and_summarize_projects(),
+            "5": lambda: handle_view_edit_rankings(),
+            "6": lambda: settings_menu(consent_manager, collab_manager),
+            "7": lambda: resume_menu(),
+            "8": lambda: portfolio_menu(),
+            "9": lambda: handle_llm_summary(),
+            "10": lambda: handle_zip_success_report(),
+            "11": "EXIT"
         }
 
         handler = handlers.get(choice)
 
         if handler is None:
-            print("Invalid choice. Please enter 1-14.")
+            print("Invalid choice. Please enter 1-11.")
             continue
 
         if handler == "EXIT":

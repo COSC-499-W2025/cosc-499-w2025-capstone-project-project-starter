@@ -432,6 +432,80 @@ def test_settings_menu_invalid_choice_then_back(
     assert "Invalid choice" in output
     mock_manage_external.assert_not_called()
 
+
+@patch("cli.menus.handle_analyze_metrics_and_summary")
+@patch("cli.menus.analyze_project_menu")
+@patch("cli.menus.AuthManager.get_current_username", return_value="test_user")
+@patch("cli.menus.ExternalServicePermission")
+def test_analysis_menu_routes_to_full_analysis_when_permission_granted(
+    mock_perm_cls,
+    mock_get_username,
+    mock_analyze_menu,
+    mock_full_analysis,
+):
+    """analysis_menu should route to full analysis when permission is True."""
+    mock_perm = mock_perm_cls.return_value
+    mock_perm.has_permission.return_value = True
+
+    menus.analysis_menu()
+
+    mock_full_analysis.assert_called_once()
+    mock_analyze_menu.assert_not_called()
+
+
+@patch("cli.menus.handle_analyze_metrics_and_summary")
+@patch("cli.menus.analyze_project_menu")
+@patch("cli.menus.AuthManager.get_current_username", return_value="test_user")
+@patch("cli.menus.ExternalServicePermission")
+def test_analysis_menu_routes_to_privacy_when_permission_not_granted(
+    mock_perm_cls,
+    mock_get_username,
+    mock_analyze_menu,
+    mock_full_analysis,
+):
+    """analysis_menu should route to privacy mode when permission is False/None."""
+    mock_perm = mock_perm_cls.return_value
+    mock_perm.has_permission.return_value = None
+
+    menus.analysis_menu()
+
+    mock_analyze_menu.assert_called_once()
+    mock_full_analysis.assert_not_called()
+
+
+@patch("cli.menus.handle_generate_resume")
+@patch("cli.menus.handle_view_resume")
+@patch("cli.menus.handle_delete_resume")
+@patch("builtins.input", side_effect=["1", "4"])
+@patch("sys.stdout", new_callable=StringIO)
+def test_resume_menu_routes_and_back(
+    mock_stdout,
+    mock_input,
+    mock_delete,
+    mock_view,
+    mock_generate,
+):
+    """resume_menu should route to handlers and return on back."""
+    menus.resume_menu()
+    mock_generate.assert_called_once()
+    mock_view.assert_not_called()
+    mock_delete.assert_not_called()
+
+
+@patch("cli.menus.handle_generate_resume")
+@patch("builtins.input", side_effect=["9", "4"])
+@patch("sys.stdout", new_callable=StringIO)
+def test_resume_menu_invalid_choice_then_back(
+    mock_stdout,
+    mock_input,
+    mock_generate,
+):
+    """resume_menu should handle invalid input and continue."""
+    menus.resume_menu()
+    output = mock_stdout.getvalue()
+    assert "Invalid choice" in output
+    mock_generate.assert_not_called()
+
 @patch("account.user_manager.AuthManager.get_current_user")
 @patch("account.user_manager.AuthManager.is_user_logged_in")
 @patch("resume.resume_manager.ResumeManager.delete_user_resume", return_value=True)

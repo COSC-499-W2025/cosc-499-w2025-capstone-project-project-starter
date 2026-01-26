@@ -64,7 +64,7 @@ class TestAnalysisRouter:
     def test_should_use_external_service_no_permission(self, router, clean_db):
         """Test that external service is not used when no permission exists."""
         result = router.should_use_external_service('LLM')
-        assert result == False, "Should return False when no permission record exists"
+        assert result is None, "Should return None when no permission record exists"
     
     def test_should_use_external_service_with_permission(self, router, clean_db):
         """Test that external service is used when permission is granted."""
