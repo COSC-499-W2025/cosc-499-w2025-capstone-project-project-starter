@@ -1,22 +1,33 @@
 from __future__ import annotations
 
+from curses import raw
 import os
 import uuid
+from uuid import UUID as PyUUID
+from typing import Any, Dict, List, Optional, Tuple
 import tempfile
 import zipfile
+import json
 from typing import Any, Dict, List, Optional
 from git import Repo, InvalidGitRepositoryError
+import hashlib
 
-from fastapi import FastAPI, UploadFile, File, HTTPException, Form, Query, Body
+from fastapi import FastAPI, UploadFile, File, HTTPException, Form, Query, Body, Depends
 from pydantic import BaseModel, Field
 from sqlalchemy import text
 from sqlalchemy import text, bindparam
+from sqlalchemy.orm import Session
 from sqlalchemy.dialects.postgresql import ARRAY, UUID
 from fastapi.responses import Response
 from src.db.session import get_engine
 from src.api.ingest import ingest_zip_to_db, save_upload_to_temp, extract_commits_from_git_zip, find_git_repo
 from src.api.report import build_project_report
-from src.db.consents import get_snapshot_owner_user_id, is_external_services_allowed
+from src.db.consents import get_snapshot_owner_user_id, is_external_services_allowed 
+from src.api.generation import generate_resume_item
+from src.db.session import get_engine, get_db
+from src.db.base import FileBlob, PortfolioShowcase, Project
+from pydantic import BaseModel
+from sqlalchemy import text
 
 from src.db.user_config import (
     get_user_config,
@@ -27,6 +38,8 @@ from src.db.user_config import (
     set_project_user_contributor_mapping,
     clear_project_user_contributor_mapping,
 )
+
+from src.api.ranking import compute_rank_score, normalize_ranking_config, sort_projects
 
 from src.api.pdf_exporter import export_resume_item_pdf_bytes
 
@@ -72,6 +85,20 @@ class SetUserContributorIn(BaseModel):
 class ProjectUpdateIn(BaseModel):
     display_name: str
 
+class ResumeGenerateIn(BaseModel):
+    project_id: str
+    prefer_external_bullets: Optional[bool] = True
+
+class ProjectImagePath(BaseModel):
+    filepath: str
+
+class ResumeEditRequest(BaseModel):
+    summary_text: Optional[str] = None
+    resume_bullets: Optional[List[str]] = None
+
+class PortfolioEditRequest(BaseModel):
+    title: Optional[str] = None
+    summary_text: Optional[str] = None
 
 def _rank_score(user_commits: int, total_commits: int) -> Optional[float]:
     # Deterministic and transparent. Only meaningful if user_commits > 0.
@@ -79,6 +106,36 @@ def _rank_score(user_commits: int, total_commits: int) -> Optional[float]:
         return None
     other = max(0, int(total_commits) - int(user_commits))
     return float(int(user_commits)) + 0.10 * float(other)
+
+def _get_or_create_showcase(conn, project_id: str) -> str:
+    sid = conn.execute(
+        text(
+            """
+            SELECT id
+            FROM portfolio_showcases
+            WHERE project_id = :pid
+            ORDER BY created_at ASC
+            LIMIT 1
+            """
+        ),
+        {"pid": project_id},
+    ).scalar()
+
+    if sid:
+        return str(sid)
+
+    sid = conn.execute(
+        text(
+            """
+            INSERT INTO portfolio_showcases (project_id, content_json)
+            VALUES (:pid, '{}'::jsonb)
+            RETURNING id
+            """
+        ),
+        {"pid": project_id},
+    ).scalar_one()
+
+    return str(sid)
 
 
 @app.get("/health")
@@ -603,10 +660,24 @@ def list_projects(
             {"pf": portfolio_id},
         ).mappings().all()
 
+        portfolio_user_id = conn.execute(
+            text("SELECT user_id FROM portfolios WHERE id = :pid"),
+            {"pid": portfolio_id},
+        ).scalar()
+        user_cfg = get_user_config(conn, str(portfolio_user_id)) if portfolio_user_id else {}
+        ranking_cfg = normalize_ranking_config((user_cfg or {}).get("ranking") or {})
+
     out = []
     for r in rows:
         total = int(r["total_commits"] or 0)
         userc = int(r["user_commits"] or 0)
+        userc_out = userc if userc > 0 else None
+        rank_score = compute_rank_score(
+            user_commits=userc_out,
+            total_commits=total,
+            contributor_count=int(r["contributor_count"] or 0),
+            ranking_cfg=ranking_cfg,
+        )
         out.append(
             {
                 "id": str(r["id"]),
@@ -617,9 +688,9 @@ def list_projects(
                 "created_at": r["created_at"],
                 "metrics": {
                     "total_commits": total,
-                    "user_commits": userc if userc > 0 else None,
+                    "user_commits": userc_out,
                     "contributor_count": int(r["contributor_count"] or 0),
-                    "rank_score": _rank_score(userc, total),
+                    "rank_score": rank_score,
                 },
                 "latest_snapshot": {
                     "id": str(r["latest_snapshot_id"]) if r.get("latest_snapshot_id") else None,
@@ -628,16 +699,177 @@ def list_projects(
             }
         )
 
-    # Sort with rank_score desc NULLS LAST, then created_at asc for stability.
-    out.sort(
-        key=lambda x: (
-            -1 if x["metrics"]["rank_score"] is None else 0,
-            0.0 if x["metrics"]["rank_score"] is None else -float(x["metrics"]["rank_score"]),
-            str(x["created_at"] or ""),
-        )
-    )
+    out = sort_projects(out, ranking_cfg)
 
     return {"portfolio_id": str(portfolio_id), "projects": out}
+
+
+@app.get("/projects/compare")
+def compare_projects(
+    project_ids: List[str] = Query(..., min_length=1),
+    attributes: Optional[List[str]] = Query(default=None),
+):
+    """Compare a set of projects using user-selected attributes.
+
+    Attribute selection precedence:
+      1) explicit `attributes` query params
+      2) user_config.comparison.attributes (portfolio owner)
+      3) default set
+    """
+    engine = get_engine()
+
+    # Normalize ids (allow both repeated query params and a single comma-separated entry).
+    ids: List[str] = []
+    for v in project_ids:
+        if not v:
+            continue
+        if "," in v:
+            ids.extend([x.strip() for x in v.split(",") if x.strip()])
+        else:
+            ids.append(v.strip())
+    ids = [x for x in ids if x]
+    if not ids:
+        raise HTTPException(status_code=400, detail="Provide at least one project_id")
+
+    with engine.connect() as conn:
+        meta_rows = conn.execute(
+            text(
+                """
+                SELECT p.id, p.portfolio_id, COALESCE(p.display_name, p.name) AS name,
+                       p.project_type, p.collaboration_type, p.user_role
+                FROM projects p
+                WHERE p.id IN :ids
+                """
+            ).bindparams(bindparam("ids", expanding=True)),
+            {"ids": ids},
+        ).mappings().all()
+
+        if len(meta_rows) != len(set(ids)):
+            found = {str(r["id"]) for r in meta_rows}
+            missing = [pid for pid in ids if pid not in found]
+            raise HTTPException(status_code=404, detail={"missing_project_ids": missing})
+
+        portfolio_ids = {str(r["portfolio_id"]) for r in meta_rows}
+        if len(portfolio_ids) != 1:
+            raise HTTPException(status_code=400, detail="All compared projects must belong to the same portfolio")
+        portfolio_id = next(iter(portfolio_ids))
+
+        portfolio_user_id = conn.execute(
+            text("SELECT user_id FROM portfolios WHERE id = :pid"),
+            {"pid": portfolio_id},
+        ).scalar()
+        user_cfg = get_user_config(conn, str(portfolio_user_id)) if portfolio_user_id else {}
+
+    cfg_comp = (user_cfg or {}).get("comparison") or {}
+    cfg_ch = (user_cfg or {}).get("chronology") or {}
+    highlight_skills = ((user_cfg or {}).get("highlights") or {}).get("skills") or []
+    highlight_cf = {str(x).casefold() for x in highlight_skills if str(x).strip()}
+
+    # Default attribute set (kept small but useful for side-by-side UI).
+    default_attrs = [
+        "meta",
+        "duration",
+        "contributions",
+        "languages",
+        "frameworks",
+        "skills_top",
+        "ranking",
+    ]
+
+    attrs: List[str]
+    if attributes is not None and len(attributes) > 0:
+        attrs = []
+        for v in attributes:
+            if not v:
+                continue
+            if "," in v:
+                attrs.extend([x.strip() for x in v.split(",") if x.strip()])
+            else:
+                attrs.append(v.strip())
+    else:
+        attrs = [str(x) for x in (cfg_comp.get("attributes") or []) if str(x).strip()] or list(default_attrs)
+
+    # case-insensitive override maps
+    skill_override = {str(k).casefold(): str(v) for k, v in (cfg_ch.get("skill_first_seen") or {}).items()}
+    proj_date_override = {str(k): str(v) for k, v in (cfg_ch.get("project_dates") or {}).items()}
+
+    # Build reports and select attributes.
+    per_project: List[Dict[str, Any]] = []
+    for pid in ids:
+        rep = build_project_report(engine=engine, project_id=pid, include_raw_analyses=False, include_framework_detection=True)
+
+        latest_parser = None
+        try:
+            snaps = rep.get("snapshots") or []
+            if snaps:
+                latest_parser = ((snaps[-1].get("analyses") or {}).get("parser") or {})
+        except Exception:
+            latest_parser = None
+
+        derived = rep.get("derived") or {}
+        out: Dict[str, Any] = {"project_id": pid}
+
+        if "meta" in attrs:
+            out["meta"] = rep.get("project")
+
+        if "duration" in attrs:
+            dur = (derived.get("project_duration") or {}).copy()
+            # If the user supplied a project date override, surface it without mutating snapshots.
+            if pid in proj_date_override:
+                dur["override_sort_ts"] = proj_date_override[pid]
+            out["duration"] = dur
+
+        if "contributions" in attrs:
+            out["contributions"] = (derived.get("contributions") or {}).copy()
+
+        if "languages" in attrs:
+            out["languages"] = (latest_parser or {}).get("top_languages") or []
+
+        if "activity_counts" in attrs:
+            out["activity_counts"] = (latest_parser or {}).get("activity_counts") or None
+
+        if "frameworks" in attrs:
+            out["frameworks"] = ((derived.get("frameworks") or {}).get("frameworks") or [])
+
+        if "skills_top" in attrs or "skills_chronological" in attrs:
+            skills_obj = (derived.get("skills") or {})
+            top = skills_obj.get("top") or []
+
+            # Apply skill first-seen overrides (if requested) to the returned skill objects.
+            def _apply_skill_override(rows: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+                out_rows: List[Dict[str, Any]] = []
+                for r in rows:
+                    rr = dict(r)
+                    nm = str(rr.get("skill") or "")
+                    ov = skill_override.get(nm.casefold())
+                    if ov:
+                        rr["first_seen_ts"] = ov
+                        rr["overridden"] = True
+                    rr["is_highlight"] = nm.casefold() in highlight_cf
+                    out_rows.append(rr)
+                return out_rows
+
+            if "skills_top" in attrs:
+                out["skills_top"] = _apply_skill_override([dict(x) for x in top[:25]])
+            if "skills_chronological" in attrs:
+                chrono = skills_obj.get("chronological") or []
+                out["skills_chronological"] = _apply_skill_override([dict(x) for x in chrono[:100]])
+
+        if "ranking" in attrs:
+            out["ranking"] = (derived.get("ranking") or {}).copy()
+
+        if "evidence" in attrs:
+            out["evidence"] = (rep.get("project") or {}).get("evidence_json") or {}
+
+        per_project.append(out)
+
+    return {
+        "portfolio_id": portfolio_id,
+        "project_ids": ids,
+        "attributes": attrs,
+        "highlight_skills": highlight_skills,
+        "projects": per_project,
+    }
 
 @app.patch("/projects/{project_id}")
 def update_project(project_id: str, payload: ProjectUpdateIn):
@@ -671,10 +903,8 @@ def top_projects(portfolio_id: str, limit: int = Query(default=5, ge=1, le=50)):
     listing = list_projects(portfolio_id=portfolio_id, user_id=None)
     projects = listing.get("projects") or []
 
-    # Keep only those with computed rank_score.
-    ranked = [p for p in projects if (p.get("metrics") or {}).get("rank_score") is not None]
-    ranked.sort(key=lambda p: float(p["metrics"]["rank_score"]), reverse=True)
-    ranked = ranked[: int(limit)]
+    # list_projects is already ordered according to user_config.ranking.
+    ranked = projects[: int(limit)]
 
     summaries: List[Dict[str, Any]] = []
     with engine.connect() as conn:
@@ -792,15 +1022,79 @@ def generate_resume(payload: ResumeGenerateIn):
     except KeyError:
         raise HTTPException(status_code=404, detail="Project not found")
 
+@app.post("/resume/{resume_id}/edit")
+def edit_resume(resume_id: str, body: ResumeEditRequest):
+    from src.db.session import get_engine
+    from sqlalchemy import text
+    import json
+
+    engine = get_engine()
+
+    with engine.begin() as conn:
+        row = conn.execute(
+            text("SELECT content_json FROM resume_items WHERE id = :id"),
+            {"id": resume_id},
+        ).mappings().first()
+
+        if not row:
+            raise HTTPException(status_code=404, detail="Resume not found")
+
+        raw = row["content_json"]
+        content = json.loads(raw) if isinstance(raw, str) else raw
+
+        if body.summary_text is not None:
+            content["summary_text"] = body.summary_text
+
+        if body.resume_bullets is not None:
+            content["resume_bullets"] = body.resume_bullets
+
+        conn.execute(
+            text("UPDATE resume_items SET content_json = :c WHERE id = :id"),
+            {
+                "id": resume_id,
+                "c": json.dumps(content),
+            },
+        )
+
+    return {
+        "resume_id": resume_id,   # ← THIS is what the test needs
+        "content": content,
+    }
+
 @app.get("/resume/{resume_id}/pdf")
 def download_resume_pdf(resume_id: str):
     engine = get_engine()
     try:
+        # 1. Get the resume data
         item = get_resume_item(engine=engine, resume_id=resume_id)
+        
+        # 2. Fetch the user's config to get preferences
+        from sqlalchemy import text
+        with engine.connect() as conn:
+            query = text("""
+                SELECT uc.config_json 
+                FROM user_config uc
+                JOIN portfolios po ON uc.user_id = po.user_id
+                JOIN projects pr ON po.id = pr.portfolio_id
+                JOIN resume_items ri ON pr.id = ri.project_id
+                WHERE ri.id = :rid
+            """)
+            result = conn.execute(query, {"rid": resume_id}).mappings().first()
+
+            print(f"DEBUG: Found config for resume {resume_id}: {result is not None}")
+            
+            # Extract the filters if they exist, otherwise empty dict
+            user_config = result["config_json"] if result else {}
+            filters = user_config.get("resume_filters", {})
+
+            print(f"DEBUG: Filters being sent to exporter: {filters}")
+
     except KeyError:
         raise HTTPException(status_code=404, detail="Resume item not found")
 
-    pdf_bytes = export_resume_item_pdf_bytes(item)
+    # 3. Pass the filters into the exporter we just modified
+    pdf_bytes = export_resume_item_pdf_bytes(item, filters=filters)
+    
     filename = f"resume-{resume_id}.pdf"
 
     return Response(
@@ -840,6 +1134,37 @@ def generate_portfolio(payload: PortfolioGenerateIn):
     except KeyError:
         raise HTTPException(status_code=404, detail="Portfolio not found")
 
+@app.post("/portfolio/{showcase_id}/edit")
+def edit_portfolio_showcase(showcase_id: str, body: PortfolioEditRequest):
+    engine = get_engine()
+
+    with engine.begin() as conn:
+        row = conn.execute(
+            text("SELECT content_json FROM portfolio_showcases WHERE id = :id"),
+            {"id": showcase_id},
+        ).mappings().first()
+
+        if not row:
+            raise HTTPException(status_code=404, detail="Showcase not found")
+
+        content = row["content_json"]
+
+        if body.title is not None:
+            content["title"] = body.title
+
+        if body.summary_text is not None:
+            content["summary_text"] = body.summary_text
+
+        conn.execute(
+            text(
+                "UPDATE portfolio_showcases SET content_json = :c WHERE id = :id"
+            ),
+            {"id": showcase_id,"c": json.dumps(content),
+            },
+)
+
+
+    return {"showcase_id": showcase_id, "content": content}
 
 @app.get("/portfolio/{portfolio_id}/generated")
 def get_generated_portfolio_artifacts(portfolio_id: str, limit: int = Query(default=50, ge=1, le=200)):
@@ -1178,16 +1503,28 @@ def list_portfolio_projects_chronological(
     This is distinct from /projects (which returns ranked ordering).
     """
     engine = get_engine()
-    order = "ASC" if direction == "asc" else "DESC"
-
     with engine.connect() as conn:
         owned = conn.execute(text("SELECT 1 FROM portfolios WHERE id = :pid"), {"pid": portfolio_id}).scalar()
         if not owned:
             raise HTTPException(status_code=404, detail="Portfolio not found")
 
+        portfolio_user_id = conn.execute(
+            text("SELECT user_id FROM portfolios WHERE id = :pid"),
+            {"pid": portfolio_id},
+        ).scalar()
+        user_cfg = get_user_config(conn, str(portfolio_user_id)) if portfolio_user_id else {}
+        chronology_cfg = (user_cfg or {}).get("chronology") or {}
+
+        portfolio_user_id = conn.execute(
+            text("SELECT user_id FROM portfolios WHERE id = :pid"),
+            {"pid": portfolio_id},
+        ).scalar()
+        user_cfg = get_user_config(conn, str(portfolio_user_id)) if portfolio_user_id else {}
+        chronology_cfg = (user_cfg or {}).get("chronology") or {}
+
         rows = conn.execute(
             text(
-                f"""
+                """
                 SELECT
                   id,
                   name,
@@ -1197,18 +1534,59 @@ def list_portfolio_projects_chronological(
                   created_at
                 FROM projects
                 WHERE portfolio_id = :pid
-                ORDER BY created_at {order}, id {order}
-                LIMIT :lim
                 """
             ),
-            {"pid": portfolio_id, "lim": int(limit)},
+            {"pid": portfolio_id},
         ).mappings().all()
+
+    projects = [dict(r) for r in rows]
+
+    project_order = chronology_cfg.get("project_order") or []
+    if not isinstance(project_order, list):
+        project_order = []
+    project_order = [str(x).strip() for x in project_order if str(x).strip()]
+    order_index = {pid: i for i, pid in enumerate(project_order)}
+
+    project_dates = chronology_cfg.get("project_dates") or {}
+    if not isinstance(project_dates, dict):
+        project_dates = {}
+    project_dates = {str(k): str(v) for k, v in project_dates.items() if str(k).strip() and str(v).strip()}
+
+    # If project_order is provided, it has precedence and can override chronology.
+    if project_order:
+        by_id = {str(p.get("id")): p for p in projects}
+        ordered = [by_id[pid] for pid in project_order if pid in by_id]
+        remaining = [p for p in projects if str(p.get("id")) not in order_index]
+        remaining.sort(key=lambda p: (str(p.get("created_at") or ""), str(p.get("id") or "")), reverse=(direction == "desc"))
+
+        if direction == "desc":
+            ordered = list(reversed(ordered))
+
+        final = ordered + remaining
+    else:
+        # Otherwise, use per-project date overrides (if any) to produce corrected chronology.
+        def sort_key(p: Dict[str, Any]):
+            pid = str(p.get("id") or "")
+            ts = project_dates.get(pid) or p.get("created_at")
+            return (str(ts or ""), str(pid))
+
+        final = sorted(projects, key=sort_key, reverse=(direction == "desc"))
+
+    # Surface the corrected sort key for consumers.
+    for p in final:
+        pid = str(p.get("id") or "")
+        p["chronology"] = {
+            "sort_ts": project_dates.get(pid) or (p.get("created_at").isoformat() if hasattr(p.get("created_at"), "isoformat") else str(p.get("created_at") or "")),
+            "overridden": bool(pid in project_dates or pid in order_index),
+        }
+
+    final = final[: int(limit)]
 
     return {
         "portfolio_id": portfolio_id,
         "direction": direction,
         "limit": int(limit),
-        "projects": [dict(r) for r in rows],
+        "projects": final,
     }
 
 
@@ -1229,12 +1607,18 @@ def list_portfolio_skills_chronological(
     This aligns with the existing local_ml output schema. :contentReference[oaicite:2]{index=2}
     """
     engine = get_engine()
-    order_mult = 1 if direction == "asc" else -1
 
     with engine.connect() as conn:
         owned = conn.execute(text("SELECT 1 FROM portfolios WHERE id = :pid"), {"pid": portfolio_id}).scalar()
         if not owned:
             raise HTTPException(status_code=404, detail="Portfolio not found")
+
+        portfolio_user_id = conn.execute(
+            text("SELECT user_id FROM portfolios WHERE id = :pid"),
+            {"pid": portfolio_id},
+        ).scalar()
+        user_cfg = get_user_config(conn, str(portfolio_user_id)) if portfolio_user_id else {}
+        chronology_cfg = (user_cfg or {}).get("chronology") or {}
 
         rows = conn.execute(
             text(
@@ -1293,9 +1677,32 @@ def list_portfolio_skills_chronological(
             )
 
     # Sort in-process to apply direction and ensure stable ordering.
+    # Apply overrides and (optional) explicit skill ordering.
+    skill_first_seen = chronology_cfg.get("skill_first_seen") or {}
+    if not isinstance(skill_first_seen, dict):
+        skill_first_seen = {}
+    skill_first_seen_cf = {str(k).casefold(): str(v) for k, v in skill_first_seen.items() if str(k).strip() and str(v).strip()}
+
+    skill_order = chronology_cfg.get("skill_order") or []
+    if not isinstance(skill_order, list):
+        skill_order = []
+    skill_order = [str(x).strip() for x in skill_order if str(x).strip()]
+    skill_order_idx = {s.casefold(): i for i, s in enumerate(skill_order)}
+
+    for e in events:
+        nm = str(e.get("skill") or "")
+        ov = skill_first_seen_cf.get(nm.casefold())
+        if ov:
+            e["first_seen_ts"] = ov
+            e["overridden"] = True
+        if skill_order:
+            e["skill_order_index"] = skill_order_idx.get(nm.casefold())
+
     def _k(e):
+        idx = e.get("skill_order_index")
+        idx_key = (0, int(idx)) if idx is not None else (1, 0)
         t = e.get("first_seen_ts") or ""
-        return (t, e.get("skill") or "", e.get("project_id") or "", e.get("snapshot_id") or "")
+        return (idx_key, str(t), e.get("skill") or "", e.get("project_id") or "", e.get("snapshot_id") or "")
 
     events.sort(key=_k, reverse=(direction == "desc"))
     events = events[: int(limit)]
@@ -1305,4 +1712,110 @@ def list_portfolio_skills_chronological(
         "direction": direction,
         "limit": int(limit),
         "skill_events": events,
+    }
+
+
+@app.put("/projects/{project_id}/image")
+async def set_project_image(
+    project_id: PyUUID,
+    file: UploadFile = File(...),
+    db: Session = Depends(get_db),
+):
+    # 1) Early FK check -> clearer 404 than FK error later
+    exists = db.execute(
+        text("SELECT 1 FROM projects WHERE id = :pid"),
+        {"pid": str(project_id)}
+    ).scalar()
+    if not exists:
+        raise HTTPException(status_code=404, detail="Project not found")
+
+    # 2) Read data and hash
+    data = await file.read()
+    if not data:
+        raise HTTPException(status_code=400, detail="Uploaded file is empty")
+    sha256 = hashlib.sha256(data).hexdigest()
+
+    # 3) Upsert FileBlob by sha256 (no duplicate rows)
+    blob = db.query(FileBlob).filter(FileBlob.sha256 == sha256).one_or_none()
+    if blob is None:
+        # Infer a basic mime from filename or request content type
+        _, ext = os.path.splitext(file.filename or "")
+        ext = ext.lower().lstrip(".")
+        mime = f"image/{ext}" if ext else (file.content_type or None)
+
+        # You can store the original filename, or a persisted path if you save the file to disk
+        stored_path = (file.filename or "")[:1024]
+
+        blob = FileBlob(
+            sha256=sha256,
+            size_bytes=len(data),
+            mime_type=mime,
+            stored_path=stored_path,
+        )
+        db.add(blob)
+
+    # 4) Create/update the project’s showcase to point to this blob
+    showcase = (
+        db.query(PortfolioShowcase)
+        .filter(PortfolioShowcase.project_id == project_id)
+        .one_or_none()
+    )
+    if showcase is None:
+        showcase = PortfolioShowcase(project_id=project_id, thumbnail_blob_sha256=sha256)
+        db.add(showcase)
+    else:
+        showcase.thumbnail_blob_sha256 = sha256
+
+    # 5) Commit once
+    db.commit()
+
+    return {
+        "project_id": str(project_id),
+        "thumbnail_blob_sha256": sha256,
+    }
+
+
+
+@app.delete("/projects/{project_id}/image")
+def delete_project_image(project_id: str):
+    engine = get_engine()
+    with engine.begin() as conn:
+        row = conn.execute(
+            text(
+                """
+                SELECT id, thumbnail_blob_sha256
+                FROM portfolio_showcases
+                WHERE project_id = :pid
+                """
+            ),
+            {"pid": project_id},
+        ).mappings().first()
+
+        if not row or not row["thumbnail_blob_sha256"]:
+            raise HTTPException(status_code=404, detail="Project image not found")
+
+        conn.execute(
+            text(
+                """
+                UPDATE portfolio_showcases
+                SET thumbnail_blob_sha256 = NULL,
+                    updated_at = NOW()
+                WHERE id = :sid
+                """
+            ),
+            {"sid": row["id"]},
+        )
+
+    return {"project_id": project_id, "deleted": True}
+
+
+@app.put("/__debug/echo-upload")
+async def echo_upload(file: UploadFile = File(...)):
+    data = await file.read()
+    import hashlib
+    return {
+        "filename": file.filename,
+        "content_type": file.content_type,
+        "size": len(data),
+        "sha256": hashlib.sha256(data).hexdigest(),
     }

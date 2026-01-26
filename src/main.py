@@ -309,6 +309,40 @@ def cmd_config_patch(args: argparse.Namespace, st: DemoState) -> int:
     print(_pretty(out))
     return 0
 
+def cmd_config_set_prefs(args: argparse.Namespace, st: DemoState) -> int:
+    api = ApiClient(st.api_url)
+    user_id = args.user_id or st.user_id
+    if not user_id:
+        _eprint("missing user_id (pass --user-id or create consent first)")
+        return 2
+
+    # Build the preferences object based on user flags
+    # We only include keys the user actually specified in the command
+    prefs = {}
+    if args.show_summary is not None:
+        prefs["show_summary"] = args.show_summary
+    if args.show_bullets is not None:
+        prefs["show_bullets"] = args.show_bullets
+    if args.max_bullets is not None:
+        prefs["max_bullets"] = args.max_bullets
+    
+    # NEW: Toggle for Resume ID and Timestamp
+    if args.show_metadata is not None:
+        prefs["show_metadata"] = args.show_metadata
+
+    if not prefs:
+        _eprint("No preferences specified. Use --show-summary, --show-bullets, --show-metadata, etc.")
+        return 2
+
+    # We wrap it in a 'resume_filters' key so it doesn't clutter the top level of config_json
+    payload = {"resume_filters": prefs}
+    
+    # We use PATCH so it merges with existing config instead of wiping it
+    out = api.patch(f"/users/{user_id}/config", json_body=payload)
+    
+    print("✨ Preferences updated in database:")
+    print(_pretty(out))
+    return 0
 
 def cmd_identity_rules(args: argparse.Namespace, st: DemoState, state_path: Path) -> int:
     api = ApiClient(st.api_url)
@@ -675,6 +709,45 @@ def cmd_delete_showcase(args: argparse.Namespace, st: DemoState, state_path: Pat
     print(_pretty(out))
     return 0
 
+def cmd_project_set_image(args: argparse.Namespace, st: DemoState) -> int:
+    api = ApiClient(st.api_url)
+
+    # Determine project_id
+    pid = args.project_id or st.last_project_id
+    if not pid:
+        _eprint("missing project_id (pass --project-id or upload/list first)")
+        return 2
+
+    # Validate file path
+    file_path = _require_file(args.file)
+
+    # Auto-detect MIME type (simple but effective)
+    ext = file_path.suffix.lower()
+    mime = "image/png"
+    if ext in [".jpg", ".jpeg"]:
+        mime = "image/jpeg"
+    elif ext == ".gif":
+        mime = "image/gif"
+
+    # Upload
+    with open(file_path, "rb") as fp:
+        files = {"file": (file_path.name, fp, mime)}
+        r = api._req("PUT", f"/projects/{pid}/image", files=files)
+
+    # Raise if not 2xx
+    api._raise_for_status(r)
+
+    # Parse JSON
+    out = r.json()
+
+    # Update state
+    st.last_project_id = pid
+    st.last_upload = out
+
+    print(_pretty(out))
+    return 0
+
+
 
 def cmd_demo(args: argparse.Namespace, st: DemoState, state_path: Path) -> int:
     """
@@ -832,6 +905,14 @@ def build_parser() -> argparse.ArgumentParser:
     sp3.add_argument("--user-id", default=None)
     sp3.set_defaults(_handler="config_patch")
 
+    sp_prefs = csub.add_parser("set-preferences", help="Toggle resume visibility settings")
+    sp_prefs.add_argument("--user-id", default=None)
+    sp_prefs.add_argument("--show-summary", type=_bool_flag, help="Toggle project summary (on/off)")
+    sp_prefs.add_argument("--show-metadata", type=_bool_flag, help="Toggle metadata (on/off)")
+    sp_prefs.add_argument("--show-bullets", type=_bool_flag, help="Toggle resume bullets (on/off)")
+    sp_prefs.add_argument("--max-bullets", type=int, help="Limit number of bullets shown")
+    sp_prefs.set_defaults(_handler="config_set_prefs")
+
     sp = sub.add_parser("identity", help="Identity mapping utilities (user contribution linking)")
     isub = sp.add_subparsers(dest="identity_cmd", required=True)
 
@@ -986,6 +1067,13 @@ def build_parser() -> argparse.ArgumentParser:
     sp4.add_argument("showcase_id", nargs="?", default=None)
     sp4.set_defaults(_handler="delete_showcase")
 
+    sp = sub.add_parser("project-set-image", help="Upload a thumbnail image for a project")
+    sp.add_argument("file", help="Path to the image file (PNG recommended)")
+    sp.add_argument("--project-id", default=None, help="Project ID (defaults to last_project_id)")
+    sp.set_defaults(_handler="project_set_image")
+
+
+
     sp = sub.add_parser("demo", help="One-command end-to-end marking flow (consent -> upload -> outputs -> pdf)")
     sp.add_argument("zip", help="Path to .zip containing one or more projects")
     sp.add_argument("--user-id", default=None)
@@ -1025,6 +1113,8 @@ def main(argv: Optional[List[str]] = None) -> int:
             rc = cmd_config_put(args, st)
         elif h == "config_patch":
             rc = cmd_config_patch(args, st)
+        elif h == "config_set_prefs":
+            rc = cmd_config_set_prefs(args, st)
         elif h == "identity_rules":
             rc = cmd_identity_rules(args, st, state_path)
         elif h == "identity_autolink":
@@ -1077,6 +1167,8 @@ def main(argv: Optional[List[str]] = None) -> int:
             rc = cmd_delete_resume(args, st, state_path)
         elif h == "delete_showcase":
             rc = cmd_delete_showcase(args, st, state_path)
+        elif h == "project_set_image":
+            rc = cmd_project_set_image(args, st)
         elif h == "demo":
             rc = cmd_demo(args, st, state_path)
         else:

@@ -7,6 +7,9 @@ from typing import Any, Dict, List, Optional, Tuple
 from sqlalchemy import text
 from sqlalchemy.engine import Engine
 
+from src.db.user_config import get_user_config
+from src.api.ranking import compute_rank_score, normalize_ranking_config, sort_projects
+
 
 def _utcnow_iso() -> str:
     return datetime.now(timezone.utc).isoformat()
@@ -112,6 +115,7 @@ def _local_resume_bullets(
     total_commits: Optional[int],
     contributor_count: Optional[int],
     collab_type: Optional[str],
+    highlight_skills: Optional[List[str]] = None,
 ) -> List[str]:
     langs = _comma_list(top_languages, 2)
     frws = _comma_list(frameworks, 2)
@@ -134,7 +138,16 @@ def _local_resume_bullets(
     else:
         b2 = "Coordinated work across multiple iterations and snapshots, maintaining a repeatable analysis pipeline."
 
-    focus_skill = (top_skills or [None])[0]
+    # Prefer a highlighted skill if it is present in detected skills.
+    focus_skill = None
+    hi = [str(x).strip() for x in (highlight_skills or []) if str(x).strip()]
+    hi_cf = {x.casefold() for x in hi}
+    for s in (top_skills or []):
+        if str(s).casefold() in hi_cf:
+            focus_skill = str(s)
+            break
+    if not focus_skill:
+        focus_skill = (top_skills or [None])[0]
     if focus_skill:
         b3 = f"Demonstrated proficiency in {focus_skill} through measurable repository activity and structured project outputs."
     else:
@@ -166,9 +179,8 @@ def _external_resume_bullets(external_llm_out: Dict[str, Any]) -> Optional[List[
 def _ranked_projects_for_portfolio(conn, portfolio_id: str) -> List[Dict[str, Any]]:
     """
     Ranking rule:
-      - If user_commits>0 exists (requires project_contributors.is_user), compute rank_score:
-          user_commits + 0.10*(total_commits - user_commits)
-      - Else: rank_score = NULL; fallback sort by total_commits desc then created_at asc
+      - Default behavior matches Milestone 1.
+      - Milestone 2 adds user_config.ranking (auto|weighted|manual) for re-ranking.
     """
     rows = conn.execute(
         text(
@@ -224,15 +236,23 @@ def _ranked_projects_for_portfolio(conn, portfolio_id: str) -> List[Dict[str, An
         {"pf": portfolio_id},
     ).mappings().all()
 
+    # Load ranks
+    uid = conn.execute(text("SELECT user_id FROM portfolios WHERE id = :pid"), {"pid": portfolio_id}).scalar()
+    user_cfg = get_user_config(conn, str(uid)) if uid else {}
+    ranking_cfg = normalize_ranking_config((user_cfg or {}).get("ranking") or {})
+
     out: List[Dict[str, Any]] = []
     for r in rows:
         total = int(r["total_commits"] or 0)
         userc_raw = int(r["user_commits"] or 0)
         userc = userc_raw if userc_raw > 0 else None
 
-        rank_score = None
-        if userc is not None:
-            rank_score = float(userc) + 0.10 * float(max(0, total - userc))
+        rank_score = compute_rank_score(
+            user_commits=userc,
+            total_commits=total,
+            contributor_count=int(r["contributor_count"] or 0),
+            ranking_cfg=ranking_cfg,
+        )
 
         out.append(
             {
@@ -252,20 +272,26 @@ def _ranked_projects_for_portfolio(conn, portfolio_id: str) -> List[Dict[str, An
             }
         )
 
-    def sort_key(p: Dict[str, Any]):
-        rs = (p.get("metrics") or {}).get("rank_score")
-        tc = int((p.get("metrics") or {}).get("total_commits") or 0)
-        ca = p.get("created_at") or ""
-        # rank_score desc NULLS LAST, then total_commits desc, then created_at asc
-        return (
-            1 if rs is None else 0,
-            0.0 if rs is None else -float(rs),
-            -int(tc),
-            str(ca),
-        )
+    return sort_projects(out, ranking_cfg)
 
-    out.sort(key=sort_key)
-    return out
+
+def _merge_highlighted_skills(detected: List[str], highlighted: List[str], limit: int) -> List[str]:
+    det = [str(x).strip() for x in (detected or []) if str(x).strip()]
+    hi = [str(x).strip() for x in (highlighted or []) if str(x).strip()]
+
+    det_cf = {x.casefold() for x in det}
+    out: List[str] = []
+
+    # Add highlighted skills that are actually present in the project.
+    for s in hi:
+        if s.casefold() in det_cf and s not in out:
+            out.append(s)
+
+    for s in det:
+        if s not in out:
+            out.append(s)
+
+    return out[: max(0, int(limit))]
 
 
 def generate_portfolio_top_summaries(
@@ -282,7 +308,19 @@ def generate_portfolio_top_summaries(
         if not pf_ok:
             raise KeyError("Portfolio not found")
 
-        ranked = _ranked_projects_for_portfolio(conn, portfolio_id)[: int(limit)]
+        uid = conn.execute(text("SELECT user_id FROM portfolios WHERE id = :pid"), {"pid": portfolio_id}).scalar()
+        user_cfg = get_user_config(conn, str(uid)) if uid else {}
+        highlight_skills = ((user_cfg or {}).get("highlights") or {}).get("skills") or []
+        selected_ids = ((user_cfg or {}).get("showcase") or {}).get("selected_project_ids") or []
+
+        ranked_all = _ranked_projects_for_portfolio(conn, portfolio_id)
+        if isinstance(selected_ids, list) and any(str(x).strip() for x in selected_ids):
+            selected_ids = [str(x).strip() for x in selected_ids if str(x).strip()]
+            by_id = {str(p["id"]): p for p in ranked_all}
+            chosen = [by_id[pid] for pid in selected_ids if pid in by_id]
+            ranked = chosen[: int(limit)]
+        else:
+            ranked = ranked_all[: int(limit)]
 
         top_projects: List[Dict[str, Any]] = []
         showcase_ids: List[str] = []
@@ -306,11 +344,17 @@ def generate_portfolio_top_summaries(
             except Exception:
                 frameworks = []
 
-            top_skills = []
+            detected_skills = []
             try:
-                top_skills = [str(x.get("skill")) for x in (ml_out.get("skills") or [])[:10] if isinstance(x, dict) and x.get("skill")]
+                detected_skills = [
+                    str(x.get("skill"))
+                    for x in (ml_out.get("skills") or [])
+                    if isinstance(x, dict) and x.get("skill")
+                ]
             except Exception:
-                top_skills = []
+                detected_skills = []
+
+            top_skills = _merge_highlighted_skills(detected_skills, highlight_skills, limit=10)
 
             metrics = p.get("metrics") or {}
             summary_text = _derive_project_summary_text(
@@ -335,6 +379,7 @@ def generate_portfolio_top_summaries(
                 total_commits=metrics.get("total_commits"),
                 contributor_count=metrics.get("contributor_count"),
                 collab_type=p.get("collaboration_type"),
+                highlight_skills=highlight_skills,
             )
 
             artifact = {
@@ -407,6 +452,13 @@ def generate_resume_item(
         if not proj:
             raise KeyError("Project not found")
 
+        uid = conn.execute(
+            text("SELECT user_id FROM portfolios WHERE id = :pid"),
+            {"pid": str(proj.get("portfolio_id"))},
+        ).scalar()
+        user_cfg = get_user_config(conn, str(uid)) if uid else {}
+        highlight_skills = ((user_cfg or {}).get("highlights") or {}).get("skills") or []
+
         sid = _fetch_latest_snapshot_id(conn, project_id)
         parser_out = _fetch_latest_completed_analysis_output(conn, sid, "parser") if sid else {}
         ml_out = _fetch_latest_completed_analysis_output(conn, sid, "local_ml") if sid else {}
@@ -457,11 +509,17 @@ def generate_resume_item(
         except Exception:
             frameworks = []
 
-        top_skills = []
+        detected_skills = []
         try:
-            top_skills = [str(x.get("skill")) for x in (ml_out.get("skills") or [])[:15] if isinstance(x, dict) and x.get("skill")]
+            detected_skills = [
+                str(x.get("skill"))
+                for x in (ml_out.get("skills") or [])
+                if isinstance(x, dict) and x.get("skill")
+            ]
         except Exception:
-            top_skills = []
+            detected_skills = []
+
+        top_skills = _merge_highlighted_skills(detected_skills, highlight_skills, limit=15)
 
         summary_text = _derive_project_summary_text(
             project_name=str(proj.get("name") or project_id),
@@ -486,6 +544,7 @@ def generate_resume_item(
                 total_commits=int(totals.get("total_commits") or 0),
                 contributor_count=int(totals.get("contributor_count") or 0),
                 collab_type=str(proj.get("collaboration_type") or ""),
+                highlight_skills=highlight_skills,
             )
         else:
             bullets = _local_resume_bullets(
@@ -497,6 +556,7 @@ def generate_resume_item(
                 total_commits=int(totals.get("total_commits") or 0),
                 contributor_count=int(totals.get("contributor_count") or 0),
                 collab_type=str(proj.get("collaboration_type") or ""),
+                highlight_skills=highlight_skills,
             )
 
         artifact = {
@@ -589,7 +649,6 @@ def list_portfolio_showcases(
             }
         )
 
-    # Tests expect "items", not "showcases".
     return {"portfolio_id": portfolio_id, "limit": int(limit), "items": items}
 
 def get_resume_item(

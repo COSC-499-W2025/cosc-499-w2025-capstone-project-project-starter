@@ -117,9 +117,10 @@ def extract_commits_from_git_zip(zip_path: str):
         with zipfile.ZipFile(zip_path, "r") as zf:
             zf.extractall(tmpdir)
 
-        # Open Git repo
+        # Open Git repo with repo.head to dynamically fetch the branch name
+        # and avoid relying on OS level factors
         repo = Repo(tmpdir)
-        commits = list(repo.iter_commits("master"))
+        commits = list(repo.iter_commits(repo.head))
         return [c.message.strip() for c in commits]
     finally:
         shutil.rmtree(tmpdir, ignore_errors=True)

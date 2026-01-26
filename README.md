@@ -69,7 +69,7 @@ docker compose --profile analysis up --build
 ## Testing
 
 ```
-pip install python-multipart fastapi alembic
+pip install python-multipart fastapi alembic pypdf
 ```
 If the test database has not been created before:
 

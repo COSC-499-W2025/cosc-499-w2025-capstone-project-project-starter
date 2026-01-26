@@ -10,6 +10,9 @@ from typing import Any, Dict, List, Optional, Tuple
 from sqlalchemy import text
 from sqlalchemy.engine import Engine
 
+from src.db.user_config import get_user_config
+from src.api.ranking import compute_rank_score, normalize_ranking_config
+
 from src.db.base import fetch_snapshot_files
 
 
@@ -234,6 +237,8 @@ def build_project_report(
       - per-snapshot selected analyses (parser/local_ml/git_metrics)
       - derived: skills chronology, contribution summary, duration, frameworks (best-effort)
     """
+    ranking_cfg = normalize_ranking_config({})
+
     with engine.connect() as conn:
         project = conn.execute(
             text(
@@ -248,6 +253,13 @@ def build_project_report(
 
         if not project:
             raise KeyError("Project not found")
+
+        portfolio_user_id = conn.execute(
+            text("SELECT user_id FROM portfolios WHERE id = :pid"),
+            {"pid": str(project.get("portfolio_id"))},
+        ).scalar()
+        user_cfg = get_user_config(conn, str(portfolio_user_id)) if portfolio_user_id else {}
+        ranking_cfg = normalize_ranking_config((user_cfg or {}).get("ranking") or {})
 
         snapshots = conn.execute(
             text(
@@ -313,7 +325,6 @@ def build_project_report(
             {"pid": project_id},
         ).mappings().all()
 
-    # Snapshot loop (simple and robust; snapshots should be small count)
     for s in snapshots:
         sid = str(s["id"])
 
@@ -467,15 +478,16 @@ def build_project_report(
     db_collab = project["collaboration_type"]
     needs_refresh = (contributor_count > 0) and (str(db_collab) != str(derived_collab))
 
-    # Rank features (best-effort). If user commits are known (project_contributors.is_user set), compute score.
     total_commits = int(contrib_totals.get("total_commits") or 0)
     user_commits_val = int(user_commits or 0)
     has_user_flag = user_commits is not None and user_commits_val > 0
 
-    rank_score = None
-    if has_user_flag:
-        # Simple transparent heuristic: prioritize user commits, with small credit for overall repo activity.
-        rank_score = float(user_commits_val) + 0.10 * float(max(0, total_commits - user_commits_val))
+    rank_score = compute_rank_score(
+        user_commits=user_commits_val if has_user_flag else None,
+        total_commits=total_commits,
+        contributor_count=contributor_count,
+        ranking_cfg=ranking_cfg,
+    )
 
     frameworks_info = None
     if include_framework_detection and snapshot_reports:
@@ -525,7 +537,7 @@ def build_project_report(
                     "contributor_count": contributor_count,
                     "snapshot_count": len(snapshot_reports),
                 },
-                "note": "rank_score is only computed when at least one contributor is flagged is_user=TRUE in project_contributors.",
+                "note": "rank_score is derived using user_config.ranking; by default it is only computed when at least one contributor is flagged is_user=TRUE in project_contributors.",
             },
         },
     }
