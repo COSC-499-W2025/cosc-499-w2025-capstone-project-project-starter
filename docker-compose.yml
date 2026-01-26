@@ -1,4 +1,7 @@
+version: '3.8'
+
 services:
+  # PostgreSQL Database
   db:
     image: postgres:16
     container_name: artifactminer-db
@@ -17,6 +20,7 @@ services:
       timeout: 5s
       retries: 20
 
+  # Database Migrations
   migrate:
     build:
       context: .
@@ -30,6 +34,7 @@ services:
     command: ["alembic", "upgrade", "head"]
     restart: "no"
 
+  # Backend API
   api:
     build:
       context: .
@@ -46,6 +51,7 @@ services:
       migrate:
         condition: service_completed_successfully
 
+  # Ollama LLM Service
   ollama:
     profiles: ["external", "analysis"]
     image: ollama/ollama:latest
@@ -55,6 +61,7 @@ services:
     ports:
       - "11434:11434"
 
+  # Analysis Worker
   worker:
     profiles: ["analysis"]
     build:
@@ -73,6 +80,28 @@ services:
         condition: service_completed_successfully
       ollama:
         condition: service_started
+
+  # React Frontend - ADD THIS NEW SERVICE
+  frontend:
+    build: ./frontend
+    container_name: artifactminer-frontend
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./frontend:/app           # Hot reload for development
+      - /app/node_modules         # Keep node_modules in container
+    environment:
+      REACT_APP_API_URL: http://localhost:5001  # Access backend on host
+      # For Docker-to-Docker communication, use:
+      # REACT_APP_API_URL: http://api:5000
+    depends_on:
+      - api
+    stdin_open: true  # Enable interactive terminal
+    tty: true         # Enable interactive terminal
+    # Use this command for development:
+    command: npm start
+    # For production build, use:
+    # command: serve -s build -l 3000
 
 volumes:
   pgdata:
