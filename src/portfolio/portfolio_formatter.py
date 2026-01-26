@@ -7,7 +7,7 @@ Formats portfolio data into human-readable output formats AND structured API res
 import json
 from typing import Dict, Any, Optional, List
 from src.common.schemas import PortfolioCardResponse, TechStack
-from src.resume.evidence_extractor import build_evidence 
+from src.resume.evidence_extractor import build_evidence
 
 class PortfolioFormatter:
     """Formats portfolio data into various output formats."""
@@ -322,7 +322,8 @@ class PortfolioFormatter:
         """
         if user_options is None:
             user_options = {}
-        # 1. Title Selection
+
+        # 1. Basic Info Extraction
         info = project_data.get('project_info', {})
         # Use filename as fallback title if needed
         raw_name = info.get('filename', 'Untitled Project')
@@ -406,4 +407,4 @@ class PortfolioFormatter:
         for fw in frameworks:
             tech_list.append(TechStack(name=fw, category="Framework"))
             
-        return tech_list[:8]
+        return tech_list[:8] # Cap at 8 tags for visual clarity
