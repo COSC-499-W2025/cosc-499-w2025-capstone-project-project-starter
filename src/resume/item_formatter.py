@@ -1,34 +1,38 @@
-from typing import Dict, Any, List
+from typing import Dict, Any, List, Optional
 from datetime import datetime
 from src.common.schemas import ResumeItemResponse
 
 class ItemFormatter:
     """
-    Dedicated formatter for transforming a SINGLE project's data 
-    into a structured API response (Milestone 2).
-    
     Differing from ResumeFormatter (which handles full document generation),
     this class focuses on granular, object-level data transformation.
     """
-
     @staticmethod
-    def format_resume_item(project_data: Dict[str, Any]) -> ResumeItemResponse:
+    def format_resume_item(project_data: Dict[str, Any], user_options: Optional[Dict[str, Any]] = None) -> ResumeItemResponse:
         """
         Transforms raw project summary data into a ResumeItemResponse.
+        Applies user customizations (title, role, bullets) if provided.
         
         Args:
             project_data (dict): Raw dictionary from ProjectSummarizer.
+            user_options (dict, optional): Custom overrides from User Preferences.
             
         Returns:
             ResumeItemResponse: Validated Pydantic model.
         """
+        if user_options is None:
+            user_options = {}
+
         # 1. Safe Data Extraction
         info = project_data.get('project_info', {})
         # Fallback to filename if name isn't present
         raw_name = info.get('filename', 'Untitled Project')
         
-        # 2. Name Cleaning Logic (Replicated from ResumeManager to avoid dependency)
-        clean_title = ItemFormatter._clean_project_title(raw_name)
+        # 2. Title Logic: User Override > Auto-Cleaned > Raw
+        if user_options.get('custom_title'):
+            clean_title = user_options['custom_title']
+        else:
+            clean_title = ItemFormatter._clean_project_title(raw_name)
         
         # 3. Dates
         created_at = info.get('created_at')
@@ -46,12 +50,18 @@ class ItemFormatter:
         # Deduplicate and sort
         tech_stack = sorted(list(set(langs + frameworks)))
 
-        # 5. Smart Bullet Point Generation
-        bullets = ItemFormatter._generate_smart_bullets(project_data, clean_title, tech_stack)
+        # 5. Bullet Logic: User Override > Auto-Generated
+        if user_options.get('custom_bullets'):
+            bullets = user_options['custom_bullets']
+        else:
+            bullets = ItemFormatter._generate_smart_bullets(project_data, clean_title, tech_stack)
+
+        # 6. Role Logic: User Override > Default
+        role = user_options.get('custom_role', "Software Developer")
 
         return ResumeItemResponse(
             project_title=clean_title,
-            role="Software Developer", # Default, can be updated via user preferences later
+            role=role, 
             start_date=date_str,
             end_date="Present",
             description_bullets=bullets,
