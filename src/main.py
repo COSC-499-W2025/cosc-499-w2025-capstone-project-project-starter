@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-import argparse
+import argparse # CLI argument parsing
 import json
 import os
 import sys
