@@ -1,12 +1,13 @@
 """
 Portfolio Formatter Module
 
-Formats portfolio data into human-readable output formats.
+Formats portfolio data into human-readable output formats AND structured API responses.
 """
 
 import json
-from typing import Dict, Any, Optional
-
+from typing import Dict, Any, Optional, List
+from src.common.schemas import PortfolioCardResponse, TechStack
+from src.resume.evidence_extractor import build_evidence 
 
 class PortfolioFormatter:
     """Formats portfolio data into various output formats."""
@@ -306,3 +307,103 @@ class PortfolioFormatter:
         else:
             print(f"[ERROR] Unknown format type: {format_type}. Using text format.")
             return PortfolioFormatter.format_text(portfolio_data)
+    @staticmethod
+    def format_project_card(project_data: Dict[str, Any], user_options: Optional[Dict[str, Any]] = None) -> PortfolioCardResponse:
+        """
+        Transforms raw project analysis data into a rich Portfolio Showcase Card.
+        Fulfills Milestone 2 Requirement: 'Display textual information about a project as a portfolio showcase'
+        
+        Args:
+            project_data (dict): Single project dictionary from ProjectAnalyzer.
+            user_options (dict, optional): User overrides for title, description, or role.
+            
+        Returns:
+            PortfolioCardResponse: Pydantic model for API response.
+        """
+        if user_options is None:
+            user_options = {}
+        # 1. Title Selection
+        info = project_data.get('project_info', {})
+        # Use filename as fallback title if needed
+        raw_name = info.get('filename', 'Untitled Project')
+        
+        # Title Logic: User Override > Auto-Cleaned
+        if user_options.get('custom_title'):
+            clean_title = user_options['custom_title']
+        else:
+            clean_title = PortfolioFormatter._clean_title_helper(raw_name)
+        
+        # 2. Descriptions (Elevator Pitch vs Full)
+        stats = project_data.get('file_statistics', {})
+        total_loc = stats.get('total_lines_of_code', 0)
+        file_count = stats.get('total_files', 0)
+        
+        # User Override: Description
+        if user_options.get('custom_description'):
+            full_desc = user_options['custom_description']
+            # Truncate for short desc if not provided separately
+            short_desc = (full_desc[:200] + '...') if len(full_desc) > 200 else full_desc
+        else:
+            short_desc = f"A robust software solution comprising {file_count} modules and {total_loc}+ lines of code."
+            primary_lang = project_data.get('languages', {}).get('primary_language', 'Code')
+            full_desc = (
+                f"{clean_title} is a specialized application developed primarily in {primary_lang}. "
+                f"It demonstrates best practices in software engineering, handling {file_count} files "
+                f"and optimizing performance across the {total_loc} line codebase."
+            )
+
+        # 3. Tech Stack Mapping
+        technologies = PortfolioFormatter._map_technologies(project_data)
+
+        # 4. Success Metrics (Refactored to use Shared Logic from Evan's module)
+        # This calls src.resume.evidence_extractor.build_evidence
+        metrics = build_evidence(project_data)
+
+        # 5. Collaborators
+        # Check if 'collaboration_analysis' exists (from identify_contributors.py)
+        collaborators = project_data.get('collaboration_analysis', {}).get('contributors', [])
+
+        # User Override: Role
+        my_role = user_options.get('custom_role', "Lead Developer")
+
+        return PortfolioCardResponse(
+            project_id=f"proj_{info.get('id', 0)}",
+            title=clean_title,
+            short_description=short_desc,
+            full_description=full_desc,
+            image_url=None, # Placeholder: Evan's Image Module will inject this later
+            my_role=my_role,
+            collaborators=collaborators,
+            success_metrics=metrics,
+            technologies=technologies
+        )
+
+    @staticmethod
+    def _clean_title_helper(filename: str) -> str:
+        """Helper: Standardizes repository names into titles."""
+        name = filename
+        for suffix in ['.zip', '-main', '-master', '_main']:
+            if name.endswith(suffix):
+                name = name[:-len(suffix)]
+        return name.replace('_', ' ').replace('-', ' ').title()
+
+    @staticmethod
+    def _map_technologies(data: Dict[str, Any]) -> List[TechStack]:
+        """Helper: Converts raw string lists into typed TechStack objects."""
+        tech_list = []
+        
+        # Add Languages
+        langs = data.get('languages', {}).get('detected_languages', [])
+        for lang in langs:
+            tech_list.append(TechStack(name=lang, category="Language"))
+            
+        # Add Frameworks
+        frameworks = data.get('frameworks', [])
+        # Handle if frameworks is dict (occurrence count) or list
+        if isinstance(frameworks, dict):
+            frameworks = list(frameworks.keys())
+            
+        for fw in frameworks:
+            tech_list.append(TechStack(name=fw, category="Framework"))
+            
+        return tech_list[:8]
