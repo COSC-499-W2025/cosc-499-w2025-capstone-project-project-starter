@@ -209,6 +209,37 @@ def test_handle_rank_projects_save_flow(mock_stdout, mock_input, mock_rank, mock
     assert "Ranking all projects" in mock_stdout.getvalue()
 
 
+@patch("analysis.analyze_zip_project", return_value={
+    "project_name": "demo",
+    "zip_path": "/tmp/demo.zip",
+    "success": {"status": "partial", "score": 55, "confidence": 0.5, "is_successful": False},
+    "signals": {"has_entrypoint": True},
+    "evidence": {"entrypoints": ["index.html"]},
+})
+@patch("parsing.file_contents_manager.get_zip_file", return_value=b"zip-bytes")
+@patch("project_manager.get_project_by_id", return_value={"id": 1, "filepath": "/tmp/demo.zip"})
+@patch("cli.menus.select_project_interactive", return_value={"id": 1, "filename": "demo.zip"})
+@patch("builtins.input", return_value="")
+@patch("sys.stdout", new_callable=StringIO)
+def test_handle_zip_success_report(
+    mock_stdout,
+    mock_input,
+    mock_select,
+    mock_get_project,
+    mock_get_zip,
+    mock_analyze,
+):
+    menus.handle_zip_success_report()
+
+    mock_select.assert_called_once()
+    mock_get_project.assert_called_once_with(1)
+    mock_get_zip.assert_called_once_with(1)
+    mock_analyze.assert_called_once()
+    output = mock_stdout.getvalue()
+    assert "Project Success Report (ZIP)" in output
+    assert "Status : partial" in output
+
+
 @patch("cli.menus.AuthManager")
 @patch("cli.menus.save_rankings_with_summaries")
 @patch("cli.menus.rank_all_projects", return_value=[{"id": 2}])

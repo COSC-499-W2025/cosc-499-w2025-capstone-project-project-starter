@@ -257,14 +257,89 @@ def handle_rank_projects():
     current_username = AuthManager.get_current_username()
     ranked = rank_all_projects(user_name=current_username)
     display_rankings(ranked)
-    
+
     if ranked:
         print("\n" + "-"*80)
         save_choice = input("Would you like to save these rankings to the database? (y/n): ").strip().lower()
         if save_choice in ['y', 'yes']:
-            generate_summaries = input("Generate and save summaries for all projects? (y/n): ").strip().lower()
+            generate_summaries = input("Generate summaries for all projects? (y/n): ").strip().lower()
             save_rankings_with_summaries(ranked, generate_summaries in ['y', 'yes'])
-    
+
+    input("\nPress Enter to continue...")
+
+
+def handle_zip_success_report():
+    """Show a success report for a selected zip project."""
+    from analysis import analyze_zip_project
+    from project_manager import get_project_by_id
+    from parsing.file_contents_manager import get_zip_file
+    import tempfile
+
+    print("\n" + "-"*50)
+    print("Project Success Report (ZIP)")
+    print("-"*50)
+    selected_project = select_project_interactive("Select project for success report")
+    if not selected_project:
+        return
+
+    project_id = int(selected_project["id"])
+    project = get_project_by_id(project_id)
+    if not project:
+        print("Project not found.")
+        input("\nPress Enter to continue...")
+        return
+
+    zip_bytes = get_zip_file(project_id)
+    if not zip_bytes:
+        print("ZIP file not found for this project.")
+        input("\nPress Enter to continue...")
+        return
+
+    try:
+        with tempfile.NamedTemporaryFile(suffix=".zip", delete=False) as tmp_file:
+            tmp_file.write(zip_bytes)
+            temp_zip_path = tmp_file.name
+        result = analyze_zip_project(temp_zip_path)
+    except Exception as exc:
+        print(f"Failed to analyze ZIP: {exc}")
+        input("\nPress Enter to continue...")
+        return
+    finally:
+        if "temp_zip_path" in locals() and os.path.exists(temp_zip_path):
+            try:
+                os.remove(temp_zip_path)
+            except OSError:
+                pass
+
+    success = result.get("success", {})
+    signals = result.get("signals", {})
+    evidence = result.get("evidence", {})
+
+    print("\n" + "="*70)
+    print(f"Project: {result.get('project_name')}")
+    print(f"Archive: {result.get('zip_path')}")
+    print(f"Status : {success.get('status')}")
+    print(f"Score  : {success.get('score')} (confidence {success.get('confidence')})")
+    print(f"Result : {'SUCCESS' if success.get('is_successful') else 'NOT SUCCESSFUL'}")
+    print("="*70)
+
+    print("\nSignals:")
+    for key in sorted(signals.keys()):
+        print(f"- {key}: {signals[key]}")
+
+    if evidence:
+        print("\nEvidence:")
+        if evidence.get("entrypoints"):
+            print(f"- entrypoints: {', '.join(evidence['entrypoints'])}")
+        if evidence.get("dependency_manifests"):
+            print(f"- dependencies: {', '.join(evidence['dependency_manifests'])}")
+        if evidence.get("test_files"):
+            print(f"- tests: {', '.join(evidence['test_files'][:10])}")
+        if evidence.get("readme_file"):
+            print(f"- readme: {evidence['readme_file']}")
+        if evidence.get("incomplete_markers"):
+            print(f"- incomplete_markers: {', '.join(evidence['incomplete_markers'])}")
+
     input("\nPress Enter to continue...")
 
 
