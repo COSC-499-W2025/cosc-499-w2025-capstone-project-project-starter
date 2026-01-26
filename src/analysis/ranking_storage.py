@@ -6,6 +6,7 @@ import json
 from typing import Dict, List, Any, Optional
 from datetime import datetime
 from config.db_config import with_db_cursor, get_connection
+from account.user_manager import AuthManager
 
 
 def init_ranking_storage_table():
@@ -20,10 +21,17 @@ def init_ranking_storage_table():
                     score FLOAT NOT NULL,
                     summary TEXT,
                     ranking_data JSONB,
+                    user_name VARCHAR(255),
                     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                    UNIQUE(project_id, rank_position)
+                    UNIQUE(project_id, rank_position, user_name)
                 );
+            """)
+            
+            # Add user_name column if it doesn't exist (migration)
+            cursor.execute("""
+                ALTER TABLE project_rankings
+                ADD COLUMN IF NOT EXISTS user_name VARCHAR(255);
             """)
             
             # Create index for faster lookups
@@ -37,6 +45,11 @@ def init_ranking_storage_table():
                 ON project_rankings(rank_position);
             """)
             
+            cursor.execute("""
+                CREATE INDEX IF NOT EXISTS idx_project_rankings_user_name 
+                ON project_rankings(user_name);
+            """)
+            
         print("Project rankings table initialized")
     except Exception as e:
         print(f"Error initializing project_rankings table: {e}")
@@ -47,20 +60,30 @@ def save_rankings_to_db(ranked_projects: List[Dict[str, Any]], summaries: Option
     """
     Save ranked projects and their summaries to the database.
     Preserves existing summaries if new summary is not provided or is empty.
+    Only saves rankings for the current logged-in user.
     """
     try:
         init_ranking_storage_table()
         
+        # Get current user for data isolation
+        user_name = AuthManager.get_current_username()
+        if not user_name:
+            print("Error: No user logged in")
+            return False
+        
         with with_db_cursor() as cursor:
             # Get existing summaries before clearing (to preserve them if needed)
             existing_summaries = {}
-            cursor.execute("SELECT project_id, summary FROM project_rankings")
+            cursor.execute(
+                "SELECT project_id, summary FROM project_rankings WHERE user_name = %s",
+                (user_name,)
+            )
             for row in cursor.fetchall():
                 if row[1]:  # If summary exists and is not None/empty
                     existing_summaries[row[0]] = row[1]
             
-            # Clear existing rankings for a fresh save
-            cursor.execute("DELETE FROM project_rankings")
+            # Clear existing rankings for current user only
+            cursor.execute("DELETE FROM project_rankings WHERE user_name = %s", (user_name,))
             
             # Insert new rankings
             for rank_pos, project in enumerate(ranked_projects, start=1):
@@ -85,16 +108,16 @@ def save_rankings_to_db(ranked_projects: List[Dict[str, Any]], summaries: Option
                 
                 cursor.execute("""
                     INSERT INTO project_rankings (
-                        project_id, rank_position, score, summary, ranking_data, updated_at
+                        project_id, rank_position, score, summary, ranking_data, user_name, updated_at
                     )
-                    VALUES (%s, %s, %s, %s, %s, CURRENT_TIMESTAMP)
-                    ON CONFLICT (project_id, rank_position) 
+                    VALUES (%s, %s, %s, %s, %s, %s, CURRENT_TIMESTAMP)
+                    ON CONFLICT (project_id, rank_position, user_name) 
                     DO UPDATE SET
                         score = EXCLUDED.score,
                         summary = EXCLUDED.summary,
                         ranking_data = EXCLUDED.ranking_data,
                         updated_at = CURRENT_TIMESTAMP
-                """, (project_id, rank_pos, score, summary, ranking_data))
+                """, (project_id, rank_pos, score, summary, ranking_data, user_name))
         
         return True
     except Exception as e:
@@ -104,9 +127,15 @@ def save_rankings_to_db(ranked_projects: List[Dict[str, Any]], summaries: Option
 
 def get_stored_rankings() -> List[Dict[str, Any]]:
     """
-    Retrieve all stored rankings from the database.
+    Retrieve all stored rankings from the database for the current logged-in user.
     """
     try:
+        # Get current user for data isolation
+        user_name = AuthManager.get_current_username()
+        if not user_name:
+            print("Warning: No user logged in")
+            return []
+        
         with with_db_cursor() as cursor:
             cursor.execute("""
                 SELECT 
@@ -119,8 +148,9 @@ def get_stored_rankings() -> List[Dict[str, Any]]:
                     created_at,
                     updated_at
                 FROM project_rankings
+                WHERE user_name = %s
                 ORDER BY rank_position ASC
-            """)
+            """, (user_name,))
             
             results = cursor.fetchall()
         
@@ -147,10 +177,16 @@ def get_stored_rankings() -> List[Dict[str, Any]]:
 
 def get_stored_ranking_by_project_id(project_id: int) -> Optional[Dict[str, Any]]:
     """
-    Get stored ranking for a specific project.
+    Get stored ranking for a specific project for the current logged-in user.
 
     """
     try:
+        # Get current user for data isolation
+        user_name = AuthManager.get_current_username()
+        if not user_name:
+            print("Warning: No user logged in")
+            return None
+        
         with with_db_cursor() as cursor:
             cursor.execute("""
                 SELECT 
@@ -163,8 +199,8 @@ def get_stored_ranking_by_project_id(project_id: int) -> Optional[Dict[str, Any]
                     created_at,
                     updated_at
                 FROM project_rankings
-                WHERE project_id = %s
-            """, (project_id,))
+                WHERE project_id = %s AND user_name = %s
+            """, (project_id, user_name))
             
             row = cursor.fetchone()
             if not row:
@@ -189,16 +225,22 @@ def get_stored_ranking_by_project_id(project_id: int) -> Optional[Dict[str, Any]
 
 def update_ranking_score(project_id: int, new_score: float) -> bool:
     """
-    Update the score for a stored ranking.
+    Update the score for a stored ranking for the current logged-in user.
 
     """
     try:
+        # Get current user for data isolation
+        user_name = AuthManager.get_current_username()
+        if not user_name:
+            print("Error: No user logged in")
+            return False
+        
         with with_db_cursor() as cursor:
             cursor.execute("""
                 UPDATE project_rankings
                 SET score = %s, updated_at = CURRENT_TIMESTAMP
-                WHERE project_id = %s
-            """, (new_score, project_id))
+                WHERE project_id = %s AND user_name = %s
+            """, (new_score, project_id, user_name))
             
             return cursor.rowcount > 0
     except Exception as e:
@@ -208,16 +250,22 @@ def update_ranking_score(project_id: int, new_score: float) -> bool:
 
 def update_ranking_summary(project_id: int, new_summary: str) -> bool:
     """
-    Update the summary for a stored ranking.
+    Update the summary for a stored ranking for the current logged-in user.
     
     """
     try:
+        # Get current user for data isolation
+        user_name = AuthManager.get_current_username()
+        if not user_name:
+            print("Error: No user logged in")
+            return False
+        
         with with_db_cursor() as cursor:
             cursor.execute("""
                 UPDATE project_rankings
                 SET summary = %s, updated_at = CURRENT_TIMESTAMP
-                WHERE project_id = %s
-            """, (new_summary, project_id))
+                WHERE project_id = %s AND user_name = %s
+            """, (new_summary, project_id, user_name))
             
             return cursor.rowcount > 0
     except Exception as e:
@@ -227,16 +275,22 @@ def update_ranking_summary(project_id: int, new_summary: str) -> bool:
 
 def update_ranking_position(project_id: int, new_position: int) -> bool:
     """
-    Update the rank position for a stored ranking.
+    Update the rank position for a stored ranking for the current logged-in user.
 
     """
     try:
+        # Get current user for data isolation
+        user_name = AuthManager.get_current_username()
+        if not user_name:
+            print("Error: No user logged in")
+            return False
+        
         with with_db_cursor() as cursor:
-            # Check if the new position is already taken
+            # Check if the new position is already taken by current user's ranking
             cursor.execute("""
                 SELECT project_id FROM project_rankings
-                WHERE rank_position = %s AND project_id != %s
-            """, (new_position, project_id))
+                WHERE rank_position = %s AND project_id != %s AND user_name = %s
+            """, (new_position, project_id, user_name))
             
             existing_project = cursor.fetchone()
             if existing_project:
@@ -245,8 +299,8 @@ def update_ranking_position(project_id: int, new_position: int) -> bool:
                 # Get current position
                 cursor.execute("""
                     SELECT rank_position FROM project_rankings
-                    WHERE project_id = %s
-                """, (project_id,))
+                    WHERE project_id = %s AND user_name = %s
+                """, (project_id, user_name))
                 current_pos_result = cursor.fetchone()
                 if current_pos_result:
                     current_pos = current_pos_result[0]
@@ -254,14 +308,14 @@ def update_ranking_position(project_id: int, new_position: int) -> bool:
                     cursor.execute("""
                         UPDATE project_rankings
                         SET rank_position = %s, updated_at = CURRENT_TIMESTAMP
-                        WHERE project_id = %s
-                    """, (current_pos, existing_id))
+                        WHERE project_id = %s AND user_name = %s
+                    """, (current_pos, existing_id, user_name))
             
             cursor.execute("""
                 UPDATE project_rankings
                 SET rank_position = %s, updated_at = CURRENT_TIMESTAMP
-                WHERE project_id = %s
-            """, (new_position, project_id))
+                WHERE project_id = %s AND user_name = %s
+            """, (new_position, project_id, user_name))
             
             return cursor.rowcount > 0
     except Exception as e:
@@ -271,12 +325,18 @@ def update_ranking_position(project_id: int, new_position: int) -> bool:
 
 def delete_stored_rankings() -> bool:
     """
-    Delete all stored rankings from the database.
+    Delete all stored rankings from the database for the current logged-in user.
 
     """
     try:
+        # Get current user for data isolation
+        user_name = AuthManager.get_current_username()
+        if not user_name:
+            print("Error: No user logged in")
+            return False
+        
         with with_db_cursor() as cursor:
-            cursor.execute("DELETE FROM project_rankings")
+            cursor.execute("DELETE FROM project_rankings WHERE user_name = %s", (user_name,))
             return True
     except Exception as e:
         print(f"Error deleting stored rankings: {e}")
@@ -285,20 +345,26 @@ def delete_stored_rankings() -> bool:
 
 def clean_error_summaries() -> bool:
     """
-    Remove error messages from stored summaries in the database.
+    Remove error messages from stored summaries in the database for the current logged-in user.
     This clears out invalid summaries that start with 'Error:'.
     
     Returns:
         bool: True if cleanup was successful, False otherwise
     """
     try:
+        # Get current user for data isolation
+        user_name = AuthManager.get_current_username()
+        if not user_name:
+            print("Error: No user logged in")
+            return False
+        
         with with_db_cursor() as cursor:
-            # Update summaries that are error messages to NULL
+            # Update summaries that are error messages to NULL for current user only
             cursor.execute("""
                 UPDATE project_rankings
                 SET summary = NULL, updated_at = CURRENT_TIMESTAMP
-                WHERE summary LIKE 'Error:%'
-            """)
+                WHERE summary LIKE 'Error:%' AND user_name = %s
+            """, (user_name,))
             
             affected_rows = cursor.rowcount
             if affected_rows > 0:
