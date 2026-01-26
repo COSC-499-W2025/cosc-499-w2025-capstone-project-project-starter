@@ -1,5 +1,5 @@
 """Unified settings endpoints for account, privacy, and general preferences."""
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, HTTPException, Depends
 from pydantic import BaseModel
 from typing import Optional
 from consent.consent_storage import ConsentStorage
@@ -9,6 +9,7 @@ from database.user_preferences import (
 )
 from database.user_informations import get_user_by_username
 from api.schemas.auth import UserInfo, LoginResponse
+from api.dependencies import get_authenticated_user
 
 router = APIRouter()
 
@@ -34,7 +35,6 @@ def _user_data_to_dict(user_data: dict) -> dict:
 class PrivacyConsentRequest(BaseModel):
     """Request model for privacy consent."""
     consent_given: bool
-    user_id: Optional[str] = "default_user"
 
 
 class GeneralSettingsRequest(BaseModel):
@@ -49,43 +49,38 @@ class AccountUpdateRequest(BaseModel):
 
 @router.get("")
 async def get_all_settings(
-    username: Optional[str] = Query(None, description="Username to retrieve settings for")
+    current_user: dict = Depends(get_authenticated_user)
 ):
     """
-    Get all user settings (account, privacy, and general).
+    Get all user settings (account, privacy, and general) for the authenticated user.
     
-    Args:
-        username: Optional username (required for account info)
-        
     Returns:
         dict: All user settings combined
     """
     try:
+        username = current_user['user_name']
+        user_id = str(current_user['user_id'])
+        
         settings = {
             "success": True,
-            "account": None,
+            "account": _user_data_to_dict(current_user),
             "privacy": None,
             "general": None
         }
         
-        # Get account info if username provided
-        if username:
-            user_data = get_user_by_username(username.strip())
-            if user_data:
-                settings["account"] = _user_data_to_dict(user_data)
-        
         # Get privacy consent status
-        user_id = username or "default_user"
         consent_status = ConsentStorage.get_consent_status(user_id)
         settings["privacy"] = consent_status
         
-        # Get general settings
+        # Get general settings (note: get_user_git_username uses user_id=1, may need user-specific version)
         git_username = get_user_git_username()
         settings["general"] = {
             "git_username": git_username
         }
         
         return settings
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(
             status_code=500,
@@ -95,35 +90,18 @@ async def get_all_settings(
 
 @router.get("/account")
 async def get_account_settings(
-    username: str = Query(..., description="Username to retrieve account info for")
+    current_user: dict = Depends(get_authenticated_user)
 ):
     """
-    Get account/user information.
+    Get account/user information for the authenticated user.
     
-    Args:
-        username: Username to retrieve account info for
-        
     Returns:
         dict: Account information
     """
     try:
-        if not username or not username.strip():
-            raise HTTPException(
-                status_code=400,
-                detail="Username parameter is required"
-            )
-        
-        user_data = get_user_by_username(username.strip())
-        
-        if not user_data:
-            raise HTTPException(
-                status_code=404,
-                detail="User not found"
-            )
-        
         return {
             "success": True,
-            "account": _user_data_to_dict(user_data)
+            "account": _user_data_to_dict(current_user)
         }
     except HTTPException:
         raise
@@ -135,12 +113,16 @@ async def get_account_settings(
 
 
 @router.post("/account")
-async def update_account_settings(request: AccountUpdateRequest):
+async def update_account_settings(
+    request: AccountUpdateRequest,
+    current_user: dict = Depends(get_authenticated_user)
+):
     """
     Update account information (placeholder for future enhancements).
     
     Args:
         request: AccountUpdateRequest (currently unused)
+        current_user: Authenticated user (from dependency)
         
     Returns:
         dict: Success message
@@ -153,23 +135,23 @@ async def update_account_settings(request: AccountUpdateRequest):
 
 @router.get("/privacy")
 async def get_privacy_settings(
-    user_id: Optional[str] = Query("default_user", description="User ID to retrieve privacy consent for")
+    current_user: dict = Depends(get_authenticated_user)
 ):
     """
-    Get privacy consent status.
+    Get privacy consent status for the authenticated user.
     
-    Args:
-        user_id: User ID to retrieve consent status for
-        
     Returns:
         dict: Privacy consent status
     """
     try:
+        user_id = str(current_user['user_id'])
         consent_status = ConsentStorage.get_consent_status(user_id)
         return {
             "success": True,
             "privacy": consent_status
         }
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(
             status_code=500,
@@ -178,20 +160,25 @@ async def get_privacy_settings(
 
 
 @router.post("/privacy")
-async def update_privacy_settings(request: PrivacyConsentRequest):
+async def update_privacy_settings(
+    request: PrivacyConsentRequest,
+    current_user: dict = Depends(get_authenticated_user)
+):
     """
-    Update privacy consent.
+    Update privacy consent for the authenticated user.
     
     Args:
-        request: PrivacyConsentRequest containing consent_given boolean and optional user_id
+        request: PrivacyConsentRequest containing consent_given boolean
+        current_user: Authenticated user (from dependency)
         
     Returns:
         dict: Success message and consent status
     """
     try:
+        user_id = str(current_user['user_id'])
         success = ConsentStorage.store_consent(
             consent_given=request.consent_given,
-            user_id=request.user_id
+            user_id=user_id
         )
         
         if not success:
@@ -201,13 +188,13 @@ async def update_privacy_settings(request: PrivacyConsentRequest):
             )
         
         # Get the updated consent status
-        consent_status = ConsentStorage.get_consent_status(request.user_id)
+        consent_status = ConsentStorage.get_consent_status(user_id)
         
         return {
             "success": True,
             "message": "Privacy consent updated successfully",
             "consent_given": request.consent_given,
-            "user_id": request.user_id,
+            "user_id": user_id,
             "privacy": consent_status
         }
     except HTTPException:
@@ -220,14 +207,18 @@ async def update_privacy_settings(request: PrivacyConsentRequest):
 
 
 @router.get("/general")
-async def get_general_settings():
+async def get_general_settings(
+    current_user: dict = Depends(get_authenticated_user)
+):
     """
-    Get general settings (git_username, etc.).
+    Get general settings (git_username, etc.) for the authenticated user.
     
     Returns:
         dict: General settings
     """
     try:
+        # Note: get_user_git_username() currently uses user_id=1
+        # This may need to be updated to be user-specific
         git_username = get_user_git_username()
         return {
             "success": True,
@@ -235,6 +226,8 @@ async def get_general_settings():
                 "git_username": git_username
             }
         }
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(
             status_code=500,
@@ -243,18 +236,24 @@ async def get_general_settings():
 
 
 @router.post("/general")
-async def update_general_settings(request: GeneralSettingsRequest):
+async def update_general_settings(
+    request: GeneralSettingsRequest,
+    current_user: dict = Depends(get_authenticated_user)
+):
     """
-    Update general settings (git_username, etc.).
+    Update general settings (git_username, etc.) for the authenticated user.
     
     Args:
         request: GeneralSettingsRequest containing settings to update
+        current_user: Authenticated user (from dependency)
         
     Returns:
         dict: Success message and updated settings
     """
     try:
         if request.git_username is not None:
+            # Note: update_user_git_username() currently uses user_id=1
+            # This may need to be updated to be user-specific
             update_user_git_username(request.git_username)
         
         git_username = get_user_git_username()
@@ -266,6 +265,8 @@ async def update_general_settings(request: GeneralSettingsRequest):
                 "git_username": git_username
             }
         }
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(
             status_code=500,

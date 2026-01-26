@@ -118,8 +118,15 @@ class TestPrivacyConsentEndpoint:
     
     @patch('api.routes.settings.ConsentStorage.store_consent')
     @patch('api.routes.settings.ConsentStorage.get_consent_status')
-    def test_post_consent_granted(self, mock_get_status, mock_store):
+    @patch('api.dependencies.get_user_by_username')
+    def test_post_consent_granted(self, mock_get_user, mock_get_status, mock_store):
         """Test storing consent when granted via settings endpoint."""
+        from datetime import datetime
+        mock_get_user.return_value = {
+            'user_id': 1,
+            'user_name': 'test_user',
+            'is_login': True
+        }
         mock_store.return_value = True
         mock_get_status.return_value = {
             'consent_given': True,
@@ -130,22 +137,28 @@ class TestPrivacyConsentEndpoint:
         
         client = TestClient(app)
         response = client.post(
-            "/api/settings/privacy",
-            json={"consent_given": True, "user_id": "test_user"}
+            "/api/settings/privacy?username=test_user",
+            json={"consent_given": True}
         )
         
         assert response.status_code == 200
         data = response.json()
         assert data["success"] is True
         assert data["consent_given"] is True
-        assert data["user_id"] == "test_user"
+        assert data["user_id"] == "1"  # Uses authenticated user's ID
         assert "privacy" in data
-        mock_store.assert_called_once_with(consent_given=True, user_id="test_user")
+        mock_store.assert_called_once_with(consent_given=True, user_id="1")
     
     @patch('api.routes.settings.ConsentStorage.store_consent')
     @patch('api.routes.settings.ConsentStorage.get_consent_status')
-    def test_post_consent_denied(self, mock_get_status, mock_store):
+    @patch('api.dependencies.get_user_by_username')
+    def test_post_consent_denied(self, mock_get_user, mock_get_status, mock_store):
         """Test storing consent when denied via settings endpoint."""
+        mock_get_user.return_value = {
+            'user_id': 1,
+            'user_name': 'test_user',
+            'is_login': True
+        }
         mock_store.return_value = True
         mock_get_status.return_value = {
             'consent_given': False,
@@ -156,24 +169,30 @@ class TestPrivacyConsentEndpoint:
         
         client = TestClient(app)
         response = client.post(
-            "/api/settings/privacy",
+            "/api/settings/privacy?username=test_user",
             json={"consent_given": False}
         )
         
         assert response.status_code == 200
         data = response.json()
         assert data["consent_given"] is False
-        assert data["user_id"] == "default_user"  # Default value
+        assert data["user_id"] == "1"  # Uses authenticated user's ID
         assert "privacy" in data
     
     @patch('api.routes.settings.ConsentStorage.store_consent')
-    def test_post_consent_storage_failure(self, mock_store):
+    @patch('api.dependencies.get_user_by_username')
+    def test_post_consent_storage_failure(self, mock_get_user, mock_store):
         """Test handling when consent storage fails via settings endpoint."""
+        mock_get_user.return_value = {
+            'user_id': 1,
+            'user_name': 'test_user',
+            'is_login': True
+        }
         mock_store.return_value = False
         
         client = TestClient(app)
         response = client.post(
-            "/api/settings/privacy",
+            "/api/settings/privacy?username=test_user",
             json={"consent_given": True}
         )
         
@@ -184,7 +203,7 @@ class TestPrivacyConsentEndpoint:
 class TestSettingsEndpoints:
     """Test unified settings endpoints."""
     
-    @patch('api.routes.settings.get_user_by_username')
+    @patch('api.dependencies.get_user_by_username')
     def test_get_account_settings(self, mock_get_user):
         """Test GET /api/settings/account endpoint."""
         from datetime import datetime
@@ -206,12 +225,18 @@ class TestSettingsEndpoints:
         assert data["account"]["is_login"] is True
     
     @patch('api.routes.settings.get_user_git_username')
-    def test_get_general_settings(self, mock_get_git):
+    @patch('api.dependencies.get_user_by_username')
+    def test_get_general_settings(self, mock_get_user, mock_get_git):
         """Test GET /api/settings/general endpoint."""
+        mock_get_user.return_value = {
+            'user_id': 1,
+            'user_name': 'test_user',
+            'is_login': True
+        }
         mock_get_git.return_value = "test_github_user"
         
         client = TestClient(app)
-        response = client.get("/api/settings/general")
+        response = client.get("/api/settings/general?username=test_user")
         
         assert response.status_code == 200
         data = response.json()
@@ -220,13 +245,19 @@ class TestSettingsEndpoints:
     
     @patch('api.routes.settings.update_user_git_username')
     @patch('api.routes.settings.get_user_git_username')
-    def test_update_general_settings(self, mock_get_git, mock_update_git):
+    @patch('api.dependencies.get_user_by_username')
+    def test_update_general_settings(self, mock_get_user, mock_get_git, mock_update_git):
         """Test POST /api/settings/general endpoint."""
+        mock_get_user.return_value = {
+            'user_id': 1,
+            'user_name': 'test_user',
+            'is_login': True
+        }
         mock_get_git.return_value = "new_github_user"
         
         client = TestClient(app)
         response = client.post(
-            "/api/settings/general",
+            "/api/settings/general?username=test_user",
             json={"git_username": "new_github_user"}
         )
         
@@ -237,15 +268,21 @@ class TestSettingsEndpoints:
         mock_update_git.assert_called_once_with("new_github_user")
     
     @patch('api.routes.settings.ConsentStorage.get_consent_status')
-    def test_get_privacy_settings(self, mock_get_status):
+    @patch('api.dependencies.get_user_by_username')
+    def test_get_privacy_settings(self, mock_get_user, mock_get_status):
         """Test GET /api/settings/privacy endpoint."""
+        mock_get_user.return_value = {
+            'user_id': 1,
+            'user_name': 'test_user',
+            'is_login': True
+        }
         mock_get_status.return_value = {
             'consent_given': True,
             'consent_date': '2024-01-01T00:00:00'
         }
         
         client = TestClient(app)
-        response = client.get("/api/settings/privacy?user_id=test_user")
+        response = client.get("/api/settings/privacy?username=test_user")
         
         assert response.status_code == 200
         data = response.json()
