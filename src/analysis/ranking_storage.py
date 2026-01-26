@@ -23,8 +23,7 @@ def init_ranking_storage_table():
                     ranking_data JSONB,
                     user_name VARCHAR(255),
                     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                    UNIQUE(project_id, rank_position, user_name)
+                    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
                 );
             """)
             
@@ -32,6 +31,27 @@ def init_ranking_storage_table():
             cursor.execute("""
                 ALTER TABLE project_rankings
                 ADD COLUMN IF NOT EXISTS user_name VARCHAR(255);
+            """)
+            
+            # Drop old constraint if it exists
+            cursor.execute("""
+                ALTER TABLE project_rankings
+                DROP CONSTRAINT IF EXISTS project_rankings_project_id_rank_position_key;
+            """)
+            
+            # Add new unique constraint with user_name
+            cursor.execute("""
+                DO $$
+                BEGIN
+                    IF NOT EXISTS (
+                        SELECT 1 FROM pg_constraint 
+                        WHERE conname = 'project_rankings_project_id_rank_position_user_name_key'
+                    ) THEN
+                        ALTER TABLE project_rankings
+                        ADD CONSTRAINT project_rankings_project_id_rank_position_user_name_key
+                        UNIQUE(project_id, rank_position, user_name);
+                    END IF;
+                END $$;
             """)
             
             # Create index for faster lookups
