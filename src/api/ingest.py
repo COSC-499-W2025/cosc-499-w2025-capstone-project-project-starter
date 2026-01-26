@@ -15,6 +15,7 @@ from sqlalchemy.engine import Engine
 
 from src.db.consents import latest_consent_granted
 from git import Repo, InvalidGitRepositoryError
+from collections import Counter
 
 
 @dataclass(frozen=True)
@@ -124,6 +125,48 @@ def extract_commits_from_git_zip(zip_path: str):
         return [c.message.strip() for c in commits]
     finally:
         shutil.rmtree(tmpdir, ignore_errors=True)
+
+
+def extract_commit_counts_from_git_zip(zip_path: str):
+    tmp_dir = tempfile.mkdtemp()
+    try:
+        with zipfile.ZipFile(zip_path, 'r') as zf:
+            zf.extractall(tmp_dir)
+
+        repo = Repo(tmp_dir)
+        # Count commits per author
+        counts = Counter(c.author.name for c in repo.iter_commits())
+        return dict(counts)  # return as a dict so tests can do counts["Alice"]
+    finally:
+        import shutil
+        shutil.rmtree(tmp_dir, ignore_errors=True)
+
+
+def assign_roles(commit_counts: dict) -> dict:
+    """
+    Assigns roles based on commit counts.
+    
+    Args:
+        commit_counts: dict of {author: commit_count}
+        
+    Returns:
+        dict of {author: role}
+    """
+    # Sort authors by commit count descending
+    sorted_authors = sorted(commit_counts.items(), key=lambda x: x[1], reverse=True)
+    
+    roles = {}
+    for i, (author, count) in enumerate(sorted_authors):
+        if i == 0:
+            roles[author] = "#1 Contributor"
+        elif i == 1:
+            roles[author] = "Top Contributor"  # Second place
+        elif i == 2:
+            roles[author] = "Top Contributor"  # Third place
+        else:
+            roles[author] = "Contributor"  # Everyone else
+    
+    return roles
 
 
 def find_git_repo(path: str) -> Repo:

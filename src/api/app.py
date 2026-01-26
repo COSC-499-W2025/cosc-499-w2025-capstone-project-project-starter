@@ -10,6 +10,7 @@ import zipfile
 import json
 from typing import Any, Dict, List, Optional
 from git import Repo, InvalidGitRepositoryError
+from collections import Counter
 import hashlib
 
 from fastapi import FastAPI, UploadFile, File, HTTPException, Form, Query, Body, Depends
@@ -20,7 +21,7 @@ from sqlalchemy.orm import Session
 from sqlalchemy.dialects.postgresql import ARRAY, UUID
 from fastapi.responses import Response
 from src.db.session import get_engine
-from src.api.ingest import ingest_zip_to_db, save_upload_to_temp, extract_commits_from_git_zip, find_git_repo
+from src.api.ingest import ingest_zip_to_db, save_upload_to_temp, extract_commits_from_git_zip, find_git_repo, assign_roles
 from src.api.report import build_project_report
 from src.db.consents import get_snapshot_owner_user_id, is_external_services_allowed 
 from src.api.generation import generate_resume_item
@@ -1490,6 +1491,61 @@ async def extract_commits(file: UploadFile):
     # Extract commits
     commits = [{"message": c.message, "author": c.author.name, "hexsha": c.hexsha} for c in repo.iter_commits()]
     return {"commits": commits}
+
+
+@app.post("/extract-commit-counts/")
+async def extract_commit_counts(file: UploadFile):
+    # Save uploaded zip to a temp file
+    tmp_zip = tempfile.NamedTemporaryFile(delete=False, suffix=".zip")
+    tmp_zip.write(await file.read())
+    tmp_zip.close()
+
+    # Extract zip to temp dir
+    tmp_dir = tempfile.mkdtemp()
+    with zipfile.ZipFile(tmp_zip.name, 'r') as zf:
+        zf.extractall(tmp_dir)
+
+    # Find the git repo
+    try:
+        repo = find_git_repo(tmp_dir)
+    except InvalidGitRepositoryError:
+        return {"error": "Uploaded zip is not a valid git repo"}
+
+    # Count commits per author
+    commit_counts = Counter()
+    for c in repo.iter_commits():
+        commit_counts[c.author.name] += 1
+
+    # Sort by number of commits descending
+    sorted_counts = dict(sorted(commit_counts.items(), key=lambda x: x[1], reverse=True))
+
+    return {"commit_counts": sorted_counts}
+
+
+@app.post("/give-users-roles/")
+async def extract_commits(file: UploadFile):
+    tmp_zip = tempfile.NamedTemporaryFile(delete=False, suffix=".zip")
+    tmp_zip.write(await file.read())
+    tmp_zip.close()
+
+    tmp_dir = tempfile.mkdtemp()
+    with zipfile.ZipFile(tmp_zip.name, 'r') as zf:
+        zf.extractall(tmp_dir)
+
+    try:
+        repo = find_git_repo(tmp_dir)
+    except InvalidGitRepositoryError:
+        return {"error": "Uploaded zip is not a valid git repo"}
+
+    commits = list(repo.iter_commits())
+    commit_counts = Counter(c.author.name for c in commits)
+    
+    roles = assign_roles(dict(commit_counts))
+
+    return {
+        "commit_counts": dict(commit_counts),
+        "roles": roles
+    }
 
 
 @app.get("/portfolio/{portfolio_id}/projects/chronological")

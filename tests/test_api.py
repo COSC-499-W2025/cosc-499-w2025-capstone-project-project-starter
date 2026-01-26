@@ -1,7 +1,10 @@
 import uuid
 from datetime import datetime, timezone
 import io
+import tempfile
+import shutil
 import zipfile
+import os
 from pypdf import PdfReader
 
 from sqlalchemy import text
@@ -15,6 +18,10 @@ from PIL import Image
 import tempfile
 from pathlib import Path
 from src.api.pdf_exporter import export_portfolio_top_projects_pdf
+
+from git import Repo, InvalidGitRepositoryError
+
+from src.api.ingest import extract_commits_from_git_zip, extract_commit_counts_from_git_zip
 
 
 
@@ -1196,3 +1203,105 @@ def test_portfolio_edit(client):
     data = edit.json()
     assert data["content"]["title"] == "Edited Title"
     assert data["content"]["summary_text"] == "Edited portfolio summary"
+
+
+#------------------------------
+# Github Tests 
+# -----------------------------
+
+# -----------------------------
+# Helper: create a zipped Git repo
+# -----------------------------
+def create_git_repo_zip(zip_path: str):
+    tmpdir = tempfile.mkdtemp()  # temp dir for repo
+    try:
+        # Init repo with initial_branch = main to ensure consistency across systems
+        repo = Repo.init(tmpdir, initial_branch='main')
+
+        # Add a file and commit
+        file_path = os.path.join(tmpdir, "file.txt")
+        with open(file_path, "w") as f:
+            f.write("hello")
+        repo.index.add(["file.txt"])
+        repo.index.commit("initial commit")
+
+        # Zip the folder INCLUDING .git
+        with zipfile.ZipFile(zip_path, "w", zipfile.ZIP_DEFLATED) as zf:
+            for root, dirs, files in os.walk(tmpdir):
+                for file in files:
+                    abs_path = os.path.join(root, file)
+                    rel_path = os.path.relpath(abs_path, tmpdir)
+                    zf.write(abs_path, rel_path)
+    finally:
+        # Cleanup temp repo folder
+        import shutil
+        shutil.rmtree(tmpdir, ignore_errors=True)
+
+
+# -----------------------------
+# Test
+# -----------------------------
+def test_extract_commits_from_git_zip():
+    tmpzip_path = os.path.join(tempfile.gettempdir(), "tmp_git_repo.zip")
+    create_git_repo_zip(tmpzip_path)
+
+    commits = extract_commits_from_git_zip(tmpzip_path)
+    assert commits == ["initial commit"]
+
+    os.remove(tmpzip_path)  # cleanup
+
+
+
+# -----------------------------
+# Github Commit Counts Tests
+# -----------------------------
+
+# -----------------------------
+# Helper: create a git repo zip with multiple authors and commits
+# -----------------------------
+def create_git_repo_zip_with_authors(zip_path: str):
+    tmpdir = tempfile.mkdtemp()
+    try:
+        repo = Repo.init(tmpdir, initial_branch='main')
+
+        from git import Actor
+        alice = Actor("Alice", "alice@example.com")
+        bob = Actor("Bob", "bob@example.com")
+
+        # Alice commits
+        file1 = os.path.join(tmpdir, "file1.txt")
+        with open(file1, "w") as f:
+            f.write("commit 1 by Alice")
+        repo.index.add(["file1.txt"])
+        repo.index.commit("Commit 1", author=alice)
+
+        # Bob commits
+        file2 = os.path.join(tmpdir, "file2.txt")
+        with open(file2, "w") as f:
+            f.write("commit 2 by Bob")
+        repo.index.add(["file2.txt"])
+        repo.index.commit("Commit 2", author=bob)
+
+        # Zip the folder INCLUDING .git
+        with zipfile.ZipFile(zip_path, "w", zipfile.ZIP_DEFLATED) as zf:
+            for root, dirs, files in os.walk(tmpdir):
+                for file in files:
+                    abs_path = os.path.join(root, file)
+                    rel_path = os.path.relpath(abs_path, tmpdir)
+                    zf.write(abs_path, rel_path)
+    finally:
+        import shutil
+        shutil.rmtree(tmpdir, ignore_errors=True)
+
+# -----------------------------
+# Test: commit counts extraction
+# -----------------------------
+def test_extract_commit_counts_from_git_zip():
+    tmpzip_path = os.path.join(tempfile.gettempdir(), "tmp_git_repo.zip")
+    create_git_repo_zip_with_authors(tmpzip_path)
+
+    counts = extract_commit_counts_from_git_zip(tmpzip_path)
+    assert counts["Alice"] == 1
+    assert counts["Bob"] == 1
+
+    os.remove(tmpzip_path)
