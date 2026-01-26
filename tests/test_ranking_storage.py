@@ -52,9 +52,10 @@ class TestInitRankingStorageTable:
 class TestSaveRankingsToDb:
     """Test saving rankings to database"""
     
+    @patch('analysis.ranking_storage.AuthManager.get_current_username', return_value='test_user')
     @patch('analysis.ranking_storage.init_ranking_storage_table')
     @patch('analysis.ranking_storage.with_db_cursor')
-    def test_save_rankings_to_db_success(self, mock_with_db_cursor, mock_init_table):
+    def test_save_rankings_to_db_success(self, mock_with_db_cursor, mock_init_table, mock_get_user):
         """Test successful save of rankings"""
         mock_cursor = Mock()
         mock_cursor.fetchall.return_value = []  # No existing summaries
@@ -85,9 +86,10 @@ class TestSaveRankingsToDb:
         # Should delete existing, then insert 2 new rankings
         assert mock_cursor.execute.call_count >= 3
     
+    @patch('analysis.ranking_storage.AuthManager.get_current_username', return_value='test_user')
     @patch('analysis.ranking_storage.init_ranking_storage_table')
     @patch('analysis.ranking_storage.with_db_cursor')
-    def test_save_rankings_with_summaries(self, mock_with_db_cursor, mock_init_table):
+    def test_save_rankings_with_summaries(self, mock_with_db_cursor, mock_init_table, mock_get_user):
         """Test saving rankings with provided summaries"""
         mock_cursor = Mock()
         mock_cursor.fetchall.return_value = []
@@ -108,9 +110,10 @@ class TestSaveRankingsToDb:
                        if 'INSERT INTO project_rankings' in str(call)]
         assert len(insert_calls) > 0
     
+    @patch('analysis.ranking_storage.AuthManager.get_current_username', return_value='test_user')
     @patch('analysis.ranking_storage.init_ranking_storage_table')
     @patch('analysis.ranking_storage.with_db_cursor')
-    def test_save_rankings_preserves_existing_summaries(self, mock_with_db_cursor, mock_init_table):
+    def test_save_rankings_preserves_existing_summaries(self, mock_with_db_cursor, mock_init_table, mock_get_user):
         """Test that existing summaries are preserved when not provided"""
         mock_cursor = Mock()
         # Simulate existing summary in database
@@ -127,9 +130,10 @@ class TestSaveRankingsToDb:
         
         assert result is True
     
+    @patch('analysis.ranking_storage.AuthManager.get_current_username', return_value='test_user')
     @patch('analysis.ranking_storage.init_ranking_storage_table')
     @patch('analysis.ranking_storage.with_db_cursor')
-    def test_save_rankings_error(self, mock_with_db_cursor, mock_init_table):
+    def test_save_rankings_error(self, mock_with_db_cursor, mock_init_table, mock_get_user):
         """Test error handling when saving rankings"""
         mock_with_db_cursor.side_effect = Exception("Database error")
         
@@ -142,8 +146,9 @@ class TestSaveRankingsToDb:
 class TestGetStoredRankings:
     """Test retrieving stored rankings"""
     
+    @patch('analysis.ranking_storage.AuthManager.get_current_username', return_value='test_user')
     @patch('analysis.ranking_storage.with_db_cursor')
-    def test_get_stored_rankings_success(self, mock_with_db_cursor):
+    def test_get_stored_rankings_success(self, mock_with_db_cursor, mock_get_user):
         """Test successful retrieval of rankings"""
         mock_cursor = Mock()
         mock_results = [
@@ -165,8 +170,9 @@ class TestGetStoredRankings:
         assert result[0]["summary"] == "Summary 1"
         assert result[1]["rank_position"] == 2
     
+    @patch('analysis.ranking_storage.AuthManager.get_current_username', return_value='test_user')
     @patch('analysis.ranking_storage.with_db_cursor')
-    def test_get_stored_rankings_empty(self, mock_with_db_cursor):
+    def test_get_stored_rankings_empty(self, mock_with_db_cursor, mock_get_user):
         """Test retrieval when no rankings exist"""
         mock_cursor = Mock()
         mock_cursor.fetchall.return_value = []
@@ -178,8 +184,9 @@ class TestGetStoredRankings:
         
         assert result == []
     
+    @patch('analysis.ranking_storage.AuthManager.get_current_username', return_value='test_user')
     @patch('analysis.ranking_storage.with_db_cursor')
-    def test_get_stored_rankings_with_none_ranking_data(self, mock_with_db_cursor):
+    def test_get_stored_rankings_with_none_ranking_data(self, mock_with_db_cursor, mock_get_user):
         """Test retrieval when ranking_data is None"""
         mock_cursor = Mock()
         mock_results = [
@@ -195,8 +202,9 @@ class TestGetStoredRankings:
         assert len(result) == 1
         assert result[0]["ranking_data"] == {}
     
+    @patch('analysis.ranking_storage.AuthManager.get_current_username', return_value='test_user')
     @patch('analysis.ranking_storage.with_db_cursor')
-    def test_get_stored_rankings_error(self, mock_with_db_cursor):
+    def test_get_stored_rankings_error(self, mock_with_db_cursor, mock_get_user):
         """Test error handling when retrieving rankings"""
         mock_with_db_cursor.side_effect = Exception("Database error")
         
@@ -208,8 +216,9 @@ class TestGetStoredRankings:
 class TestGetStoredRankingByProjectId:
     """Test retrieving ranking by project ID"""
     
+    @patch('analysis.ranking_storage.AuthManager.get_current_username', return_value='test_user')
     @patch('analysis.ranking_storage.with_db_cursor')
-    def test_get_stored_ranking_by_project_id_success(self, mock_with_db_cursor):
+    def test_get_stored_ranking_by_project_id_success(self, mock_with_db_cursor, mock_get_user):
         """Test successful retrieval by project ID"""
         mock_cursor = Mock()
         mock_row = (1, 10, 1, 85.5, "Summary", {"key": "value"}, datetime(2024, 1, 1), datetime(2024, 1, 2))
@@ -225,8 +234,9 @@ class TestGetStoredRankingByProjectId:
         assert result["score"] == 85.5
         assert result["summary"] == "Summary"
     
+    @patch('analysis.ranking_storage.AuthManager.get_current_username', return_value='test_user')
     @patch('analysis.ranking_storage.with_db_cursor')
-    def test_get_stored_ranking_by_project_id_not_found(self, mock_with_db_cursor):
+    def test_get_stored_ranking_by_project_id_not_found(self, mock_with_db_cursor, mock_get_user):
         """Test retrieval when project ID doesn't exist"""
         mock_cursor = Mock()
         mock_cursor.fetchone.return_value = None
@@ -238,8 +248,9 @@ class TestGetStoredRankingByProjectId:
         
         assert result is None
     
+    @patch('analysis.ranking_storage.AuthManager.get_current_username', return_value='test_user')
     @patch('analysis.ranking_storage.with_db_cursor')
-    def test_get_stored_ranking_by_project_id_error(self, mock_with_db_cursor):
+    def test_get_stored_ranking_by_project_id_error(self, mock_with_db_cursor, mock_get_user):
         """Test error handling when retrieving by project ID"""
         mock_with_db_cursor.side_effect = Exception("Database error")
         
@@ -251,8 +262,9 @@ class TestGetStoredRankingByProjectId:
 class TestUpdateRankingScore:
     """Test updating ranking score"""
     
+    @patch('analysis.ranking_storage.AuthManager.get_current_username', return_value='test_user')
     @patch('analysis.ranking_storage.with_db_cursor')
-    def test_update_ranking_score_success(self, mock_with_db_cursor):
+    def test_update_ranking_score_success(self, mock_with_db_cursor, mock_get_user):
         """Test successful score update"""
         mock_cursor = Mock()
         mock_cursor.rowcount = 1
@@ -265,8 +277,9 @@ class TestUpdateRankingScore:
         assert result is True
         mock_cursor.execute.assert_called_once()
     
+    @patch('analysis.ranking_storage.AuthManager.get_current_username', return_value='test_user')
     @patch('analysis.ranking_storage.with_db_cursor')
-    def test_update_ranking_score_not_found(self, mock_with_db_cursor):
+    def test_update_ranking_score_not_found(self, mock_with_db_cursor, mock_get_user):
         """Test score update when project doesn't exist"""
         mock_cursor = Mock()
         mock_cursor.rowcount = 0
@@ -278,8 +291,9 @@ class TestUpdateRankingScore:
         
         assert result is False
     
+    @patch('analysis.ranking_storage.AuthManager.get_current_username', return_value='test_user')
     @patch('analysis.ranking_storage.with_db_cursor')
-    def test_update_ranking_score_error(self, mock_with_db_cursor):
+    def test_update_ranking_score_error(self, mock_with_db_cursor, mock_get_user):
         """Test error handling when updating score"""
         mock_with_db_cursor.side_effect = Exception("Database error")
         
@@ -291,8 +305,9 @@ class TestUpdateRankingScore:
 class TestUpdateRankingSummary:
     """Test updating ranking summary"""
     
+    @patch('analysis.ranking_storage.AuthManager.get_current_username', return_value='test_user')
     @patch('analysis.ranking_storage.with_db_cursor')
-    def test_update_ranking_summary_success(self, mock_with_db_cursor):
+    def test_update_ranking_summary_success(self, mock_with_db_cursor, mock_get_user):
         """Test successful summary update"""
         mock_cursor = Mock()
         mock_cursor.rowcount = 1
@@ -305,8 +320,9 @@ class TestUpdateRankingSummary:
         assert result is True
         mock_cursor.execute.assert_called_once()
     
+    @patch('analysis.ranking_storage.AuthManager.get_current_username', return_value='test_user')
     @patch('analysis.ranking_storage.with_db_cursor')
-    def test_update_ranking_summary_not_found(self, mock_with_db_cursor):
+    def test_update_ranking_summary_not_found(self, mock_with_db_cursor, mock_get_user):
         """Test summary update when project doesn't exist"""
         mock_cursor = Mock()
         mock_cursor.rowcount = 0
@@ -318,8 +334,9 @@ class TestUpdateRankingSummary:
         
         assert result is False
     
+    @patch('analysis.ranking_storage.AuthManager.get_current_username', return_value='test_user')
     @patch('analysis.ranking_storage.with_db_cursor')
-    def test_update_ranking_summary_error(self, mock_with_db_cursor):
+    def test_update_ranking_summary_error(self, mock_with_db_cursor, mock_get_user):
         """Test error handling when updating summary"""
         mock_with_db_cursor.side_effect = Exception("Database error")
         
@@ -331,8 +348,9 @@ class TestUpdateRankingSummary:
 class TestUpdateRankingPosition:
     """Test updating ranking position"""
     
+    @patch('analysis.ranking_storage.AuthManager.get_current_username', return_value='test_user')
     @patch('analysis.ranking_storage.with_db_cursor')
-    def test_update_ranking_position_success_no_swap(self, mock_with_db_cursor):
+    def test_update_ranking_position_success_no_swap(self, mock_with_db_cursor, mock_get_user):
         """Test successful position update when position is free"""
         mock_cursor = Mock()
         mock_cursor.fetchone.return_value = None  # Position not taken
@@ -347,8 +365,9 @@ class TestUpdateRankingPosition:
         # Should check for existing, then update
         assert mock_cursor.execute.call_count >= 2
     
+    @patch('analysis.ranking_storage.AuthManager.get_current_username', return_value='test_user')
     @patch('analysis.ranking_storage.with_db_cursor')
-    def test_update_ranking_position_with_swap(self, mock_with_db_cursor):
+    def test_update_ranking_position_with_swap(self, mock_with_db_cursor, mock_get_user):
         """Test position update with position swap"""
         mock_cursor = Mock()
         # First call: position is taken by another project
@@ -368,8 +387,9 @@ class TestUpdateRankingPosition:
         # Should check, get current, swap, then update
         assert mock_cursor.execute.call_count >= 3
     
+    @patch('analysis.ranking_storage.AuthManager.get_current_username', return_value='test_user')
     @patch('analysis.ranking_storage.with_db_cursor')
-    def test_update_ranking_position_not_found(self, mock_with_db_cursor):
+    def test_update_ranking_position_not_found(self, mock_with_db_cursor, mock_get_user):
         """Test position update when project doesn't exist"""
         mock_cursor = Mock()
         mock_cursor.fetchone.return_value = None
@@ -382,8 +402,9 @@ class TestUpdateRankingPosition:
         
         assert result is False
     
+    @patch('analysis.ranking_storage.AuthManager.get_current_username', return_value='test_user')
     @patch('analysis.ranking_storage.with_db_cursor')
-    def test_update_ranking_position_error(self, mock_with_db_cursor):
+    def test_update_ranking_position_error(self, mock_with_db_cursor, mock_get_user):
         """Test error handling when updating position"""
         mock_with_db_cursor.side_effect = Exception("Database error")
         
@@ -395,8 +416,9 @@ class TestUpdateRankingPosition:
 class TestDeleteStoredRankings:
     """Test deleting stored rankings"""
     
+    @patch('analysis.ranking_storage.AuthManager.get_current_username', return_value='test_user')
     @patch('analysis.ranking_storage.with_db_cursor')
-    def test_delete_stored_rankings_success(self, mock_with_db_cursor):
+    def test_delete_stored_rankings_success(self, mock_with_db_cursor, mock_get_user):
         """Test successful deletion of all rankings"""
         mock_cursor = Mock()
         mock_context = MagicMock()
@@ -409,8 +431,9 @@ class TestDeleteStoredRankings:
         mock_cursor.execute.assert_called_once()
         assert "DELETE FROM project_rankings" in str(mock_cursor.execute.call_args)
     
+    @patch('analysis.ranking_storage.AuthManager.get_current_username', return_value='test_user')
     @patch('analysis.ranking_storage.with_db_cursor')
-    def test_delete_stored_rankings_error(self, mock_with_db_cursor):
+    def test_delete_stored_rankings_error(self, mock_with_db_cursor, mock_get_user):
         """Test error handling when deleting rankings"""
         mock_with_db_cursor.side_effect = Exception("Database error")
         
