@@ -199,8 +199,26 @@ def update_ranking_score(project_id: int, new_score: float) -> bool:
                 SET score = %s, updated_at = CURRENT_TIMESTAMP
                 WHERE project_id = %s
             """, (new_score, project_id))
-            
-            return cursor.rowcount > 0
+            if cursor.rowcount == 0:
+                return False
+
+            # Recompute rank positions based on updated scores
+            cursor.execute("""
+                UPDATE project_rankings pr
+                SET rank_position = ranked.new_pos,
+                    updated_at = CURRENT_TIMESTAMP
+                FROM (
+                    SELECT
+                        project_id,
+                        ROW_NUMBER() OVER (
+                            ORDER BY score DESC, updated_at DESC, project_id ASC
+                        ) AS new_pos
+                    FROM project_rankings
+                ) AS ranked
+                WHERE pr.project_id = ranked.project_id
+            """)
+
+            return True
     except Exception as e:
         print(f"Error updating ranking score: {e}")
         return False
@@ -310,4 +328,3 @@ def clean_error_summaries() -> bool:
     except Exception as e:
         print(f"Error cleaning error summaries: {e}")
         return False
-
