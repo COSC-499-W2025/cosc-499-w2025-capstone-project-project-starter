@@ -46,29 +46,72 @@ def analyze_project_menu():
         return
 
 
-def settings_menu(consent_manager, collab_manager):
-    """Unified settings menu that consolidates all settings-related options."""
-    from cli.user_menus import user_account_menu
+def analysis_menu():
+    permission_manager = ExternalServicePermission(AuthManager.get_current_username() or 'default_user')
+    if permission_manager.has_permission('LLM') is True:
+        handle_analyze_metrics_and_summary()
+    else:
+        analyze_project_menu()
+
+
+def resume_menu():
+    """Unified resume menu that consolidates all resume-related options."""
     
     SETTINGS_OPTIONS = [
-        "External Service Settings",
-        "Delete Project Data",
-        "User Preferences",
-        "User Account",
+        "Generate Resume",
+        "Export Resume",
+        "Delete Resume",
         "Back to main menu"
     ]
     
     handlers = {
-        "1": lambda: manage_external_services_menu(),
-        "2": lambda: handle_cleanup_insights(),
-        "3": lambda: ask_user_preferences(consent_manager, collab_manager, False),
-        "4": lambda: user_account_menu(),
+        "1": lambda: handle_generate_resume(),
+        "2": lambda: handle_view_resume(),
+        "3": lambda: handle_delete_resume(),
+        "4": "BACK"
+    }
+    
+    while True:
+        print("\n" + "="*70)
+        print("RESUME OPTIONS")
+        print("="*70)
+        for idx, option in enumerate(SETTINGS_OPTIONS, start=1):
+            print(f"{idx}. {option}")
+        print("="*70)
+        
+        choice = input("Choose an option (1-4): ").strip()
+        handler = handlers.get(choice)
+        
+        if handler == "BACK":
+            return
+        elif handler:
+            handler()
+        else:
+            print("Invalid choice. Please enter 1, 2, 3, or 4.")
+
+
+def project_menu():
+    """Unified menu to manage projects"""
+    
+    SETTINGS_OPTIONS = [
+        "Upload a ZIP file",
+        "List stored projects",
+        "Add a thumbnail to a project",
+        "Delete a project",
+        "Back to main menu"
+    ]
+    
+    handlers = {
+        "1": lambda: handle_upload_file(),
+        "2": lambda: handle_list_projects(),
+        "3": lambda: handle_add_project_thumbnail(),
+        "4": lambda: handle_cleanup_insights(),
         "5": "BACK"
     }
     
     while True:
         print("\n" + "="*70)
-        print("SETTINGS")
+        print("PROJECTS OPTIONS")
         print("="*70)
         for idx, option in enumerate(SETTINGS_OPTIONS, start=1):
             print(f"{idx}. {option}")
@@ -85,10 +128,48 @@ def settings_menu(consent_manager, collab_manager):
             print("Invalid choice. Please enter 1, 2, 3, 4, or 5.")
 
 
+def settings_menu(consent_manager, collab_manager):
+    """Unified settings menu that consolidates all settings-related options."""
+    from cli.user_menus import user_account_menu
+    
+    SETTINGS_OPTIONS = [
+        "External Service Settings",
+        "User Preferences",
+        "User Account",
+        "Back to main menu"
+    ]
+    
+    handlers = {
+        "1": lambda: manage_external_services_menu(),
+        "2": lambda: ask_user_preferences(consent_manager, collab_manager, False),
+        "3": lambda: user_account_menu(),
+        "4": "BACK"
+    }
+    
+    while True:
+        print("\n" + "="*70)
+        print("SETTINGS")
+        print("="*70)
+        for idx, option in enumerate(SETTINGS_OPTIONS, start=1):
+            print(f"{idx}. {option}")
+        print("="*70)
+        
+        choice = input("Choose an option (1-4): ").strip()
+        handler = handlers.get(choice)
+        
+        if handler == "BACK":
+            return
+        elif handler:
+            handler()
+        else:
+            print("Invalid choice. Please enter 1, 2, 3, or 4.")
+
+
 def manage_external_services_menu():
     """Manage external service permissions (settings menu)."""
+    current_user = AuthManager.get_current_username() or 'default_user'
     def view_status():
-        permission_manager = ExternalServicePermission('default_user')
+        permission_manager = ExternalServicePermission(current_user)
         has_permission = permission_manager.has_permission('LLM')
         status_messages = {
             None: "No permission set (will be asked on first analysis)",
@@ -102,7 +183,7 @@ def manage_external_services_menu():
     def revoke_permission():
         confirm = input("\nAre you sure you want to revoke external service permission? (yes/no): ").strip().lower()
         if confirm in ['yes', 'y']:
-            ExternalServicePrompt.store_permission('default_user', 'LLM', False)
+            ExternalServicePrompt.store_permission(current_user, 'LLM', False)
             print("\nExternal service permission has been REVOKED")
             print("  Local analysis will be used (your data stays private)")
         else:
@@ -110,7 +191,7 @@ def manage_external_services_menu():
     
     handlers = {
         "1": view_status,
-        "2": lambda: request_external_service_permission('default_user', 'LLM'),
+        "2": lambda: request_external_service_permission(current_user, 'LLM'),
         "3": revoke_permission,
         "4": "BACK"
     }
@@ -533,12 +614,20 @@ def handle_cleanup_insights():
     """Handle delete project data menu option."""
     pid = input("Enter project ID to delete data for: ").strip()
     if pid.isdigit():
+        from project_manager import get_project_by_id
+
+        project_id = int(pid)
+        project = get_project_by_id(project_id)
+        if not project:
+            print(f"No project found with ID {project_id}.")
+            return
+
         confirm = input(
             f"Delete all data for project {pid}? "
             f"This cannot be undone. (y/n): "
         ).strip().lower()
         if confirm in ('y', 'yes'):
-            m, f, p = delete_insights(int(pid))
+            m, f, p = delete_insights(project_id)
             print(f"Deleted: project_metrics={m}, file_contents={f}, uploaded_files={p}")
         else:
             print("Cancelled.")

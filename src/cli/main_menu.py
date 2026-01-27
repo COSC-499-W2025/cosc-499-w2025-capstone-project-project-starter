@@ -2,41 +2,31 @@
 import os
 import sys
 from .menus import (
-    handle_upload_file,
-    handle_list_projects,
-    handle_analyze_metrics_and_summary,
-    analyze_project_menu,
+    project_menu,
+    analysis_menu,
     handle_rank_projects,
     handle_rank_and_summarize_projects,
     handle_view_edit_rankings,
     settings_menu,
+    resume_menu,
     portfolio_menu,
-    handle_generate_resume,
-    handle_view_resume,
-    handle_delete_resume,
-    handle_add_project_thumbnail,
     handle_llm_summary,
     handle_zip_success_report
 )
 from account.user_manager import AuthManager
 
 MENU_ITEMS = [
-    "Upload a ZIP file",                                  # 1
-    "List stored projects",                               # 2
-    "Analyze a project (FULL MODE: metrics + summary)",   # 3
-    "Analyze a project (PRIVACY MODE: analysis with local fallback)",  # 4
-    "Rank all projects",                                  # 5
-    "Rank and summarize top 3 projects",                  # 6
-    "View and edit stored rankings",                      # 7
-    "Settings",                                           # 8
-    "Generate Resume",                                    # 9
-    "View Resume",                                        # 10
-    "Delete Resume",                                      # 11
-    "View Portfolio",                                     # 12
-    "Add thumbnail to a project",                         # 13
-    "Run LLM summary (test.zip)",                         # 14
-    "Project success report (ZIP)",                       # 15
-    "Exit"                                                # 16
+    "List/Manage projects",                               # 1
+    "Analyze a project",                                  # 2
+    "Rank all projects",                                  # 3
+    "Rank and summarize top 3 projects",                  # 4
+    "View and edit stored rankings",                      # 5
+    "Settings",                                           # 6
+    "Resume",                                             # 7
+    "Portfolio",                                          # 8
+    "Run LLM summary (test.zip)",                         # 9
+    "Project success report (ZIP)",                       # 10
+    "Exit"                                                # 11
 ]
 
 def run_main_menu(consent_manager, collab_manager):
@@ -65,12 +55,12 @@ def run_main_menu(consent_manager, collab_manager):
         print("="*70) 
         
         if os.getenv("GITHUB_ACTIONS") == "true" or not sys.stdin.isatty():
-            choice = "16"
+            choice = "11"
         else:
             try:
-                choice = input("Choose an option (1-16): ").strip()
+                choice = input("Choose an option (1-11): ").strip()
             except EOFError:
-                choice = "16"
+                choice = "11"
         
         # Check authentication before processing any choice
         if not AuthManager.is_user_logged_in():
@@ -78,28 +68,23 @@ def run_main_menu(consent_manager, collab_manager):
             continue
             
         handlers = {
-            "1": lambda: handle_upload_file(),
-            "2": lambda: handle_list_projects(),
-            "3": lambda: handle_analyze_metrics_and_summary(),
-            "4": lambda: analyze_project_menu(),
-            "5": lambda: handle_rank_projects(),
-            "6": lambda: handle_rank_and_summarize_projects(),
-            "7": lambda: handle_view_edit_rankings(),
-            "8": lambda: settings_menu(consent_manager, collab_manager),
-            "9": lambda: handle_generate_resume(),
-            "10": lambda: handle_view_resume(),
-            "11": lambda: handle_delete_resume(),
-            "12": lambda: portfolio_menu(),
-            "13": lambda: handle_add_project_thumbnail(),
-            "14": lambda: handle_llm_summary(),
-            "15": lambda: handle_zip_success_report(),
-            "16": "EXIT"
+            "1": lambda: project_menu(),
+            "2": lambda: analysis_menu(),
+            "3": lambda: handle_rank_projects(),
+            "4": lambda: handle_rank_and_summarize_projects(),
+            "5": lambda: handle_view_edit_rankings(),
+            "6": lambda: settings_menu(consent_manager, collab_manager),
+            "7": lambda: resume_menu(),
+            "8": lambda: portfolio_menu(),
+            "9": lambda: handle_llm_summary(),
+            "10": lambda: handle_zip_success_report(),
+            "11": "EXIT"
         }
 
         handler = handlers.get(choice)
 
         if handler is None:
-            print("Invalid choice. Please enter 1-16.")
+            print("Invalid choice. Please enter 1-11.")
             continue
 
         if handler == "EXIT":

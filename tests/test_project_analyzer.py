@@ -250,8 +250,9 @@ class TestProjectAnalyzerIntegration:
     
     @patch('project_analyzer.ProjectAnalyzer._get_project_info')
     @patch('project_analyzer.ProjectAnalyzer._get_file_contents')
+    @patch('external_services.external_service_prompt.request_external_service_permission', return_value=False)
     @patch('os.path.exists')
-    def test_analyze_uploaded_project_no_files(self, mock_exists, mock_files, mock_info):
+    def test_analyze_uploaded_project_no_files(self, mock_exists, mock_request_perm, mock_files, mock_info):
         """Test analysis when no file contents are available."""
         # Mock that the file path exists
         mock_exists.return_value = True

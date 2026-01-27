@@ -229,11 +229,11 @@ def test_external_permission_initialize_failure(monkeypatch, capfd):
     [
         (True, True),
         (False, False),
-        (None, False),  # fallback when no record => False
+        (None, None),
     ],
 )
 def test_external_permission_has_permission(monkeypatch, permission_value, expected):
-    """has_permission should delegate to ServiceConfig.get_permission and fallback None->False."""
+    """has_permission should delegate to ServiceConfig.get_permission and return None when no record exists."""
 
     fake_config = FakeServiceConfigOK(permission=permission_value)
 
