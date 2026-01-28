@@ -46,11 +46,156 @@ def analyze_project_menu():
         return
 
 
+def analysis_menu():
+    permission_manager = ExternalServicePermission(AuthManager.get_current_username() or 'default_user')
+    if permission_manager.has_permission('LLM') is True:
+        handle_analyze_metrics_and_summary()
+    else:
+        analyze_project_menu()
+
+
+def resume_menu():
+    """Unified resume menu that consolidates all resume-related options."""
+    
+    SETTINGS_OPTIONS = [
+        "Generate Resume",
+        "Export Resume",
+        "Delete Resume",
+        "Back to main menu"
+    ]
+    
+    handlers = {
+        "1": lambda: handle_generate_resume(),
+        "2": lambda: handle_view_resume(),
+        "3": lambda: handle_delete_resume(),
+        "4": "BACK"
+    }
+    
+    while True:
+        print("\n" + "="*70)
+        print("RESUME OPTIONS")
+        print("="*70)
+        for idx, option in enumerate(SETTINGS_OPTIONS, start=1):
+            print(f"{idx}. {option}")
+        print("="*70)
+        
+        choice = input("Choose an option (1-4): ").strip()
+        handler = handlers.get(choice)
+        
+        if handler == "BACK":
+            return
+        elif handler:
+            handler()
+        else:
+            print("Invalid choice. Please enter 1, 2, 3, or 4.")
+
+
+def project_menu():
+    """Unified menu to manage projects"""
+    
+    SETTINGS_OPTIONS = [
+        "Upload a ZIP file",
+        "List stored projects",
+        "Add a thumbnail to a project",
+        "Delete a project",
+        "Back to main menu"
+    ]
+    
+    handlers = {
+        "1": lambda: handle_upload_file(),
+        "2": lambda: handle_list_projects(),
+        "3": lambda: handle_add_project_thumbnail(),
+        "4": lambda: handle_cleanup_insights(),
+        "5": "BACK"
+    }
+    
+    while True:
+        print("\n" + "="*70)
+        print("PROJECTS OPTIONS")
+        print("="*70)
+        for idx, option in enumerate(SETTINGS_OPTIONS, start=1):
+            print(f"{idx}. {option}")
+        print("="*70)
+        
+        choice = input("Choose an option (1-5): ").strip()
+        handler = handlers.get(choice)
+        
+        if handler == "BACK":
+            return
+        elif handler:
+            handler()
+        else:
+            print("Invalid choice. Please enter 1, 2, 3, 4, or 5.")
+
+
+def settings_menu(consent_manager, collab_manager):
+    """Unified settings menu that consolidates all settings-related options."""
+    from cli.user_menus import user_account_menu
+    
+    SETTINGS_OPTIONS = [
+        "External Service Settings",
+        "User Preferences",
+        "User Account",
+        "Back to main menu"
+    ]
+    
+    handlers = {
+        "1": lambda: manage_external_services_menu(),
+        "2": lambda: ask_user_preferences(consent_manager, collab_manager, False),
+        "3": lambda: user_account_menu(),
+        "4": "BACK"
+    }
+    
+    while True:
+        print("\n" + "="*70)
+        print("SETTINGS")
+        print("="*70)
+        for idx, option in enumerate(SETTINGS_OPTIONS, start=1):
+            print(f"{idx}. {option}")
+        print("="*70)
+        
+        choice = input("Choose an option (1-4): ").strip()
+        handler = handlers.get(choice)
+        
+        if handler == "BACK":
+            return
+        elif handler:
+            handler()
+        else:
+            print("Invalid choice. Please enter 1, 2, 3, or 4.")
+
+
 def manage_external_services_menu():
-    """
-    Manage external service permissions (settings menu).
-    Issue #10: Allow user to manage external service preferences.
-    """
+    """Manage external service permissions (settings menu)."""
+    current_user = AuthManager.get_current_username() or 'default_user'
+    def view_status():
+        permission_manager = ExternalServicePermission(current_user)
+        has_permission = permission_manager.has_permission('LLM')
+        status_messages = {
+            None: "No permission set (will be asked on first analysis)",
+            True: "External service permission GRANTED\n  Enhanced analysis is enabled",
+            False: "External service permission DECLINED\n  Local analysis only (data stays private)"
+        }
+        print("\n" + "="*50)
+        print(f"Status: {status_messages[has_permission]}")
+        print("="*50)
+    
+    def revoke_permission():
+        confirm = input("\nAre you sure you want to revoke external service permission? (yes/no): ").strip().lower()
+        if confirm in ['yes', 'y']:
+            ExternalServicePrompt.store_permission(current_user, 'LLM', False)
+            print("\nExternal service permission has been REVOKED")
+            print("  Local analysis will be used (your data stays private)")
+        else:
+            print("\nAction cancelled")
+    
+    handlers = {
+        "1": view_status,
+        "2": lambda: request_external_service_permission(current_user, 'LLM'),
+        "3": revoke_permission,
+        "4": "BACK"
+    }
+    
     print("\n" + "-"*50)
     print("External Service Settings")
     print("-"*50)
@@ -61,39 +206,12 @@ def manage_external_services_menu():
     print("-"*50)
     
     choice = input("Choose an option (1-4): ").strip()
+    handler = handlers.get(choice)
     
-    if choice == '1':
-        # View current status
-        permission_manager = ExternalServicePermission('default_user')
-        has_permission = permission_manager.has_permission('LLM')
-        
-        print("\n" + "="*50)
-        if has_permission is None:
-            print("Status: No permission set (will be asked on first analysis)")
-        elif has_permission:
-            print("Status: External service permission GRANTED")
-            print("  Enhanced analysis is enabled")
-        else:
-            print("Status: External service permission DECLINED")
-            print("  Local analysis only (data stays private)")
-        print("="*50)
-        
-    elif choice == '2':
-        # Grant/Update permission
-        request_external_service_permission('default_user', 'LLM')
-        
-    elif choice == '3':
-        # Revoke permission
-        confirm = input("\nAre you sure you want to revoke external service permission? (yes/no): ").strip().lower()
-        if confirm in ['yes', 'y']:
-            ExternalServicePrompt.store_permission('default_user', 'LLM', False)
-            print("\nExternal service permission has been REVOKED")
-            print("  Local analysis will be used (your data stays private)")
-        else:
-            print("\nAction cancelled")
-    
-    elif choice == '4':
+    if handler == "BACK":
         return
+    elif handler:
+        handler()
     else:
         print("Invalid choice. Please enter 1, 2, 3, or 4.")
 
@@ -257,14 +375,89 @@ def handle_rank_projects():
     current_username = AuthManager.get_current_username()
     ranked = rank_all_projects(user_name=current_username)
     display_rankings(ranked)
-    
+
     if ranked:
         print("\n" + "-"*80)
         save_choice = input("Would you like to save these rankings to the database? (y/n): ").strip().lower()
         if save_choice in ['y', 'yes']:
-            generate_summaries = input("Generate and save summaries for all projects? (y/n): ").strip().lower()
+            generate_summaries = input("Generate summaries for all projects? (y/n): ").strip().lower()
             save_rankings_with_summaries(ranked, generate_summaries in ['y', 'yes'])
-    
+
+    input("\nPress Enter to continue...")
+
+
+def handle_zip_success_report():
+    """Show a success report for a selected zip project."""
+    from analysis import analyze_zip_project
+    from project_manager import get_project_by_id
+    from parsing.file_contents_manager import get_zip_file
+    import tempfile
+
+    print("\n" + "-"*50)
+    print("Project Success Report (ZIP)")
+    print("-"*50)
+    selected_project = select_project_interactive("Select project for success report")
+    if not selected_project:
+        return
+
+    project_id = int(selected_project["id"])
+    project = get_project_by_id(project_id)
+    if not project:
+        print("Project not found.")
+        input("\nPress Enter to continue...")
+        return
+
+    zip_bytes = get_zip_file(project_id)
+    if not zip_bytes:
+        print("ZIP file not found for this project.")
+        input("\nPress Enter to continue...")
+        return
+
+    try:
+        with tempfile.NamedTemporaryFile(suffix=".zip", delete=False) as tmp_file:
+            tmp_file.write(zip_bytes)
+            temp_zip_path = tmp_file.name
+        result = analyze_zip_project(temp_zip_path)
+    except Exception as exc:
+        print(f"Failed to analyze ZIP: {exc}")
+        input("\nPress Enter to continue...")
+        return
+    finally:
+        if "temp_zip_path" in locals() and os.path.exists(temp_zip_path):
+            try:
+                os.remove(temp_zip_path)
+            except OSError:
+                pass
+
+    success = result.get("success", {})
+    signals = result.get("signals", {})
+    evidence = result.get("evidence", {})
+
+    print("\n" + "="*70)
+    print(f"Project: {result.get('project_name')}")
+    print(f"Archive: {result.get('zip_path')}")
+    print(f"Status : {success.get('status')}")
+    print(f"Score  : {success.get('score')} (confidence {success.get('confidence')})")
+    print(f"Result : {'SUCCESS' if success.get('is_successful') else 'NOT SUCCESSFUL'}")
+    print("="*70)
+
+    print("\nSignals:")
+    for key in sorted(signals.keys()):
+        print(f"- {key}: {signals[key]}")
+
+    if evidence:
+        print("\nEvidence:")
+        if evidence.get("entrypoints"):
+            print(f"- entrypoints: {', '.join(evidence['entrypoints'])}")
+        if evidence.get("dependency_manifests"):
+            print(f"- dependencies: {', '.join(evidence['dependency_manifests'])}")
+        if evidence.get("test_files"):
+            print(f"- tests: {', '.join(evidence['test_files'][:10])}")
+        if evidence.get("readme_file"):
+            print(f"- readme: {evidence['readme_file']}")
+        if evidence.get("incomplete_markers"):
+            print(f"- incomplete_markers: {', '.join(evidence['incomplete_markers'])}")
+
     input("\nPress Enter to continue...")
 
 
@@ -318,11 +511,10 @@ def handle_view_edit_rankings():
         print("1. View full details for a project")
         print("2. Edit score for a project")
         print("3. Edit summary for a project")
-        print("4. Change rank position for a project")
-        print("5. Clean error summaries from database")
-        print("6. Back to main menu")
+        print("4. Clean error summaries from database")
+        print("5. Back to main menu")
         
-        choice = input("\nChoose an option (1-6): ").strip()
+        choice = input("\nChoose an option (1-5): ").strip()
         
         if choice == '1':
             # View full details
@@ -400,25 +592,6 @@ def handle_view_edit_rankings():
                 print("Invalid project ID.")
         
         elif choice == '4':
-            # Change rank position
-            project_id = input("Enter project ID to change rank: ").strip()
-            if project_id.isdigit():
-                new_position = input("Enter new rank position: ").strip()
-                try:
-                    pos_int = int(new_position)
-                    if pos_int < 1:
-                        print("Rank position must be at least 1.")
-                    else:
-                        if update_ranking_position(int(project_id), pos_int):
-                            print(f"\n Successfully updated rank position for project {project_id} to {pos_int}")
-                        else:
-                            print(f"\n Failed to update rank position. Project {project_id} may not exist in stored rankings.")
-                except ValueError:
-                    print("Invalid position. Please enter a number.")
-            else:
-                print("Invalid project ID.")
-        
-        elif choice == '5':
             # Clean error summaries
             from analysis.ranking_storage import clean_error_summaries
             confirm = input("\nThis will remove all error messages from stored summaries. Continue? (y/n): ").strip().lower()
@@ -430,23 +603,31 @@ def handle_view_edit_rankings():
             else:
                 print("Cancelled.")
         
-        elif choice == '6':
+        elif choice == '5':
             break
         
         else:
-            print("Invalid choice. Please enter 1-6.")
+            print("Invalid choice. Please enter 1-5.")
 
 
 def handle_cleanup_insights():
-    """Handle cleanup insights menu option."""
-    pid = input("Enter project ID to clean: ").strip()
+    """Handle delete project data menu option."""
+    pid = input("Enter project ID to delete data for: ").strip()
     if pid.isdigit():
+        from project_manager import get_project_by_id
+
+        project_id = int(pid)
+        project = get_project_by_id(project_id)
+        if not project:
+            print(f"No project found with ID {project_id}.")
+            return
+
         confirm = input(
-            f"Delete insights and the uploaded file for project {pid}? "
+            f"Delete all data for project {pid}? "
             f"This cannot be undone. (y/n): "
         ).strip().lower()
         if confirm in ('y', 'yes'):
-            m, f, p = delete_insights(int(pid))
+            m, f, p = delete_insights(project_id)
             print(f"Deleted: project_metrics={m}, file_contents={f}, uploaded_files={p}")
         else:
             print("Cancelled.")

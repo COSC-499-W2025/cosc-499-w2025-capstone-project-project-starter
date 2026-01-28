@@ -41,11 +41,25 @@ class identify_contributors:
         with zipfile.ZipFile(self.zip_path, "r") as z:
             z.extractall(self.temp_dir.name)
 
-        # Look for a subdirectory containing .git
-        subdirs = [os.path.join(self.temp_dir.name, d) for d in os.listdir(self.temp_dir.name)]
-        self.repo_dir = next((d for d in subdirs if os.path.isdir(os.path.join(d, ".git"))), None)
+        # Check if .git exists at root level first
+        if os.path.isdir(os.path.join(self.temp_dir.name, ".git")):
+            self.repo_dir = self.temp_dir.name
+            return self.repo_dir
 
-        return self.repo_dir
+        # Look for a subdirectory containing .git
+        for entry in os.listdir(self.temp_dir.name):
+            path = os.path.join(self.temp_dir.name, entry)
+            if os.path.isdir(path) and os.path.isdir(os.path.join(path, ".git")):
+                self.repo_dir = path
+                return self.repo_dir
+
+        # Recursively search for .git in deeper directories
+        for root, dirs, _ in os.walk(self.temp_dir.name):
+            if ".git" in dirs:
+                self.repo_dir = root
+                return self.repo_dir
+
+        return None
 
     def get_commit_counts(self) -> Counter | None:
         """
@@ -56,7 +70,7 @@ class identify_contributors:
             raise ValueError("Repository not extracted. Call extract_repo() first.")
 
         result = subprocess.run(
-            ["git", "-C", self.repo_dir, "log", "--pretty=format:%an"],
+            ["git", "-C", self.repo_dir, "log", "--all", "--pretty=format:%an"],
             capture_output=True,
             text=True,
             check=True
@@ -78,7 +92,7 @@ class identify_contributors:
             raise ValueError("Repository not extracted. Call extract_repo() first.")
         # Use git log with numstat to get added/deleted lines per commit
         result = subprocess.run(
-            ["git", "-C", self.repo_dir, "log", "--pretty=format:%an", "--numstat"],
+            ["git", "-C", self.repo_dir, "log", "--all", "--pretty=format:%an", "--numstat"],
             capture_output=True,
             text=True,
             check=True
@@ -135,7 +149,7 @@ class identify_contributors:
         file_sets = defaultdict(lambda: {"created": set(), "modified": set(), "deleted": set()})
         # Git log with name-status
         result = subprocess.run(
-            ["git", "-C", self.repo_dir, "log", "--name-status", "--pretty=format:%an"],
+            ["git", "-C", self.repo_dir, "log", "--all", "--name-status", "--pretty=format:%an"],
             capture_output=True,
             text=True,
             check=True
@@ -208,7 +222,7 @@ class identify_contributors:
             raise ValueError("Repository not extracted. Call extract_repo() first.")
         # --- Commit counts ---
         result_commits = subprocess.run(
-            ["git", "-C", self.repo_dir, "log", "--pretty=format:%an"],
+            ["git", "-C", self.repo_dir, "log", "--all", "--pretty=format:%an"],
             capture_output=True,
             text=True,
             check=True
@@ -216,7 +230,7 @@ class identify_contributors:
         commit_counts = Counter(result_commits.stdout.splitlines())
         # --- Line changes ---
         result_lines = subprocess.run(
-            ["git", "-C", self.repo_dir, "log", "--pretty=format:%an", "--numstat"],
+            ["git", "-C", self.repo_dir, "log", "--all", "--pretty=format:%an", "--numstat"],
             capture_output=True,
             text=True,
             check=True
@@ -244,7 +258,7 @@ class identify_contributors:
             data["cumulative"] = data["added"] - data["deleted"]
         # --- File contributions ---
         result_files = subprocess.run(
-            ["git", "-C", self.repo_dir, "log", "--name-status", "--pretty=format:%an"],
+            ["git", "-C", self.repo_dir, "log", "--all", "--name-status", "--pretty=format:%an"],
             capture_output=True,
             text=True,
             check=True

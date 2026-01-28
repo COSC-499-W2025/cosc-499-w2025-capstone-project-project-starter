@@ -112,19 +112,24 @@ def _detect_team_structure(file_contents: List[Dict[str, Any]]) -> bool:
     return False
 
 def _extract_common_names_from_filenames(file_contents: List[Dict[str, Any]]) -> Set[str]:
-    """Scan filenames for common-name tokens (first/last)."""
+    """Scan filenames and paths for common-name tokens (first/last)."""
     names: Set[str] = set()
     for fi in file_contents:
-        filename = (fi.get('file_name') or '')
-        # split on underscores, spaces, and hyphens
-        parts = re.split(r"[ _-]+", filename)
-        for part in parts:
-            part = part.strip()
-            if not part:
-                continue
-            detected = is_top_common_name(part)
-            if detected:
-                names.add(detected)
+        # Check both filename and full path
+        texts = [fi.get('file_name') or '', fi.get('file_path') or '']
+        for text in texts:
+            # Split on delimiters and CamelCase boundaries
+            parts = re.split(r"[ _/\\-]+", text)
+            for part in parts:
+                # Also split CamelCase (e.g., "EvanPasenau" -> ["Evan", "Pasenau"])
+                camel_parts = re.findall(r'[A-Z][a-z]+|[a-z]+', part)
+                for p in (camel_parts if camel_parts else [part]):
+                    p = p.strip()
+                    if not p:
+                        continue
+                    detected = is_top_common_name(p)
+                    if detected:
+                        names.add(detected)
     return names
 
 

@@ -258,14 +258,14 @@ async def get_rankings():
         raise HTTPException(status_code=500, detail=f"Error retrieving rankings: {str(e)}")
 
 
-@router.delete("/projects/{project_id}/insights")
-async def cleanup_project_insights(project_id: int):
-    """Delete project insights."""
+@router.delete("/projects/{project_id}/data")
+async def delete_project_data(project_id: int):
+    """Delete all project data including metrics, file contents, and project records."""
     try:
         deleted = delete_insights(project_id)
         return {"success": True, "deleted": {"metrics": deleted[0], "files": deleted[1], "projects": deleted[2]}}
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error cleaning up insights: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Error deleting project data: {str(e)}")
 
 
 @router.post("/preferences")

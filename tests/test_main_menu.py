@@ -25,25 +25,18 @@ class TestMainMenu:
         """Clean up after each test"""
         AuthManager.clear_session()
     
-    @patch('cli.main_menu.user_account_menu')
+    @patch('cli.main_menu.settings_menu')
     @patch('cli.main_menu.portfolio_menu')
-    @patch('cli.main_menu.handle_delete_resume')
-    @patch('cli.main_menu.handle_view_resume')
-    @patch('cli.main_menu.handle_generate_resume')
-    @patch('cli.main_menu.ask_user_preferences')
-    @patch('cli.main_menu.handle_cleanup_insights')
-    @patch('cli.main_menu.manage_external_services_menu')
+    @patch('cli.main_menu.resume_menu')
     @patch('cli.main_menu.handle_view_edit_rankings')
     @patch('cli.main_menu.handle_rank_and_summarize_projects')
     @patch('cli.main_menu.handle_rank_projects')
-    @patch('cli.main_menu.analyze_project_menu')
-    @patch('cli.main_menu.handle_analyze_metrics_and_summary')
-    @patch('cli.main_menu.handle_list_projects')
-    @patch('cli.main_menu.handle_upload_file')
+    @patch('cli.main_menu.analysis_menu')
+    @patch('cli.main_menu.project_menu')
     @patch('cli.main_menu.handle_llm_summary')
     @patch('sys.stdin.isatty', return_value=True)
     @patch('os.getenv', side_effect=lambda key, default=None: None if key == "GITHUB_ACTIONS" else default)
-    @patch('builtins.input', return_value='18')
+    @patch('builtins.input', return_value='11')
     @patch('sys.stdout', new_callable=StringIO)
     def test_main_menu_exit_option(
         self,
@@ -52,23 +45,16 @@ class TestMainMenu:
         mock_getenv,
         mock_isatty,
         mock_llm_summary,
-        mock_upload,
-        mock_list,
-        mock_analyze,
-        mock_analyze_menu,
+        mock_project_menu,
+        mock_analysis_menu,
         mock_rank,
         mock_rank_summarize,
         mock_view_edit,
-        mock_external,
-        mock_cleanup,
-        mock_preferences,
-        mock_generate_resume,
-        mock_view_resume,
-        mock_delete_resume,
+        mock_resume_menu,
         mock_portfolio,
-        mock_user_account
+        mock_settings
     ):
-        """Test that exit option (18) works correctly"""
+        """Test that exit option (11) works correctly"""
         # Set up logged in user
         AuthManager._current_user = {'user_name': 'testuser', 'user_id': 1}
         
@@ -83,25 +69,18 @@ class TestMainMenu:
     
     def test_menu_items_complete(self):
         """Test that all menu items are properly defined"""
-        assert len(MENU_ITEMS) == 18
+        assert len(MENU_ITEMS) == 11
         expected_items = [
-            "Upload a ZIP file",
-            "List stored projects",
-            "Analyze a project (FULL MODE: metrics + summary)",
-            "Analyze a project (PRIVACY MODE: analysis with local fallback)",
+            "List/Manage projects",
+            "Analyze a project",
             "Rank all projects",
             "Rank and summarize top 3 projects",
             "View and edit stored rankings",
-            "Manage external service settings",
-            "Cleanup insights for a project",
-            "Change User Preferences",
-            "User Account",
-            "Generate Resume",
-            "View Resume",
-            "Delete Resume",
-            "View Portfolio",
-            "Add thumbnail to a project",
+            "Settings",
+            "Resume",
+            "Portfolio",
             "Run LLM summary (test.zip)",
+            "Project success report (ZIP)",
             "Exit"
         ]
         for i, expected in enumerate(expected_items):
@@ -113,8 +92,8 @@ class TestMainMenu:
         from cli.main_menu import MENU_ITEMS
         
         # Verify menu structure
-        assert len(MENU_ITEMS) == 18
-        # Options 1-17 should have handlers, option 18 is "EXIT"
+        assert len(MENU_ITEMS) == 11
+        # Options 1-10 should have handlers, option 11 is "EXIT"
         # This tests the structure, actual handler calls are tested in integration
     
     @patch('cli.user_menus.login_menu', return_value=False)
@@ -177,30 +156,18 @@ class TestMainMenu:
     
     def test_eof_error_handling_logic(self):
         """Test that EOFError handling logic exists"""
-        # Test that the code handles EOFError by setting choice to "17"
-        # Note: The code sets it to "17" but that's not the exit option anymore
+        # Test that the code handles EOFError by setting choice to "11"
         try:
             raise EOFError()
         except EOFError:
-            choice = "17"  # This is what the code does (but 18 is actually EXIT)
-            assert choice == "17"
+            choice = "11"
+            assert choice == "11"
     
-    def test_user_account_menu_display_logic(self):
-        """Test that user account menu display logic works"""
-        # Test the logic for displaying user account menu item
-        AuthManager._current_user = {'user_name': 'testuser', 'user_id': 1}
-        
-        # Verify the logic: if idx == 11, show username if logged in
-        idx = 11
-        if idx == 11:
-            if AuthManager.is_user_logged_in():
-                current_user = AuthManager.get_current_username()
-                display_text = f"{idx}. User Account ({current_user})"
-                assert "User Account" in display_text
-                assert current_user in display_text
-            else:
-                display_text = f"{idx}. User Account (Login/Register)"
-                assert "Login/Register" in display_text
+    def test_settings_menu_in_menu_items(self):
+        """Test that Settings menu item exists"""
+        # Settings is option 6
+        assert "Settings" in MENU_ITEMS
+        assert MENU_ITEMS[5] == "Settings"  # Index 5 = option 6
     
     def test_logout_on_exit_logic(self):
         """Test that logout logic is correct for exit"""
@@ -217,39 +184,32 @@ class TestMainMenu:
     def test_menu_items_structure(self):
         """Test that MENU_ITEMS has correct structure"""
         assert isinstance(MENU_ITEMS, list)
-        assert len(MENU_ITEMS) == 18
-        assert "Upload a ZIP file" in MENU_ITEMS
+        assert len(MENU_ITEMS) == 11
+        assert "List/Manage projects" in MENU_ITEMS
         assert "Exit" in MENU_ITEMS
-        assert "User Account" in MENU_ITEMS
+        assert "Settings" in MENU_ITEMS
     
     def test_menu_handlers_exist(self):
         """Test that all menu handlers are importable"""
         from cli.main_menu import (
-            handle_upload_file,
-            handle_list_projects,
-            handle_analyze_metrics_and_summary,
-            analyze_project_menu,
+            project_menu,
+            analysis_menu,
             handle_rank_projects,
             handle_rank_and_summarize_projects,
             handle_view_edit_rankings,
-            manage_external_services_menu,
-            handle_cleanup_insights,
-            ask_user_preferences,
+            settings_menu,
+            resume_menu,
             portfolio_menu,
-            handle_generate_resume,
-            handle_view_resume,
-            handle_delete_resume,
-            handle_add_project_thumbnail,
-            handle_llm_summary
+            handle_llm_summary,
+            handle_zip_success_report
         )
-        from cli.user_menus import user_account_menu
         
         # Verify all handlers are callable
-        assert callable(handle_upload_file)
-        assert callable(handle_list_projects)
-        assert callable(handle_add_project_thumbnail)
+        assert callable(project_menu)
+        assert callable(analysis_menu)
         assert callable(handle_llm_summary)
-        assert callable(user_account_menu)
+        assert callable(handle_zip_success_report)
+        assert callable(settings_menu)
     
     def test_invalid_session_continue_logic(self):
         """Test that menu continues logic when session is invalid after choice"""

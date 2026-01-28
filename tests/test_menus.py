@@ -209,6 +209,37 @@ def test_handle_rank_projects_save_flow(mock_stdout, mock_input, mock_rank, mock
     assert "Ranking all projects" in mock_stdout.getvalue()
 
 
+@patch("analysis.analyze_zip_project", return_value={
+    "project_name": "demo",
+    "zip_path": "/tmp/demo.zip",
+    "success": {"status": "partial", "score": 55, "confidence": 0.5, "is_successful": False},
+    "signals": {"has_entrypoint": True},
+    "evidence": {"entrypoints": ["index.html"]},
+})
+@patch("parsing.file_contents_manager.get_zip_file", return_value=b"zip-bytes")
+@patch("project_manager.get_project_by_id", return_value={"id": 1, "filepath": "/tmp/demo.zip"})
+@patch("cli.menus.select_project_interactive", return_value={"id": 1, "filename": "demo.zip"})
+@patch("builtins.input", return_value="")
+@patch("sys.stdout", new_callable=StringIO)
+def test_handle_zip_success_report(
+    mock_stdout,
+    mock_input,
+    mock_select,
+    mock_get_project,
+    mock_get_zip,
+    mock_analyze,
+):
+    menus.handle_zip_success_report()
+
+    mock_select.assert_called_once()
+    mock_get_project.assert_called_once_with(1)
+    mock_get_zip.assert_called_once_with(1)
+    mock_analyze.assert_called_once()
+    output = mock_stdout.getvalue()
+    assert "Project Success Report (ZIP)" in output
+    assert "Status : partial" in output
+
+
 @patch("cli.menus.AuthManager")
 @patch("cli.menus.save_rankings_with_summaries")
 @patch("cli.menus.rank_all_projects", return_value=[{"id": 2}])
@@ -227,9 +258,9 @@ def test_handle_rank_and_summarize_projects(mock_input, mock_rank_and_summarize,
     mock_save.assert_called_once_with([{"id": 2}], True)
 
 
-@patch("cli.menus.update_ranking_position", return_value=True)
 @patch("cli.menus.update_ranking_summary", return_value=True)
 @patch("cli.menus.update_ranking_score", return_value=True)
+@patch("analysis.ranking_storage.clean_error_summaries", return_value=True)
 @patch(
     "cli.menus.get_stored_ranking_by_project_id",
     return_value={
@@ -255,9 +286,8 @@ def test_handle_rank_and_summarize_projects(mock_input, mock_rank_and_summarize,
         "Updated summary",
         "",  # end summary input
         "4",
-        "10",
-        "2",  # change rank
-        "6",  # back to main menu (option changed from 5 to 6)
+        "y",  # clean error summaries
+        "5",  # back to main menu
     ],
 )
 @patch("sys.stdout", new_callable=StringIO)
@@ -266,9 +296,9 @@ def test_handle_view_edit_rankings_full_loop(
     mock_input,
     mock_get_rankings,
     mock_get_by_id,
+    mock_clean,
     mock_update_score,
     mock_update_summary,
-    mock_update_position,
 ):
     """Exercise the edit rankings menu through multiple options."""
     menus.handle_view_edit_rankings()
@@ -277,12 +307,12 @@ def test_handle_view_edit_rankings_full_loop(
     assert "VIEW AND EDIT STORED RANKINGS" in out
     assert "Successfully updated score" in out
     assert "Successfully updated summary" in out
-    assert "Successfully updated rank position" in out
+    assert "Error summaries cleaned successfully" in out
 
 
 @patch("analysis.ranking_storage.clean_error_summaries", return_value=True)
 @patch("cli.menus.get_stored_rankings", return_value=[{"rank_position": 1, "project_id": 10, "score": 9.0, "ranking_data": {"filename": "example"}, "summary": "Existing"}])
-@patch("builtins.input", side_effect=["5", "y", "6"])
+@patch("builtins.input", side_effect=["4", "y", "5"])
 @patch("sys.stdout", new_callable=StringIO)
 def test_handle_view_edit_rankings_clean_error_summaries(
     mock_stdout, mock_input, mock_get_rankings, mock_clean
@@ -297,7 +327,7 @@ def test_handle_view_edit_rankings_clean_error_summaries(
 
 @patch("analysis.ranking_storage.clean_error_summaries", return_value=True)
 @patch("cli.menus.get_stored_rankings", return_value=[{"rank_position": 1, "project_id": 10, "score": 9.0, "ranking_data": {"filename": "example"}, "summary": "Existing"}])
-@patch("builtins.input", side_effect=["5", "n", "6"])
+@patch("builtins.input", side_effect=["4", "n", "5"])
 @patch("sys.stdout", new_callable=StringIO)
 def test_handle_view_edit_rankings_clean_error_summaries_cancelled(
     mock_stdout, mock_input, mock_get_rankings, mock_clean
@@ -311,11 +341,15 @@ def test_handle_view_edit_rankings_clean_error_summaries_cancelled(
 
 
 @patch("cli.menus.delete_insights", return_value=(1, 1, 1))
+@patch("project_manager.get_project_by_id", return_value={"id": 42})
 @patch("builtins.input", side_effect=["42", "y"])
 @patch("sys.stdout", new_callable=StringIO)
-def test_handle_cleanup_insights_confirms_and_deletes(mock_stdout, mock_input, mock_delete):
+def test_handle_cleanup_insights_confirms_and_deletes(
+    mock_stdout, mock_input, mock_get_project, mock_delete
+):
     """cleanup menu should call delete_insights when user confirms."""
     menus.handle_cleanup_insights()
+    mock_get_project.assert_called_once_with(42)
     mock_delete.assert_called_once_with(42)
     assert "Deleted: project_metrics=1" in mock_stdout.getvalue()
 
@@ -326,6 +360,150 @@ def test_portfolio_menu_delegates(mock_portfolio_menu):
     menus.portfolio_menu()
     mock_portfolio_menu.assert_called_once()
 
+
+@patch("cli.menus.handle_cleanup_insights")
+@patch("cli.menus.handle_add_project_thumbnail")
+@patch("cli.menus.handle_list_projects")
+@patch("cli.menus.handle_upload_file")
+@patch("builtins.input", side_effect=["1", "5"])
+@patch("sys.stdout", new_callable=StringIO)
+def test_project_menu_routes_and_back(
+    mock_stdout,
+    mock_input,
+    mock_upload,
+    mock_list,
+    mock_thumbnail,
+    mock_cleanup,
+):
+    """project_menu should route to handlers and return on back."""
+    menus.project_menu()
+    mock_upload.assert_called_once()
+    mock_list.assert_not_called()
+    mock_thumbnail.assert_not_called()
+    mock_cleanup.assert_not_called()
+
+
+@patch("cli.menus.ask_user_preferences")
+@patch("cli.menus.manage_external_services_menu")
+@patch("cli.user_menus.user_account_menu")
+@patch("builtins.input", side_effect=["1", "4"])
+@patch("sys.stdout", new_callable=StringIO)
+def test_settings_menu_routes_and_back(
+    mock_stdout,
+    mock_input,
+    mock_user_account_menu,
+    mock_manage_external,
+    mock_prefs,
+):
+    """settings_menu should route to handlers and return on back."""
+    menus.settings_menu(MagicMock(), MagicMock())
+    mock_manage_external.assert_called_once()
+    mock_prefs.assert_not_called()
+    mock_user_account_menu.assert_not_called()
+
+
+@patch("cli.menus.handle_upload_file")
+@patch("builtins.input", side_effect=["1", "6", "5"])
+@patch("sys.stdout", new_callable=StringIO)
+def test_project_menu_invalid_choice_then_back(
+    mock_stdout,
+    mock_input,
+    mock_upload,
+):
+    """project_menu should handle invalid input and continue."""
+    menus.project_menu()
+    output = mock_stdout.getvalue()
+    assert "Invalid choice" in output
+    mock_upload.assert_called_once()
+
+
+@patch("cli.menus.manage_external_services_menu")
+@patch("builtins.input", side_effect=["9", "4"])
+@patch("sys.stdout", new_callable=StringIO)
+def test_settings_menu_invalid_choice_then_back(
+    mock_stdout,
+    mock_input,
+    mock_manage_external,
+):
+    """settings_menu should handle invalid input and continue."""
+    menus.settings_menu(MagicMock(), MagicMock())
+    output = mock_stdout.getvalue()
+    assert "Invalid choice" in output
+    mock_manage_external.assert_not_called()
+
+
+@patch("cli.menus.handle_analyze_metrics_and_summary")
+@patch("cli.menus.analyze_project_menu")
+@patch("cli.menus.AuthManager.get_current_username", return_value="test_user")
+@patch("cli.menus.ExternalServicePermission")
+def test_analysis_menu_routes_to_full_analysis_when_permission_granted(
+    mock_perm_cls,
+    mock_get_username,
+    mock_analyze_menu,
+    mock_full_analysis,
+):
+    """analysis_menu should route to full analysis when permission is True."""
+    mock_perm = mock_perm_cls.return_value
+    mock_perm.has_permission.return_value = True
+
+    menus.analysis_menu()
+
+    mock_full_analysis.assert_called_once()
+    mock_analyze_menu.assert_not_called()
+
+
+@patch("cli.menus.handle_analyze_metrics_and_summary")
+@patch("cli.menus.analyze_project_menu")
+@patch("cli.menus.AuthManager.get_current_username", return_value="test_user")
+@patch("cli.menus.ExternalServicePermission")
+def test_analysis_menu_routes_to_privacy_when_permission_not_granted(
+    mock_perm_cls,
+    mock_get_username,
+    mock_analyze_menu,
+    mock_full_analysis,
+):
+    """analysis_menu should route to privacy mode when permission is False/None."""
+    mock_perm = mock_perm_cls.return_value
+    mock_perm.has_permission.return_value = None
+
+    menus.analysis_menu()
+
+    mock_analyze_menu.assert_called_once()
+    mock_full_analysis.assert_not_called()
+
+
+@patch("cli.menus.handle_generate_resume")
+@patch("cli.menus.handle_view_resume")
+@patch("cli.menus.handle_delete_resume")
+@patch("builtins.input", side_effect=["1", "4"])
+@patch("sys.stdout", new_callable=StringIO)
+def test_resume_menu_routes_and_back(
+    mock_stdout,
+    mock_input,
+    mock_delete,
+    mock_view,
+    mock_generate,
+):
+    """resume_menu should route to handlers and return on back."""
+    menus.resume_menu()
+    mock_generate.assert_called_once()
+    mock_view.assert_not_called()
+    mock_delete.assert_not_called()
+
+
+@patch("cli.menus.handle_generate_resume")
+@patch("builtins.input", side_effect=["9", "4"])
+@patch("sys.stdout", new_callable=StringIO)
+def test_resume_menu_invalid_choice_then_back(
+    mock_stdout,
+    mock_input,
+    mock_generate,
+):
+    """resume_menu should handle invalid input and continue."""
+    menus.resume_menu()
+    output = mock_stdout.getvalue()
+    assert "Invalid choice" in output
+    mock_generate.assert_not_called()
 
 @patch("account.user_manager.AuthManager.get_current_user")
 @patch("account.user_manager.AuthManager.is_user_logged_in")

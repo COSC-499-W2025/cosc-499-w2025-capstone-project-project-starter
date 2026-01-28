@@ -275,7 +275,7 @@ class TestUpdateRankingScore:
         result = update_ranking_score(10, 95.0)
         
         assert result is True
-        mock_cursor.execute.assert_called_once()
+        assert mock_cursor.execute.call_count == 2
     
     @patch('analysis.ranking_storage.AuthManager.get_current_username', return_value='test_user')
     @patch('analysis.ranking_storage.with_db_cursor')
