@@ -21,6 +21,7 @@ from database.user_preferences import get_user_git_username, update_user_git_use
 from account.user_manager import AuthManager
 from tools.cleanup_insights import delete_insights
 from cli.display import display_success, display_error
+from .menu_runner import MenuSpec, run_menu
 
 def analyze_project_menu():
     """
@@ -56,130 +57,105 @@ def analysis_menu():
 
 def resume_menu():
     """Unified resume menu that consolidates all resume-related options."""
-    
-    SETTINGS_OPTIONS = [
+    options = [
         "Generate Resume",
         "Export Resume",
         "Delete Resume",
-        "Back to main menu"
+        "Back to main menu",
     ]
-    
+
+    spec = MenuSpec(
+        title="RESUME OPTIONS",
+        options=options,
+        prompt="Choose an option",
+    )
+
     handlers = {
         "1": lambda: handle_generate_resume(),
         "2": lambda: handle_view_resume(),
         "3": lambda: handle_delete_resume(),
-        "4": "BACK"
+        "4": "BACK",
     }
-    
-    while True:
-        print("\n" + "="*70)
-        print("RESUME OPTIONS")
-        print("="*70)
-        for idx, option in enumerate(SETTINGS_OPTIONS, start=1):
-            print(f"{idx}. {option}")
-        print("="*70)
-        
-        choice = input("Choose an option (1-4): ").strip()
-        handler = handlers.get(choice)
-        
-        if handler == "BACK":
-            return
-        elif handler:
-            handler()
-        else:
-            print("Invalid choice. Please enter 1, 2, 3, or 4.")
 
+    run_menu(spec, handlers, pause_after_action=False)
+    return
 
 def project_menu():
     """Unified menu to manage projects"""
-    
-    SETTINGS_OPTIONS = [
+    options = [
         "Upload a ZIP file",
         "List stored projects",
         "Add a thumbnail to a project",
         "Delete a project",
-        "Back to main menu"
+        "Back to main menu",
     ]
-    
+
+    spec = MenuSpec(
+        title="PROJECTS OPTIONS",
+        options=options,
+        prompt="Choose an option",
+    )
+
     handlers = {
         "1": lambda: handle_upload_file(),
         "2": lambda: handle_list_projects(),
         "3": lambda: handle_add_project_thumbnail(),
         "4": lambda: handle_cleanup_insights(),
-        "5": "BACK"
+        "5": "BACK",
     }
-    
-    while True:
-        print("\n" + "="*70)
-        print("PROJECTS OPTIONS")
-        print("="*70)
-        for idx, option in enumerate(SETTINGS_OPTIONS, start=1):
-            print(f"{idx}. {option}")
-        print("="*70)
-        
-        choice = input("Choose an option (1-5): ").strip()
-        handler = handlers.get(choice)
-        
-        if handler == "BACK":
-            return
-        elif handler:
-            handler()
-        else:
-            print("Invalid choice. Please enter 1, 2, 3, 4, or 5.")
+
+    run_menu(spec, handlers, pause_after_action=False)
+    return
 
 
 def settings_menu(consent_manager, collab_manager):
     """Unified settings menu that consolidates all settings-related options."""
     from cli.user_menus import user_account_menu
-    
-    SETTINGS_OPTIONS = [
+
+    options = [
         "External Service Settings",
         "User Preferences",
         "User Account",
-        "Back to main menu"
+        "Back to main menu",
     ]
-    
+
+    spec = MenuSpec(
+        title="SETTINGS",
+        options=options,
+        prompt="Choose an option",
+    )
+
     handlers = {
         "1": lambda: manage_external_services_menu(),
         "2": lambda: ask_user_preferences(consent_manager, collab_manager, False),
         "3": lambda: user_account_menu(),
-        "4": "BACK"
+        "4": "BACK",
     }
-    
-    while True:
-        print("\n" + "="*70)
-        print("SETTINGS")
-        print("="*70)
-        for idx, option in enumerate(SETTINGS_OPTIONS, start=1):
-            print(f"{idx}. {option}")
-        print("="*70)
-        
-        choice = input("Choose an option (1-4): ").strip()
-        handler = handlers.get(choice)
-        
-        if handler == "BACK":
-            return
-        elif handler:
-            handler()
-        else:
-            print("Invalid choice. Please enter 1, 2, 3, or 4.")
+
+    run_menu(spec, handlers, pause_after_action=False)
+    return
 
 
 def manage_external_services_menu():
     """Manage external service permissions (settings menu)."""
     current_user = AuthManager.get_current_username() or 'default_user'
+
     def view_status():
         permission_manager = ExternalServicePermission(current_user)
         has_permission = permission_manager.has_permission('LLM')
         status_messages = {
             None: "No permission set (will be asked on first analysis)",
             True: "External service permission GRANTED\n  Enhanced analysis is enabled",
-            False: "External service permission DECLINED\n  Local analysis only (data stays private)"
+            False: "External service permission DECLINED\n  Local analysis only (data stays private)",
         }
-        print("\n" + "="*50)
+        print("\n" + "=" * 50)
         print(f"Status: {status_messages[has_permission]}")
-        print("="*50)
-    
+        print("=" * 50)
+
+    def grant_or_update():
+        # Keep existing behavior
+        request_external_service_permission(current_user, 'LLM')
+
     def revoke_permission():
         confirm = input("\nAre you sure you want to revoke external service permission? (yes/no): ").strip().lower()
         if confirm in ['yes', 'y']:
@@ -188,32 +164,32 @@ def manage_external_services_menu():
             print("  Local analysis will be used (your data stays private)")
         else:
             print("\nAction cancelled")
-    
+
+    options = [
+        "View current permission status",
+        "Grant/Update external service permission",
+        "Revoke external service permission",
+        "Back to main menu",
+    ]
+
+    spec = MenuSpec(
+        title="External Service Settings",
+        options=options,
+        prompt="Choose an option",
+        show_header=True,
+    )
+
     handlers = {
         "1": view_status,
-        "2": lambda: request_external_service_permission(current_user, 'LLM'),
+        "2": grant_or_update,
         "3": revoke_permission,
-        "4": "BACK"
+        "4": "BACK",
     }
-    
-    print("\n" + "-"*50)
-    print("External Service Settings")
-    print("-"*50)
-    print("1. View current permission status")
-    print("2. Grant/Update external service permission")
-    print("3. Revoke external service permission")
-    print("4. Back to main menu")
-    print("-"*50)
-    
-    choice = input("Choose an option (1-4): ").strip()
-    handler = handlers.get(choice)
-    
-    if handler == "BACK":
-        return
-    elif handler:
-        handler()
-    else:
-        print("Invalid choice. Please enter 1, 2, 3, or 4.")
+
+    # Loop until user chooses BACK (run_menu will keep looping internally)
+    run_menu(spec, handlers, pause_after_action=True)
+    return
+
 
 
 def ask_user_preferences(consent_manager, collab_manager, is_start):
