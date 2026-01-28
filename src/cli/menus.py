@@ -180,14 +180,14 @@ def manage_external_services_menu():
     )
 
     handlers = {
-        "1": view_status,
-        "2": grant_or_update,
-        "3": revoke_permission,
+        "1": lambda: (view_status() or "BACK"),
+        "2": lambda: (grant_or_update() or "BACK"),
+        "3": lambda: (revoke_permission() or "BACK"),
         "4": "BACK",
     }
 
     # Loop until user chooses BACK (run_menu will keep looping internally)
-    run_menu(spec, handlers, pause_after_action=True)
+    run_menu(spec, handlers, pause_after_action=False)
     return
 
 

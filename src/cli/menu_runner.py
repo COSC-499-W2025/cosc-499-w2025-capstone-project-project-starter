@@ -34,10 +34,12 @@ def run_menu(
     spec: MenuSpec,
     handlers: Dict[str, HandlerOrSentinel],
     *,
-    input_fn: Callable[[str], str] = input,
+    input_fn: Optional[Callable[[str], str]] = None,
     print_fn: Callable[[str], None] = print,
     pause_after_action: bool = False,
 ) -> str:
+    if input_fn is None:
+        input_fn = input
     """
     Run a CLI menu loop.
 
