@@ -1,4 +1,4 @@
-from ..config.db_config import with_db_cursor
+from config.db_config import with_db_cursor
 
 
 class ServiceConfig:
