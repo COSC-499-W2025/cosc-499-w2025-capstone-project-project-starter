@@ -41,7 +41,7 @@ def migrate_external_service_permissions():
                 table_exists = cursor.fetchone()[0]
                 
                 if not table_exists:
-                    print("✓ Table does not exist yet. It will be created with the new schema.")
+                    print(" Table does not exist yet. It will be created with the new schema.")
                     return
                 
                 # Check if user_name column already exists
@@ -54,11 +54,11 @@ def migrate_external_service_permissions():
                 columns = [row[0] for row in cursor.fetchall()]
                 
                 if 'user_name' in columns and 'user_id' not in columns:
-                    print("✓ Migration already completed. Table uses user_name.")
+                    print(" Migration already completed. Table uses user_name.")
                     return
                 
                 if 'user_id' not in columns:
-                    print("⚠ Warning: Neither user_id nor user_name column found. Table may be corrupted.")
+                    print(" Warning: Neither user_id nor user_name column found. Table may be corrupted.")
                     return
                 
                 print("→ Found user_id column. Beginning migration...")
@@ -128,13 +128,13 @@ def migrate_external_service_permissions():
                         ON DELETE CASCADE;
                     """)
                 else:
-                    print("  ⚠ Warning: user_informations table not found. Skipping foreign key constraint.")
+                    print(" Warning: user_informations table not found. Skipping foreign key constraint.")
                 
                 conn.commit()
-                print("✓ Migration completed successfully!")
+                print("Migration completed successfully!")
                 
     except Exception as e:
-        print(f"✗ Migration failed: {e}")
+        print(f"Migration failed: {e}")
         import traceback
         traceback.print_exc()
         return False
