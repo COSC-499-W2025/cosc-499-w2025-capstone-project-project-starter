@@ -617,9 +617,17 @@ def handle_cleanup_insights():
         from project_manager import get_project_by_id
 
         project_id = int(pid)
-        project = get_project_by_id(project_id)
+        
+        # Get current logged-in user for data isolation
+        current_username = AuthManager.get_current_username()
+        if not current_username:
+            print("Error: You must be logged in to delete projects.")
+            return
+        
+        # Verify project exists and belongs to current user
+        project = get_project_by_id(project_id, user_name=current_username)
         if not project:
-            print(f"No project found with ID {project_id}.")
+            print(f"No project found with ID {project_id} or you don't have permission to delete it.")
             return
 
         confirm = input(
@@ -627,8 +635,13 @@ def handle_cleanup_insights():
             f"This cannot be undone. (y/n): "
         ).strip().lower()
         if confirm in ('y', 'yes'):
-            m, f, p = delete_insights(project_id)
-            print(f"Deleted: project_metrics={m}, file_contents={f}, uploaded_files={p}")
+            try:
+                m, f, p = delete_insights(project_id, user_name=current_username)
+                print(f"Deleted: project_metrics={m}, file_contents={f}, uploaded_files={p}")
+            except PermissionError as e:
+                print(f"Error: {e}")
+            except Exception as e:
+                print(f"Error deleting project: {e}")
         else:
             print("Cancelled.")
     else:
