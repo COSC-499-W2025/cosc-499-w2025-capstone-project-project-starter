@@ -5,42 +5,111 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Artifact - Dashboard</title>
     <style>
+        /* Light Mode (Default) */
+        :root {
+            --bg-primary: #ffffff;
+            --bg-secondary: #f5f5f5;
+            --bg-card: #fafafa;
+            --accent-primary: #000000;
+            --accent-hover: #333333;
+            --text-primary: #000000;
+            --text-secondary: #555555;
+            --text-muted: #888888;
+            --border-color: #e0e0e0;
+            --error-color: #dc2626;
+            --success-color: #16a34a;
+            --badge-bg: #000000;
+            --badge-text: #ffffff;
+        }
+
+        /* Dark Mode */
+        [data-theme="dark"] {
+            --bg-primary: #000000;
+            --bg-secondary: #111111;
+            --bg-card: #0a0a0a;
+            --accent-primary: #ffffff;
+            --accent-hover: #cccccc;
+            --text-primary: #ffffff;
+            --text-secondary: #aaaaaa;
+            --text-muted: #777777;
+            --border-color: #333333;
+            --error-color: #ef4444;
+            --success-color: #22c55e;
+            --badge-bg: #ffffff;
+            --badge-text: #000000;
+        }
+
         * { margin: 0; padding: 0; box-sizing: border-box; }
-        body { font-family: system-ui, sans-serif; background: #0f0f12; color: #f4f4f5; padding: 20px; }
-        .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; padding: 15px; background: #1a1a21; border-radius: 8px; }
+        body { font-family: system-ui, sans-serif; background: var(--bg-primary); color: var(--text-primary); padding: 20px; transition: background 0.3s, color 0.3s; }
+        .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; padding: 15px; background: var(--bg-secondary); border-radius: 8px; border: 1px solid var(--border-color); }
+        .header-left { display: flex; align-items: center; gap: 15px; }
         .menu-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 10px; margin-bottom: 20px; }
-        .menu-btn { padding: 15px; background: #22222d; border: 1px solid #2e2e3a; border-radius: 8px; color: #f4f4f5; cursor: pointer; text-align: left; }
-        .menu-btn:hover { background: #2e2e3a; border-color: #6366f1; }
-        .view-panel { background: #1a1a21; border: 1px solid #2e2e3a; border-radius: 8px; padding: 20px; margin-top: 20px; }
-        .view-panel h3 { margin-bottom: 15px; }
-        .btn { padding: 10px 20px; background: #6366f1; border: none; border-radius: 6px; color: white; cursor: pointer; margin: 5px; }
-        .btn:hover { background: #818cf8; }
-        .btn-secondary { background: #2e2e3a; }
-        .btn-secondary:hover { background: #3e3e4a; }
-        input[type="file"], input[type="text"] { padding: 8px; background: #22222d; border: 1px solid #2e2e3a; border-radius: 6px; color: #f4f4f5; width: 100%; margin: 5px 0; }
-        .project-list { max-height: 400px; overflow-y: auto; border: 1px solid #2e2e3a; border-radius: 6px; padding: 10px; margin: 10px 0; }
-        .project-item { padding: 10px; border-bottom: 1px solid #2e2e3a; cursor: pointer; }
-        .project-item:hover { background: #22222d; }
-        .project-item.selected { background: #2e2e3a; border-color: #6366f1; }
+        .menu-btn { padding: 15px; background: var(--bg-card); border: 1px solid var(--border-color); border-radius: 8px; color: var(--text-primary); cursor: pointer; text-align: left; transition: all 0.2s; font-size: 14px; }
+        .menu-btn:hover { background: var(--bg-secondary); border-color: var(--accent-primary); }
+        .view-panel { background: var(--bg-secondary); border: 1px solid var(--border-color); border-radius: 8px; padding: 20px; margin-top: 20px; }
+        .view-panel h3 { margin-bottom: 15px; color: var(--text-primary); }
+        .btn { padding: 10px 20px; background: var(--accent-primary); border: none; border-radius: 6px; color: var(--bg-primary); cursor: pointer; margin: 5px; font-weight: 500; transition: all 0.2s; }
+        .btn:hover { background: var(--accent-hover); }
+        .btn-secondary { background: var(--bg-card); color: var(--text-primary); border: 1px solid var(--border-color); }
+        .btn-secondary:hover { background: var(--bg-secondary); border-color: var(--accent-primary); }
+        input[type="file"], input[type="text"] { padding: 8px; background: var(--bg-card); border: 1px solid var(--border-color); border-radius: 6px; color: var(--text-primary); width: 100%; margin: 5px 0; }
+        .project-list { max-height: 400px; overflow-y: auto; border: 1px solid var(--border-color); border-radius: 6px; padding: 10px; margin: 10px 0; background: var(--bg-card); }
+        .project-item { padding: 10px; border-bottom: 1px solid var(--border-color); cursor: pointer; transition: background 0.2s; }
+        .project-item:hover { background: var(--bg-secondary); }
+        .project-item.selected { background: var(--bg-secondary); border-left: 3px solid var(--accent-primary); }
         .message { padding: 12px; border-radius: 6px; margin: 10px 0; }
-        .message.error { background: rgba(239, 68, 68, 0.1); border: 1px solid rgba(239, 68, 68, 0.3); color: #ef4444; }
-        .message.success { background: rgba(34, 197, 94, 0.1); border: 1px solid rgba(34, 197, 94, 0.3); color: #22c55e; }
-        .result { margin-top: 15px; padding: 15px; background: #22222d; border-radius: 6px; white-space: pre-wrap; }
-        .analysis-section { margin: 15px 0; padding: 15px; background: #1a1a21; border-radius: 6px; border-left: 3px solid #6366f1; }
-        .analysis-section h4 { color: #818cf8; margin-bottom: 10px; font-size: 1.1em; }
-        .analysis-item { margin: 8px 0; padding: 8px; background: #22222d; border-radius: 4px; }
-        .analysis-label { color: #a1a1aa; font-weight: 600; }
-        .analysis-value { color: #f4f4f5; margin-left: 10px; }
+        .message.error { background: rgba(220, 38, 38, 0.1); border: 1px solid rgba(220, 38, 38, 0.3); color: var(--error-color); }
+        .message.success { background: rgba(22, 163, 74, 0.1); border: 1px solid rgba(22, 163, 74, 0.3); color: var(--success-color); }
+        .result { margin-top: 15px; padding: 15px; background: var(--bg-card); border-radius: 6px; white-space: pre-wrap; border: 1px solid var(--border-color); }
+        .analysis-section { margin: 15px 0; padding: 15px; background: var(--bg-card); border-radius: 6px; border-left: 3px solid var(--accent-primary); }
+        .analysis-section h4 { color: var(--text-primary); margin-bottom: 10px; font-size: 1.1em; font-weight: 600; }
+        .analysis-item { margin: 8px 0; padding: 8px; background: var(--bg-secondary); border-radius: 4px; }
+        .analysis-label { color: var(--text-secondary); font-weight: 600; }
+        .analysis-value { color: var(--text-primary); margin-left: 10px; }
         .analysis-list { list-style: none; padding-left: 0; }
-        .analysis-list li { padding: 5px 0; border-bottom: 1px solid #2e2e3a; }
+        .analysis-list li { padding: 5px 0; border-bottom: 1px solid var(--border-color); }
         .analysis-list li:last-child { border-bottom: none; }
-        .badge { display: inline-block; padding: 4px 8px; background: #6366f1; border-radius: 4px; font-size: 0.85em; margin: 2px; }
+        .badge { display: inline-block; padding: 4px 8px; background: var(--badge-bg); color: var(--badge-text); border-radius: 4px; font-size: 0.85em; margin: 2px; font-weight: 500; }
+        .badge-success { background: #16a34a; color: #ffffff; }
+        .badge-warning { background: #d97706; color: #ffffff; }
+        .badge-info { background: #0284c7; color: #ffffff; }
+        .badge-purple { background: #7c3aed; color: #ffffff; }
+        .text-muted { color: var(--text-muted); }
+        .text-accent { color: var(--accent-primary); }
+        .perf-note { margin-left: 10px; color: #16a34a; font-size: 0.9em; font-weight: 500; }
+        
+        /* Theme Toggle Button */
+        .theme-toggle { 
+            background: var(--bg-card); 
+            border: 1px solid var(--border-color); 
+            border-radius: 6px; 
+            padding: 8px 12px; 
+            cursor: pointer; 
+            display: flex; 
+            align-items: center; 
+            gap: 6px;
+            color: var(--text-primary);
+            font-size: 14px;
+            transition: all 0.2s;
+        }
+        .theme-toggle:hover { background: var(--bg-secondary); border-color: var(--accent-primary); }
+        .theme-toggle svg { width: 18px; height: 18px; }
     </style>
 </head>
 <body>
     <div class="header">
-        <h1>Artifact Dashboard - <span id="username"></span></h1>
-        <button class="btn btn-secondary" onclick="logout()">Sign Out</button>
+        <div class="header-left">
+            <h1>Artifact Dashboard - <span id="username"></span></h1>
+        </div>
+        <div style="display: flex; gap: 10px; align-items: center;">
+            <button class="theme-toggle" onclick="toggleTheme()" id="themeToggle">
+                <svg id="themeIcon" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z" />
+                </svg>
+                <span id="themeLabel">Dark</span>
+            </button>
+            <button class="btn btn-secondary" onclick="logout()">Sign Out</button>
+        </div>
     </div>
     
     <div id="messageBox" class="message" style="display: none;"></div>
@@ -48,21 +117,20 @@
     <div class="menu-grid">
         <button class="menu-btn" onclick="showView('upload')">1. Upload ZIP</button>
         <button class="menu-btn" onclick="showView('list')">2. List Projects</button>
-        <button class="menu-btn" onclick="showView('analyze-full')">3. Analyze (Full)</button>
-        <button class="menu-btn" onclick="showView('analyze-privacy')">4. Analyze (Privacy)</button>
-        <button class="menu-btn" onclick="showView('rank')">5. Rank Projects</button>
-        <button class="menu-btn" onclick="showView('rank-top3')">6. Rank Top 3</button>
-        <button class="menu-btn" onclick="showView('rankings')">7. View Rankings</button>
-        <button class="menu-btn" onclick="showView('external')">8. External Services</button>
-        <button class="menu-btn" onclick="showView('cleanup')">9. Cleanup Insights</button>
-        <button class="menu-btn" onclick="showView('preferences')">10. Preferences</button>
-        <button class="menu-btn" onclick="showView('account')">11. Account</button>
-        <button class="menu-btn" onclick="showView('resume-gen')">12. Generate Resume</button>
-        <button class="menu-btn" onclick="showView('resume-view')">13. View Resume</button>
-        <button class="menu-btn" onclick="showView('resume-delete')">14. Delete Resume</button>
-        <button class="menu-btn" onclick="showView('portfolio')">15. View Portfolio</button>
-        <button class="menu-btn" onclick="showView('thumbnail')">16. Add Thumbnail</button>
-        <button class="menu-btn" onclick="showView('llm-summary')">17. LLM Summary</button>
+        <button class="menu-btn" onclick="showView('analyze')">3. Analyze Project</button>
+        <button class="menu-btn" onclick="showView('rank')">4. Rank Projects</button>
+        <button class="menu-btn" onclick="showView('rank-top3')">5. Rank Top 3</button>
+        <button class="menu-btn" onclick="showView('rankings')">6. View Rankings</button>
+        <button class="menu-btn" onclick="showView('external')">7. External Services</button>
+        <button class="menu-btn" onclick="showView('cleanup')">8. Cleanup Insights</button>
+        <button class="menu-btn" onclick="showView('preferences')">9. Preferences</button>
+        <button class="menu-btn" onclick="showView('account')">10. Account</button>
+        <button class="menu-btn" onclick="showView('resume-gen')">11. Generate Resume</button>
+        <button class="menu-btn" onclick="showView('resume-view')">12. View Resume</button>
+        <button class="menu-btn" onclick="showView('resume-delete')">13. Delete Resume</button>
+        <button class="menu-btn" onclick="showView('portfolio')">14. View Portfolio</button>
+        <button class="menu-btn" onclick="showView('thumbnail')">15. Add Thumbnail</button>
+        <button class="menu-btn" onclick="showView('llm-summary')">16. LLM Summary</button>
     </div>
     
     <div id="viewContainer"></div>
@@ -176,8 +244,7 @@
             const views = {
                 'upload': `<div class="view-panel"><h3>Upload ZIP File</h3><input type="file" id="zipFile" accept=".zip" /><button class="btn" onclick="uploadFile()">Upload</button><div id="uploadResult"></div></div>`,
                 'list': `<div class="view-panel"><h3>Stored Projects</h3><button class="btn" onclick="refreshProjects()">Refresh</button><button class="btn btn-secondary" onclick="loadSkills()">View Skills</button><div id="projectsList" class="project-list"></div><div id="skillsResult" class="result"></div></div>`,
-                'analyze-full': `<div class="view-panel"><h3>Analyze Project (Full Mode)</h3><div id="analyzeProjectsList" class="project-list"></div><button class="btn" onclick="analyzeProject('full')">Analyze Selected</button><div id="analyzeResult" class="result"></div></div>`,
-                'analyze-privacy': `<div class="view-panel"><h3>Analyze Project (Privacy Mode)</h3><div id="analyzePrivacyProjectsList" class="project-list"></div><button class="btn" onclick="analyzeProject('privacy')">Analyze Selected</button><div id="analyzePrivacyResult" class="result"></div></div>`,
+                'analyze': `<div class="view-panel"><h3>Analyze Project</h3><div id="analyzeProjectsList" class="project-list"></div><button class="btn" onclick="analyzeProject()">Analyze Selected</button><div id="analyzeResult" class="result"></div></div>`,
                 'rank': `<div class="view-panel"><h3>Rank All Projects</h3><button class="btn" onclick="rankProjects()">Rank Projects</button><div id="rankResult" class="result"></div></div>`,
                 'rank-top3': `<div class="view-panel"><h3>Rank and Summarize Top 3</h3><button class="btn" onclick="rankTop3()">Rank & Summarize</button><div id="rankTop3Result" class="result"></div></div>`,
                 'rankings': `<div class="view-panel"><h3>View and Edit Rankings</h3><button class="btn" onclick="loadRankings()">Load Rankings</button><div id="rankingsList" class="result"></div></div>`,
@@ -195,12 +262,11 @@
             
             container.innerHTML = views[viewName] || '<div class="view-panel"><p>View not found</p></div>';
             
-            if (viewName === 'list' || viewName === 'analyze-full' || viewName === 'analyze-privacy' || 
+            if (viewName === 'list' || viewName === 'analyze' || 
                 viewName === 'cleanup' || viewName === 'thumbnail' || viewName === 'llm-summary') {
                 setTimeout(() => {
                     const listId = viewName === 'list' ? 'projectsList' : 
-                                  viewName === 'analyze-full' ? 'analyzeProjectsList' :
-                                  viewName === 'analyze-privacy' ? 'analyzePrivacyProjectsList' :
+                                  viewName === 'analyze' ? 'analyzeProjectsList' :
                                   viewName === 'cleanup' ? 'cleanupProjectsList' :
                                   viewName === 'thumbnail' ? 'thumbnailProjectsList' : 'llmProjectsList';
                     renderProjectsList(listId, 'onProjectSelect');
@@ -359,13 +425,25 @@
                 html += '<h4> - Deep Code Analysis</h4>';
                 const deep = analysis.deep_analysis;
                 
+                // Code Quality Score
                 if (deep.code_quality_summary) {
                     const quality = deep.code_quality_summary;
                     if (quality.average_quality_score) {
                         html += `<div class="analysis-item"><span class="analysis-label">Code Quality Score:</span><span class="analysis-value">${quality.average_quality_score.toFixed(1)}/100</span></div>`;
                     }
+                    // Code Quality Strengths
+                    if (quality.strengths && quality.strengths.length > 0) {
+                        html += '<div class="analysis-item">';
+                        html += '<span class="analysis-label">Strengths:</span>';
+                        html += '<div style="margin-top: 5px;">';
+                        quality.strengths.forEach(strength => {
+                            html += `<span class="badge" style="background: #22c55e;">${strength}</span>`;
+                        });
+                        html += '</div></div>';
+                    }
                 }
                 
+                // OOP Principles with Details
                 if (deep.oop_principles_summary) {
                     const oop = deep.oop_principles_summary;
                     const oopCount = (oop.abstraction?.count || 0) + (oop.encapsulation?.count || 0) + 
@@ -374,16 +452,158 @@
                         html += '<div class="analysis-item">';
                         html += '<span class="analysis-label">OOP Principles Detected:</span>';
                         html += '<div style="margin-top: 5px;">';
-                        if (oop.abstraction?.count) html += `<span class="badge">Abstraction (${oop.abstraction.count})</span>`;
-                        if (oop.encapsulation?.count) html += `<span class="badge">Encapsulation (${oop.encapsulation.count})</span>`;
-                        if (oop.polymorphism?.count) html += `<span class="badge">Polymorphism (${oop.polymorphism.count})</span>`;
-                        if (oop.inheritance?.count) html += `<span class="badge">Inheritance (${oop.inheritance.count})</span>`;
+                        
+                        // Abstraction
+                        if (oop.abstraction?.count) {
+                            html += `<div class="analysis-item">`;
+                            html += `<span class="badge">Abstraction (${oop.abstraction.count})</span>`;
+                            if (oop.abstraction.examples && oop.abstraction.examples.length > 0) {
+                                html += '<div style="margin-top: 5px; font-size: 0.9em;" class="text-muted">';
+                                oop.abstraction.examples.slice(0, 2).forEach(ex => {
+                                    html += `<div>• ${ex.class || ex.interface || 'Class'}: ${ex.evidence || ''}</div>`;
+                                });
+                                html += '</div>';
+                            }
+                            html += '</div>';
+                        }
+                        
+                        // Encapsulation
+                        if (oop.encapsulation?.count) {
+                            html += `<div class="analysis-item">`;
+                            html += `<span class="badge">Encapsulation (${oop.encapsulation.count})</span>`;
+                            if (oop.encapsulation.examples && oop.encapsulation.examples.length > 0) {
+                                html += '<div style="margin-top: 5px; font-size: 0.9em;" class="text-muted">';
+                                oop.encapsulation.examples.slice(0, 2).forEach(ex => {
+                                    html += `<div>• ${ex.class || 'Class'}: ${ex.evidence || ''}</div>`;
+                                });
+                                html += '</div>';
+                            }
+                            html += '</div>';
+                        }
+                        
+                        // Polymorphism
+                        if (oop.polymorphism?.count) {
+                            html += `<div class="analysis-item">`;
+                            html += `<span class="badge">Polymorphism (${oop.polymorphism.count})</span>`;
+                            if (oop.polymorphism.examples && oop.polymorphism.examples.length > 0) {
+                                html += '<div style="margin-top: 5px; font-size: 0.9em;" class="text-muted">';
+                                oop.polymorphism.examples.slice(0, 2).forEach(ex => {
+                                    html += `<div>• ${ex.class || 'Class'}: ${ex.evidence || ''}</div>`;
+                                });
+                                html += '</div>';
+                            }
+                            html += '</div>';
+                        }
+                        
+                        // Inheritance
+                        if (oop.inheritance?.count) {
+                            html += `<div class="analysis-item">`;
+                            html += `<span class="badge">Inheritance (${oop.inheritance.count})</span>`;
+                            if (oop.inheritance.examples && oop.inheritance.examples.length > 0) {
+                                html += '<div style="margin-top: 5px; font-size: 0.9em;" class="text-muted">';
+                                oop.inheritance.examples.slice(0, 2).forEach(ex => {
+                                    const parents = ex.parent_classes ? ex.parent_classes.join(', ') : (ex.parent || '');
+                                    html += `<div>• ${ex.class}: inherits from ${parents}</div>`;
+                                });
+                                html += '</div>';
+                            }
+                            html += '</div>';
+                        }
+                        
                         html += '</div></div>';
                     }
                 }
                 
+                // Data Structures with Performance Notes
+                if (deep.data_structure_summary && Object.keys(deep.data_structure_summary).length > 0) {
+                    html += '<div class="analysis-item">';
+                    html += '<span class="analysis-label">Data Structures Used:</span>';
+                    html += '<div style="margin-top: 5px;">';
+                    
+                    const performanceNotes = {
+                        'hash_map': 'O(1) average lookup',
+                        'list': 'O(n) search, O(1) append',
+                        'set': 'O(1) average membership test',
+                        'tree': 'O(log n) search',
+                        'array': 'O(1) access, O(n) search'
+                    };
+                    
+                    Object.entries(deep.data_structure_summary).forEach(([struct, count]) => {
+                        if (count > 0) {
+                            const perfNote = performanceNotes[struct] || '';
+                            html += `<div class="analysis-item">`;
+                            html += `<span class="badge badge-info">${struct.replace('_', ' ')} (${count})</span>`;
+                            if (perfNote) {
+                                html += `<span class="perf-note">${perfNote}</span>`;
+                            }
+                            html += '</div>';
+                        }
+                    });
+                    html += '</div></div>';
+                }
+                
+                // Complexity Analysis
+                if (deep.complexity_summary) {
+                    const complexity = deep.complexity_summary;
+                    const hasComplexity = complexity.nested_loops > 0 || complexity.recursive_functions > 0 || complexity.complexity_awareness;
+                    
+                    if (hasComplexity) {
+                        html += '<div class="analysis-item">';
+                        html += '<span class="analysis-label">Complexity Analysis:</span>';
+                        html += '<div style="margin-top: 5px;">';
+                        
+                        if (complexity.nested_loops > 0) {
+                            html += `<div class="analysis-item">`;
+                            html += `<span class="badge badge-warning">Nested Loops (${complexity.nested_loops})</span>`;
+                            html += `<span class="text-muted" style="margin-left: 10px; font-size: 0.9em;">Potential O(n²) or higher complexity</span>`;
+                            html += '</div>';
+                        }
+                        
+                        if (complexity.recursive_functions > 0) {
+                            html += `<div class="analysis-item">`;
+                            html += `<span class="badge badge-purple">Recursive Functions (${complexity.recursive_functions})</span>`;
+                            html += `<span class="text-muted" style="margin-left: 10px; font-size: 0.9em;">Demonstrates recursive problem-solving</span>`;
+                            html += '</div>';
+                        }
+                        
+                        if (complexity.complexity_awareness) {
+                            html += `<div class="analysis-item">`;
+                            html += `<span class="badge badge-success">Complexity Awareness</span>`;
+                            html += `<span class="text-muted" style="margin-left: 10px; font-size: 0.9em;">Code includes complexity annotations or optimized algorithms</span>`;
+                            html += '</div>';
+                        }
+                        
+                        html += '</div></div>';
+                    }
+                }
+                
+                // Optimization Evidence
                 if (deep.optimization_summary && deep.optimization_summary.length > 0) {
-                    html += `<div class="analysis-item"><span class="analysis-label">Optimizations Detected:</span><span class="analysis-value">${deep.optimization_summary.length}</span></div>`;
+                    html += '<div class="analysis-item">';
+                    html += '<span class="analysis-label">Optimizations Detected:</span>';
+                    html += '<div style="margin-top: 5px;">';
+                    
+                    // Group by unique types
+                    const uniqueOptimizations = {};
+                    deep.optimization_summary.forEach(opt => {
+                        const type = opt.type || 'Other';
+                        if (!uniqueOptimizations[type]) {
+                            uniqueOptimizations[type] = opt;
+                        }
+                    });
+                    
+                    Object.values(uniqueOptimizations).forEach(opt => {
+                        html += `<div class="analysis-item">`;
+                        html += `<span class="badge badge-success">${opt.type}</span>`;
+                        html += `<div style="margin-top: 5px; font-size: 0.9em;">`;
+                        html += `<div class="text-muted">${opt.evidence}</div>`;
+                        if (opt.skill_indicator) {
+                            html += `<div class="text-accent" style="margin-top: 3px;">Skill: ${opt.skill_indicator}</div>`;
+                        }
+                        html += '</div></div>';
+                    });
+                    
+                    html += '</div></div>';
                 }
                 
                 html += '</div>';
@@ -392,13 +612,12 @@
             return html;
         }
 
-        async function analyzeProject(mode) {
+        async function analyzeProject() {
             if (!selectedProjectId) {
                 showMessage('Please select a project', 'error');
                 return;
             }
-            const resultId = mode === 'full' ? 'analyzeResult' : 'analyzePrivacyResult';
-            const resultDiv = document.getElementById(resultId);
+            const resultDiv = document.getElementById('analyzeResult');
             resultDiv.innerHTML = 'Analyzing...';
             try {
                 const data = await apiCall(`/api/projects/${selectedProjectId}/analyze?user_name=${currentUser.user_name}`, { method: 'POST' });
@@ -619,6 +838,39 @@
                 window.location.href = 'index.html';
             }
         }
+
+        // Theme Toggle
+        function toggleTheme() {
+            const html = document.documentElement;
+            const currentTheme = html.getAttribute('data-theme');
+            const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
+            
+            html.setAttribute('data-theme', newTheme);
+            localStorage.setItem('theme', newTheme);
+            updateThemeUI(newTheme);
+        }
+
+        function updateThemeUI(theme) {
+            const themeIcon = document.getElementById('themeIcon');
+            const themeLabel = document.getElementById('themeLabel');
+            
+            if (theme === 'dark') {
+                // Show sun icon for switching to light
+                themeIcon.innerHTML = '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z" />';
+                themeLabel.textContent = 'Light';
+            } else {
+                // Show moon icon for switching to dark
+                themeIcon.innerHTML = '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z" />';
+                themeLabel.textContent = 'Dark';
+            }
+        }
+
+        // Initialize theme on page load
+        (function initTheme() {
+            const savedTheme = localStorage.getItem('theme') || 'light';
+            document.documentElement.setAttribute('data-theme', savedTheme);
+            updateThemeUI(savedTheme);
+        })();
     </script>
 </body>
 </html>
