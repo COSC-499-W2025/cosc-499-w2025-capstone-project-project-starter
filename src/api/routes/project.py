@@ -215,7 +215,8 @@ async def analyze_project(project_id: int, user_name: Optional[str] = Query(None
     """Analyze a project."""
     try:
         from project_analyzer import ProjectAnalyzer
-        analyzer = ProjectAnalyzer(user_name or 'default_user')
+        # Use interactive=False to skip stdin prompts in API context
+        analyzer = ProjectAnalyzer(user_name or 'default_user', interactive=False)
         results = analyzer.analyze_uploaded_project(project_id)
         if not results.get('success'):
             raise HTTPException(status_code=400, detail=results.get('error', 'Analysis failed'))

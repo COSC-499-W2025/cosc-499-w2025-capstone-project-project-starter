@@ -66,6 +66,14 @@ async def root(request: Request):
         "version": "1.0.0"
     })
 
+@app.get("/index.html")
+async def index_html():
+    """Serve the login page."""
+    path = find_frontend_file("index.html")
+    if path:
+        return FileResponse(path)
+    raise HTTPException(status_code=404, detail="Login page not found")
+
 @app.get("/dashboard.html")
 async def dashboard():
     """Serve the dashboard page."""
