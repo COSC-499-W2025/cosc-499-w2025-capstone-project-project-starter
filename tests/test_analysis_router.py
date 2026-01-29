@@ -20,7 +20,7 @@ class TestAnalysisRouter:
     @pytest.fixture
     def router(self):
         """Create a router instance for testing."""
-        return AnalysisRouter(user_id='test_user')
+        return AnalysisRouter(user_name='test_user')
     
     @pytest.fixture
     def clean_db(self):
@@ -28,8 +28,12 @@ class TestAnalysisRouter:
        
         from config.db_config import get_connection
         from external_services.service_config import ServiceConfig
+        from database.user_informations import init_user_informations_table, create_user
         config = ServiceConfig()
         config.initialize_table()
+        
+        # Initialize user_informations table and create test user
+        init_user_informations_table()
         
         # Clean any existing test data
         conn = get_connection()
@@ -37,7 +41,11 @@ class TestAnalysisRouter:
             cursor = conn.cursor()
             try:
                 cursor.execute("DELETE FROM external_service_permissions WHERE user_name = 'test_user'")
+                cursor.execute("DELETE FROM user_informations WHERE user_name = 'test_user'")
                 conn.commit()
+                
+                # Create test user
+                create_user('test_user', 'test_password')
             except Exception as e:
                 conn.rollback()
                 print(f"Warning during cleanup: {e}")
@@ -53,6 +61,7 @@ class TestAnalysisRouter:
             cursor = conn.cursor()
             try:
                 cursor.execute("DELETE FROM external_service_permissions WHERE user_name = 'test_user'")
+                cursor.execute("DELETE FROM user_informations WHERE user_name = 'test_user'")
                 conn.commit()
             except Exception as e:
                 conn.rollback()
