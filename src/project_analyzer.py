@@ -20,7 +20,7 @@ class ProjectAnalyzer:
             user_id (str): User identifier
         """
         self.user_id = user_id
-        self.router = AnalysisRouter(user_id)
+        self.router = AnalysisRouter(user_name=user_id)
         self.local_analyzer = LocalAnalyzer()
     
     def analyze_uploaded_project(self, uploaded_file_id):
@@ -59,7 +59,7 @@ class ProjectAnalyzer:
         request_external_service_permission(self.user_id, 'LLM', force=False)
         
         # Update router with fresh permission data
-        self.router = AnalysisRouter(self.user_id)
+        self.router = AnalysisRouter(user_name=self.user_id)
         
         # Route the analysis based on user permissions
         strategy = self.router.get_analysis_strategy('project')
