@@ -33,10 +33,9 @@ class TestMainMenu:
     @patch('cli.main_menu.handle_rank_projects')
     @patch('cli.main_menu.analysis_menu')
     @patch('cli.main_menu.project_menu')
-    @patch('cli.main_menu.handle_llm_summary')
     @patch('sys.stdin.isatty', return_value=True)
     @patch('os.getenv', side_effect=lambda key, default=None: None if key == "GITHUB_ACTIONS" else default)
-    @patch('builtins.input', return_value='11')
+    @patch('builtins.input', return_value='10')
     @patch('sys.stdout', new_callable=StringIO)
     def test_main_menu_exit_option(
         self,
@@ -44,7 +43,6 @@ class TestMainMenu:
         mock_input,
         mock_getenv,
         mock_isatty,
-        mock_llm_summary,
         mock_project_menu,
         mock_analysis_menu,
         mock_rank,
@@ -69,7 +67,7 @@ class TestMainMenu:
     
     def test_menu_items_complete(self):
         """Test that all menu items are properly defined"""
-        assert len(MENU_ITEMS) == 11
+        assert len(MENU_ITEMS) == 10
         expected_items = [
             "List/Manage projects",
             "Analyze a project",
@@ -79,7 +77,6 @@ class TestMainMenu:
             "Settings",
             "Resume",
             "Portfolio",
-            "Run LLM summary (test.zip)",
             "Project success report (ZIP)",
             "Exit"
         ]
@@ -92,8 +89,8 @@ class TestMainMenu:
         from cli.main_menu import MENU_ITEMS
         
         # Verify menu structure
-        assert len(MENU_ITEMS) == 11
-        # Options 1-10 should have handlers, option 11 is "EXIT"
+        assert len(MENU_ITEMS) == 10
+        # Options 1-9 should have handlers, option 10 is "EXIT"
         # This tests the structure, actual handler calls are tested in integration
     
     @patch('cli.user_menus.login_menu', return_value=False)
@@ -156,12 +153,12 @@ class TestMainMenu:
     
     def test_eof_error_handling_logic(self):
         """Test that EOFError handling logic exists"""
-        # Test that the code handles EOFError by setting choice to "11"
+        # Test that the code handles EOFError by setting choice to "10"
         try:
             raise EOFError()
         except EOFError:
-            choice = "11"
-            assert choice == "11"
+            choice = "10"
+            assert choice == "10"
     
     def test_settings_menu_in_menu_items(self):
         """Test that Settings menu item exists"""
@@ -184,7 +181,7 @@ class TestMainMenu:
     def test_menu_items_structure(self):
         """Test that MENU_ITEMS has correct structure"""
         assert isinstance(MENU_ITEMS, list)
-        assert len(MENU_ITEMS) == 11
+        assert len(MENU_ITEMS) == 10
         assert "List/Manage projects" in MENU_ITEMS
         assert "Exit" in MENU_ITEMS
         assert "Settings" in MENU_ITEMS
@@ -200,14 +197,12 @@ class TestMainMenu:
             settings_menu,
             resume_menu,
             portfolio_menu,
-            handle_llm_summary,
             handle_zip_success_report
         )
         
         # Verify all handlers are callable
         assert callable(project_menu)
         assert callable(analysis_menu)
-        assert callable(handle_llm_summary)
         assert callable(handle_zip_success_report)
         assert callable(settings_menu)
     

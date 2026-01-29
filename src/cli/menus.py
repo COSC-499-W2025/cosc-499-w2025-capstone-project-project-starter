@@ -784,51 +784,6 @@ def handle_view_resume():
     input("\nPress Enter to continue...")
 
 
-def handle_llm_summary():
-    """Run the LLM summary against the bundled test.zip archive."""
-    print("\n" + "-"*70)
-    print("LLM Summary (test.zip)")
-    print("-"*70)
-
-    current_dir = os.path.dirname(os.path.abspath(__file__))
-    project_root = os.path.dirname(os.path.dirname(current_dir))
-    zip_path = os.path.join(project_root, "test.zip")
-
-    if not os.path.exists(zip_path):
-        print(f"Default archive not found at: {zip_path}")
-        zip_path = input("Enter path to a zip file (or press Enter to cancel): ").strip()
-        if not zip_path:
-            print("Cancelled.")
-            return
-
-    command = [
-        sys.executable,
-        "-m",
-        "src.tools.ollama_analyze_file",
-        zip_path,
-        "--zip",
-        "--max-files",
-        "200",
-        "--max-bytes-per-file",
-        "4000",
-    ]
-
-    try:
-        result = subprocess.run(command, check=True, text=True, capture_output=True)
-        if result.stdout:
-            print(result.stdout.strip())
-    except subprocess.CalledProcessError as exc:
-        print("LLM summary failed to run.")
-        if exc.stdout:
-            print(exc.stdout.strip())
-        if exc.stderr:
-            print(exc.stderr.strip())
-    except OSError as exc:
-        print(f"Failed to start LLM summary: {exc}")
-
-    input("\nPress Enter to continue...")
-
-
 def _handle_pdf_export(resume_data):
     """
     Handle PDF export functionality for resume.
