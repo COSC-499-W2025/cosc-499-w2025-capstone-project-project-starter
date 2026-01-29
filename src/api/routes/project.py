@@ -259,11 +259,41 @@ async def get_rankings():
 
 
 @router.delete("/projects/{project_id}/data")
-async def delete_project_data(project_id: int):
-    """Delete all project data including metrics, file contents, and project records."""
+async def delete_project_data(
+    project_id: int,
+    user_name: Optional[str] = Query(None, description="Username for data isolation verification")
+):
+    """Delete all project data including metrics, file contents, and project records.
+    
+    Args:
+        project_id: ID of the project to delete
+        user_name: Username to verify project ownership (required for security)
+    
+    Returns:
+        dict: Success status and deletion statistics
+    
+    Raises:
+        HTTPException: 400 if user_name not provided, 403 if permission denied, 500 on error
+    """
+    # Require user_name for security
+    if not user_name:
+        raise HTTPException(
+            status_code=400,
+            detail="user_name parameter is required for data isolation"
+        )
+    
     try:
-        deleted = delete_insights(project_id)
-        return {"success": True, "deleted": {"metrics": deleted[0], "files": deleted[1], "projects": deleted[2]}}
+        deleted = delete_insights(project_id, user_name=user_name)
+        return {
+            "success": True,
+            "deleted": {
+                "metrics": deleted[0],
+                "files": deleted[1],
+                "projects": deleted[2]
+            }
+        }
+    except PermissionError as e:
+        raise HTTPException(status_code=403, detail=str(e))
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error deleting project data: {str(e)}")
 
