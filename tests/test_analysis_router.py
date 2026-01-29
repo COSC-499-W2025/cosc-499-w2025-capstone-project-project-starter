@@ -36,7 +36,7 @@ class TestAnalysisRouter:
         if conn:
             cursor = conn.cursor()
             try:
-                cursor.execute("DELETE FROM external_service_permissions WHERE user_id = 'test_user'")
+                cursor.execute("DELETE FROM external_service_permissions WHERE user_name = 'test_user'")
                 conn.commit()
             except Exception as e:
                 conn.rollback()
@@ -52,7 +52,7 @@ class TestAnalysisRouter:
         if conn:
             cursor = conn.cursor()
             try:
-                cursor.execute("DELETE FROM external_service_permissions WHERE user_id = 'test_user'")
+                cursor.execute("DELETE FROM external_service_permissions WHERE user_name = 'test_user'")
                 conn.commit()
             except Exception as e:
                 conn.rollback()
@@ -76,7 +76,7 @@ class TestAnalysisRouter:
         conn = get_connection()
         cursor = conn.cursor()
         cursor.execute("""
-            INSERT INTO external_service_permissions (user_id, service_name, permission_granted)
+            INSERT INTO external_service_permissions (user_name, service_name, permission_granted)
             VALUES ('test_user', 'LLM', TRUE)
         """)
         conn.commit()
@@ -95,7 +95,7 @@ class TestAnalysisRouter:
         conn = get_connection()
         cursor = conn.cursor()
         cursor.execute("""
-            INSERT INTO external_service_permissions (user_id, service_name, permission_granted)
+            INSERT INTO external_service_permissions (user_name, service_name, permission_granted)
             VALUES ('test_user', 'LLM', FALSE)
         """)
         conn.commit()
@@ -119,7 +119,7 @@ class TestAnalysisRouter:
         conn = get_connection()
         cursor = conn.cursor()
         cursor.execute("""
-            INSERT INTO external_service_permissions (user_id, service_name, permission_granted)
+            INSERT INTO external_service_permissions (user_name, service_name, permission_granted)
             VALUES ('test_user', 'LLM', TRUE)
         """)
         conn.commit()
@@ -157,7 +157,7 @@ class TestAnalysisRouter:
         conn = get_connection()
         cursor = conn.cursor()
         cursor.execute("""
-            INSERT INTO external_service_permissions (user_id, service_name, permission_granted)
+            INSERT INTO external_service_permissions (user_name, service_name, permission_granted)
             VALUES ('test_user', 'LLM', TRUE)
         """)
         conn.commit()

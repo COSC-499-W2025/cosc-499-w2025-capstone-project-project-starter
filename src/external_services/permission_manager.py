@@ -7,14 +7,14 @@ class ExternalServicePermission:
     Implements Requirement #4: Request user permission before using external services.
     """
     
-    def __init__(self, user_id='default_user'):
+    def __init__(self, user_name='default_user'):
         """
         Initialize the external service permission manager.
         
         Args:
-            user_id (str): User identifier
+            user_name (str): Username from user_informations table
         """
-        self.user_id = user_id
+        self.user_name = user_name
         self.config = ServiceConfig()
     
     def initialize(self):
@@ -37,5 +37,5 @@ class ExternalServicePermission:
         Returns:
             bool | None: True/False if permission exists, None if no record
         """
-        permission = self.config.get_permission(self.user_id, service_name)
+        permission = self.config.get_permission(self.user_name, service_name)
         return permission
