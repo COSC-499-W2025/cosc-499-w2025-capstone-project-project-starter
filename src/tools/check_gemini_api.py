@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 Standalone Gemini API test — no package dependencies.
-Run from project root:  python src/tools/test_gemini_api.py
+Run from project root:  python src/tools/check_gemini_api.py
 """
 
 import os
