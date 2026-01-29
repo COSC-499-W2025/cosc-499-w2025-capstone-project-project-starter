@@ -342,15 +342,16 @@ def test_handle_view_edit_rankings_clean_error_summaries_cancelled(
 
 @patch("cli.menus.delete_insights", return_value=(1, 1, 1))
 @patch("project_manager.get_project_by_id", return_value={"id": 42})
+@patch("account.user_manager.AuthManager.get_current_username", return_value="testuser")
 @patch("builtins.input", side_effect=["42", "y"])
 @patch("sys.stdout", new_callable=StringIO)
 def test_handle_cleanup_insights_confirms_and_deletes(
-    mock_stdout, mock_input, mock_get_project, mock_delete
+    mock_stdout, mock_input, mock_auth, mock_get_project, mock_delete
 ):
     """cleanup menu should call delete_insights when user confirms."""
     menus.handle_cleanup_insights()
-    mock_get_project.assert_called_once_with(42)
-    mock_delete.assert_called_once_with(42)
+    mock_get_project.assert_called_once_with(42, user_name='testuser')
+    mock_delete.assert_called_once_with(42, user_name='testuser')
     assert "Deleted: project_metrics=1" in mock_stdout.getvalue()
 
 
