@@ -94,6 +94,20 @@
         }
         .theme-toggle:hover { background: var(--bg-secondary); border-color: var(--accent-primary); }
         .theme-toggle svg { width: 18px; height: 18px; }
+        
+        /* Loading Spinner */
+        .spinner {
+            width: 40px;
+            height: 40px;
+            border: 3px solid var(--border-color);
+            border-top-color: #7c3aed;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin: 0 auto;
+        }
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
     </style>
 </head>
 <body>
@@ -244,7 +258,7 @@
             const views = {
                 'upload': `<div class="view-panel"><h3>Upload ZIP File</h3><input type="file" id="zipFile" accept=".zip" /><button class="btn" onclick="uploadFile()">Upload</button><div id="uploadResult"></div></div>`,
                 'list': `<div class="view-panel"><h3>Stored Projects</h3><button class="btn" onclick="refreshProjects()">Refresh</button><button class="btn btn-secondary" onclick="loadSkills()">View Skills</button><div id="projectsList" class="project-list"></div><div id="skillsResult" class="result"></div></div>`,
-                'analyze': `<div class="view-panel"><h3>Analyze Project</h3><div id="analyzeProjectsList" class="project-list"></div><button class="btn" onclick="analyzeProject()">Analyze Selected</button><div id="analyzeResult" class="result"></div></div>`,
+                'analyze': `<div class="view-panel"><h3>Analyze Project</h3><div id="analyzeProjectsList" class="project-list"></div><div style="margin: 10px 0;"><button class="btn" onclick="analyzeProject()">Local Analysis</button><button class="btn" onclick="analyzeProjectGemini()">AI Deep Analysis (Gemini)</button></div><p class="text-muted" style="font-size: 0.9em; margin-bottom: 10px;">Local: Fast pattern-based analysis | AI: Thorough semantic analysis with recommendations</p><div id="analyzeResult" class="result"></div></div>`,
                 'rank': `<div class="view-panel"><h3>Rank All Projects</h3><button class="btn" onclick="rankProjects()">Rank Projects</button><div id="rankResult" class="result"></div></div>`,
                 'rank-top3': `<div class="view-panel"><h3>Rank and Summarize Top 3</h3><button class="btn" onclick="rankTop3()">Rank & Summarize</button><div id="rankTop3Result" class="result"></div></div>`,
                 'rankings': `<div class="view-panel"><h3>View and Edit Rankings</h3><button class="btn" onclick="loadRankings()">Load Rankings</button><div id="rankingsList" class="result"></div></div>`,
@@ -618,12 +632,12 @@
                 return;
             }
             const resultDiv = document.getElementById('analyzeResult');
-            resultDiv.innerHTML = 'Analyzing...';
+            resultDiv.innerHTML = 'Analyzing locally...';
             try {
                 const data = await apiCall(`/api/projects/${selectedProjectId}/analyze?user_name=${currentUser.user_name}`, { method: 'POST' });
                 if (data.success) {
                     resultDiv.innerHTML = formatAnalysisResults(data.analysis);
-                    showMessage('Analysis complete', 'success');
+                    showMessage('Local analysis complete', 'success');
                 } else {
                     resultDiv.innerHTML = `Error: ${data.error || 'Analysis failed'}`;
                     showMessage('Analysis failed', 'error');
@@ -632,6 +646,242 @@
                 resultDiv.innerHTML = `Error: ${e.message}`;
                 showMessage('Analysis failed', 'error');
             }
+        }
+
+        async function analyzeProjectGemini() {
+            if (!selectedProjectId) {
+                showMessage('Please select a project', 'error');
+                return;
+            }
+            const resultDiv = document.getElementById('analyzeResult');
+            resultDiv.innerHTML = '<div style="text-align: center; padding: 20px;"><div class="spinner"></div><p style="margin-top: 10px;">Running AI-powered deep analysis with Gemini...</p><p class="text-muted">This may take 15-30 seconds</p></div>';
+            try {
+                const data = await apiCall(`/api/projects/${selectedProjectId}/analyze-gemini?user_name=${currentUser.user_name}`, { method: 'POST' });
+                if (data.success) {
+                    resultDiv.innerHTML = formatGeminiAnalysis(data.analysis);
+                    showMessage('Gemini analysis complete', 'success');
+                } else {
+                    resultDiv.innerHTML = `Error: ${data.error || 'Gemini analysis failed'}`;
+                    showMessage('Gemini analysis failed', 'error');
+                }
+            } catch (e) {
+                resultDiv.innerHTML = `Error: ${e.message}`;
+                showMessage('Gemini analysis failed', 'error');
+            }
+        }
+
+        function formatGeminiAnalysis(analysis) {
+            let html = '<div class="analysis-section" style="border-left-color: #7c3aed;">';
+            html += '<h4 style="color: #7c3aed;">AI Deep Analysis (Gemini)</h4>';
+            
+            // Project info
+            html += `<div class="analysis-item"><span class="analysis-label">Project:</span><span class="analysis-value">${analysis.project_name || 'Unknown'}</span></div>`;
+            html += `<div class="analysis-item"><span class="analysis-label">Files Analyzed:</span><span class="analysis-value">${analysis.files_analyzed || 0}</span></div>`;
+            html += '</div>';
+            
+            // Overall Assessment
+            const overall = analysis.overall_assessment || {};
+            if (overall.quality_score || overall.summary) {
+                html += '<div class="analysis-section">';
+                html += '<h4>Overall Assessment</h4>';
+                if (overall.quality_score) {
+                    const scoreColor = overall.quality_score >= 70 ? '#22c55e' : overall.quality_score >= 40 ? '#d97706' : '#dc2626';
+                    html += `<div class="analysis-item"><span class="analysis-label">Quality Score:</span><span class="analysis-value" style="color: ${scoreColor}; font-weight: bold; font-size: 1.2em;">${overall.quality_score}/100</span></div>`;
+                }
+                if (overall.skill_level) {
+                    const levelBadge = {
+                        'junior': 'badge-info',
+                        'mid': 'badge',
+                        'senior': 'badge-success',
+                        'expert': 'badge-purple'
+                    };
+                    html += `<div class="analysis-item"><span class="analysis-label">Skill Level:</span><span class="badge ${levelBadge[overall.skill_level] || 'badge'}">${overall.skill_level.toUpperCase()}</span></div>`;
+                }
+                if (overall.summary) {
+                    html += `<div class="analysis-item" style="margin-top: 10px;"><p style="font-style: italic;">"${overall.summary}"</p></div>`;
+                }
+                html += '</div>';
+            }
+            
+            // Architecture
+            const arch = analysis.architecture || {};
+            if (arch.patterns_used || arch.structure_quality) {
+                html += '<div class="analysis-section">';
+                html += '<h4>Architecture</h4>';
+                if (arch.structure_quality) {
+                    html += `<div class="analysis-item"><span class="analysis-label">Structure Quality:</span><span class="badge">${arch.structure_quality}</span></div>`;
+                }
+                if (arch.patterns_used && arch.patterns_used.length > 0) {
+                    html += '<div class="analysis-item"><span class="analysis-label">Patterns Used:</span><div style="margin-top: 5px;">';
+                    arch.patterns_used.forEach(p => html += `<span class="badge badge-purple">${p}</span>`);
+                    html += '</div></div>';
+                }
+                if (arch.separation_of_concerns) {
+                    html += `<div class="analysis-item"><span class="analysis-label">Separation of Concerns:</span><span class="analysis-value">${arch.separation_of_concerns}</span></div>`;
+                }
+                if (arch.modularity) {
+                    html += `<div class="analysis-item"><span class="analysis-label">Modularity:</span><span class="analysis-value">${arch.modularity}</span></div>`;
+                }
+                html += '</div>';
+            }
+            
+            // Code Quality
+            const cq = analysis.code_quality || {};
+            if (Object.keys(cq).length > 0) {
+                html += '<div class="analysis-section">';
+                html += '<h4>Code Quality Metrics</h4>';
+                ['readability', 'maintainability', 'error_handling', 'documentation'].forEach(metric => {
+                    const m = cq[metric];
+                    if (m && m.score) {
+                        const barColor = m.score >= 7 ? '#22c55e' : m.score >= 4 ? '#d97706' : '#dc2626';
+                        html += `<div class="analysis-item">`;
+                        html += `<span class="analysis-label">${metric.charAt(0).toUpperCase() + metric.slice(1).replace('_', ' ')}:</span>`;
+                        html += `<div style="display: inline-flex; align-items: center; gap: 10px; margin-left: 10px;">`;
+                        html += `<div style="width: 100px; height: 8px; background: var(--border-color); border-radius: 4px;"><div style="width: ${m.score * 10}%; height: 100%; background: ${barColor}; border-radius: 4px;"></div></div>`;
+                        html += `<span>${m.score}/10</span>`;
+                        html += `</div>`;
+                        if (m.observations && m.observations.length > 0) {
+                            html += `<div style="margin-top: 5px; font-size: 0.9em;" class="text-muted">`;
+                            m.observations.slice(0, 2).forEach(obs => html += `<div>• ${obs}</div>`);
+                            html += '</div>';
+                        }
+                        html += '</div>';
+                    }
+                });
+                html += '</div>';
+            }
+            
+            // Skills Demonstrated
+            const skills = analysis.skills_demonstrated || [];
+            if (skills.length > 0) {
+                html += '<div class="analysis-section">';
+                html += '<h4>Skills Demonstrated</h4>';
+                skills.forEach(s => {
+                    const profColors = {
+                        'beginner': '#0284c7',
+                        'intermediate': '#d97706',
+                        'advanced': '#22c55e',
+                        'expert': '#7c3aed'
+                    };
+                    html += `<div class="analysis-item">`;
+                    html += `<span class="badge" style="background: ${profColors[s.proficiency] || '#000'};">${s.skill}</span>`;
+                    html += `<span class="text-muted" style="margin-left: 10px; font-size: 0.9em;">${s.proficiency || 'detected'}</span>`;
+                    if (s.evidence) {
+                        html += `<div style="margin-top: 5px; font-size: 0.85em; color: var(--text-secondary);">Evidence: ${s.evidence}</div>`;
+                    }
+                    html += '</div>';
+                });
+                html += '</div>';
+            }
+            
+            // Best Practices
+            const bp = analysis.best_practices || {};
+            if ((bp.followed && bp.followed.length > 0) || (bp.missing && bp.missing.length > 0)) {
+                html += '<div class="analysis-section">';
+                html += '<h4>Best Practices</h4>';
+                if (bp.followed && bp.followed.length > 0) {
+                    html += '<div class="analysis-item"><span class="analysis-label" style="color: #22c55e;">Followed:</span><div style="margin-top: 5px;">';
+                    bp.followed.forEach(p => html += `<div style="margin: 3px 0;">✓ ${p}</div>`);
+                    html += '</div></div>';
+                }
+                if (bp.missing && bp.missing.length > 0) {
+                    html += '<div class="analysis-item"><span class="analysis-label" style="color: #d97706;">Could Improve:</span><div style="margin-top: 5px;">';
+                    bp.missing.forEach(p => html += `<div style="margin: 3px 0;">○ ${p}</div>`);
+                    html += '</div></div>';
+                }
+                html += '</div>';
+            }
+            
+            // Security
+            const sec = analysis.security || {};
+            if (sec.score || (sec.concerns && sec.concerns.length > 0)) {
+                html += '<div class="analysis-section">';
+                html += '<h4>Security Assessment</h4>';
+                if (sec.score) {
+                    const secColor = sec.score >= 7 ? '#22c55e' : sec.score >= 4 ? '#d97706' : '#dc2626';
+                    html += `<div class="analysis-item"><span class="analysis-label">Security Score:</span><span style="color: ${secColor}; font-weight: bold;">${sec.score}/10</span></div>`;
+                }
+                if (sec.concerns && sec.concerns.length > 0) {
+                    html += '<div class="analysis-item"><span class="analysis-label">Concerns:</span><div style="margin-top: 5px;" class="text-muted">';
+                    sec.concerns.forEach(c => html += `<div>⚠ ${c}</div>`);
+                    html += '</div></div>';
+                }
+                if (sec.recommendations && sec.recommendations.length > 0) {
+                    html += '<div class="analysis-item"><span class="analysis-label">Recommendations:</span><div style="margin-top: 5px;">';
+                    sec.recommendations.forEach(r => html += `<div>→ ${r}</div>`);
+                    html += '</div></div>';
+                }
+                html += '</div>';
+            }
+            
+            // Performance
+            const perf = analysis.performance || {};
+            if (perf.score || (perf.observations && perf.observations.length > 0)) {
+                html += '<div class="analysis-section">';
+                html += '<h4>Performance Analysis</h4>';
+                if (perf.score) {
+                    html += `<div class="analysis-item"><span class="analysis-label">Performance Score:</span><span class="analysis-value">${perf.score}/10</span></div>`;
+                }
+                if (perf.observations && perf.observations.length > 0) {
+                    html += '<div class="analysis-item"><span class="analysis-label">Observations:</span><div style="margin-top: 5px;" class="text-muted">';
+                    perf.observations.forEach(o => html += `<div>• ${o}</div>`);
+                    html += '</div></div>';
+                }
+                if (perf.optimization_opportunities && perf.optimization_opportunities.length > 0) {
+                    html += '<div class="analysis-item"><span class="analysis-label">Optimization Opportunities:</span><div style="margin-top: 5px;">';
+                    perf.optimization_opportunities.forEach(o => html += `<div>→ ${o}</div>`);
+                    html += '</div></div>';
+                }
+                html += '</div>';
+            }
+            
+            // Recommendations
+            const recs = analysis.recommendations || {};
+            if (recs.immediate || recs.short_term || recs.long_term) {
+                html += '<div class="analysis-section" style="border-left-color: #22c55e;">';
+                html += '<h4>Recommendations</h4>';
+                if (recs.immediate && recs.immediate.length > 0) {
+                    html += '<div class="analysis-item"><span class="badge" style="background: #dc2626;">High Priority</span><div style="margin-top: 5px;">';
+                    recs.immediate.forEach(r => html += `<div>• ${r}</div>`);
+                    html += '</div></div>';
+                }
+                if (recs.short_term && recs.short_term.length > 0) {
+                    html += '<div class="analysis-item"><span class="badge" style="background: #d97706;">Short Term</span><div style="margin-top: 5px;">';
+                    recs.short_term.forEach(r => html += `<div>• ${r}</div>`);
+                    html += '</div></div>';
+                }
+                if (recs.long_term && recs.long_term.length > 0) {
+                    html += '<div class="analysis-item"><span class="badge" style="background: #0284c7;">Long Term</span><div style="margin-top: 5px;">';
+                    recs.long_term.forEach(r => html += `<div>• ${r}</div>`);
+                    html += '</div></div>';
+                }
+                html += '</div>';
+            }
+            
+            // Notable Code
+            const notable = analysis.notable_code || [];
+            if (notable.length > 0) {
+                html += '<div class="analysis-section">';
+                html += '<h4>Notable Code</h4>';
+                notable.forEach(n => {
+                    html += '<div class="analysis-item">';
+                    html += `<strong>${n.description}</strong>`;
+                    if (n.file) html += ` <span class="text-muted">(${n.file})</span>`;
+                    if (n.why_notable) html += `<div style="margin-top: 5px; font-size: 0.9em;">${n.why_notable}</div>`;
+                    html += '</div>';
+                });
+                html += '</div>';
+            }
+            
+            // Raw analysis fallback
+            if (analysis.raw_analysis && !analysis.overall_assessment?.quality_score) {
+                html += '<div class="analysis-section">';
+                html += '<h4>Analysis Output</h4>';
+                html += `<pre style="white-space: pre-wrap; font-size: 0.9em;">${analysis.raw_analysis}</pre>`;
+                html += '</div>';
+            }
+            
+            return html;
         }
 
         async function rankProjects() {
@@ -820,8 +1070,21 @@
                 showMessage('Please select a project', 'error');
                 return;
             }
-            document.getElementById('llmSummaryResult').innerHTML = 'Running LLM summary... (API endpoint needed)';
-            showMessage('LLM summary requires API endpoint', 'error');
+            const resultDiv = document.getElementById('llmSummaryResult');
+            resultDiv.innerHTML = '<div style="text-align: center; padding: 20px;">Generating AI summary...</div>';
+            try {
+                const data = await apiCall(`/api/projects/${selectedProjectId}/quick-summary?user_name=${currentUser.user_name}`, { method: 'POST' });
+                if (data.success) {
+                    resultDiv.innerHTML = `<div class="analysis-section"><h4>AI-Generated Summary for ${data.project_name}</h4><p style="font-style: italic; line-height: 1.6;">"${data.summary}"</p><p class="text-muted" style="margin-top: 10px; font-size: 0.9em;">Use this summary in your resume or portfolio!</p></div>`;
+                    showMessage('Summary generated', 'success');
+                } else {
+                    resultDiv.innerHTML = `Error: ${data.error || 'Summary generation failed'}`;
+                    showMessage('Summary generation failed', 'error');
+                }
+            } catch (e) {
+                resultDiv.innerHTML = `Error: ${e.message}`;
+                showMessage('Summary generation failed', 'error');
+            }
         }
 
         async function logout() {
