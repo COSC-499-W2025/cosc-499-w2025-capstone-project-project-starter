@@ -20,7 +20,7 @@ class TestAnalysisRouter:
     @pytest.fixture
     def router(self):
         """Create a router instance for testing."""
-        return AnalysisRouter(user_id='test_user')
+        return AnalysisRouter(user_name='test_user')
     
     @pytest.fixture
     def clean_db(self):
@@ -28,6 +28,15 @@ class TestAnalysisRouter:
        
         from config.db_config import get_connection
         from external_services.service_config import ServiceConfig
+        from database.user_informations import init_user_informations_table, create_user
+        
+        # Ensure user_informations table exists and create test user
+        init_user_informations_table()
+        try:
+            create_user('test_user', 'test_password')
+        except:
+            pass  # User might already exist
+        
         config = ServiceConfig()
         config.initialize_table()
         
@@ -36,7 +45,7 @@ class TestAnalysisRouter:
         if conn:
             cursor = conn.cursor()
             try:
-                cursor.execute("DELETE FROM external_service_permissions WHERE user_id = 'test_user'")
+                cursor.execute("DELETE FROM external_service_permissions WHERE user_name = 'test_user'")
                 conn.commit()
             except Exception as e:
                 conn.rollback()
@@ -52,7 +61,7 @@ class TestAnalysisRouter:
         if conn:
             cursor = conn.cursor()
             try:
-                cursor.execute("DELETE FROM external_service_permissions WHERE user_id = 'test_user'")
+                cursor.execute("DELETE FROM external_service_permissions WHERE user_name = 'test_user'")
                 conn.commit()
             except Exception as e:
                 conn.rollback()
@@ -76,7 +85,7 @@ class TestAnalysisRouter:
         conn = get_connection()
         cursor = conn.cursor()
         cursor.execute("""
-            INSERT INTO external_service_permissions (user_id, service_name, permission_granted)
+            INSERT INTO external_service_permissions (user_name, service_name, permission_granted)
             VALUES ('test_user', 'LLM', TRUE)
         """)
         conn.commit()
@@ -95,7 +104,7 @@ class TestAnalysisRouter:
         conn = get_connection()
         cursor = conn.cursor()
         cursor.execute("""
-            INSERT INTO external_service_permissions (user_id, service_name, permission_granted)
+            INSERT INTO external_service_permissions (user_name, service_name, permission_granted)
             VALUES ('test_user', 'LLM', FALSE)
         """)
         conn.commit()
@@ -119,7 +128,7 @@ class TestAnalysisRouter:
         conn = get_connection()
         cursor = conn.cursor()
         cursor.execute("""
-            INSERT INTO external_service_permissions (user_id, service_name, permission_granted)
+            INSERT INTO external_service_permissions (user_name, service_name, permission_granted)
             VALUES ('test_user', 'LLM', TRUE)
         """)
         conn.commit()
@@ -157,7 +166,7 @@ class TestAnalysisRouter:
         conn = get_connection()
         cursor = conn.cursor()
         cursor.execute("""
-            INSERT INTO external_service_permissions (user_id, service_name, permission_granted)
+            INSERT INTO external_service_permissions (user_name, service_name, permission_granted)
             VALUES ('test_user', 'LLM', TRUE)
         """)
         conn.commit()

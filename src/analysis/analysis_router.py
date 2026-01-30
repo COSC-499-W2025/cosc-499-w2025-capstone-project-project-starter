@@ -3,15 +3,15 @@ from external_services.permission_manager import ExternalServicePermission
 
 class AnalysisRouter:
 
-    def __init__(self, user_id='default_user'):
+    def __init__(self, user_name):
         """
         Initialize the analysis router.
         
         Args:
-            user_id (str): User identifier
+            user_name (str): Username from user_informations table
         """
-        self.user_id = user_id
-        self.permission_manager = ExternalServicePermission(user_id)
+        self.user_name = user_name
+        self.permission_manager = ExternalServicePermission(user_name)
     
     def should_use_external_service(self, service_name='LLM'):
         """

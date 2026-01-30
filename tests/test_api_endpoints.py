@@ -145,9 +145,9 @@ class TestPrivacyConsentEndpoint:
         data = response.json()
         assert data["success"] is True
         assert data["consent_given"] is True
-        assert data["user_id"] == "1"  # Uses authenticated user's ID
+        assert data["user_name"] == "test_user"  # Uses authenticated user's username
         assert "privacy" in data
-        mock_store.assert_called_once_with(consent_given=True, user_id="1")
+        mock_store.assert_called_once_with(consent_given=True, user_name="test_user")
     
     @patch('api.routes.settings.ConsentStorage.store_consent')
     @patch('api.routes.settings.ConsentStorage.get_consent_status')
@@ -176,7 +176,7 @@ class TestPrivacyConsentEndpoint:
         assert response.status_code == 200
         data = response.json()
         assert data["consent_given"] is False
-        assert data["user_id"] == "1"  # Uses authenticated user's ID
+        assert data["user_name"] == "test_user"  # Uses authenticated user's username
         assert "privacy" in data
     
     @patch('api.routes.settings.ConsentStorage.store_consent')
