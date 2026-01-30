@@ -68,8 +68,8 @@ async def get_all_settings(
             "general": None
         }
         
-        # Get privacy consent status
-        consent_status = ConsentStorage.get_consent_status(user_id)
+        # Get privacy consent status using user_name
+        consent_status = ConsentStorage.get_consent_status(username)
         settings["privacy"] = consent_status
         
         # Get general settings (note: get_user_git_username uses user_id=1, may need user-specific version)
@@ -144,8 +144,8 @@ async def get_privacy_settings(
         dict: Privacy consent status
     """
     try:
-        user_id = str(current_user['user_id'])
-        consent_status = ConsentStorage.get_consent_status(user_id)
+        username = current_user['user_name']
+        consent_status = ConsentStorage.get_consent_status(username)
         return {
             "success": True,
             "privacy": consent_status
@@ -175,10 +175,10 @@ async def update_privacy_settings(
         dict: Success message and consent status
     """
     try:
-        user_id = str(current_user['user_id'])
+        username = current_user['user_name']
         success = ConsentStorage.store_consent(
             consent_given=request.consent_given,
-            user_id=user_id
+            user_name=username
         )
         
         if not success:
@@ -188,13 +188,13 @@ async def update_privacy_settings(
             )
         
         # Get the updated consent status
-        consent_status = ConsentStorage.get_consent_status(user_id)
+        consent_status = ConsentStorage.get_consent_status(username)
         
         return {
             "success": True,
             "message": "Privacy consent updated successfully",
             "consent_given": request.consent_given,
-            "user_id": user_id,
+            "user_name": username,
             "privacy": consent_status
         }
     except HTTPException:

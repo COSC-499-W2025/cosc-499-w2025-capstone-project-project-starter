@@ -43,7 +43,13 @@ def initialize_app():
     ensure_user_preferences_schema()
     
     # Initialize managers
-    consent_manager = ConsentManager(user_id="default_user")
+    # ConsentManager will automatically get current logged-in user
+    try:
+        consent_manager = ConsentManager()
+    except ValueError as e:
+        print(f"Error initializing consent manager: {e}")
+        return None
+    
     collab_manager = CollaborativeManager()
     
     consent_manager.initialize()

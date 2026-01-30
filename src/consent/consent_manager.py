@@ -6,6 +6,7 @@ This module ties together display, storage, and validation logic.
 from consent.consent_display import ConsentDisplay
 from consent.consent_storage import ConsentStorage
 from api.client import get_api_client
+from account.user_manager import AuthManager
 
 
 class ConsentManager:
@@ -14,14 +15,19 @@ class ConsentManager:
     Implements all three sub-issues for Requirement #1.
     """
     
-    def __init__(self, user_id='default_user'):
+    def __init__(self, user_name=None):
         """
         Initialize the consent manager.
         
         Args:
-            user_id (str): User identifier (default for single-user mode)
+            user_name (str): Username from user_informations table.
+                           If None, will use current logged-in user.
         """
-        self.user_id = user_id
+        if user_name is None:
+            user_name = AuthManager.get_current_username()
+            if user_name is None:
+                raise ValueError("No user is currently logged in and no user_name provided")
+        self.user_name = user_name
         self.storage = ConsentStorage()
     
     def initialize(self):
@@ -42,7 +48,7 @@ class ConsentManager:
         - Returns access decision
         """
         # Sub-issue #14: Check if consent already exists
-        if self.storage.has_valid_consent(self.user_id):
+        if self.storage.has_valid_consent(self.user_name):
             print("Valid consent exists. Access granted.\n")
             return True
         
@@ -53,7 +59,7 @@ class ConsentManager:
         # Store the consent decision via API
         try:
             client = get_api_client()
-            api_result = client.post_privacy_consent(consent_granted, self.user_id)
+            api_result = client.post_privacy_consent(consent_granted, self.user_name)
             if api_result.get('success', False):
                 return consent_granted
             else:
@@ -62,7 +68,7 @@ class ConsentManager:
         except Exception as e:
             # Fallback to direct storage if API fails
             print(f"API call failed, using direct storage: {e}")
-            if self.storage.store_consent(consent_granted, self.user_id):
+            if self.storage.store_consent(consent_granted, self.user_name):
                 return consent_granted
             else:
                 print("Error storing consent.")
@@ -73,13 +79,13 @@ class ConsentManager:
         Sub-issue #14: Check if user has access.
         Returns True only if valid consent exists.
         """
-        return self.storage.has_valid_consent(self.user_id)
+        return self.storage.has_valid_consent(self.user_name)
     
     def withdraw(self):
         """
         Sub-issue #18: Allow user to withdraw consent.
         """
-        consent_data = self.storage.get_consent_status(self.user_id)
+        consent_data = self.storage.get_consent_status(self.user_name)
         
         if not consent_data or not consent_data['consent_given']:
             print("\nNo active consent to withdraw.\n")
@@ -93,7 +99,7 @@ class ConsentManager:
         response = input("\nConfirm withdrawal (yes/no): ").strip().lower()
         
         if response in ['yes', 'y']:
-            if self.storage.withdraw_consent(self.user_id):
+            if self.storage.withdraw_consent(self.user_name):
                 print("\nConsent withdrawn successfully.")
                 print("Application no longer has data access.\n")
                 return True
@@ -107,7 +113,7 @@ class ConsentManager:
         Sub-issue #14: Block access to data until consent is given.
         
         Usage:
-            manager = ConsentManager(user_id='test_user')
+            manager = ConsentManager(user_name='alice')
             
             @manager.require_consent
             def protected_function():
@@ -123,19 +129,23 @@ class ConsentManager:
 def requires_consent(func):
     """
     Decorator to protect functions that need consent.
-    Uses the default user_id.
+    Uses the current logged-in user.
     Sub-issue #14: Block access without consent.
     
     Usage:
         @requires_consent
         def process_data():
-            # This will only run if default user has consent
+            # This will only run if current user has consent
             pass
     """
     def wrapper(*args, **kwargs):
-        manager = ConsentManager()
-        if not manager.has_access():
-            print("\nACCESS DENIED: Valid consent required.\n")
-            raise PermissionError("Data access denied")
-        return func(*args, **kwargs)
+        try:
+            manager = ConsentManager()
+            if not manager.has_access():
+                print("\nACCESS DENIED: Valid consent required.\n")
+                raise PermissionError("Data access denied")
+            return func(*args, **kwargs)
+        except ValueError as e:
+            print(f"\nACCESS DENIED: {e}\n")
+            raise PermissionError("Data access denied - no user logged in")
     return wrapper

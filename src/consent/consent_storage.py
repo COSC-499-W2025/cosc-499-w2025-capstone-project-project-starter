@@ -18,19 +18,24 @@ class ConsentStorage:
                 cursor.execute("""
                     CREATE TABLE IF NOT EXISTS user_consent (
                         id SERIAL PRIMARY KEY,
-                        user_id VARCHAR(255) DEFAULT 'default_user',
+                        user_name VARCHAR(255) NOT NULL,
                         consent_given BOOLEAN NOT NULL,
                         consent_date TIMESTAMP NOT NULL,
                         withdrawn_date TIMESTAMP NULL,
                         consent_version VARCHAR(50) DEFAULT '1.0',
                         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                        CONSTRAINT fk_user_consent_user_name 
+                            FOREIGN KEY (user_name) 
+                            REFERENCES user_informations(user_name)
+                            ON DELETE CASCADE
+                            ON UPDATE CASCADE
                     );
                 """)
                 
                 cursor.execute("""
-                    CREATE INDEX IF NOT EXISTS idx_user_consent_user_id 
-                    ON user_consent(user_id);
+                    CREATE INDEX IF NOT EXISTS idx_user_consent_user_name 
+                    ON user_consent(user_name);
                 """)
             
             print("Consent table initialized")
@@ -42,16 +47,16 @@ class ConsentStorage:
             raise
     
     @staticmethod
-    def store_consent(consent_given, user_id='default_user'):
+    def store_consent(consent_given, user_name):
         """Store user consent in database."""
         try:
             with with_db_cursor() as cursor:
                 cursor.execute("""
                     SELECT id FROM user_consent 
-                    WHERE user_id = %s 
+                    WHERE user_name = %s 
                     ORDER BY created_at DESC 
                     LIMIT 1
-                """, (user_id,))
+                """, (user_name,))
                 
                 existing_record = cursor.fetchone()
                 
@@ -62,13 +67,13 @@ class ConsentStorage:
                             consent_date = %s,
                             withdrawn_date = NULL,
                             updated_at = CURRENT_TIMESTAMP
-                        WHERE user_id = %s
-                    """, (consent_given, datetime.now(), user_id))
+                        WHERE user_name = %s
+                    """, (consent_given, datetime.now(), user_name))
                 else:
                     cursor.execute("""
-                        INSERT INTO user_consent (user_id, consent_given, consent_date)
+                        INSERT INTO user_consent (user_name, consent_given, consent_date)
                         VALUES (%s, %s, %s)
-                    """, (user_id, consent_given, datetime.now()))
+                    """, (user_name, consent_given, datetime.now()))
             
             return True
             
@@ -79,7 +84,7 @@ class ConsentStorage:
             return False
     
     @staticmethod
-    def get_consent_status(user_id='default_user'):
+    def get_consent_status(user_name):
         """
         Get current consent status.
         Sub-issue #14: Check consent before access
@@ -89,10 +94,10 @@ class ConsentStorage:
                 cursor.execute("""
                     SELECT consent_given, consent_date, withdrawn_date, consent_version
                     FROM user_consent 
-                    WHERE user_id = %s 
+                    WHERE user_name = %s 
                     ORDER BY created_at DESC 
                     LIMIT 1
-                """, (user_id,))
+                """, (user_name,))
                 
                 result = cursor.fetchone()
             
@@ -112,7 +117,7 @@ class ConsentStorage:
             return None
     
     @staticmethod
-    def withdraw_consent(user_id='default_user'):
+    def withdraw_consent(user_name):
         """
         Withdraw consent.
         Sub-issue #18: Allow withdrawal
@@ -124,8 +129,8 @@ class ConsentStorage:
                     SET consent_given = FALSE,
                         withdrawn_date = %s,
                         updated_at = CURRENT_TIMESTAMP
-                    WHERE user_id = %s
-                """, (datetime.now(), user_id))
+                    WHERE user_name = %s
+                """, (datetime.now(), user_name))
             
             return True
             
@@ -136,12 +141,12 @@ class ConsentStorage:
             return False
     
     @staticmethod
-    def has_valid_consent(user_id='default_user'):
+    def has_valid_consent(user_name):
         """
         Check if user has valid consent.
         Sub-issue #14: Main access control check
         """
-        consent_data = ConsentStorage.get_consent_status(user_id)
+        consent_data = ConsentStorage.get_consent_status(user_name)
         
         if not consent_data:
             return False
