@@ -22,6 +22,7 @@ from consent.consent_manager import ConsentManager, requires_consent
 from consent.consent_storage import ConsentStorage
 from consent.consent_display import ConsentDisplay
 from config.db_config import get_connection
+from database.user_informations import init_user_informations_table, create_user, get_user_by_username
 
 
 @pytest.fixture(scope="function")
@@ -31,9 +32,18 @@ def consent_manager():
     Uses a unique test user name to avoid conflicts between tests.
     """
     test_user_name = 'test_user_pytest'
+    
+    # Initialize user_informations table
+    init_user_informations_table()
+    
+    # Create test user if it doesn't exist
+    existing_user = get_user_by_username(test_user_name)
+    if not existing_user:
+        create_user(test_user_name, 'test_password')
+    
     manager = ConsentManager(user_name=test_user_name)
     
-    # Initialize tables
+    # Initialize consent tables
     manager.initialize()
     
     yield manager
