@@ -299,7 +299,7 @@ class TestDeleteProjectDataEndpoint:
         mock_delete.return_value = (3, 5, 1)  # metrics, files, projects
         
         client = TestClient(app)
-        response = client.delete("/api/projects/123/data")
+        response = client.delete("/api/projects/123/data?user_name=testuser")
         
         assert response.status_code == 200
         data = response.json()
@@ -307,7 +307,7 @@ class TestDeleteProjectDataEndpoint:
         assert data["deleted"]["metrics"] == 3
         assert data["deleted"]["files"] == 5
         assert data["deleted"]["projects"] == 1
-        mock_delete.assert_called_once_with(123)
+        mock_delete.assert_called_once_with(123, user_name='testuser')
     
     @patch('api.routes.project.delete_insights')
     def test_delete_project_data_error(self, mock_delete):
@@ -315,10 +315,30 @@ class TestDeleteProjectDataEndpoint:
         mock_delete.side_effect = Exception("Database error")
         
         client = TestClient(app)
-        response = client.delete("/api/projects/123/data")
+        response = client.delete("/api/projects/123/data?user_name=testuser")
         
         assert response.status_code == 500
         assert "Error deleting project data" in response.json()["detail"]
+    
+    @patch('api.routes.project.delete_insights')
+    def test_delete_project_data_missing_user(self, mock_delete):
+        """Test that user_name is required."""
+        client = TestClient(app)
+        response = client.delete("/api/projects/123/data")
+        
+        assert response.status_code == 400
+        assert "user_name parameter is required" in response.json()["detail"]
+    
+    @patch('api.routes.project.delete_insights')
+    def test_delete_project_data_permission_denied(self, mock_delete):
+        """Test permission denied error."""
+        mock_delete.side_effect = PermissionError("Project does not belong to user")
+        
+        client = TestClient(app)
+        response = client.delete("/api/projects/123/data?user_name=testuser")
+        
+        assert response.status_code == 403
+        assert "Project does not belong to user" in response.json()["detail"]
 
 
 class TestGetProjectsEndpoint:
