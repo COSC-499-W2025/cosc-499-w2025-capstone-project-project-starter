@@ -4,6 +4,8 @@ __all__ = [
     "AnalysisRouter",
     "analyze_zip_project",
     "analyze_zip_projects_in_dir",
+    "GeminiAnalyzer",
+    "analyze_project_with_gemini",
 ]
 
 # Lazy imports for ranking functionality
@@ -30,3 +32,14 @@ def analyze_zip_project(zip_path, max_readme_bytes=65536):
 def analyze_zip_projects_in_dir(base_dir, max_readme_bytes=65536):
     from .zip_project_analyzer import analyze_zip_projects_in_dir
     return analyze_zip_projects_in_dir(base_dir, max_readme_bytes=max_readme_bytes)
+
+
+# Gemini-powered analysis
+def GeminiAnalyzer():
+    from .gemini_analyzer import GeminiAnalyzer as _GeminiAnalyzer
+    return _GeminiAnalyzer()
+
+
+def analyze_project_with_gemini(file_contents, project_name="Project", project_context=None):
+    from .gemini_analyzer import analyze_project_with_gemini as _analyze
+    return _analyze(file_contents, project_name, project_context)

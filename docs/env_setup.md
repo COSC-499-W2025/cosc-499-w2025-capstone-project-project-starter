@@ -71,3 +71,4 @@ docker exec -it artifact_db psql -U devuser -d artifact_data
 
 # Before test you should do: run **python src/main.py** in main branch
 
+DROP TABLE analysis_results, external_service_permissions, file_contents, generated_resumes, project_rankings, uploaded_files, user_consent, user_informations, user_preferences;
