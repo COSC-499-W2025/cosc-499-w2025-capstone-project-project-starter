@@ -72,20 +72,20 @@ class APIClient:
             files = {'file': (os.path.basename(file_path), f, 'application/zip')}
             return self._make_request('POST', '/projects/upload', files=files, params=params)
     
-    def post_privacy_consent(self, consent_given: bool, user_id: str = "default_user") -> Dict[str, Any]:
+    def post_privacy_consent(self, consent_given: bool, user_name: str) -> Dict[str, Any]:
         """
         Store privacy consent via POST /privacy-consent.
         
         Args:
             consent_given: Whether consent is granted
-            user_id: User identifier (defaults to 'default_user')
+            user_name: Username from user_informations table
             
         Returns:
             dict: Consent storage result
         """
         data = {
             "consent_given": consent_given,
-            "user_id": user_id
+            "user_name": user_name
         }
         return self._make_request('POST', '/privacy-consent', json=data)
     

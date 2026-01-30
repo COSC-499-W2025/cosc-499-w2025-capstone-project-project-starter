@@ -21,10 +21,11 @@ def ensure_user_preferences_schema():
         print(f"[WARN] Exception caught: {e}")
 
 
-def initialize_app():
+def initialize_database():
     """
-    Initialize the application: database, managers, and permissions.
-    Returns tuple of (consent_manager, collab_manager) or None if initialization fails.
+    Initialize database tables only.
+    This should be called before user login.
+    Returns True if successful, False otherwise.
     """
     print("STARTING BACKEND SETUP...")
     
@@ -38,10 +39,28 @@ def initialize_app():
         ResumeManager.init_resume_table()
     except Exception as e:
         print(f"Failed to initialize database tables: {e}")
-        return None
+        return False
     
     ensure_user_preferences_schema()
     
+    # Test database connection
+    try:
+        from config.db_config import with_db_cursor
+        with with_db_cursor() as _:
+            print("Database is connected!")
+    except Exception as e:
+        print(f"Database is not connected: {e}")
+        return False
+    
+    return True
+
+
+def initialize_managers():
+    """
+    Initialize managers after user login.
+    This requires a user to be logged in.
+    Returns tuple of (consent_manager, collab_manager) or None if initialization fails.
+    """
     # Initialize managers
     # ConsentManager will automatically get current logged-in user
     try:
@@ -66,14 +85,5 @@ def initialize_app():
         print("Collaborative not granted. Doing individual.")
     else:
         print("Collaborative granted. Doing collaborative and individual.")
-
-    # Test database connection
-    try:
-        from config.db_config import with_db_cursor
-        with with_db_cursor() as _:
-            print("Database is connected!")
-    except Exception as e:
-        print(f"Database is not connected: {e}")
-        return None
     
     return consent_manager, collab_manager
