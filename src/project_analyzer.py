@@ -12,14 +12,17 @@ class ProjectAnalyzer:
     Implements the complete workflow for Issue #10.
     """
     
-    def __init__(self, user_id='default_user'):
+    def __init__(self, user_id='default_user', interactive=True):
         """
         Initialize the project analyzer.
         
         Args:
             user_id (str): User identifier
+            interactive (bool): If True, can prompt for user input (CLI mode).
+                               If False, skip interactive prompts (API mode).
         """
         self.user_id = user_id
+        self.interactive = interactive
         self.router = AnalysisRouter(user_name=user_id)
         self.local_analyzer = LocalAnalyzer()
     
@@ -54,12 +57,12 @@ class ProjectAnalyzer:
             }
         
         # Request external service permission if needed (Issue #10)
-        # This happens on first analysis, then is cached
-        from external_services.external_service_prompt import request_external_service_permission
-        request_external_service_permission(self.user_id, 'LLM', force=False)
-        
-        # Update router with fresh permission data
-        self.router = AnalysisRouter(user_name=self.user_id)
+        # Only prompt in interactive mode (CLI). Skip for API calls.
+        if self.interactive:
+            from external_services.external_service_prompt import request_external_service_permission
+            request_external_service_permission(self.user_id, 'LLM', force=False)
+            # Update router with fresh permission data
+            self.router = AnalysisRouter(user_name=self.user_id)
         
         # Route the analysis based on user permissions
         strategy = self.router.get_analysis_strategy('project')
