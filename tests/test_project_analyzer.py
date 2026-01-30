@@ -284,7 +284,7 @@ class TestConditionalRoutingWithAnalysis:
         """Test that router uses local strategy when no permission granted."""
         mock_permission.return_value = False
         
-        router = AnalysisRouter(user_id='test_routing_user')
+        router = AnalysisRouter(user_name='test_routing_user')
         strategy = router.get_analysis_strategy('project')
         
         assert strategy == 'local'
@@ -294,7 +294,7 @@ class TestConditionalRoutingWithAnalysis:
         """Test that router uses enhanced strategy when permission granted."""
         mock_permission.return_value = True
         
-        router = AnalysisRouter(user_id='test_routing_user')
+        router = AnalysisRouter(user_name='test_routing_user')
         strategy = router.get_analysis_strategy('project')
         
         assert strategy == 'enhanced'
