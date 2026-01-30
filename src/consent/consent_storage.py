@@ -61,14 +61,15 @@ class ConsentStorage:
                 existing_record = cursor.fetchone()
                 
                 if existing_record:
+                    record_id = existing_record[0]
                     cursor.execute("""
                         UPDATE user_consent 
                         SET consent_given = %s,
                             consent_date = %s,
                             withdrawn_date = NULL,
                             updated_at = CURRENT_TIMESTAMP
-                        WHERE user_name = %s
-                    """, (consent_given, datetime.now(), user_name))
+                        WHERE id = %s
+                    """, (consent_given, datetime.now(), record_id))
                 else:
                     cursor.execute("""
                         INSERT INTO user_consent (user_name, consent_given, consent_date)
@@ -124,15 +125,29 @@ class ConsentStorage:
         """
         try:
             with with_db_cursor() as cursor:
+                # Get the most recent consent record for this user
                 cursor.execute("""
-                    UPDATE user_consent 
-                    SET consent_given = FALSE,
-                        withdrawn_date = %s,
-                        updated_at = CURRENT_TIMESTAMP
-                    WHERE user_name = %s
-                """, (datetime.now(), user_name))
-            
-            return True
+                    SELECT id FROM user_consent 
+                    WHERE user_name = %s 
+                    ORDER BY created_at DESC 
+                    LIMIT 1
+                """, (user_name,))
+                
+                existing_record = cursor.fetchone()
+                
+                if existing_record:
+                    record_id = existing_record[0]
+                    cursor.execute("""
+                        UPDATE user_consent 
+                        SET consent_given = FALSE,
+                            withdrawn_date = %s,
+                            updated_at = CURRENT_TIMESTAMP
+                        WHERE id = %s
+                    """, (datetime.now(), record_id))
+                    return True
+                else:
+                    # No record to withdraw
+                    return False
             
         except ConnectionError:
             return False
