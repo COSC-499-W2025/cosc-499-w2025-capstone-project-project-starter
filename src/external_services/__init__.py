@@ -4,9 +4,9 @@ External services module for managing permissions and external API integrations.
 Implements Issue #10 and its sub-issues.
 """
 
-from external_services.permission_manager import ExternalServicePermission
-from external_services.service_config import ServiceConfig
-from external_services.external_service_prompt import (
+from .permission_manager import ExternalServicePermission
+from .service_config import ServiceConfig
+from .external_service_prompt import (
     ExternalServicePrompt,
     request_external_service_permission
 )

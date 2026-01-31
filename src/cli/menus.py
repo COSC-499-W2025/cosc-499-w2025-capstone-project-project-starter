@@ -22,6 +22,7 @@ from account.user_manager import AuthManager
 from tools.cleanup_insights import delete_insights
 from cli.display import display_success, display_error
 from cli.cli_output import print_header, print_section, print_success, print_error, pause, safe_input
+from .menu_runner import MenuSpec, run_menu
 
 def analyze_project_menu():
     """
@@ -57,130 +58,105 @@ def analysis_menu():
 
 def resume_menu():
     """Unified resume menu that consolidates all resume-related options."""
-    
-    SETTINGS_OPTIONS = [
+    options = [
         "Generate Resume",
         "Export Resume",
         "Delete Resume",
-        "Back to main menu"
+        "Back to main menu",
     ]
-    
+
+    spec = MenuSpec(
+        title="RESUME OPTIONS",
+        options=options,
+        prompt="Choose an option",
+    )
+
     handlers = {
         "1": lambda: handle_generate_resume(),
         "2": lambda: handle_view_resume(),
         "3": lambda: handle_delete_resume(),
-        "4": "BACK"
+        "4": "BACK",
     }
-    
-    while True:
-        print("\n" + "="*70)
-        print("RESUME OPTIONS")
-        print("="*70)
-        for idx, option in enumerate(SETTINGS_OPTIONS, start=1):
-            print(f"{idx}. {option}")
-        print("="*70)
-        
-        choice = safe_input("Choose an option (1-4): ", default = "").strip()
-        handler = handlers.get(choice)
-        
-        if handler == "BACK":
-            return
-        elif handler:
-            handler()
-        else:
-            print("Invalid choice. Please enter 1, 2, 3, or 4.")
 
+    run_menu(spec, handlers, pause_after_action=False)
+    return
 
 def project_menu():
     """Unified menu to manage projects"""
-    
-    SETTINGS_OPTIONS = [
+    options = [
         "Upload a ZIP file",
         "List stored projects",
         "Add a thumbnail to a project",
         "Delete a project",
-        "Back to main menu"
+        "Back to main menu",
     ]
-    
+
+    spec = MenuSpec(
+        title="PROJECTS OPTIONS",
+        options=options,
+        prompt="Choose an option",
+    )
+
     handlers = {
         "1": lambda: handle_upload_file(),
         "2": lambda: handle_list_projects(),
         "3": lambda: handle_add_project_thumbnail(),
         "4": lambda: handle_cleanup_insights(),
-        "5": "BACK"
+        "5": "BACK",
     }
-    
-    while True:
-        print("\n" + "="*70)
-        print("PROJECTS OPTIONS")
-        print("="*70)
-        for idx, option in enumerate(SETTINGS_OPTIONS, start=1):
-            print(f"{idx}. {option}")
-        print("="*70)
-        
-        choice = safe_input("Choose an option (1-5): ", default = "").strip()
-        handler = handlers.get(choice)
-        
-        if handler == "BACK":
-            return
-        elif handler:
-            handler()
-        else:
-            print("Invalid choice. Please enter 1, 2, 3, 4, or 5.")
+
+    run_menu(spec, handlers, pause_after_action=False)
+    return
 
 
 def settings_menu(consent_manager, collab_manager):
     """Unified settings menu that consolidates all settings-related options."""
     from cli.user_menus import user_account_menu
-    
-    SETTINGS_OPTIONS = [
+
+    options = [
         "External Service Settings",
         "User Preferences",
         "User Account",
-        "Back to main menu"
+        "Back to main menu",
     ]
-    
+
+    spec = MenuSpec(
+        title="SETTINGS",
+        options=options,
+        prompt="Choose an option",
+    )
+
     handlers = {
         "1": lambda: manage_external_services_menu(),
         "2": lambda: ask_user_preferences(consent_manager, collab_manager, False),
         "3": lambda: user_account_menu(),
-        "4": "BACK"
+        "4": "BACK",
     }
-    
-    while True:
-        print("\n" + "="*70)
-        print("SETTINGS")
-        print("="*70)
-        for idx, option in enumerate(SETTINGS_OPTIONS, start=1):
-            print(f"{idx}. {option}")
-        print("="*70)
-        
-        choice = safe_input("Choose an option (1-4): ", default = "").strip()
-        handler = handlers.get(choice)
-        
-        if handler == "BACK":
-            return
-        elif handler:
-            handler()
-        else:
-            print("Invalid choice. Please enter 1, 2, 3, or 4.")
+
+    run_menu(spec, handlers, pause_after_action=False)
+    return
 
 
 def manage_external_services_menu():
     """Manage external service permissions (settings menu)."""
     current_user = AuthManager.get_current_username() or 'default_user'
+
     def view_status():
         permission_manager = ExternalServicePermission(current_user)
         has_permission = permission_manager.has_permission('LLM')
         status_messages = {
             None: "No permission set (will be asked on first analysis)",
             True: "External service permission GRANTED\n  Enhanced analysis is enabled",
-            False: "External service permission DECLINED\n  Local analysis only (data stays private)"
+            False: "External service permission DECLINED\n  Local analysis only (data stays private)",
         }
-        print("\n" + "="*50)
+        print("\n" + "=" * 50)
         print(f"Status: {status_messages[has_permission]}")
-        print("="*50)
-    
+        print("=" * 50)
+
+    def grant_or_update():
+        # Keep existing behavior
+        request_external_service_permission(current_user, 'LLM')
+
     def revoke_permission():
         confirm = safe_input("\nAre you sure you want to revoke external service permission? (yes/no): ", default= "").strip().lower()
         if confirm in ['yes', 'y']:
@@ -189,32 +165,32 @@ def manage_external_services_menu():
             print("  Local analysis will be used (your data stays private)")
         else:
             print("\nAction cancelled")
-    
+
+    options = [
+        "View current permission status",
+        "Grant/Update external service permission",
+        "Revoke external service permission",
+        "Back to main menu",
+    ]
+
+    spec = MenuSpec(
+        title="External Service Settings",
+        options=options,
+        prompt="Choose an option",
+        show_header=True,
+    )
+
     handlers = {
-        "1": view_status,
-        "2": lambda: request_external_service_permission(current_user, 'LLM'),
-        "3": revoke_permission,
-        "4": "BACK"
+        "1": lambda: (view_status() or "BACK"),
+        "2": lambda: (grant_or_update() or "BACK"),
+        "3": lambda: (revoke_permission() or "BACK"),
+        "4": "BACK",
     }
-    
-    print("\n" + "-"*50)
-    print("External Service Settings")
-    print("-"*50)
-    print("1. View current permission status")
-    print("2. Grant/Update external service permission")
-    print("3. Revoke external service permission")
-    print("4. Back to main menu")
-    print("-"*50)
-    
-    choice = safe_input("Choose an option (1-4): ", default = "").strip()
-    handler = handlers.get(choice)
-    
-    if handler == "BACK":
-        return
-    elif handler:
-        handler()
-    else:
-        print("Invalid choice. Please enter 1, 2, 3, or 4.")
+
+    # Loop until user chooses BACK (run_menu will keep looping internally)
+    run_menu(spec, handlers, pause_after_action=False)
+    return
+
 
 
 def ask_user_preferences(consent_manager, collab_manager, is_start):
@@ -618,9 +594,17 @@ def handle_cleanup_insights():
         from project_manager import get_project_by_id
 
         project_id = int(pid)
-        project = get_project_by_id(project_id)
+        
+        # Get current logged-in user for data isolation
+        current_username = AuthManager.get_current_username()
+        if not current_username:
+            print("Error: You must be logged in to delete projects.")
+            return
+        
+        # Verify project exists and belongs to current user
+        project = get_project_by_id(project_id, user_name=current_username)
         if not project:
-            print(f"No project found with ID {project_id}.")
+            print(f"No project found with ID {project_id} or you don't have permission to delete it.")
             return
 
         confirm = safe_input(
@@ -628,8 +612,13 @@ def handle_cleanup_insights():
             f"This cannot be undone. (y/n): "
         ).strip().lower()
         if confirm in ('y', 'yes'):
-            m, f, p = delete_insights(project_id)
-            print(f"Deleted: project_metrics={m}, file_contents={f}, uploaded_files={p}")
+            try:
+                m, f, p = delete_insights(project_id, user_name=current_username)
+                print(f"Deleted: project_metrics={m}, file_contents={f}, uploaded_files={p}")
+            except PermissionError as e:
+                print(f"Error: {e}")
+            except Exception as e:
+                print(f"Error deleting project: {e}")
         else:
             print("Cancelled.")
     else:
@@ -782,51 +771,6 @@ def handle_view_resume():
         else:
             print("\nFailed to format resume.")
     
-    pause()
-
-
-def handle_llm_summary():
-    """Run the LLM summary against the bundled test.zip archive."""
-    print("\n" + "-"*70)
-    print("LLM Summary (test.zip)")
-    print("-"*70)
-
-    current_dir = os.path.dirname(os.path.abspath(__file__))
-    project_root = os.path.dirname(os.path.dirname(current_dir))
-    zip_path = os.path.join(project_root, "test.zip")
-
-    if not os.path.exists(zip_path):
-        print(f"Default archive not found at: {zip_path}")
-        zip_path = safe_input("Enter path to a zip file (or press Enter to cancel): ", default = "").strip()
-        if not zip_path:
-            print("Cancelled.")
-            return
-
-    command = [
-        sys.executable,
-        "-m",
-        "src.tools.ollama_analyze_file",
-        zip_path,
-        "--zip",
-        "--max-files",
-        "200",
-        "--max-bytes-per-file",
-        "4000",
-    ]
-
-    try:
-        result = subprocess.run(command, check=True, text=True, capture_output=True)
-        if result.stdout:
-            print(result.stdout.strip())
-    except subprocess.CalledProcessError as exc:
-        print("LLM summary failed to run.")
-        if exc.stdout:
-            print(exc.stdout.strip())
-        if exc.stderr:
-            print(exc.stderr.strip())
-    except OSError as exc:
-        print(f"Failed to start LLM summary: {exc}")
-
     pause()
 
 

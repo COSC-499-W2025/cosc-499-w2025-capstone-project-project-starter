@@ -10,7 +10,6 @@ from .menus import (
     settings_menu,
     resume_menu,
     portfolio_menu,
-    handle_llm_summary,
     handle_zip_success_report
 )
 from account.user_manager import AuthManager
@@ -24,9 +23,8 @@ MENU_ITEMS = [
     "Settings",                                           # 6
     "Resume",                                             # 7
     "Portfolio",                                          # 8
-    "Run LLM summary (test.zip)",                         # 9
-    "Project success report (ZIP)",                       # 10
-    "Exit"                                                # 11
+    "Project success report (ZIP)",                       # 9
+    "Exit"                                                # 10
 ]
 
 def run_main_menu(consent_manager, collab_manager):
@@ -55,12 +53,12 @@ def run_main_menu(consent_manager, collab_manager):
         print("="*70) 
         
         if os.getenv("GITHUB_ACTIONS") == "true" or not sys.stdin.isatty():
-            choice = "11"
+            choice = "10"
         else:
             try:
-                choice = input("Choose an option (1-11): ").strip()
+                choice = input("Choose an option (1-10): ").strip()
             except EOFError:
-                choice = "11"
+                choice = "10"
         
         # Check authentication before processing any choice
         if not AuthManager.is_user_logged_in():
@@ -76,15 +74,14 @@ def run_main_menu(consent_manager, collab_manager):
             "6": lambda: settings_menu(consent_manager, collab_manager),
             "7": lambda: resume_menu(),
             "8": lambda: portfolio_menu(),
-            "9": lambda: handle_llm_summary(),
-            "10": lambda: handle_zip_success_report(),
-            "11": "EXIT"
+            "9": lambda: handle_zip_success_report(),
+            "10": "EXIT"
         }
 
         handler = handlers.get(choice)
 
         if handler is None:
-            print("Invalid choice. Please enter 1-11.")
+            print("Invalid choice. Please enter 1-10.")
             continue
 
         if handler == "EXIT":

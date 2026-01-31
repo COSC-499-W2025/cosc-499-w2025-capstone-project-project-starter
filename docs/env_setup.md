@@ -71,14 +71,4 @@ docker exec -it artifact_db psql -U devuser -d artifact_data
 
 # Before test you should do: run **python src/main.py** in main branch
 
-## 8. To install LLM model:
-- install "Continue" extension
-- Download ollama
-- in terminal: ollama pull llama3.1:8b
-- to see what is runing: ollama list
-- to get running: ollama serve
-- run any file: python -m src.tools.ollama_analyze_file src/app.py \
-  --model llama3.1:8b \
-  --url http://localhost:11434/api/generate
-- to run on zip file: python -m src.tools.ollama_analyze_file test.zip --zip --max-files 200 --max-bytes-per-file 4000
-
+DROP TABLE analysis_results, external_service_permissions, file_contents, generated_resumes, project_rankings, uploaded_files, user_consent, user_informations, user_preferences;

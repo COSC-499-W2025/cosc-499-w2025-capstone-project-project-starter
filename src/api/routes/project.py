@@ -212,10 +212,11 @@ async def get_project_by_id_endpoint(
 
 @router.post("/projects/{project_id}/analyze")
 async def analyze_project(project_id: int, user_name: Optional[str] = Query(None)):
-    """Analyze a project."""
+    """Analyze a project using local analysis."""
     try:
         from project_analyzer import ProjectAnalyzer
-        analyzer = ProjectAnalyzer(user_name or 'default_user')
+        # Use interactive=False to skip stdin prompts in API context
+        analyzer = ProjectAnalyzer(user_name or 'default_user', interactive=False)
         results = analyzer.analyze_uploaded_project(project_id)
         if not results.get('success'):
             raise HTTPException(status_code=400, detail=results.get('error', 'Analysis failed'))
@@ -224,6 +225,143 @@ async def analyze_project(project_id: int, user_name: Optional[str] = Query(None
         raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error analyzing project: {str(e)}")
+
+
+@router.post("/projects/{project_id}/analyze-gemini")
+async def analyze_project_gemini(project_id: int, user_name: Optional[str] = Query(None)):
+    """
+    Perform deep AI-powered analysis using Gemini.
+    
+    This provides a more thorough analysis than the local analysis,
+    including architecture assessment, skill evaluation, security review,
+    and actionable recommendations.
+    """
+    try:
+        from project_manager import get_project_by_id
+        from analysis.gemini_analyzer import GeminiAnalyzer
+        from config.db_config import with_db_cursor
+        
+        # Get project info
+        project = get_project_by_id(project_id, user_name=user_name)
+        if not project:
+            raise HTTPException(status_code=404, detail=f"Project {project_id} not found")
+        
+        # Get file contents from database
+        file_contents = []
+        with with_db_cursor() as cursor:
+            cursor.execute("""
+                SELECT file_path, file_name, file_extension, file_size,
+                       file_content, content_type, is_binary
+                FROM file_contents
+                WHERE uploaded_file_id = %s
+                ORDER BY file_path
+            """, (project_id,))
+            
+            for row in cursor.fetchall():
+                file_contents.append({
+                    'file_path': row[0],
+                    'file_name': row[1],
+                    'file_extension': row[2],
+                    'file_size': row[3] or 0,
+                    'file_content': row[4],
+                    'content_type': row[5],
+                    'is_binary': row[6],
+                })
+        
+        if not file_contents:
+            raise HTTPException(status_code=400, detail="No file contents found for this project")
+        
+        # Get basic context from local analysis for Gemini
+        from project_analyzer import ProjectAnalyzer
+        local_analyzer = ProjectAnalyzer(user_name or 'default_user', interactive=False)
+        languages = local_analyzer._analyze_languages_from_files(file_contents)
+        frameworks = local_analyzer._detect_frameworks_from_files(file_contents)
+        
+        context = {
+            'primary_language': languages.get('primary_language'),
+            'detected_languages': languages.get('detected_languages', []),
+            'frameworks': frameworks,
+        }
+        
+        # Run Gemini analysis
+        analyzer = GeminiAnalyzer()
+        results = analyzer.analyze_project(
+            file_contents,
+            project_name=project['filename'],
+            project_context=context
+        )
+        
+        if not results.get('success'):
+            raise HTTPException(status_code=400, detail=results.get('error', 'Gemini analysis failed'))
+        
+        # Store results in database (creates new record for each analysis)
+        try:
+            with with_db_cursor() as cursor:
+                cursor.execute("""
+                    INSERT INTO analysis_results (uploaded_file_id, analysis_data, analysis_strategy)
+                    VALUES (%s, %s, %s)
+                """, (project_id, json.dumps(results, default=str), 'gemini'))
+        except Exception as db_err:
+            # Log but don't fail - analysis was successful
+            print(f"Warning: Could not store Gemini analysis results: {db_err}")
+        
+        return {"success": True, "analysis": results, "analysis_type": "gemini"}
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error in Gemini analysis: {str(e)}")
+
+
+@router.post("/projects/{project_id}/quick-summary")
+async def get_project_quick_summary(project_id: int, user_name: Optional[str] = Query(None)):
+    """
+    Get a quick AI-generated summary of a project.
+    Useful for resume/portfolio descriptions.
+    """
+    try:
+        from project_manager import get_project_by_id
+        from analysis.gemini_analyzer import GeminiAnalyzer
+        from config.db_config import with_db_cursor
+        
+        # Get project info
+        project = get_project_by_id(project_id, user_name=user_name)
+        if not project:
+            raise HTTPException(status_code=404, detail=f"Project {project_id} not found")
+        
+        # Get file contents
+        file_contents = []
+        with with_db_cursor() as cursor:
+            cursor.execute("""
+                SELECT file_path, file_name, file_extension, file_size,
+                       file_content, content_type, is_binary
+                FROM file_contents
+                WHERE uploaded_file_id = %s
+            """, (project_id,))
+            
+            for row in cursor.fetchall():
+                file_contents.append({
+                    'file_path': row[0],
+                    'file_name': row[1],
+                    'file_extension': row[2],
+                    'file_size': row[3] or 0,
+                    'file_content': row[4],
+                    'content_type': row[5],
+                    'is_binary': row[6],
+                })
+        
+        if not file_contents:
+            raise HTTPException(status_code=400, detail="No file contents found")
+        
+        analyzer = GeminiAnalyzer()
+        summary = analyzer.get_quick_summary(file_contents, project['filename'])
+        
+        return {"success": True, "summary": summary, "project_name": project['filename']}
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error generating summary: {str(e)}")
 
 
 @router.post("/projects/rank")
@@ -259,11 +397,41 @@ async def get_rankings():
 
 
 @router.delete("/projects/{project_id}/data")
-async def delete_project_data(project_id: int):
-    """Delete all project data including metrics, file contents, and project records."""
+async def delete_project_data(
+    project_id: int,
+    user_name: Optional[str] = Query(None, description="Username for data isolation verification")
+):
+    """Delete all project data including metrics, file contents, and project records.
+    
+    Args:
+        project_id: ID of the project to delete
+        user_name: Username to verify project ownership (required for security)
+    
+    Returns:
+        dict: Success status and deletion statistics
+    
+    Raises:
+        HTTPException: 400 if user_name not provided, 403 if permission denied, 500 on error
+    """
+    # Require user_name for security
+    if not user_name:
+        raise HTTPException(
+            status_code=400,
+            detail="user_name parameter is required for data isolation"
+        )
+    
     try:
-        deleted = delete_insights(project_id)
-        return {"success": True, "deleted": {"metrics": deleted[0], "files": deleted[1], "projects": deleted[2]}}
+        deleted = delete_insights(project_id, user_name=user_name)
+        return {
+            "success": True,
+            "deleted": {
+                "metrics": deleted[0],
+                "files": deleted[1],
+                "projects": deleted[2]
+            }
+        }
+    except PermissionError as e:
+        raise HTTPException(status_code=403, detail=str(e))
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error deleting project data: {str(e)}")
 

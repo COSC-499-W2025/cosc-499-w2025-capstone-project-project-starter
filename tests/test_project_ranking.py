@@ -280,9 +280,10 @@ class TestRankAndSummarizeTopProjects:
 class TestRankingStorage:
     """Tests for ranking storage functionality - all database operations are mocked"""
     
+    @patch('analysis.ranking_storage.AuthManager.get_current_username', return_value='test_user')
     @patch('analysis.ranking_storage.init_ranking_storage_table')
     @patch('analysis.ranking_storage.with_db_cursor')
-    def test_save_rankings_to_database(self, mock_cursor, mock_init):
+    def test_save_rankings_to_database(self, mock_cursor, mock_init, mock_get_user):
         """Test that rankings can be saved to the database (mocked, no DB changes)"""
         from analysis.ranking_storage import save_rankings_to_db
         
