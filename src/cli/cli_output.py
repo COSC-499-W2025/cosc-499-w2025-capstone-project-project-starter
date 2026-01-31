@@ -62,20 +62,33 @@ def print_info(message: str, *, print_fn: PrintFn = print) -> None:
     print_status("INFO", message, print_fn=print_fn)
 
 
-def pause(prompt: str = "\nPress Enter to continue...", *, input_fn=input, print_fn: PrintFn = print) -> None:
-    # In tests/CI stdin may be closed.
-    try:
-        input_fn(prompt)
-    except EOFError:
-        print_fn("")  # keep output stable but don't crash
+def pause(
+    prompt: str = "\nPress Enter to continue...",
+    *,
+    input_fn: Optional[Callable[[str], str]] = None,
+    print_fn=print,
+) -> None:
+    safe_input(prompt, input_fn=input_fn, default="", print_fn=print_fn)
 
 
-def safe_input(prompt: str, *, default: Optional[str] = None, input_fn=input, print_fn: PrintFn = print) -> str:
+def safe_input(
+    prompt: str,
+    *,
+    input_fn: Optional[Callable[[str], str]] = None,
+    default: str = "",
+    print_fn=print,
+) -> str:
+    # IMPORTANT: resolve input at runtime so tests can patch builtins.input
+    if input_fn is None:
+        input_fn = input
+
     try:
         s = input_fn(prompt)
-    except EOFError:
-        if default is None:
-            return ""
-        print_fn(f"\n[INFO] EOF detected. Using default: {default}")
+    except (EOFError, OSError):   # pytest capture raises OSError
+        print_fn("")              # keep output stable, no crash
         return default
-    return s
+
+    if s is None:
+        return default
+    s = s.strip()
+    return s if s != "" else default
