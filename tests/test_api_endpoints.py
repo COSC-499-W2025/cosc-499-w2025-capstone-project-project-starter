@@ -457,3 +457,116 @@ class TestGetProjectByIdEndpoint:
         data = response.json()
         assert data["project"]["id"] == 456
         mock_get.assert_called_once_with(456, user_name=None)
+
+class TestResumePortfolioEndpoints:
+    """Tests for the new Resume Item and Portfolio Card preview endpoints."""
+
+    @patch('api.routes.resume_portfolio.get_project_by_id')
+    def test_get_resume_preview_success(self, mock_get_db):
+        """
+        Test that the endpoint correctly converts raw data into a Resume Item.
+        """
+        # 1. Setup Mock Data
+        mock_get_db.return_value = {
+            'project_info': {
+                'id': 101, 
+                'filename': 'stock_trader_v2.zip', 
+                'created_at': '2025-01-20T10:00:00'
+            },
+            'file_statistics': {
+                'total_lines_of_code': 1200, 
+                'total_files': 15
+            },
+            'languages': {
+                'detected_languages': ['Python', 'JavaScript']
+            },
+            'frameworks': ['React', 'FastAPI'],
+            'project_structure': {
+                'has_tests': True, 
+                'has_docs': False
+            },
+            'collaboration_analysis': {
+                'contributors': ['Kevin', 'Sami']
+            }
+        }
+        
+        # 2. Call API (Added /api prefix)
+        client = TestClient(app)
+        response = client.get("/api/resume/preview/101")
+        
+        # 3. Assertions
+        assert response.status_code == 200
+        data = response.json()
+        
+        # Check transformation logic
+        assert data['project_title'] == "Stock Trader V2"
+        assert data['role'] == "Software Developer"
+        assert len(data['description_bullets']) > 0
+        
+        # Verify tech stack merging
+        assert "Python" in data['technologies']
+        assert "React" in data['technologies']
+
+    @patch('api.routes.resume_portfolio.get_project_by_id')
+    def test_get_resume_preview_not_found(self, mock_get_db):
+        """Test 404 error when project doesn't exist."""
+        mock_get_db.return_value = None
+        
+        client = TestClient(app)
+        # Added /api prefix
+        response = client.get("/api/resume/preview/999")
+        
+        assert response.status_code == 404
+        assert response.json()['detail'] == "Project not found"
+
+    @patch('api.routes.resume_portfolio.get_project_by_id')
+    def test_get_portfolio_card_success(self, mock_get_db):
+        """
+        Test that the endpoint correctly returns a rich Portfolio Card.
+        """
+        # 1. Setup Mock Data
+        mock_get_db.return_value = {
+            'project_info': {
+                'id': 101, 
+                'filename': 'stock_trader_v2.zip', 
+                'created_at': '2025-01-20T10:00:00'
+            },
+            'file_statistics': {
+                'total_lines_of_code': 1200, 
+                'total_files': 25
+            },
+            'languages': {
+                'detected_languages': ['Python']
+            },
+            'project_structure': {
+                'has_tests': True
+            }
+        }
+        
+        # 2. Call API (Added /api prefix)
+        client = TestClient(app)
+        response = client.get("/api/portfolio/card/101")
+        
+        # 3. Assertions
+        assert response.status_code == 200
+        data = response.json()
+        
+        # Check structure
+        assert data['title'] == "Stock Trader V2"
+        assert "1200+ lines" in data['short_description']
+        
+        # Check evidence
+        evidence_text = str(data['success_metrics'])
+        assert "LOC" in evidence_text or "lines" in evidence_text
+        assert "test" in evidence_text.lower()
+
+    @patch('api.routes.resume_portfolio.get_project_by_id')
+    def test_get_portfolio_card_not_found(self, mock_get_db):
+        """Test 404 error for portfolio card."""
+        mock_get_db.return_value = None
+        
+        client = TestClient(app)
+        # Added /api prefix
+        response = client.get("/api/portfolio/card/999")
+        
+        assert response.status_code == 404
