@@ -3,6 +3,7 @@ import io
 import os
 import sys
 from account.user_manager import AuthManager
+from cli.cli_output import print_header, print_section, print_success, print_error, pause, safe_input, print_info
 
 # Password display configuration
 # Set to True for asterisks (*), False for visible password
@@ -137,41 +138,57 @@ def get_password_input(prompt="Password: ", show_asterisk=None):
     
     return password
 
+def _safe_input(prompt: str, *, input_fn=input, default: str = "") -> str:
+    """Input wrapper that won't crash tests when stdin is unavailable."""
+    try:
+        return input_fn(prompt)
+    except EOFError:
+        return default
+
+
+def _pause(*, input_fn=input) -> None:
+    """Press-enter pause that won't crash in tests."""
+    try:
+        input_fn("\nPress Enter to continue...")
+    except EOFError:
+        pass
 
 def set_password_display_mode():
-    """Allow user to choose password display mode."""
     global SHOW_PASSWORD_AS_ASTERISK
-    
-    print("\n" + "-"*40)
+
+    print("\n" + "-" * 40)
     print("PASSWORD DISPLAY SETTINGS")
-    print("-"*40)
-    print("Current mode:", "Asterisks (*)" if SHOW_PASSWORD_AS_ASTERISK else "Visible characters")
+    print("-" * 40)
+    print(
+        "Current mode:",
+        "Asterisks (*)" if SHOW_PASSWORD_AS_ASTERISK else "Visible characters",
+    )
     print("\nChoose password display mode:")
     print("1. Show asterisks (*) when typing")
     print("2. Show actual characters when typing")
     print("3. Keep current setting")
-    
+
     try:
         choice = input("\nChoose an option (1-3): ").strip()
     except EOFError:
-        print("\nEOF detected. Keeping current setting.")
-        return
-    
-    if choice == '1':
+        print("EOF detected. Keeping current setting.")
+        return False
+
+    if choice == "1":
         SHOW_PASSWORD_AS_ASTERISK = True
         print("Password display set to asterisks (*)")
-    elif choice == '2':
+        return True
+    elif choice == "2":
         SHOW_PASSWORD_AS_ASTERISK = False
         print("Password display set to visible characters")
-    elif choice == '3':
+        return True
+    elif choice == "3":
         print("Keeping current setting")
+        return False
     else:
         print("Invalid choice. Keeping current setting.")
-    
-    try:
-        input("\nPress Enter to continue...")
-    except EOFError:
-        pass
+        return False
+
 
 
 def user_account_menu():
@@ -247,45 +264,49 @@ def user_account_menu():
 
 
 def handle_user_login():
-    """Handle user login process."""
-    print("\n" + "-"*40)
+    print("\n" + "-" * 40)
     print("USER LOGIN")
-    print("-"*40)
-    
+    print("-" * 40)
+
     try:
         username = input("Username: ").strip()
     except EOFError:
-        print("\nEOF detected. Login cancelled.")
-        return
+        print("EOF detected. Login cancelled.")
+        return None
+
     if not username:
         print("Username cannot be empty.")
-        return
-    
+        input("\nPress Enter to continue...")
+        return None
+
     try:
         password = get_password_input("Password: ")
+    except EOFError:
+        print("EOF detected. Login cancelled.")
+        return None
     except KeyboardInterrupt:
         print("\nLogin cancelled.")
-        return
-    
+        return None
+
     if not password:
         print("Password cannot be empty.")
-        return
-    
+        input("\nPress Enter to continue...")
+        return None
+
     result = AuthManager.login(username, password)
-    
-    if result['success']:
-        print(f"\n[SUCCESS] {result['message']}")
+
+    if result.get("success"):
+        print(f"\n[SUCCESS] {result.get('message')}")
         print(f"Welcome back, {username}!")
-        try:
-            input("\nPress Enter to continue...")
-        except EOFError:
-            pass
     else:
-        print(f"\n[ERROR] {result['message']}")
-        try:
-            input("\nPress Enter to continue...")
-        except EOFError:
-            pass
+        print(f"\n[ERROR] {result.get('message')}")
+
+    try:
+        input("\nPress Enter to continue...")
+    except EOFError:
+        pass
+
+    return result
 
 
 def handle_user_logout():
@@ -307,63 +328,81 @@ def handle_user_logout():
 
 
 def handle_user_registration():
-    """Handle user registration process."""
-    print("\n" + "-"*40)
+    print("\n" + "-" * 40)
     print("CREATE NEW ACCOUNT")
-    print("-"*40)
-    
+    print("-" * 40)
+
     try:
         username = input("Choose a username: ").strip()
     except EOFError:
-        print("\nEOF detected. Registration cancelled.")
-        return
+        print("EOF detected. Registration cancelled.")
+        return None
+
     if not username:
         print("Username cannot be empty.")
-        return
-    
+        input("\nPress Enter to continue...")
+        return None
+
     try:
         password = get_password_input("Choose a password (minimum 6 characters): ")
+    except EOFError:
+        print("EOF detected. Registration cancelled.")
+        return None
     except KeyboardInterrupt:
         print("\nRegistration cancelled.")
-        return
-    
+        return None
+
     if not password:
         print("Password cannot be empty.")
-        return
-    
+        input("\nPress Enter to continue...")
+        return None
+
+    if len(password) < 6:
+        print("Password must be at least 6 characters.")
+        input("\nPress Enter to continue...")
+        return None
+
     try:
         confirm_password = get_password_input("Confirm password: ")
+    except EOFError:
+        print("EOF detected. Registration cancelled.")
+        return None
     except KeyboardInterrupt:
         print("\nRegistration cancelled.")
-        return
-    
+        return None
+
     if password != confirm_password:
         print("Passwords do not match.")
-        return
-    
+        input("\nPress Enter to continue...")
+        return None
+
     result = AuthManager.register(username, password)
-    
-    if result['success']:
-        print(f"\n[SUCCESS] {result['message']}")
-        print(f"Account created successfully! User ID: {result['user_id']}")
-        
-        # Ask if user wants to login immediately
+
+    if result.get("success"):
+        print(f"\n[SUCCESS] {result.get('message')}")
+        print(f"Account created successfully! User ID: {result.get('user_id')}")
+
         try:
             login_now = input("\nWould you like to login now? (y/n): ").strip().lower()
         except EOFError:
-            login_now = 'n'
-        if login_now in ('y', 'yes'):
+            print("EOF detected. Registration cancelled.")
+            return result
+
+        if login_now in ("y", "yes"):
             login_result = AuthManager.login(username, password)
-            if login_result['success']:
-                print(f"\n[SUCCESS] {login_result['message']}")
+            if login_result.get("success"):
+                print(f"\n[SUCCESS] {login_result.get('message')}")
                 print(f"Welcome, {username}!")
     else:
-        print(f"\n[ERROR] {result['message']}")
-    
+        print(f"\n[ERROR] {result.get('message')}")
+
     try:
         input("\nPress Enter to continue...")
     except EOFError:
         pass
+
+    return result
+
 
 
 def login_menu():

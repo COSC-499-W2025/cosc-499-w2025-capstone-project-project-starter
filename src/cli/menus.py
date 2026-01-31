@@ -21,6 +21,7 @@ from database.user_preferences import get_user_git_username, update_user_git_use
 from account.user_manager import AuthManager
 from tools.cleanup_insights import delete_insights
 from cli.display import display_success, display_error
+from cli.cli_output import print_header, print_section, print_success, print_error, pause, safe_input
 from .menu_runner import MenuSpec, run_menu
 
 def analyze_project_menu():
@@ -42,7 +43,7 @@ def analyze_project_menu():
     analyze_project_by_id(selected_project['id'])
     
     # Ask if user wants to continue
-    continue_choice = input("\nPress Enter to continue or 'q' to quit: ").strip()
+    continue_choice = safe_input("\nPress Enter to continue or 'q' to quit: ", default = "").strip()
     if continue_choice.lower() == 'q':
         return
 
@@ -157,7 +158,7 @@ def manage_external_services_menu():
         request_external_service_permission(current_user, 'LLM')
 
     def revoke_permission():
-        confirm = input("\nAre you sure you want to revoke external service permission? (yes/no): ").strip().lower()
+        confirm = safe_input("\nAre you sure you want to revoke external service permission? (yes/no): ", default= "").strip().lower()
         if confirm in ['yes', 'y']:
             ExternalServicePrompt.store_permission(current_user, 'LLM', False)
             print("\nExternal service permission has been REVOKED")
@@ -199,7 +200,7 @@ def ask_user_preferences(consent_manager, collab_manager, is_start):
     # Check/request user consent first
     if not is_start and consent_manager.has_access():
         # Allow user to withdraw consent
-        response = input("\nWould you like to withdraw consent? (yes/no): ").strip().lower()
+        response = safe_input("\nWould you like to withdraw consent? (yes/no): ", default = "").strip().lower()
         if response in ['yes', 'y']:
             consent_manager.withdraw()
     # Request consent if needed (for is_start=True or if consent was withdrawn)
@@ -209,7 +210,7 @@ def ask_user_preferences(consent_manager, collab_manager, is_start):
     prefs = collab_manager.get_preferences()
     if prefs and prefs[1] and not is_start: 
         while True:
-            response = input("\nWould you like to not include collaborative work? (yes/no): ").strip().lower()
+            response = safe_input("\nWould you like to not include collaborative work? (yes/no): ", default = "").strip().lower()
             if response in ['yes', 'y']:
                 collab_manager.update_collaborative(False)
                 print("\nCollaborative not granted. Thank you!")
@@ -226,7 +227,7 @@ def ask_user_preferences(consent_manager, collab_manager, is_start):
             print("Collaborative granted. Doing colabrative and individual.")
             git_username = get_user_git_username()
             if not git_username:
-                response = input("\nWhat is you GitHub user name: ").strip()
+                response = safe_input("\nWhat is you GitHub user name: ", default = "").strip()
                 update_user_git_username(response)
                 just_changed = True
             print("\nYour github username is:"+str(get_user_git_username()))
@@ -244,9 +245,9 @@ def ask_user_preferences(consent_manager, collab_manager, is_start):
             
     if not just_changed and get_user_git_username() is not None and not is_start:
         while True:
-            response = input("\nWould you like to change you GitHub username? (y/n) ")
+            response = safe_input("\nWould you like to change you GitHub username? (y/n) ", default = "").strip().lower()
             if response in ['yes', 'y']:
-                new_username = input("\nWhat is you GitHub user name: ").strip()
+                new_username = safe_input("\nWhat is you GitHub user name: ", default = "").strip()
                 update_user_git_username(new_username)
                 break
             elif response in ['no', 'n']:
@@ -257,7 +258,7 @@ def ask_user_preferences(consent_manager, collab_manager, is_start):
 
 def handle_upload_file():
     """Handle file upload menu option."""
-    filepath = input("Enter the path to your zip file: ")
+    filepath = safe_input("Enter the path to your zip file: ", default = "").strip()
     from api.client import get_api_client
     from upload_file import UploadResult
     from account.user_manager import AuthManager
@@ -297,7 +298,7 @@ def handle_add_project_thumbnail():
     if not selected_project:
         return
 
-    thumbnail_path = input("Enter the path to the thumbnail image: ").strip()
+    thumbnail_path = safe_input("Enter the path to the thumbnail image: ", default = "").strip()
     if not thumbnail_path:
         print("No thumbnail path provided.")
         return
@@ -342,7 +343,7 @@ def handle_analyze_metrics_and_summary():
     summary_text = summarize_project(project_id, user_name=current_username)
     print(summary_text)
 
-    input("\nPress Enter to continue...")
+    safe_input("\nPress Enter to continue...")
 
 def handle_rank_projects():
     """Handle rank all projects menu option."""
@@ -354,12 +355,12 @@ def handle_rank_projects():
 
     if ranked:
         print("\n" + "-"*80)
-        save_choice = input("Would you like to save these rankings to the database? (y/n): ").strip().lower()
+        save_choice = safe_input("Would you like to save these rankings to the database? (y/n): ", default = "").strip().lower()
         if save_choice in ['y', 'yes']:
-            generate_summaries = input("Generate summaries for all projects? (y/n): ").strip().lower()
+            generate_summaries = safe_input("Generate summaries for all projects? (y/n): ", default = "").strip().lower()
             save_rankings_with_summaries(ranked, generate_summaries in ['y', 'yes'])
 
-    input("\nPress Enter to continue...")
+    safe_input("\nPress Enter to continue...")
 
 
 def handle_zip_success_report():
@@ -380,13 +381,13 @@ def handle_zip_success_report():
     project = get_project_by_id(project_id)
     if not project:
         print("Project not found.")
-        input("\nPress Enter to continue...")
+        pause()
         return
 
     zip_bytes = get_zip_file(project_id)
     if not zip_bytes:
         print("ZIP file not found for this project.")
-        input("\nPress Enter to continue...")
+        pause()
         return
 
     try:
@@ -396,7 +397,7 @@ def handle_zip_success_report():
         result = analyze_zip_project(temp_zip_path)
     except Exception as exc:
         print(f"Failed to analyze ZIP: {exc}")
-        input("\nPress Enter to continue...")
+        pause()
         return
     finally:
         if "temp_zip_path" in locals() and os.path.exists(temp_zip_path):
@@ -434,7 +435,7 @@ def handle_zip_success_report():
         if evidence.get("incomplete_markers"):
             print(f"- incomplete_markers: {', '.join(evidence['incomplete_markers'])}")
 
-    input("\nPress Enter to continue...")
+    pause()
 
 
 def handle_rank_and_summarize_projects():
@@ -443,17 +444,17 @@ def handle_rank_and_summarize_projects():
     
     # Ask if user wants to save results
     print("\n" + "-"*80)
-    save_choice = input("Would you like to save these rankings and summaries to the database? (y/n): ").strip().lower()
+    save_choice = safe_input("Would you like to save these rankings and summaries to the database? (y/n): ", default = "").strip().lower()
     if save_choice in ['y', 'yes']:
         # Data Isolation: Get current user to rank only their projects
         current_username = AuthManager.get_current_username()
         ranked = rank_all_projects(user_name=current_username)
         if ranked:
             # Generate summaries for all projects (not just top 3)
-            generate_all = input("Generate summaries for ALL projects (not just top 3)? (y/n): ").strip().lower()
+            generate_all = safe_input("Generate summaries for ALL projects (not just top 3)? (y/n): ", default = "").strip().lower()
             save_rankings_with_summaries(ranked, generate_all in ['y', 'yes'])
     
-    input("\nPress Enter to continue...")
+    pause()
 
 
 def handle_view_edit_rankings():
@@ -466,7 +467,7 @@ def handle_view_edit_rankings():
     
     if not stored_rankings:
         print("\nNo stored rankings found. Please rank projects first and save them.")
-        input("\nPress Enter to continue...")
+        pause()
         return
     
     # Display stored rankings
@@ -490,11 +491,11 @@ def handle_view_edit_rankings():
         print("4. Clean error summaries from database")
         print("5. Back to main menu")
         
-        choice = input("\nChoose an option (1-5): ").strip()
+        choice = safe_input("\nChoose an option (1-5): ", default = "").strip()
         
         if choice == '1':
             # View full details
-            project_id = input("Enter project ID to view: ").strip()
+            project_id = safe_input("Enter project ID to view: ", default = "").strip()
             if project_id.isdigit():
                 ranking = get_stored_ranking_by_project_id(int(project_id))
                 if ranking:
@@ -520,9 +521,9 @@ def handle_view_edit_rankings():
         
         elif choice == '2':
             # Edit score
-            project_id = input("Enter project ID to edit score: ").strip()
+            project_id = safe_input("Enter project ID to edit score: ", default = "").strip()
             if project_id.isdigit():
-                new_score = input("Enter new score: ").strip()
+                new_score = safe_input("Enter new score: ", default = "").strip()
                 try:
                     score_float = float(new_score)
                     if update_ranking_score(int(project_id), score_float):
@@ -536,7 +537,7 @@ def handle_view_edit_rankings():
         
         elif choice == '3':
             # Edit summary
-            project_id = input("Enter project ID to edit summary: ").strip()
+            project_id = safe_input("Enter project ID to edit summary: ", default = "").strip()
             if project_id.isdigit():
                 ranking = get_stored_ranking_by_project_id(int(project_id))
                 if ranking:
@@ -547,7 +548,7 @@ def handle_view_edit_rankings():
                     print("\nEnter new summary (press Enter on empty line to finish, or 'cancel' to cancel):")
                     new_summary_lines = []
                     while True:
-                        line = input()
+                        line = safe_input("", default = "").strip()
                         if line.strip().lower() == 'cancel':
                             print("Cancelled.")
                             break
@@ -570,7 +571,7 @@ def handle_view_edit_rankings():
         elif choice == '4':
             # Clean error summaries
             from analysis.ranking_storage import clean_error_summaries
-            confirm = input("\nThis will remove all error messages from stored summaries. Continue? (y/n): ").strip().lower()
+            confirm = safe_input("\nThis will remove all error messages from stored summaries. Continue? (y/n): ", default = "").strip().lower()
             if confirm in ['y', 'yes']:
                 if clean_error_summaries():
                     print("\n✓ Error summaries cleaned successfully")
@@ -588,7 +589,7 @@ def handle_view_edit_rankings():
 
 def handle_cleanup_insights():
     """Handle delete project data menu option."""
-    pid = input("Enter project ID to delete data for: ").strip()
+    pid = safe_input("Enter project ID to delete data for: ", default = "").strip()
     if pid.isdigit():
         from project_manager import get_project_by_id
 
@@ -606,7 +607,7 @@ def handle_cleanup_insights():
             print(f"No project found with ID {project_id} or you don't have permission to delete it.")
             return
 
-        confirm = input(
+        confirm = safe_input(
             f"Delete all data for project {pid}? "
             f"This cannot be undone. (y/n): "
         ).strip().lower()
@@ -641,7 +642,7 @@ def handle_generate_resume():
     # Get logged-in user
     if not AuthManager.is_user_logged_in():
         print("\nError: You must be logged in to generate a resume.")
-        input("\nPress Enter to continue...")
+        pause()
         return
     
     current_user = AuthManager.get_current_user()
@@ -650,14 +651,14 @@ def handle_generate_resume():
     # Check if resume already exists
     if ResumeManager.resume_exists(user_id):
         print("\nA resume already exists for your account.")
-        regenerate = input("Would you like to regenerate it? (y/n): ").strip().lower()
+        regenerate = safe_input("Would you like to regenerate it? (y/n): ", default = "").strip().lower()
         if regenerate not in ('y', 'yes'):
             print("Cancelled.")
             return
     
     # Ask how many top projects to include
     while True:
-        top_count = input("\nHow many top projects to include in resume? (1-10, default 5): ").strip()
+        top_count = safe_input("\nHow many top projects to include in resume? (1-10, default 5): ", default = "").strip()
         if not top_count:
             top_count = 5
             break
@@ -674,7 +675,7 @@ def handle_generate_resume():
     
     if not resume_data:
         print("\nFailed to generate resume. Please ensure you have uploaded projects.")
-        input("\nPress Enter to continue...")
+        pause()
         return
     
     # Store resume
@@ -699,7 +700,7 @@ def handle_generate_resume():
     else:
         print("\nFailed to save resume to database.")
     
-    input("\nPress Enter to continue...")
+    pause()
 
 
 def handle_view_resume():
@@ -715,7 +716,7 @@ def handle_view_resume():
     # Get logged-in user
     if not AuthManager.is_user_logged_in():
         print("\nError: You must be logged in to view your resume.")
-        input("\nPress Enter to continue...")
+        pause()
         return
     
     current_user = AuthManager.get_current_user()
@@ -724,7 +725,7 @@ def handle_view_resume():
     # Check if resume exists
     if not ResumeManager.resume_exists(user_id):
         print("\nNo resume found. Please generate a resume first.")
-        input("\nPress Enter to continue...")
+        pause()
         return
     
     # Retrieve resume
@@ -732,7 +733,7 @@ def handle_view_resume():
     
     if not resume_record:
         print("\nFailed to retrieve resume from database.")
-        input("\nPress Enter to continue...")
+        pause()
         return
     
     resume_data = resume_record['resume_data']
@@ -744,7 +745,7 @@ def handle_view_resume():
     print("3. JSON")
     print("4. Export as PDF")
     
-    format_choice = input("\nSelect format (1-4, default 1): ").strip()
+    format_choice = safe_input("\nSelect format (1-4, default 1): ", default = "").strip()
     
     if format_choice == '4':
         # PDF export
@@ -770,7 +771,7 @@ def handle_view_resume():
         else:
             print("\nFailed to format resume.")
     
-    input("\nPress Enter to continue...")
+    pause()
 
 
 def _handle_pdf_export(resume_data):
@@ -793,7 +794,7 @@ def _handle_pdf_export(resume_data):
     print(f"\nDefault filename: {default_filename}")
     print("The file will be saved in the project root directory.")
     
-    filename = input(f"Enter filename (press Enter for default): ").strip()
+    filename = safe_input(f"Enter filename (press Enter for default): ", default = "").strip()
     
     if not filename:
         filename = default_filename
@@ -842,7 +843,7 @@ def handle_delete_resume():
     # Get logged-in user
     if not AuthManager.is_user_logged_in():
         print("\nError: You must be logged in to delete your resume.")
-        input("\nPress Enter to continue...")
+        pause()
         return
     
     current_user = AuthManager.get_current_user()
@@ -851,11 +852,11 @@ def handle_delete_resume():
     # Check if resume exists
     if not ResumeManager.resume_exists(user_id):
         print("\nNo resume found.")
-        input("\nPress Enter to continue...")
+        pause()
         return
     
     # Confirm deletion
-    confirm = input("\nAre you sure you want to delete your resume? This cannot be undone. (y/n): ").strip().lower()
+    confirm = safe_input("\nAre you sure you want to delete your resume? This cannot be undone. (y/n): ", default = "").strip().lower()
     
     if confirm in ('y', 'yes'):
         success = ResumeManager.delete_user_resume(user_id)
@@ -867,4 +868,4 @@ def handle_delete_resume():
     else:
         print("\nCancelled.")
     
-    input("\nPress Enter to continue...")
+    pause()
