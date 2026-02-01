@@ -91,7 +91,15 @@ def _derive_project_summary_text(
     if skills:
         parts.append(f"Skills: {skills}.")
 
-    if total_commits is not None and contributor_count is not None:
+    # Only mention git-derived activity when it is non-zero.
+    # A zip upload that is not a git repo will yield 0/0 aggregates; emitting
+    # "0 commits" is unhelpful.
+    if (
+        total_commits is not None
+        and contributor_count is not None
+        and int(total_commits) > 0
+        and int(contributor_count) > 0
+    ):
         if user_commits is not None and user_commits > 0:
             parts.append(
                 f"Contributions: {user_commits} of {total_commits} commits; {contributor_count} contributor(s); {collab_type or 'unknown'}."
@@ -130,7 +138,14 @@ def _local_resume_bullets(
         b1 += f", applying {skills}"
     b1 += "."
 
-    if total_commits is not None and contributor_count is not None:
+    has_git_activity = (
+        total_commits is not None
+        and contributor_count is not None
+        and int(total_commits) > 0
+        and int(contributor_count) > 0
+    )
+
+    if has_git_activity:
         if user_commits is not None and user_commits > 0:
             b2 = f"Delivered {user_commits} of {total_commits} commits in a {collab_type or 'collaborative'} setting with {contributor_count} contributor(s)."
         else:
@@ -149,7 +164,10 @@ def _local_resume_bullets(
     if not focus_skill:
         focus_skill = (top_skills or [None])[0]
     if focus_skill:
-        b3 = f"Demonstrated proficiency in {focus_skill} through measurable repository activity and structured project outputs."
+        if has_git_activity:
+            b3 = f"Demonstrated proficiency in {focus_skill} through measurable repository activity and structured project outputs."
+        else:
+            b3 = f"Demonstrated proficiency in {focus_skill} through structured project outputs and iterative development."
     else:
         b3 = "None"
 
