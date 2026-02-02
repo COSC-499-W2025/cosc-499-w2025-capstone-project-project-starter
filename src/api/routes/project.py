@@ -237,12 +237,12 @@ async def analyze_project_gemini(project_id: int, user_name: Optional[str] = Que
     and actionable recommendations.
     """
     try:
-        from project_manager import get_project_by_id
+        from project_manager import get_project_with_analysis
         from analysis.gemini_analyzer import GeminiAnalyzer
         from config.db_config import with_db_cursor
         
         # Get project info
-        project = get_project_by_id(project_id, user_name=user_name)
+        project = get_project_with_analysis(project_id, user_name=user_name)
         if not project:
             raise HTTPException(status_code=404, detail=f"Project {project_id} not found")
         
@@ -287,7 +287,7 @@ async def analyze_project_gemini(project_id: int, user_name: Optional[str] = Que
         analyzer = GeminiAnalyzer()
         results = analyzer.analyze_project(
             file_contents,
-            project_name=project['filename'],
+            project_name=project['project_info']['filename'],
             project_context=context
         )
         
@@ -320,12 +320,12 @@ async def get_project_quick_summary(project_id: int, user_name: Optional[str] = 
     Useful for resume/portfolio descriptions.
     """
     try:
-        from project_manager import get_project_by_id
+        from project_manager import get_project_with_analysis
         from analysis.gemini_analyzer import GeminiAnalyzer
         from config.db_config import with_db_cursor
         
         # Get project info
-        project = get_project_by_id(project_id, user_name=user_name)
+        project = get_project_with_analysis(project_id, user_name=user_name)
         if not project:
             raise HTTPException(status_code=404, detail=f"Project {project_id} not found")
         
@@ -354,9 +354,9 @@ async def get_project_quick_summary(project_id: int, user_name: Optional[str] = 
             raise HTTPException(status_code=400, detail="No file contents found")
         
         analyzer = GeminiAnalyzer()
-        summary = analyzer.get_quick_summary(file_contents, project['filename'])
+        summary = analyzer.get_quick_summary(file_contents, project['project_info']['filename'])
         
-        return {"success": True, "summary": summary, "project_name": project['filename']}
+        return {"success": True, "summary": summary, "project_name": project['project_info']['filename']}
         
     except HTTPException:
         raise
