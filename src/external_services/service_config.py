@@ -16,7 +16,8 @@ class ServiceConfig:
                         permission_granted BOOLEAN NOT NULL,
                         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                         updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                        UNIQUE(user_name, service_name)
+                        UNIQUE(user_name, service_name),
+                        FOREIGN KEY (user_name) REFERENCES user_informations(user_name) ON DELETE CASCADE
                     );
                 """)
                 
@@ -48,9 +49,10 @@ class ServiceConfig:
         try:
             with with_db_cursor() as cursor:
                 cursor.execute("""
-                    SELECT permission_granted 
-                    FROM external_service_permissions
+                    SELECT permission_granted
+                    FROM external_service_permissions 
                     WHERE user_name = %s AND service_name = %s
+                    ORDER BY updated_at DESC 
                     LIMIT 1
                 """, (user_name, service_name))
                 

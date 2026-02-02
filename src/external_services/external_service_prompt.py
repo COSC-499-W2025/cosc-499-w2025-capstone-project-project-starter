@@ -133,13 +133,13 @@ NOTE: You can change this preference at any time in the settings.
             return False
 
 
-def request_external_service_permission(user_name=None, service_name='LLM', force=False):
+def request_external_service_permission(user_name='default_user', service_name='LLM', force=False):
     """
     Complete workflow for requesting external service permission.
     This is the main entry point for Issue #10.
     
     Args:
-        user_name (str): Username from user_informations table. If None, uses current user.
+        user_name (str): Username from user_informations table
         service_name (str): Name of the external service
         force (bool): If True, always ask. If False, skip if already set.
         

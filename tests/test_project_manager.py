@@ -93,8 +93,14 @@ class TestProjectManager:
         mock_context.__enter__.return_value = mock_cursor
         mock_with_db_cursor.return_value = mock_context
         
-        # Mock database result
-        mock_project = (1, "test_project.zip", "/path/to/file", "uploaded", '{"files": ["file1.py"]}', datetime(2024, 1, 1, 10, 0, 0))
+        # FIX: Updated mock to match the 4-column SELECT query (id, filename, metadata, created_at)
+        # Old mock had 6 columns which caused the crash
+        mock_project = (
+            1, 
+            "test_project.zip", 
+            '{"files": ["file1.py"]}', 
+            datetime(2024, 1, 1, 10, 0, 0)
+        )
         mock_cursor.fetchone.return_value = mock_project
         
         # Call the function with user_name parameter for data isolation
@@ -103,16 +109,13 @@ class TestProjectManager:
         # Verify database operations
         mock_cursor.execute.assert_called_once()
         
-        # Verify return value
-        expected = {
-            'id': 1,
-            'filename': 'test_project.zip',
-            'filepath': '/path/to/file',
-            'status': 'uploaded',
-            'metadata': '{"files": ["file1.py"]}',
-            'created_at': datetime(2024, 1, 1, 10, 0, 0)
-        }
-        assert result == expected
+        # FIX: Updated assertions to match the new nested structure returned by get_project_by_id
+        # The new function returns a dict with 'project_info' containing the metadata
+        assert result['project_info']['id'] == 1
+        assert result['project_info']['filename'] == "test_project.zip"
+        # Verify the created_at was converted to string as expected by the new logic
+        assert result['project_info']['created_at'] == datetime(2024, 1, 1, 10, 0, 0).isoformat()
+        assert result['files'] == ["file1.py"]
     
     @patch('src.project_manager.with_db_cursor')
     # this test will test the get_project_by_id function when the project does not exist
@@ -145,7 +148,9 @@ class TestProjectManager:
         
         # Mock database result with metadata containing files
         mock_metadata = '{"files": ["folder/file1.py", "folder/file2.js", "folder/", "readme.md"]}'
-        mock_cursor.fetchone.return_value = (mock_metadata,)
+        
+        # FIX: The query selects 'filename, metadata' (2 columns). Mock must provide both.
+        mock_cursor.fetchone.return_value = ("test.zip", mock_metadata)
         
         # Call the function with user_name parameter for data isolation
         result = list_project_files(1, 'test_user')
@@ -203,9 +208,11 @@ class TestProjectManager:
         mock_context.__enter__.return_value = mock_cursor
         mock_with_db_cursor.return_value = mock_context
         
+        # FIX: The query selects 6 columns: id, filename, status, metadata, created_at, thumbnail.
+        # Added 'None' (for thumbnail) to match column count and prevent unpacking error.
         mock_projects = [
-            (2, "project_b.zip", "uploaded", '{"files": ["file2.py"]}', datetime(2024, 1, 2, 11, 0, 0)),
-            (1, "project_a.zip", "uploaded", '{"files": ["file1.py"]}', datetime(2024, 1, 1, 10, 0, 0))
+            (2, "project_b.zip", "uploaded", '{"files": ["file2.py"]}', datetime(2024, 1, 2, 11, 0, 0), None),
+            (1, "project_a.zip", "uploaded", '{"files": ["file1.py"]}', datetime(2024, 1, 1, 10, 0, 0), None)
         ]
         mock_cursor.fetchall.return_value = mock_projects
         

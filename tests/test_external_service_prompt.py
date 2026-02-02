@@ -93,8 +93,8 @@ def test_store_permission_db_error(monkeypatch, capfd):
 class FakePermissionBase:
     """Base fake for ExternalServicePermission; just records calls."""
 
-    def __init__(self, user_id):
-        self.user_id = user_id
+    def __init__(self, user_name):
+        self.user_name = user_name
         self.called_with_service = []
 
     def has_permission(self, service_name):

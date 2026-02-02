@@ -1,11 +1,15 @@
 """Resume, portfolio, and skills endpoints."""
-from fastapi import APIRouter, HTTPException, Query
-from typing import Optional
+from fastapi import APIRouter, HTTPException, Query, Depends
+from typing import Optional, Dict, Any
 from pydantic import BaseModel
 from resume.resume_manager import ResumeManager
 from portfolio.portfolio_manager import PortfolioManager
 from portfolio.skill_mapper import SkillMapper
 from common.schemas import CustomWordingSaveRequest, SimpleMessageResponse
+from project_manager import get_project_by_id
+from resume.item_formatter import ItemFormatter
+from portfolio.portfolio_formatter import PortfolioFormatter
+from common.schemas import ResumeItemResponse, PortfolioCardResponse
 
 router = APIRouter()
 
@@ -30,6 +34,41 @@ class PortfolioEditRequest(BaseModel):
     project_id: int
     custom_data: Optional[dict] = None
 
+@router.get("/resume/preview/{project_id}", response_model=ResumeItemResponse)
+async def get_resume_preview(project_id: int):
+    """
+    Returns a single project formatted as a Resume Item (Bullet points).
+    Used for the 'Edit Resume' modal or live preview.
+    """
+    # 1. Fetch Raw Data
+    project_data = get_project_by_id(project_id)
+    if not project_data:
+        raise HTTPException(status_code=404, detail="Project not found")
+    user_id = project_data.get('user_name', 'default') # fallback if needed
+    # Note: Ideally we pass the real user_id from auth context here
+    
+    user_prefs = {}
+    # 3. Format & Return
+    return ItemFormatter.format_resume_item(project_data, user_options=user_prefs)
+
+
+@router.get("/portfolio/card/{project_id}", response_model=PortfolioCardResponse)
+async def get_portfolio_card(project_id: int):
+    """
+    Returns a single project formatted as a Portfolio Card (Rich text/Visuals).
+    Used for the main Portfolio Dashboard display.
+    """
+    # 1. Fetch Raw Data
+    project_data = get_project_by_id(project_id)
+    if not project_data:
+        raise HTTPException(status_code=404, detail="Project not found")
+
+    # 2. Fetch User Preferences (Placeholder for future Portfolio customization)
+    user_prefs = {}
+
+    # 3. Format & Return
+    # This automatically calls your new logic + Evan's evidence extractor
+    return PortfolioFormatter.format_project_card(project_data, user_options=user_prefs)
 
 @router.get("/skills")
 async def get_skills(user_name: Optional[str] = Query(None)):

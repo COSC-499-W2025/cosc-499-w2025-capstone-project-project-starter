@@ -3,7 +3,7 @@ from external_services.permission_manager import ExternalServicePermission
 
 class AnalysisRouter:
 
-    def __init__(self, user_name):
+    def __init__(self, user_name='default_user'):
         """
         Initialize the analysis router.
         
