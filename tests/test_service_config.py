@@ -29,6 +29,8 @@ def test_initialize_table_success(mock_cursor_factory):
     # Check for specific SQL snippets to ensure correct queries
     calls = [args[0] for args, _ in cursor.execute.call_args_list]
     assert "CREATE TABLE IF NOT EXISTS external_service_permissions" in calls[0]
+    # Check for user_name column (not user_id) and foreign key
+    assert "user_name" in calls[0].lower()
     assert "CREATE INDEX IF NOT EXISTS idx_service_permissions_user_service" in calls[1]
 
 
