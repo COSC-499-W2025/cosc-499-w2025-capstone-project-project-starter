@@ -1329,7 +1329,7 @@ def test_get_or_create_showcase_existing():
     result = _get_or_create_showcase(mock_conn, "project_123")
     
     assert result == "99"
-    # Verify we only ran the SELECT (1 call) and didn't reach the INSERT
+    # Verify only ran the SELECT (1 call) and didn't reach the INSERT
     assert mock_conn.execute.call_count == 1
 
 def test_get_or_create_showcase_integration(engine):
@@ -1532,7 +1532,7 @@ def test_give_users_roles_logic(client):
         repo = Repo.init(git_dir)
         file_path = os.path.join(git_dir, "work.txt")
         
-        # We need 3 authors to test all logic branches of assign_roles
+        # 3 authors to test all logic branches of assign_roles
         authors = [
             (Actor("Alice", "a@ex.com"), 5), # Should be #1 Contributor
             (Actor("Bob", "b@ex.com"), 3),   # Should be Top Contributor
@@ -1626,7 +1626,7 @@ def test_delete_project_image_success(client, engine):
     blob_sha = "fake_sha_256_hash"
     
     with engine.begin() as conn:
-        # --- NEW: Add the blob first to satisfy the Foreign Key constraint ---
+        # add the blob first to satisfy the Foreign Key constraint
         conn.execute(
             text("""
                 INSERT INTO file_blobs (sha256, size_bytes, mime_type, stored_path)
@@ -1635,7 +1635,6 @@ def test_delete_project_image_success(client, engine):
             {"sha": blob_sha}
         )
 
-        # Now this will work because the SHA exists in file_blobs
         conn.execute(
             text("""
                 INSERT INTO portfolio_showcases (id, project_id, thumbnail_blob_sha256)
