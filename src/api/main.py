@@ -34,7 +34,7 @@ app.include_router(consent.router, prefix="/api", tags=["consent"])
 app.include_router(resume_portfolio.router, prefix="/api", tags=["resume", "portfolio"])
 app.include_router(settings.router, prefix="/api/settings", tags=["settings"])
 
-def find_frontend_file(filename: str) -> str:
+def find_frontend_file(filename: str) -> str | None:
     """Find frontend file in various possible locations."""
     possible_paths = [
         f"/app/frontend/{filename}",  # Docker container path
@@ -81,3 +81,48 @@ async def dashboard():
     if path:
         return FileResponse(path)
     raise HTTPException(status_code=404, detail="Dashboard not found")
+
+@app.exception_handler(HTTPException)
+async def http_exception_handler(request: Request, exc: HTTPException):
+    error_type, message, data = _normalize_detail(exc.detail)
+    payload = {
+        "success": False,
+        "error_type": error_type,
+        "message": message,
+    }
+    if data is not None:
+        payload["data"] = data
+
+    return JSONResponse(status_code=exc.status_code, content=payload)
+
+
+@app.exception_handler(Exception)
+async def unhandled_exception_handler(request: Request, exc: Exception):
+    # Don't leak internal exception details to clients
+    return JSONResponse(
+        status_code=500,
+        content={
+            "success": False,
+            "error_type": "INTERNAL_ERROR",
+            "message": "Internal server error",
+        },
+    )
+
+def _normalize_detail(detail):
+    """
+    Normalize FastAPI HTTPException.detail into a unified shape.
+    Supports:
+      - str detail (legacy)
+      - dict detail with {error_type, message, data}
+      - any other types -> stringified
+    """
+    if isinstance(detail, dict):
+        error_type = detail.get("error_type", "HTTP_ERROR")
+        message = detail.get("message", "") or "Request failed"
+        data = detail.get("data")
+        return error_type, message, data
+
+    if isinstance(detail, str):
+        return "HTTP_ERROR", detail, None
+
+    return "HTTP_ERROR", str(detail), None

@@ -18,6 +18,42 @@ class APIClient:
         self.base_url = base_url or os.getenv("API_BASE_URL", "http://localhost:8000")
         self.api_prefix = "/api"
     
+        def _format_api_error(self, response: httpx.Response, fallback: str) -> str:
+            """
+            Format API error responses into a readable message.
+            Supports unified API errors:
+            {success:false, error_type, message, data?}
+            And legacy FastAPI style:
+            {detail: "..."} or {detail: {...}}
+            """
+            try:
+                body = response.json()
+            except Exception:
+                return fallback
+
+            # Unified format
+            if isinstance(body, dict) and "error_type" in body and "message" in body:
+                error_type = body.get("error_type", "API_ERROR")
+                message = body.get("message", "")
+                return f"{error_type}: {message}"
+
+            # Legacy detail handling
+            if isinstance(body, dict) and "detail" in body:
+                detail = body.get("detail")
+
+                if isinstance(detail, dict):
+                    # if someone directly returned dict detail
+                    error_type = detail.get("error_type", "API_ERROR")
+                    message = detail.get("message", "") or str(detail)
+                    return f"{error_type}: {message}"
+
+                if isinstance(detail, str):
+                    return f"API_ERROR: {detail}"
+
+                return f"API_ERROR: {str(detail)}"
+
+            return fallback
+
     def _make_request(self, method: str, endpoint: str, **kwargs) -> Dict[str, Any]:
         """
         Make an HTTP request to the API.
@@ -41,14 +77,8 @@ class APIClient:
                 response.raise_for_status()
                 return response.json()
         except httpx.HTTPStatusError as e:
-            # Try to get error details from response
-            try:
-                error_data = e.response.json()
-                raise Exception(f"API Error: {error_data.get('detail', str(e))}")
-            except:
-                raise Exception(f"API Error: {str(e)}")
-        except httpx.RequestError as e:
-            raise Exception(f"Request failed: {str(e)}")
+            msg = self._format_api_error(e.response, fallback=str(e))
+            raise Exception(f"API Error: {msg}")
     
     def upload_project(self, file_path: str, user_name: Optional[str] = None) -> Dict[str, Any]:
         """
