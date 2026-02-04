@@ -38,8 +38,6 @@ def run_menu(
     print_fn: Callable[[str], None] = print,
     pause_after_action: bool = False,
 ) -> str:
-    if input_fn is None:
-        input_fn = input
     """
     Run a CLI menu loop.
 
@@ -51,6 +49,9 @@ def run_menu(
         "EXIT" if user chose EXIT
         "EOF"  if stdin closed
     """
+    if input_fn is None:
+        input_fn = input
+    
     max_choice = len(spec.options)
 
     while True:
@@ -58,8 +59,8 @@ def run_menu(
 
         try:
             raw = input_fn(f"{spec.prompt} ({spec.min_choice}-{max_choice}): ").strip()
-        except EOFError:
-            print_fn("\n[INFO] EOF received. Exiting menu.")
+        except (EOFError, OSError):
+            print_fn("\n[INFO] Input unavailable (EOF/OSError). Exiting menu.")
             return "EOF"
 
         if not raw.isdigit():
@@ -94,5 +95,6 @@ def run_menu(
         if pause_after_action:
             try:
                 input_fn("\nPress Enter to continue...")
-            except EOFError:
+            except (EOFError, OSError):
                 return "EOF"
+            continue
