@@ -1,11 +1,5 @@
-"""
-pdf_exporter.py
------------------
-Export a dictionary of predictions to a nicely formatted PDF table.
-Does not require the ML model.
-"""
-
 from reportlab.lib.pagesizes import LETTER
+from reportlab.platypus import Image
 from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle
 from reportlab.lib.styles import getSampleStyleSheet
 from reportlab.lib import colors
@@ -215,14 +209,29 @@ def export_portfolio_top_projects_pdf(portfolio_summary: dict, filename: str = "
         name = str(item.get("project_name") or item.get("project_id") or f"Project {idx}")
         summary = str(item.get("summary_text") or "").strip()
         bullets = item.get("resume_bullets") or []
-
+    
+        # Add project title
         elements.append(Paragraph(f"{idx}. {name}", styles["Heading2"]))
         elements.append(Spacer(1, 6))
+    
+        # Add portfolio image if exists
+        image_path = item.get("portfolio_image")  # <- new field
+        if image_path and os.path.exists(image_path):
+            try:
+                img = Image(image_path)
+                img.drawHeight = 1.5 * 72  # 1.5 inches height
+                img.drawWidth = 2.5 * 72   # 2.5 inches width
+                elements.append(img)
+                elements.append(Spacer(1, 6))
+            except Exception as e:
+                print(f"⚠️ Could not add image {image_path}: {e}")
 
+        # Add summary
         if summary:
             elements.append(Paragraph(summary, styles["Normal"]))
             elements.append(Spacer(1, 6))
-
+    
+        # Add bullets
         if isinstance(bullets, list) and bullets:
             elements.append(Paragraph("Résumé bullets:", styles["Heading3"]))
             for b in bullets[:5]:
@@ -285,15 +294,21 @@ def export_resume_item_pdf(resume_item: dict, filename: str = "resume_item.pdf")
     return filename
 
 
-def export_resume_item_pdf_bytes(resume_item: dict) -> bytes:
+def export_resume_item_pdf_bytes(resume_item: dict, filters: dict = None) -> bytes:
     """
-    Build a PDF in-memory for a single resume item returned by GET /resume/{id}.
-
-    Expected shape:
-      {"resume_id": ..., "content": {"project": {...}, "summary_text": ..., "resume_bullets": [...], "generated_at": ...}}
+    Build a PDF in-memory for a single resume item, respecting user toggles.
     """
     if not isinstance(resume_item, dict):
         resume_item = {}
+
+    # 1. Setup default filter values
+    if filters is None:
+        filters = {}
+    
+    show_summary = filters.get("show_summary", True)
+    show_bullets = filters.get("show_bullets", True)
+    max_bullets = filters.get("max_bullets", 10)
+    show_metadata = filters.get("show_metadata", True)
 
     content = resume_item.get("content") or {}
     if not isinstance(content, dict):
@@ -308,30 +323,35 @@ def export_resume_item_pdf_bytes(resume_item: dict) -> bytes:
     styles = getSampleStyleSheet()
     elements = []
 
+    # Title (always shown)
     title = project.get("name") or project.get("id") or "Resume Item"
     elements.append(Paragraph(str(title), styles["Title"]))
     elements.append(Spacer(1, 12))
 
-    elements.append(Paragraph(f"Resume Item ID: {resume_item.get('resume_id', '(unknown)')}", styles["Normal"]))
-    elements.append(Paragraph(f"Generated at: {content.get('generated_at', '(unknown)')}", styles["Normal"]))
-    elements.append(Spacer(1, 12))
-
-    summary = str(content.get("summary_text") or "").strip()
-    if summary:
-        elements.append(Paragraph("Summary", styles["Heading2"]))
-        elements.append(Spacer(1, 6))
-        elements.append(Paragraph(summary, styles["Normal"]))
+    if show_metadata:
+        elements.append(Paragraph(f"Resume Item ID: {resume_item.get('resume_id', '(unknown)')}", styles["Normal"]))
+        elements.append(Paragraph(f"Generated at: {content.get('generated_at', '(unknown)')}", styles["Normal"]))
         elements.append(Spacer(1, 12))
 
-    bullets = content.get("resume_bullets") or []
-    if isinstance(bullets, list) and bullets:
-        elements.append(Paragraph("Resume Bullets", styles["Heading2"]))
-        elements.append(Spacer(1, 6))
-        for b in bullets[:10]:
-            b = str(b).strip()
-            if b:
-                elements.append(Paragraph(f"- {b}", styles["Normal"]))
-                elements.append(Spacer(1, 4))
+    if show_summary:
+        summary = str(content.get("summary_text") or "").strip()
+        if summary:
+            elements.append(Paragraph("Summary", styles["Heading2"]))
+            elements.append(Spacer(1, 6))
+            elements.append(Paragraph(summary, styles["Normal"]))
+            elements.append(Spacer(1, 12))
+
+    if show_bullets:
+        bullets = content.get("resume_bullets") or []
+        if isinstance(bullets, list) and bullets:
+            elements.append(Paragraph("Resume Bullets", styles["Heading2"]))
+            elements.append(Spacer(1, 6))
+            # Slice the list based on the user's max_bullets preference
+            for b in bullets[:max_bullets]:
+                b = str(b).strip()
+                if b:
+                    elements.append(Paragraph(f"- {b}", styles["Normal"]))
+                    elements.append(Spacer(1, 4))
 
     doc.build(elements)
     return buf.getvalue()

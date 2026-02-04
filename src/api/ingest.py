@@ -5,13 +5,17 @@ import os
 import posixpath
 import tempfile
 import zipfile
+import shutil
 from dataclasses import dataclass
 from typing import Dict, List, Optional, Tuple
+from datetime import datetime
 
 from sqlalchemy import text
 from sqlalchemy.engine import Engine
 
 from src.db.consents import latest_consent_granted
+from git import Repo, InvalidGitRepositoryError
+from collections import Counter
 
 
 @dataclass(frozen=True)
@@ -104,6 +108,81 @@ def save_upload_to_temp(upload_bytes: bytes) -> str:
     return path
 
 
+# -----------------------------
+# Function to extract commits
+# -----------------------------
+def extract_commits_from_git_zip(zip_path: str):
+    tmpdir = tempfile.mkdtemp()
+    try:
+        # Unzip repo
+        with zipfile.ZipFile(zip_path, "r") as zf:
+            zf.extractall(tmpdir)
+
+        # Open Git repo with repo.head to dynamically fetch the branch name
+        # and avoid relying on OS level factors
+        repo = Repo(tmpdir)
+        commits = list(repo.iter_commits(repo.head))
+        return [c.message.strip() for c in commits]
+    finally:
+        shutil.rmtree(tmpdir, ignore_errors=True)
+
+
+def extract_commit_counts_from_git_zip(zip_path: str):
+    tmp_dir = tempfile.mkdtemp()
+    try:
+        with zipfile.ZipFile(zip_path, 'r') as zf:
+            zf.extractall(tmp_dir)
+
+        repo = Repo(tmp_dir)
+        # Count commits per author
+        counts = Counter(c.author.name for c in repo.iter_commits())
+        return dict(counts)  # return as a dict so tests can do counts["Alice"]
+    finally:
+        import shutil
+        shutil.rmtree(tmp_dir, ignore_errors=True)
+
+
+def assign_roles(commit_counts: dict) -> dict:
+    """
+    Assigns roles based on commit counts.
+    
+    Args:
+        commit_counts: dict of {author: commit_count}
+        
+    Returns:
+        dict of {author: role}
+    """
+    # Sort authors by commit count descending
+    sorted_authors = sorted(commit_counts.items(), key=lambda x: x[1], reverse=True)
+    
+    roles = {}
+    for i, (author, count) in enumerate(sorted_authors):
+        if i == 0:
+            roles[author] = "#1 Contributor"
+        elif i == 1:
+            roles[author] = "Top Contributor"  # Second place
+        elif i == 2:
+            roles[author] = "Top Contributor"  # Third place
+        else:
+            roles[author] = "Contributor"  # Everyone else
+    
+    return roles
+
+
+def find_git_repo(path: str) -> Repo:
+    """
+    Recursively search for a .git folder starting at path.
+    Returns a Repo object if found, else raises InvalidGitRepositoryError.
+    """
+    for root, dirs, files in os.walk(path):
+        if '.git' in dirs:
+            try:
+                return Repo(root)
+            except InvalidGitRepositoryError:
+                continue
+    raise InvalidGitRepositoryError(f"No git repo found in {path}")
+
+
 def ingest_zip_to_db(
     *,
     engine: Engine,
@@ -132,6 +211,8 @@ def ingest_zip_to_db(
             entries: List[Tuple[str, zipfile.ZipInfo]] = []
             for info in zf.infolist():
                 if info.is_dir():
+                    continue
+                if "__MACOSX" in info.filename:
                     continue
                 safe = _safe_zip_relpath(info.filename)
                 if safe is None:
