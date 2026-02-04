@@ -6,7 +6,7 @@ from resume.resume_manager import ResumeManager
 from portfolio.portfolio_manager import PortfolioManager
 from portfolio.skill_mapper import SkillMapper
 from common.schemas import CustomWordingSaveRequest, SimpleMessageResponse
-from project_manager import get_project_with_analysis
+from project_manager import get_project_by_id
 from resume.item_formatter import ItemFormatter
 from portfolio.portfolio_formatter import PortfolioFormatter
 from common.schemas import ResumeItemResponse, PortfolioCardResponse
@@ -41,7 +41,7 @@ async def get_resume_preview(project_id: int):
     Used for the 'Edit Resume' modal or live preview.
     """
     # 1. Fetch Raw Data
-    project_data = get_project_with_analysis(project_id)
+    project_data = get_project_by_id(project_id)
     if not project_data:
         raise HTTPException(status_code=404, detail="Project not found")
     user_id = project_data.get('user_name', 'default') # fallback if needed
@@ -59,7 +59,7 @@ async def get_portfolio_card(project_id: int):
     Used for the main Portfolio Dashboard display.
     """
     # 1. Fetch Raw Data
-    project_data = get_project_with_analysis(project_id)
+    project_data = get_project_by_id(project_id)
     if not project_data:
         raise HTTPException(status_code=404, detail="Project not found")
 
