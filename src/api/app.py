@@ -1,6 +1,8 @@
 
 from __future__ import annotations
 
+from fastapi.middleware.cors import CORSMiddleware  # <-- ADD THIS LINE
+
 from curses import raw
 import os
 import uuid
