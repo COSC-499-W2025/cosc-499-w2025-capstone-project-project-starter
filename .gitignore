@@ -10,3 +10,4 @@ src/ml/.python-version
 src/ml/data/
 .pytest_cache
 artifactminer_state.json
+node_modules
