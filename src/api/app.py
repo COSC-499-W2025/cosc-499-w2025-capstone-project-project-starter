@@ -909,7 +909,7 @@ def update_project(project_id: str, payload: ProjectUpdateIn):
         if not row:
             raise HTTPException(status_code=404, detail="Project not found")
 
-        updates = payload.dict(exclude_unset=True)
+        updates = payload.model_dump(exclude_unset=True)
         if not updates:
             raise HTTPException(status_code=400, detail="No update fields provided")
 
