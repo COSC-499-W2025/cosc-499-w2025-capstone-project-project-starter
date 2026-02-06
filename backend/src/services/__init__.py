@@ -1,14 +1,7 @@
-# Service layer
-from src.services.analysis_service import AnalysisService
-from src.services.project_service import ProjectService
-from src.services.skill_service import SkillService
-from src.services.resume_service import ResumeService
-from src.services.user_profile_service import UserProfileService
+"""Service layer package.
 
-__all__ = [
-    "AnalysisService",
-    "ProjectService",
-    "SkillService",
-    "ResumeService",
-    "UserProfileService",
-]
+Keep this module lightweight to avoid importing optional dependencies
+when only a single service module is needed.
+"""
+
+__all__ = []
