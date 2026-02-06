@@ -143,6 +143,18 @@ List top skills for a snapshot (from latest completed local_ml):
 curl -sS "$API/snapshots/<SNAPSHOT_ID>/skills?limit=20"
 ```
 
+List all unique skills across the entire platform (global catalog)
+
+```bash
+curl -sS "$API/skills"
+```
+
+List global skills filtered by category (e.g., 'backend', 'frontend')
+
+```bash
+curl -sS "$API/skills?category=backend"
+```
+
 9) External analysis request + retrieval (consent-gated)
 
 Request external analysis (or fall back to local_ml if external consent not granted):
@@ -190,6 +202,14 @@ Delete a specific analysis by ID:
 
 ```bash
 curl -sS -X DELETE "$API/analyses/<ANALYSIS_ID>"
+```
+
+13) Retrieve project metadata and metrics
+
+Fetch a single project's core details, including aggregated contribution metrics (total commits vs user commits) and the latest snapshot timestamp:
+
+```bash
+curl -sS "$API/projects/<PROJECT_ID>"
 ```
 
 ## Milestone 1/2 bridge: generated artifacts (resume items + portfolio showcases)
