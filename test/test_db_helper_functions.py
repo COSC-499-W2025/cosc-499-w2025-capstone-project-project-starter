@@ -1,0 +1,210 @@
+import unittest
+import json
+import tempfile
+from pathlib import Path
+import mysql.connector
+import sys
+import os
+
+# Add project root to path
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
+
+from src.storage.db_helper_function import HelperFunct
+
+
+"""
+For testing output should reflect the following 
+
+time="2025-11-15T17:18:48-08:00" level=warning msg="The \"DISPLAY\" variable is not set. Defaulting to a blank string." 
+[+] Running 1/1 ✔ Container app_database Started 0.6s ...... 
+---------------------------------------------------------------------- 
+Ran 6 tests in 0.302s v View in Docker Desktop o View Config w Enable Watch 
+OK
+
+"""
+
+
+class TestHelperFunct(unittest.TestCase):
+    """
+    Unit test suite for validating database operations performed by the
+    HelperFunct class, including insert, fetch, update, and delete behavior
+    against a MySQL-backed project_data table.
+    """
+    
+
+    @classmethod
+    def setUpClass(cls):
+        """
+        Create a shared MySQL database connection and HelperFunct instance
+        used across all tests in this test suite.
+
+        Args:
+            None: This class method does not take any parameters.
+
+        Returns:
+            None: Initializes shared database resources for the test class.
+        """
+        cls.conn = mysql.connector.connect(
+            host="app_database",
+            port=3306,
+            database="appdb",
+            user="appuser",
+            password="apppassword"
+        )
+        cls.store = HelperFunct(cls.conn)
+
+    @classmethod
+    def tearDownClass(cls):
+        """
+        Close the shared MySQL database connection after all tests have run.
+
+        Args:
+            None: This class method does not take any parameters.
+
+        Returns:
+            None: Cleans up shared database resources.
+        """
+        cls.conn.close()
+
+    def setUp(self):
+        """
+        Reset the project_data table to a clean state before each test runs.
+
+        Args:
+            None: This method does not take any parameters.
+
+        Returns:
+            None: Ensures each test runs with an empty database table.
+        """
+        cursor = self.conn.cursor()
+        cursor.execute("DELETE FROM project_data;")
+        self.conn.commit()
+        cursor.close()
+
+    # -------------------- Insert & Fetch --------------------
+    def test_insert_json_dict_and_fetch_by_id(self):
+        """
+        Verify that inserting JSON content as a dictionary and fetching it
+        by row ID returns the correct structured data and matching binary blob.
+
+        Args:
+            None: This test does not take any parameters.
+
+        Returns:
+            None: Assertions are used to validate expected behavior.
+        """
+        data = {"name": "alpha", "value": 123}
+        row_id = self.store.insert_json("alpha.json", data)
+        pulled = self.store.fetch_by_id(row_id)
+        self.assertEqual(pulled, data)
+
+        # Blob should match serialized dict
+        pulled_bytes = self.store.fetch_file_blob_by_id(row_id)
+        self.assertEqual(pulled_bytes, json.dumps(data).encode("utf-8"))
+
+    def test_insert_json_bytes_and_fetch_by_id(self):
+        """
+        Verify that inserting raw JSON bytes results in synchronized content
+        and file blob storage that can be correctly retrieved.
+
+        Args:
+            None: This test does not take any parameters.
+
+        Returns:
+            None: Assertions are used to validate expected behavior.
+        """
+        data = {"project": "demo", "ok": True}
+        raw_bytes = json.dumps(data).encode("utf-8")
+        row_id = self.store.insert_json("demo.json", data, raw_bytes=raw_bytes)
+
+        # Fetch content
+        pulled_dict = self.store.fetch_by_id(row_id)
+        self.assertEqual(pulled_dict, data)
+
+        # Fetch blob
+        pulled_bytes = self.store.fetch_file_blob_by_id(row_id)
+        self.assertEqual(pulled_bytes, raw_bytes)
+
+    def test_fetch_all(self):
+        """
+        Verify that multiple inserted records can be retrieved using the
+        fetch_all method and that all stored JSON entries are returned.
+
+        Args:
+            None: This test does not take any parameters.
+
+        Returns:
+            None: Assertions are used to validate expected behavior.
+        """
+        self.store.insert_json("a.json", {"a": 1})
+        self.store.insert_json("b.json", {"b": 2})
+        all_rows = self.store.fetch_all()
+        self.assertIn({"a": 1}, all_rows)
+        self.assertIn({"b": 2}, all_rows)
+        self.assertEqual(len(all_rows), 2)
+
+    # -------------------- Update --------------------
+    def test_update_with_dict(self):
+        """
+        Verify that updating a database record using a dictionary correctly
+        updates both the JSON content and binary blob fields.
+
+        Args:
+            None: This test does not take any parameters.
+
+        Returns:
+            None: Assertions are used to validate expected behavior.
+        """
+        row_id = self.store.insert_json("up.json", {"before": True})
+        updated = self.store.update(row_id, {"after": True})
+        self.assertTrue(updated)
+
+        # Check content and blob
+        pulled = self.store.fetch_by_id(row_id)
+        self.assertEqual(pulled, {"after": True})
+        pulled_blob = self.store.fetch_file_blob_by_id(row_id)
+        self.assertEqual(pulled_blob, json.dumps({"after": True}).encode("utf-8"))
+
+    def test_update_with_bytes(self):
+        """
+        Verify that updating a database record using raw JSON bytes correctly
+        synchronizes the stored content and binary blob.
+
+        Args:
+            None: This test does not take any parameters.
+
+        Returns:
+            None: Assertions are used to validate expected behavior.
+        """
+        row_id = self.store.insert_json("up.json", {"before": True})
+        new_data = {"updated": 42}
+        new_bytes = json.dumps(new_data).encode("utf-8")
+        updated = self.store.update(row_id, new_bytes)
+        self.assertTrue(updated)
+
+        pulled = self.store.fetch_by_id(row_id)
+        self.assertEqual(pulled, new_data)
+        pulled_blob = self.store.fetch_file_blob_by_id(row_id)
+        self.assertEqual(pulled_blob, new_bytes)
+
+    # -------------------- Delete --------------------
+    def test_delete_row(self):
+        """
+        Verify that deleting a database record removes both its JSON content
+        and associated binary blob from the database.
+
+        Args:
+            None: This test does not take any parameters.
+
+        Returns:
+            None: Assertions are used to validate expected behavior.
+        """
+        row_id = self.store.insert_json("delete.json", {"exists": True})
+        deleted = self.store.delete(row_id)
+        self.assertTrue(deleted)
+        self.assertIsNone(self.store.fetch_by_id(row_id))
+        self.assertIsNone(self.store.fetch_file_blob_by_id(row_id))
+
+
+if __name__== "__main__":
+    unittest.main()
