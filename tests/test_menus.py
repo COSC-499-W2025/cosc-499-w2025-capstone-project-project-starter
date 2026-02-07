@@ -74,6 +74,7 @@ def test_ask_user_preferences_existing_prefs_and_username_change_prompt():
     class DummyCollab:
         def __init__(self):
             self.updated_value = None
+            self.user_name = "test_user"
 
         def get_preferences(self):
             return ("user", True)
@@ -106,6 +107,9 @@ def test_ask_user_preferences_collaborative_flow_repo_missing():
             return True
 
     class DummyCollab:
+        def __init__(self):
+            self.user_name = "test_user"
+        
         def get_preferences(self):
             return None
 
@@ -125,7 +129,7 @@ def test_ask_user_preferences_collaborative_flow_repo_missing():
         menus.ask_user_preferences(DummyConsent(), DummyCollab(), is_start=False)
 
     assert "github username is:newuser" in mock_stdout.getvalue()
-    mock_update.assert_called_once_with("newuser")
+    mock_update.assert_called_once_with("test_user", "newuser")
 
 
 @patch("cli.menus.list_projects_menu")
