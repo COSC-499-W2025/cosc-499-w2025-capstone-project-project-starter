@@ -30,13 +30,19 @@ def collaborative_manager():
     """
     Fixture to provide a fresh CollaborativeManager instance for each test.
     """
-    manager = CollaborativeManager()
-    # Ensure clean state
+    # Ensure test_user exists for foreign key constraint
     conn = get_connection()
     cursor = conn.cursor()
+    cursor.execute("""
+        INSERT INTO user_informations (user_name, password) 
+        VALUES ('test_user', 'test_password') 
+        ON CONFLICT (user_name) DO NOTHING;
+    """)
     cursor.execute("DELETE FROM user_preferences;")
     conn.commit()
     conn.close()
+    
+    manager = CollaborativeManager(user_name='test_user')
     
     yield manager
 
@@ -77,9 +83,9 @@ class TestGetPreferences:
         assert last_updated is None
     
     def test_preferences_after_insert(self, collaborative_manager):
-        # Insert a row manually
-        CollaborativeStorage.update_collaborative(True)
-        CollaborativeStorage.update_consent(True)
+        # Insert a row manually - needs user_name parameter
+        CollaborativeStorage.update_collaborative('test_user', True)
+        CollaborativeStorage.update_consent('test_user', True)
         
         consent, collaborative, last_updated = collaborative_manager.get_preferences()
         assert consent == True

@@ -51,7 +51,7 @@ def test_init_user_preferences_table_commit_depends(mock_conn_cursor, exists):
 @pytest.mark.parametrize("consent_val", [True, False])
 def test_update_user_preferences(mock_conn_cursor, consent_val):
     mock_cursor, mock_conn = mock_conn_cursor
-    user_preferences.update_user_preferences(consent_val)
+    user_preferences.update_user_preferences('test_user', consent_val)
     mock_cursor.execute.assert_called()
     args, _ = mock_cursor.execute.call_args
     assert str(consent_val) in str(args)
@@ -63,7 +63,7 @@ def test_get_user_preferences_returns_tuple(mock_conn_cursor):
     mock_cursor, mock_conn = mock_conn_cursor
     expected = (True, datetime.now())
     mock_cursor.fetchone.return_value = expected
-    result = user_preferences.get_user_preferences()
+    result = user_preferences.get_user_preferences('test_user')
     assert result == expected
 
 # ----------------------------
@@ -82,11 +82,11 @@ def test_update_user_collaboration(monkeypatch, collab_val):
     conn.cursor.return_value = cursor_cm
     # Patch get_connection to return the connection context manager and run
     monkeypatch.setattr(user_preferences, "get_connection", MagicMock(return_value=conn_cm))
-    user_preferences.update_user_collaboration(collab_val)
+    user_preferences.update_user_collaboration('test_user', collab_val)
     # Assert SQL executed with the right parameter
     cursor.execute.assert_called_once()
     sql, params = cursor.execute.call_args[0]
-    assert params == (collab_val,)
+    assert params == ('test_user', collab_val)
     conn.commit.assert_called_once()
     cursor_cm.__exit__.assert_called_once()
     conn_cm.__exit__.assert_called_once()
@@ -98,7 +98,7 @@ def test_get_user_callaboration_returns_tuple(mock_conn_cursor):
     mock_cursor, mock_conn = mock_conn_cursor
     expected = (False, datetime.now())
     mock_cursor.fetchone.return_value = expected
-    result = user_preferences.get_user_collaboration()
+    result = user_preferences.get_user_collaboration('test_user')
     assert result == expected
 
 # ----------------------------
@@ -117,7 +117,7 @@ def test_update_user_git_username(monkeypatch):
     # Patch get_connection to return the connection context manager and run
     monkeypatch.setattr(user_preferences, "get_connection", MagicMock(return_value=conn_cm))
     username = "testuser"
-    user_preferences.update_user_git_username(username)
+    user_preferences.update_user_git_username('test_user', username)
     # Assertions
     cursor.execute.assert_called_once()
     args, kwargs = cursor.execute.call_args
@@ -134,5 +134,5 @@ def test_get_user_git_username_returns_tuple(mock_conn_cursor):
     mock_cursor, mock_conn = mock_conn_cursor
     expected = ("testuser",)
     mock_cursor.fetchone.return_value = expected
-    result = user_preferences.get_user_git_username()
+    result = user_preferences.get_user_git_username('test_user')
     assert result == "testuser"  # function returns result[0], not the full tuple
