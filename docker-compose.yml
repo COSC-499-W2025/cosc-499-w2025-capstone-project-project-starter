@@ -1,0 +1,16 @@
+services:
+  backend:
+    build: .
+    working_dir: /code          
+    volumes:
+      - .:/code
+      - sqlite_data:/code/data
+    ports:
+      - "8000:8000"
+    environment:
+      - PYTHONUNBUFFERED=1
+      - PYTHONPATH=/code        
+      - DATABASE_URL=sqlite:///data/app.db
+
+volumes:
+  sqlite_data:

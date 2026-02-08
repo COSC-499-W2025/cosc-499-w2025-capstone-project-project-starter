@@ -1,0 +1,46 @@
+# ============================================
+# Document Summarization & Analysis Dependencies
+# ============================================
+
+# OpenAI API
+openai>=1.3.0
+
+# Environment variables
+python-dotenv>=1.0.0
+
+# Note: Git analysis uses subprocess with git command (no extra deps needed)
+
+# ============================================
+# Document Parsing Libraries
+# ============================================
+
+# Microsoft Office formats
+python-docx>=1.1.0      # Word documents (.docx)
+python-pptx>=0.6.23     # PowerPoint presentations (.pptx)
+openpyxl>=3.1.2         # Excel files (.xlsx, .xls)
+
+# PDF parsing
+pypdf>=3.17.0           # PDF documents
+
+# HTML/XML parsing
+beautifulsoup4>=4.12.0  # HTML/XML parsing
+lxml>=4.9.0             # Fast XML/HTML parser
+
+# RTF parsing
+striprtf>=0.0.26        # RTF documents
+
+# YAML parsing (built-in json, csv)
+PyYAML>=6.0.1          # YAML files
+
+# ============================================
+# Optional: Development & Testing
+# ============================================
+
+# Testing frameworks
+pytest>=7.4.0
+pytest-cov>=4.1.0
+
+# Code quality
+black>=23.0.0           # Code formatter
+flake8>=6.0.0          # Linter
+mypy>=1.0.0            # Type checker

@@ -1,0 +1,1062 @@
+{
+  "zip_file": "../capstone-project-team-14.zip",
+  "extracted_to": "/var/folders/2z/fztjyp815hg43g_tqnct1_hw0000gn/T/zip_extract_1xdteer6",
+  "contains_git_repos": true,
+  "git_repositories": [
+    {
+      "repository_analysis": {
+        "repository_path": "/var/folders/2z/fztjyp815hg43g_tqnct1_hw0000gn/T/zip_extract_1xdteer6/capstone-project-team-14",
+        "remote_url": "git@github.com:COSC-499-W2025/capstone-project-team-14.git",
+        "total_commits": 180,
+        "branch_count": 45,
+        "contributor_count": 9,
+        "contributors": [
+          {
+            "name": "Abijeet Dhillon",
+            "email": "abijeetdhillon@gmail.com",
+            "commits": 43,
+            "percentage": 28.640776699029125,
+            "files_changed": 150,
+            "insertions": 3124,
+            "deletions": 1254,
+            "first_commit": "2025-11-18 19:48:08 -0800",
+            "last_commit": "2025-11-18 19:48:08 -0800",
+            "unique_files_touched": 82,
+            "files_touched": [
+              ".dockerignore",
+              ".gitignore",
+              "Dockerfile",
+              "docker-compose.yml",
+              "docs/contract/placeholder.txt",
+              "docs/design/database_schema.md",
+              "docs/design/placeholder.txt",
+              "docs/logs/images/abijeetdhillon_week3_tasks.jpeg",
+              "docs/logs/images/abijeetdhillon_week4_tasks.png",
+              "docs/logs/images/abijeetdhillon_week5_tasks.png",
+              "docs/logs/images/abijetdhillon_week4_tasks.png",
+              "docs/logs/images/burnup-chart-week5.png",
+              "docs/logs/images/completed-tasks-week-5.png",
+              "docs/logs/individual/abdurrehman.md",
+              "docs/logs/individual/abhinavmalik.md",
+              "docs/logs/individual/abijeetdhillon.md",
+              "docs/logs/individual/kaidenmerchant.md",
+              "docs/logs/individual/mishagavura.md",
+              "docs/logs/individual/tahsinjawwad.md",
+              "docs/logs/individual/template.md",
+              "docs/logs/personal-log-abijeet-dhillon.md",
+              "docs/logs/placeholder.txt",
+              "docs/logs/team-log.md",
+              "docs/logs/team/team_log.md",
+              "docs/logs/team/template.md",
+              "docs/minutes/placeholder.txt",
+              "docs/plan/README.md",
+              "docs/proposal/placeholder.txt",
+              "requirements.txt",
+              "src/__init__.py",
+              "src/analyze/__init__.py",
+              "src/analyze/chronological_skills.py",
+              "src/analyze/skills_output/chronological_skills.csv",
+              "src/analyze/skills_output/chronological_skills.json",
+              "src/analyze/skills_output/chronological_skills.txt",
+              "src/categorize/__init__.py",
+              "src/categorize/file_categorizer.py",
+              "src/config/__init__.py",
+              "src/config/config_manager.py",
+              "src/data/db.py",
+              "src/ingest/models.py",
+              "src/ingest/zip_parser.py",
+              "src/main.py",
+              "src/placeholder.txt",
+              "tests/analyze/test_chronological_skills.py",
+              "tests/analyze/test_code_analyzer.py",
+              "tests/analyze/test_video_analyzer.py",
+              "tests/categorize/demo_projects.zip",
+              "tests/categorize/demo_projects/notes.txt",
+              "tests/categorize/demo_projects/project-mobile/android/Main.java",
+              "tests/categorize/demo_projects/project-mobile/android/Main.kt",
+              "tests/categorize/demo_projects/project-mobile/docs/README.md",
+              "tests/categorize/demo_projects/project-mobile/images/ui.png",
+              "tests/categorize/demo_projects/project-mobile/ios/App.swift",
+              "tests/categorize/demo_projects/project-mobile/ios/Legacy.m",
+              "tests/categorize/demo_projects/project-mobile/shared/lib.cpp",
+              "tests/categorize/demo_projects/project-mobile/shared/lib.h",
+              "tests/categorize/demo_projects/project-mobile/sketches/flows.drawio",
+              "tests/categorize/demo_projects/project-webapp/Dockerfile",
+              "tests/categorize/demo_projects/project-webapp/Makefile",
+              "tests/categorize/demo_projects/project-webapp/README.md",
+              "tests/categorize/demo_projects/project-webapp/docs/design.pdf",
+              "tests/categorize/demo_projects/project-webapp/images/architecture.png",
+              "tests/categorize/demo_projects/project-webapp/scripts/deploy.sh",
+              "tests/categorize/demo_projects/project-webapp/sketches/diagram.drawio",
+              "tests/categorize/demo_projects/project-webapp/src/app.js",
+              "tests/categorize/demo_projects/project-webapp/src/app.py",
+              "tests/categorize/demo_projects/project-webapp/src/core.cpp",
+              "tests/categorize/demo_projects/script.sh",
+              "tests/categorize/demo_projects2/Main.java",
+              "tests/categorize/demo_projects2/img.jpg",
+              "tests/categorize/demo_projects2/notes.txt",
+              "tests/categorize/demo_projects2/vid.mp4",
+              "tests/categorize/test_file_categorizer.py",
+              "tests/config/test_config_manager.py",
+              "tests/data/test_database.py",
+              "tests/ingest/test_zip_parser.py",
+              "tests/placeholder.txt",
+              "tests/test_environment.py",
+              "utils/__init__.py",
+              "utils/helpers.py",
+              "utils/placeholder.txt"
+            ],
+            "skills": {
+              "primary_languages": [
+                {
+                  "language": "Python",
+                  "files": 22,
+                  "percentage": 26.8
+                },
+                {
+                  "language": "Markdown/Documentation",
+                  "files": 15,
+                  "percentage": 18.3
+                },
+                {
+                  "language": "Java",
+                  "files": 2,
+                  "percentage": 2.4
+                },
+                {
+                  "language": "C++",
+                  "files": 2,
+                  "percentage": 2.4
+                },
+                {
+                  "language": "Shell/Bash",
+                  "files": 2,
+                  "percentage": 2.4
+                }
+              ],
+              "frameworks_and_tools": [
+                {
+                  "framework": "Testing",
+                  "mentions": 35
+                },
+                {
+                  "framework": "Docker",
+                  "mentions": 3
+                },
+                {
+                  "framework": "SQL",
+                  "mentions": 2
+                },
+                {
+                  "framework": "Django",
+                  "mentions": 1
+                },
+                {
+                  "framework": "Flask",
+                  "mentions": 1
+                }
+              ],
+              "work_areas": {
+                "DevOps/Infrastructure": 5,
+                "Configuration": 5,
+                "Documentation": 27,
+                "Backend": 3,
+                "Database": 2,
+                "Frontend": 2,
+                "Testing": 35
+              },
+              "total_files_touched": 82,
+              "language_diversity": 12,
+              "framework_diversity": 5
+            },
+            "quality_metrics": {
+              "activity_level": "Medium",
+              "total_commits": 43,
+              "net_additions": 1870,
+              "avg_lines_per_commit": 101.8,
+              "files_per_commit": 1.9,
+              "code_churn_percentage": 40.1,
+              "quality_indicators": [
+                "Small, focused commits",
+                "Focused changes"
+              ]
+            }
+          },
+          {
+            "name": "Tahsin Jawwad",
+            "email": "tahsin.jawwad23@gmail.com",
+            "commits": 37,
+            "percentage": 23.300970873786408,
+            "files_changed": 51,
+            "insertions": 4735,
+            "deletions": 353,
+            "first_commit": "2025-11-14 00:06:35 -0800",
+            "last_commit": "2025-11-14 00:06:35 -0800",
+            "unique_files_touched": 32,
+            "files_touched": [
+              ".github/PULL_REQUEST_TEMPLATE.md",
+              "docs/logs/images/completed-tasks-week-3.png",
+              "docs/logs/images/tahsin-week-1.png",
+              "docs/logs/images/tahsin-week-3.png",
+              "docs/logs/images/tahsin-week-4.png",
+              "docs/logs/images/tahsin-week-5.png",
+              "docs/logs/personal-log-tahsin-jawwad.md",
+              "docs/logs/placeholder.txt",
+              "docs/logs/team-log.md",
+              "docs/plan/README.md",
+              "requirements.txt",
+              "src/analyze/__init__.py",
+              "src/analyze/code_analyzer.py",
+              "src/analyze/example_usage.py",
+              "src/analyze/lang_frameworks.py",
+              "src/git/__init__.py",
+              "src/git/_git_utils.py",
+              "src/git/individual_contrib_analyzer.py",
+              "src/git/project_git_analyzer.py",
+              "src/ingest/__init__.py",
+              "src/ingest/models.py",
+              "src/ingest/zip_parser.py",
+              "src/project/__init__.py",
+              "src/project/aggregator.py",
+              "src/utils/jsonio.py",
+              "tests/analyze/test_code_analyzer.py",
+              "tests/analyze/test_lang_frameworks.py",
+              "tests/git/test_git_backend_fallback.py",
+              "tests/git/test_git_project_analyzer.py",
+              "tests/ingest/test_zip_parser.py",
+              "tests/project/test_aggregator.py",
+              "tests/test_git_individual_analyzer.py"
+            ],
+            "skills": {
+              "primary_languages": [
+                {
+                  "language": "Python",
+                  "files": 21,
+                  "percentage": 65.6
+                },
+                {
+                  "language": "Markdown/Documentation",
+                  "files": 4,
+                  "percentage": 12.5
+                }
+              ],
+              "frameworks_and_tools": [
+                {
+                  "framework": "Testing",
+                  "mentions": 7
+                },
+                {
+                  "framework": "Django",
+                  "mentions": 1
+                }
+              ],
+              "work_areas": {
+                "Documentation": 10,
+                "Frontend": 1,
+                "Backend": 2,
+                "Testing": 7
+              },
+              "total_files_touched": 32,
+              "language_diversity": 2,
+              "framework_diversity": 2
+            },
+            "quality_metrics": {
+              "activity_level": "Medium",
+              "total_commits": 37,
+              "net_additions": 4382,
+              "avg_lines_per_commit": 137.5,
+              "files_per_commit": 0.9,
+              "code_churn_percentage": 7.5,
+              "quality_indicators": [
+                "Small, focused commits",
+                "Low code churn (stable code)",
+                "Focused changes"
+              ]
+            }
+          },
+          {
+            "name": "kmerchant1",
+            "email": "kaiden.merchant@gmail.com",
+            "commits": 19,
+            "percentage": 16.50485436893204,
+            "files_changed": 27,
+            "insertions": 2176,
+            "deletions": 12,
+            "first_commit": "2025-11-09 15:51:50 -0800",
+            "last_commit": "2025-11-09 15:51:50 -0800",
+            "unique_files_touched": 21,
+            "files_touched": [
+              "Dockerfile",
+              "docker-compose.yml",
+              "docs/REPORT_TEMPLATE.md",
+              "docs/logs/images/kaiden_week3_tasks.png",
+              "docs/logs/images/kaiden_week4_tasks.png",
+              "docs/logs/images/kaiden_week5_tasks.png",
+              "docs/logs/personal-log-kaiden-merchant.md",
+              "docs/logs/team-log.md",
+              "docs/plan/README.md",
+              "docs/plan/uml_diagram.png",
+              "requirements.txt",
+              "src/analyze/__init__.py",
+              "src/analyze/analyze_text.py",
+              "src/analyze/example_txt_analysis.py",
+              "src/analyze/text_analyzer.py",
+              "src/pipeline/README.md",
+              "src/pipeline/__init__.py",
+              "src/pipeline/orchestrator.py",
+              "tests/analyze/__init__.py",
+              "tests/analyze/test_text_analyzer.py",
+              "tests/pipeline/test_orchestrator.py"
+            ],
+            "skills": {
+              "primary_languages": [
+                {
+                  "language": "Python",
+                  "files": 9,
+                  "percentage": 42.9
+                },
+                {
+                  "language": "Markdown/Documentation",
+                  "files": 5,
+                  "percentage": 23.8
+                },
+                {
+                  "language": "YAML",
+                  "files": 1,
+                  "percentage": 4.8
+                }
+              ],
+              "frameworks_and_tools": [
+                {
+                  "framework": "Testing",
+                  "mentions": 3
+                },
+                {
+                  "framework": "Docker",
+                  "mentions": 2
+                }
+              ],
+              "work_areas": {
+                "DevOps/Infrastructure": 2,
+                "Configuration": 1,
+                "Documentation": 9,
+                "Frontend": 1,
+                "Testing": 3
+              },
+              "total_files_touched": 21,
+              "language_diversity": 3,
+              "framework_diversity": 2
+            },
+            "quality_metrics": {
+              "activity_level": "Medium",
+              "total_commits": 19,
+              "net_additions": 2164,
+              "avg_lines_per_commit": 115.2,
+              "files_per_commit": 1.1,
+              "code_churn_percentage": 0.6,
+              "quality_indicators": [
+                "Small, focused commits",
+                "Low code churn (stable code)",
+                "Focused changes"
+              ]
+            }
+          },
+          {
+            "name": "Malik-Abhinav",
+            "email": "abhinavmalik1573@gmail.com",
+            "commits": 17,
+            "percentage": 14.563106796116504,
+            "files_changed": 29,
+            "insertions": 1887,
+            "deletions": 70,
+            "first_commit": "2025-11-09 18:26:11 -0800",
+            "last_commit": "2025-11-09 18:26:11 -0800",
+            "unique_files_touched": 18,
+            "files_touched": [
+              "docs/logs/images/abhinav_week4.png",
+              "docs/logs/images/burnup-chart-week4.png",
+              "docs/logs/images/kanban-board-week4.png",
+              "docs/logs/images/week3-abhinavmalik.png",
+              "docs/logs/images/week5-abhinavmalik.png",
+              "docs/logs/personal-log-Abhinav.md",
+              "docs/logs/team-log.md",
+              "docs/plan/README.md",
+              "requirements.txt",
+              "src/analyze/__init__.py",
+              "src/analyze/advanced_skill_extractor.py",
+              "src/analyze/video_analyzer.py",
+              "src/analyze/video_example_usage.py",
+              "src/consent/__init__.py",
+              "src/consent/llm_consent_manager.py",
+              "tests/analyze/test_video_analyzer.py",
+              "tests/consent/test_llm_consent.py",
+              "tests/test_advanced_skill_extractor.py"
+            ],
+            "skills": {
+              "primary_languages": [
+                {
+                  "language": "Python",
+                  "files": 9,
+                  "percentage": 50.0
+                },
+                {
+                  "language": "Markdown/Documentation",
+                  "files": 3,
+                  "percentage": 16.7
+                }
+              ],
+              "frameworks_and_tools": [
+                {
+                  "framework": "Testing",
+                  "mentions": 3
+                }
+              ],
+              "work_areas": {
+                "Documentation": 8,
+                "Frontend": 1,
+                "Testing": 3
+              },
+              "total_files_touched": 18,
+              "language_diversity": 2,
+              "framework_diversity": 1
+            },
+            "quality_metrics": {
+              "activity_level": "Medium",
+              "total_commits": 17,
+              "net_additions": 1817,
+              "avg_lines_per_commit": 115.1,
+              "files_per_commit": 1.1,
+              "code_churn_percentage": 3.7,
+              "quality_indicators": [
+                "Small, focused commits",
+                "Low code churn (stable code)",
+                "Focused changes"
+              ]
+            }
+          },
+          {
+            "name": "Abdur",
+            "email": "abdur026@gmail.com",
+            "commits": 16,
+            "percentage": 11.650485436893204,
+            "files_changed": 40,
+            "insertions": 4731,
+            "deletions": 1838,
+            "first_commit": "2025-11-09 17:42:14 -0600",
+            "last_commit": "2025-11-09 17:42:14 -0600",
+            "unique_files_touched": 24,
+            "files_touched": [
+              "GET_STARTED.md",
+              "docs/IMAGE_PROCESSOR.md",
+              "docs/logs/images/Abdur_week3.png",
+              "docs/logs/images/abdur-week-4.png.png",
+              "docs/logs/images/abdur-week5.png",
+              "docs/logs/personal-log-Abdur.md",
+              "docs/technical-analysis/README.md",
+              "docs/technical-analysis/deep-code-insights.md",
+              "docs/technical-analysis/skill-extraction-methodology.md",
+              "example_online_image.py",
+              "requirements.txt",
+              "src/analyze/advanced_skill_extractor.py",
+              "src/analyze/example_advanced_skills.py",
+              "src/consent/__init__.py",
+              "src/consent/directory_consent_manager.py",
+              "src/consent/llm_consent_manager.py",
+              "src/image_processor.py",
+              "src/image_processor_example.py",
+              "test_enhanced_processor.py",
+              "tests/consent/test_directory_consent.py",
+              "tests/consent/test_llm_consent.py",
+              "tests/test_advanced_skill_extractor.py",
+              "tests/test_enhanced_processor.py",
+              "tests/test_image_processor.py"
+            ],
+            "skills": {
+              "primary_languages": [
+                {
+                  "language": "Python",
+                  "files": 14,
+                  "percentage": 58.3
+                },
+                {
+                  "language": "Markdown/Documentation",
+                  "files": 6,
+                  "percentage": 25.0
+                }
+              ],
+              "frameworks_and_tools": [
+                {
+                  "framework": "Testing",
+                  "mentions": 6
+                }
+              ],
+              "work_areas": {
+                "Documentation": 9,
+                "Frontend": 1,
+                "Testing": 6
+              },
+              "total_files_touched": 24,
+              "language_diversity": 2,
+              "framework_diversity": 1
+            },
+            "quality_metrics": {
+              "activity_level": "Medium",
+              "total_commits": 16,
+              "net_additions": 2893,
+              "avg_lines_per_commit": 410.6,
+              "files_per_commit": 1.5,
+              "code_churn_percentage": 38.9,
+              "quality_indicators": [
+                "Focused changes"
+              ]
+            }
+          },
+          {
+            "name": "Misha Gavura",
+            "email": "1mgavura@gmail.com",
+            "commits": 3,
+            "percentage": 2.4271844660194173,
+            "files_changed": 30,
+            "insertions": 5155,
+            "deletions": 15,
+            "first_commit": "2025-11-03 19:51:44 -0800",
+            "last_commit": "2025-11-03 19:51:44 -0800",
+            "unique_files_touched": 30,
+            "files_touched": [
+              ".gitignore",
+              "GET_STARTED.md",
+              "LLM_INTEGRATION_SUMMARY.md",
+              "README.md",
+              "docs/LLM_ARCHITECTURE.md",
+              "docs/LLM_SETUP_GUIDE.md",
+              "docs/PROMPT_ENGINEERING_GUIDE.md",
+              "docs/logs/images/misha-gavura-week5.png",
+              "docs/logs/personal-log-Misha.md",
+              "env.template",
+              "requirements.txt",
+              "src/.gitignore",
+              "src/COSC341_Group_22.pptx",
+              "src/QUICKSTART.md",
+              "src/README.md",
+              "src/env.example",
+              "src/example_usage.py",
+              "src/file-sample_1MB.docx",
+              "src/integration_example.py",
+              "src/llm/__init__.py",
+              "src/llm/openai_client.py",
+              "src/llm_analyzer.py",
+              "src/parsers/__init__.py",
+              "src/parsers/document_parser.py",
+              "src/placeholder.txt",
+              "src/requirements.txt",
+              "src/services/__init__.py",
+              "src/services/summarization_service.py",
+              "src/test_summarization.py",
+              "tests/test_llm_analyzer.py"
+            ],
+            "skills": {
+              "primary_languages": [
+                {
+                  "language": "Python",
+                  "files": 11,
+                  "percentage": 36.7
+                },
+                {
+                  "language": "Markdown/Documentation",
+                  "files": 9,
+                  "percentage": 30.0
+                }
+              ],
+              "frameworks_and_tools": [
+                {
+                  "framework": "Testing",
+                  "mentions": 2
+                }
+              ],
+              "work_areas": {
+                "Documentation": 10,
+                "Frontend": 5,
+                "Testing": 2
+              },
+              "total_files_touched": 30,
+              "language_diversity": 2,
+              "framework_diversity": 1
+            },
+            "quality_metrics": {
+              "activity_level": "Low",
+              "total_commits": 3,
+              "net_additions": 5140,
+              "avg_lines_per_commit": 1723.3,
+              "files_per_commit": 10.0,
+              "code_churn_percentage": 0.3,
+              "quality_indicators": [
+                "Large commits (consider breaking down)",
+                "Low code churn (stable code)"
+              ]
+            }
+          },
+          {
+            "name": "Misha Gavura",
+            "email": "43016416+mishagavura@users.noreply.github.com",
+            "commits": 0,
+            "percentage": 1.4563106796116505,
+            "files_changed": 0,
+            "insertions": 0,
+            "deletions": 0,
+            "commit_messages": [],
+            "skills": {
+              "primary_languages": [],
+              "frameworks_and_tools": [],
+              "work_areas": {},
+              "total_files_touched": 0,
+              "language_diversity": 0,
+              "framework_diversity": 0
+            },
+            "quality_metrics": {
+              "activity_level": "Low",
+              "total_commits": 0,
+              "net_additions": 0,
+              "avg_lines_per_commit": 0,
+              "files_per_commit": 0,
+              "code_churn_percentage": 0,
+              "quality_indicators": [
+                "Small, focused commits",
+                "Low code churn (stable code)",
+                "Focused changes"
+              ]
+            }
+          },
+          {
+            "name": "github-classroom[bot]",
+            "email": "66690702+github-classroom[bot]@users.noreply.github.com",
+            "commits": 0,
+            "percentage": 0.9708737864077669,
+            "files_changed": 0,
+            "insertions": 0,
+            "deletions": 0,
+            "commit_messages": [],
+            "skills": {
+              "primary_languages": [],
+              "frameworks_and_tools": [],
+              "work_areas": {},
+              "total_files_touched": 0,
+              "language_diversity": 0,
+              "framework_diversity": 0
+            },
+            "quality_metrics": {
+              "activity_level": "Low",
+              "total_commits": 0,
+              "net_additions": 0,
+              "avg_lines_per_commit": 0,
+              "files_per_commit": 0,
+              "code_churn_percentage": 0,
+              "quality_indicators": [
+                "Small, focused commits",
+                "Low code churn (stable code)",
+                "Focused changes"
+              ]
+            }
+          },
+          {
+            "name": "Tahsin Jawwad",
+            "email": "144264787+tahsinj@users.noreply.github.com",
+            "commits": 0,
+            "percentage": 0.48543689320388345,
+            "files_changed": 0,
+            "insertions": 0,
+            "deletions": 0,
+            "commit_messages": [],
+            "skills": {
+              "primary_languages": [],
+              "frameworks_and_tools": [],
+              "work_areas": {},
+              "total_files_touched": 0,
+              "language_diversity": 0,
+              "framework_diversity": 0
+            },
+            "quality_metrics": {
+              "activity_level": "Low",
+              "total_commits": 0,
+              "net_additions": 0,
+              "avg_lines_per_commit": 0,
+              "files_per_commit": 0,
+              "code_churn_percentage": 0,
+              "quality_indicators": [
+                "Small, focused commits",
+                "Low code churn (stable code)",
+                "Focused changes"
+              ]
+            }
+          }
+        ],
+        "file_extensions": {
+          "[no extension]": 6,
+          ".md": 22,
+          ".yml": 1,
+          ".txt": 8,
+          ".png": 23,
+          ".jpeg": 1,
+          ".template": 1,
+          ".pptx": 1,
+          ".py": 69,
+          ".example": 1,
+          ".docx": 1,
+          ".zip": 1,
+          ".java": 2,
+          ".kt": 1,
+          ".swift": 1,
+          ".m": 1,
+          ".cpp": 2,
+          ".h": 1,
+          ".drawio": 2,
+          ".pdf": 1,
+          ".sh": 2,
+          ".js": 1,
+          ".jpg": 1,
+          ".mp4": 1
+        },
+        "commit_timeline_90_days": {
+          "2025-11-18": 1,
+          "2025-11-14": 2,
+          "2025-11-13": 1,
+          "2025-11-09": 13,
+          "2025-11-08": 18,
+          "2025-11-03": 1,
+          "2025-11-02": 9,
+          "2025-11-01": 8,
+          "2025-10-31": 2,
+          "2025-10-30": 2,
+          "2025-10-28": 1,
+          "2025-10-26": 11,
+          "2025-10-25": 5,
+          "2025-10-23": 1,
+          "2025-10-19": 12,
+          "2025-10-18": 1,
+          "2025-10-12": 2,
+          "2025-10-05": 6,
+          "2025-10-04": 2,
+          "2025-10-03": 2,
+          "2025-09-28": 8,
+          "2025-09-27": 5,
+          "2025-09-25": 5,
+          "2025-09-21": 13,
+          "2025-09-20": 4,
+          "2025-09-15": 1,
+          "2025-08-26": 1
+        },
+        "analysis_date": "2025-11-19T09:58:57.805072"
+      },
+      "code_quality": {
+        "files_analyzed": 20,
+        "total_code_files": 74,
+        "file_metrics": [
+          {
+            "file": "test_advanced_skill_extractor.py",
+            "total_lines": 496,
+            "code_lines": 178,
+            "comment_lines": 178,
+            "blank_lines": 140,
+            "comment_ratio": 100.0,
+            "blank_ratio": 28.2,
+            "complexity_indicators": {
+              "max_indentation_level": 3,
+              "control_structures": 24,
+              "functions_methods": 121,
+              "long_lines_over_100_chars": 0
+            },
+            "code_smells": [
+              "Potential code duplication detected"
+            ],
+            "documentation_quality": {
+              "docstring_count": 27,
+              "function_count": 49,
+              "documentation_ratio": 55.1,
+              "quality_level": "Good"
+            }
+          },
+          {
+            "file": "test_enhanced_processor.py",
+            "total_lines": 144,
+            "code_lines": -38,
+            "comment_lines": 144,
+            "blank_lines": 38,
+            "comment_ratio": 0,
+            "blank_ratio": 26.4,
+            "complexity_indicators": {
+              "max_indentation_level": 3,
+              "control_structures": 11,
+              "functions_methods": 19,
+              "long_lines_over_100_chars": 0
+            },
+            "code_smells": [
+              "Very long functions detected (>50 lines)"
+            ],
+            "documentation_quality": {
+              "docstring_count": 3,
+              "function_count": 2,
+              "documentation_ratio": 150.0,
+              "quality_level": "Excellent"
+            }
+          },
+          {
+            "file": "test_llm_analyzer.py",
+            "total_lines": 341,
+            "code_lines": -68,
+            "comment_lines": 341,
+            "blank_lines": 68,
+            "comment_ratio": 0,
+            "blank_ratio": 19.9,
+            "complexity_indicators": {
+              "max_indentation_level": 4,
+              "control_structures": 11,
+              "functions_methods": 60,
+              "long_lines_over_100_chars": 0
+            },
+            "code_smells": [
+              "Potential code duplication detected",
+              "Many magic numbers found (consider using constants)",
+              "Functions with many parameters detected"
+            ],
+            "documentation_quality": {
+              "docstring_count": 28,
+              "function_count": 26,
+              "documentation_ratio": 107.7,
+              "quality_level": "Excellent"
+            }
+          },
+          {
+            "file": "test_git_individual_analyzer.py",
+            "total_lines": 269,
+            "code_lines": -69,
+            "comment_lines": 269,
+            "blank_lines": 69,
+            "comment_ratio": 0,
+            "blank_ratio": 25.7,
+            "complexity_indicators": {
+              "max_indentation_level": 4,
+              "control_structures": 12,
+              "functions_methods": 36,
+              "long_lines_over_100_chars": 10
+            },
+            "code_smells": [
+              "Many magic numbers found (consider using constants)",
+              "Functions with many parameters detected"
+            ],
+            "documentation_quality": {
+              "docstring_count": 13,
+              "function_count": 13,
+              "documentation_ratio": 100.0,
+              "quality_level": "Excellent"
+            }
+          },
+          {
+            "file": "test_image_processor.py",
+            "total_lines": 422,
+            "code_lines": -129,
+            "comment_lines": 422,
+            "blank_lines": 129,
+            "comment_ratio": 0,
+            "blank_ratio": 30.6,
+            "complexity_indicators": {
+              "max_indentation_level": 3,
+              "control_structures": 16,
+              "functions_methods": 69,
+              "long_lines_over_100_chars": 0
+            },
+            "code_smells": [
+              "Many magic numbers found (consider using constants)"
+            ],
+            "documentation_quality": {
+              "docstring_count": 31,
+              "function_count": 29,
+              "documentation_ratio": 106.9,
+              "quality_level": "Excellent"
+            }
+          }
+        ],
+        "aggregate_metrics": {
+          "total_files_analyzed": 20,
+          "total_code_lines": -796,
+          "total_comment_lines": 4675,
+          "average_comment_ratio": 5.0,
+          "code_smells_found": {
+            "Potential code duplication detected": 8,
+            "Very long functions detected (>50 lines)": 1,
+            "Many magic numbers found (consider using constants)": 8,
+            "Functions with many parameters detected": 5,
+            "No obvious code smells detected": 6
+          },
+          "quality_score": 55,
+          "quality_rating": "Fair"
+        }
+      },
+      "ai_insights": {
+        "repository_summary": "**Repository Analysis Summary:**\n\n- **Total Commits:** 180\n- **Contributors:** 9\n- **Branches:** 45\n\n**Top Contributors:**\n1. Abijeet Dhillon: 43 commits (28.6%) - Languages: Python, Markdown, Java\n2. Tahsin Jawwad: 37 commits (23.3%) - Languages: Python, Markdown\n3. kmerchant1: 19 commits (16.5%) - Languages: Python, Markdown, YAML\n4. Malik-Abhinav: 17 commits (14.6%) - Languages: Python, Markdown\n5. Abdur: 16 commits (11.7%) - Languages: Python, Markdown\n\n**File Extensions Used:** [no extension], .md, .yml, .txt, .png, .jpeg, .template, .pptx, .py, .example",
+        "contributor_insights": [
+          {
+            "contributor": "Abijeet Dhillon",
+            "insight": "Abijeet Dhillon has made 43 commits, contributing 28.6% to the project. He added 3,124 lines and deleted 1,254 lines across 82 files. His primary programming languages are Python (26.8%), Markdown/Documentation (18.3%), and Java (2.4%). He utilizes frameworks and tools such as Testing, Docker, SQL, Django, and Flask. His activity level is medium, with an average of 101.8 lines per commit."
+          },
+          {
+            "contributor": "Tahsin Jawwad",
+            "insight": "Tahsin Jawwad has made 37 commits, contributing 23.3% to the project. Their contributions include adding 4,735 lines and deleting 353 lines across 32 files. The primary programming language used is Python (65.6%), followed by Markdown/Documentation (12.5%). Their work involves frameworks and tools such as Testing and Django. Jawwad's activity level is medium, with an average of 137.5 lines added per commit."
+          },
+          {
+            "contributor": "kmerchant1",
+            "insight": "The contributor kmerchant1 has made 19 commits, accounting for 16.5% of total contributions. They added 2,176 lines and deleted 12 lines across 21 files. The primary programming languages used are Python (42.9%), Markdown/Documentation (23.8%), and YAML (4.8%). They utilize frameworks and tools such as Testing and Docker. Their activity level is medium, with an average of 115.2 lines added per commit."
+          },
+          {
+            "contributor": "Malik-Abhinav",
+            "insight": "Malik-Abhinav has made 17 commits, contributing 14.6% to the project. They added 1,887 lines and deleted 70 lines across 18 files. The primary programming language used is Python (50.0%), followed by Markdown/Documentation (16.7%). They utilize testing frameworks/tools and have a medium activity level, averaging 115.1 lines per commit."
+          },
+          {
+            "contributor": "Abdur",
+            "insight": "Abdur has made 16 commits, contributing 11.7% to the project. He added 4,731 lines and deleted 1,838 lines across 24 files. His primary programming languages are Python (58.3%) and Markdown/Documentation (25.0%), with a focus on testing frameworks/tools. His activity level is medium, with an average of 410.6 lines per commit."
+          }
+        ]
+      },
+      "code_summary": {
+        "codebase_summary": "The codebase is part of a project titled \"Mining Digital Work Artifacts,\" developed by Capstone Project Team 14. The program focuses on analyzing digital images, specifically PNG and JPEG formats, to extract various metrics such as resolution, aspect ratio, file size, brightness, and color information. The main functionality is encapsulated in the `ImageProcessor` module, which provides methods to analyze images and return detailed reports on their attributes.\n\nKey technologies and frameworks utilized in this project include Python for programming, along with standard libraries such as `json` and `pathlib`. The structure of the codebase includes files like `__init__.py`, which serves as a placeholder, and `helpers.py`, which contains utility functions like `project_banner()`. The `image_processor_example.py` file demonstrates the usage of the `ImageProcessor`, illustrating how to initialize the processor, analyze an image, and output the results, including saving the analysis to a JSON file. Overall, the project is designed to facilitate the extraction and analysis of metadata from digital images.",
+        "files_analyzed": 10,
+        "languages": [
+          ".py"
+        ]
+      },
+      "analysis_complete": true
+    }
+  ],
+  "documents": [
+    {
+      "file_name": "LLM_INTEGRATION_SUMMARY.md",
+      "file_type": "md",
+      "text": "# LLM Integration - Complete Summary\n\n## \ud83c\udfaf What Was Built\n\nA comprehensive **OpenAI LLM integration system** for analyzing digital work artifacts (code, commits, projects) and generating portfolio content.\n\n---\n\n## \ud83d\udcc1 Files Created\n\n### Core Module\n- **`src/llm_analyzer.py`** (540 lines)\n  - Main LLM analyzer class\n  - 6 analysis types (code review, commit summary, skill extraction, etc.)\n  - Batch processing support\n  - Caching and error handling\n  - Full API integration with OpenAI\n\n### Examples & Usage\n- **`src/example_usage.py`** (340 lines)\n  - 8 complete working examples\n  - Demonstrates all analysis types\n  - Shows batch processing\n  - Custom prompt examples\n\n- **`src/integration_example.py`** (450 lines)\n  - Complete pipeline integration demo\n  - Shows how LLM fits with other team components (R2-R10)\n  - Full workflow examples\n  - Cost tracking\n\n### Documentation\n- **`docs/LLM_SETUP_GUIDE.md`** (Comprehensive 600+ line guide)\n  - Step-by-step OpenAI setup\n  - Complete usage instructions\n  - Troubleshooting section\n  - Cost management tips\n\n- **`docs/PROMPT_ENGINEERING_GUIDE.md`** (500+ lines)\n  - How to \"teach\" the model\n  - Prompt engineering best practices\n  - Few-shot learning examples\n  - Temperature tuning guide\n  - Complete working examples\n\n- **`src/QUICKSTART.md`**\n  - 5-minute quick start\n  - Essential commands\n  - Common tasks reference\n\n### Testing\n- **`tests/test_llm_analyzer.py`** (350 lines)\n  - 25+ unit tests\n  - Mock-based testing (doesn't require API key)\n  - Integration tests (optional)\n  - 90%+ coverage ready\n\n### Configuration\n- **`requirements.txt`**\n  - All dependencies with versions\n  - OpenAI SDK, FastAPI, testing tools\n\n- **`.gitignore`**\n  - Python, environment, and project-specific ignores\n\n---\n\n## \ud83d\ude80 Quick Start (3 Steps)\n\n### 1. Install\n```bash\ncd /Users/mishagavura/Documents/UBC/cosc499/capstone-project-team-14\npython3 -m venv venv\nsource venv/bin/activate\npip install -r requirements.txt\n```\n\n### 2. Configure\nCreate `.env` file in project root:\n```env\nOPENAI_API_KEY=sk-your-key-here\n```\n\nGet key from: https://platform.openai.com/api-keys\n\n### 3. Use\n```python\nfrom src.llm_analyzer import LLMAnalyzer, AnalysisType\n\nanalyzer = LLMAnalyzer(model=\"gpt-4o-mini\")\n\n# Analyze code\nresult = analyzer.analyze_code_file(\n    code=\"def hello(): return 'world'\",\n    filename=\"app.py\",\n    language=\"Python\"\n)\n\nprint(result[\"analysis\"])\n```\n\n---\n\n## \ud83d\udca1 What It Does\n\n### 6 Analysis Types\n\n1. **CODE_REVIEW**\n   - Reviews code quality\n   - Identifies issues and best practices\n   - Suggests improvements\n\n2. **COMMIT_SUMMARY**\n   - Summarizes git commit history\n   - Identifies development patterns\n   - Highlights key contributions\n\n3. **PROJECT_OVERVIEW**\n   - Creates project summaries\n   - Highlights technical achievements\n   - Good for portfolio entries\n\n4. **SKILL_EXTRACTION**\n   - Extracts technical skills from artifacts\n   - Categorizes technologies\n   - Good for resumes\n\n5. **DOCUMENTATION_SUMMARY**\n   - Summarizes technical docs\n   - Highlights key concepts\n   - Condenses information\n\n6. **PORTFOLIO_GENERATION**\n   - Creates polished portfolio entries\n   - Professional writing\n   - Achievement-focused\n\n---\n\n## \ud83c\udfa8 Key Features\n\n\u2705 **Easy to Use**: Simple, intuitive API\n\u2705 **Flexible**: Customizable prompts and behavior\n\u2705 **Fast**: Uses gpt-4o-mini by default (cheap & fast)\n\u2705 **Tested**: Comprehensive test suite\n\u2705 **Production Ready**: Error handling, caching, batch processing\n\u2705 **Well Documented**: 3 detailed guides + examples\n\u2705 **Cost Effective**: Tracks token usage, ~$0.01 per analysis\n\u2705 **Privacy First**: Runs on your machine, you control data\n\n---\n\n## \ud83d\udcca Integration with Your Project\n\nThis integrates perfectly with your capstone requirements:\n\n| Requirement | How LLM Helps |\n|------------|---------------|\n| **R2: Type Detection** (Misha) | LLM can analyze file types and suggest categories |\n| **R3: Git Adapter** (Abijeet) | LLM summarizes commits and contribution patterns |\n| **R4: Office/PDF** (Abhinav) | LLM can summarize document content |\n| **R7: Analytics** (Tahsin) | LLM generates insights from metrics |\n| **R8: API Endpoints** (Abhinav) | LLM results available via REST API |\n| **R10: Export** (Kaiden) | LLM creates polished export content |\n| **R11: Notes** (Abijeet) | LLM can enhance notes with context |\n\n**Example Workflow:**\n```\n1. Scanner finds files (R2)\n2. Git adapter extracts commits (R3)\n3. LLM analyzes commits \u2192 insights\n4. Storage layer saves results (R6)\n5. API exposes insights (R8)\n6. Export generates portfolio (R10)\n```\n\n---\n\n## \ud83d\udcb0 Cost Information\n\n### Models Available\n\n| Model | Speed | Quality | Cost/1M tokens | Best For |\n|-------|-------|---------|---------------|----------|\n| **gpt-4o-mini** | \u26a1\u26a1\u26a1 | \u2b50\u2b50\u2b50 | ~$0.15 | Development, most tasks |\n| **gpt-4o** | \u26a1\u26a1 | \u2b50\u2b50\u2b50\u2b50\u2b50 | ~$2.50 | Production, complex analysis |\n| **gpt-3.5-turbo** | \u26a1\u26a1\u26a1 | \u2b50\u2b50 | ~$0.50 | Simple summaries |\n\n### Typical Costs\n- Code review (50 lines): ~$0.005\n- Commit summary (20 commits): ~$0.008\n- Portfolio generation: ~$0.015\n- **Monthly usage (100 analyses)**: ~$1-2\n\n### Cost Management\n```python\n# Track costs\nresult = analyzer.analyze(content, AnalysisType.CODE_REVIEW)\ntokens = result[\"tokens_used\"]\ncost = tokens * 0.0000015  # For gpt-4o-mini\nprint(f\"Cost: ${cost:.4f}\")\n```\n\n---\n\n## \ud83d\udcda Documentation Structure\n\n```\n\ud83d\udcd6 Start Here (pick one):\n\u251c\u2500 Want quick start? \u2192 src/QUICKSTART.md\n\u251c\u2500 Want complete guide? \u2192 docs/LLM_SETUP_GUIDE.md\n\u2514\u2500 Want to customize? \u2192 docs/PROMPT_ENGINEERING_GUIDE.md\n\n\ud83d\udcbb Code Examples:\n\u251c\u2500 Basic usage \u2192 src/example_usage.py\n\u2514\u2500 Full integration \u2192 src/integration_example.py\n\n\ud83e\uddea Testing:\n\u2514\u2500 All tests \u2192 tests/test_llm_analyzer.py\n```\n\n---\n\n## \ud83c\udfaf Usage Examples\n\n### Example 1: Quick Code Analysis\n```python\nfrom src.llm_analyzer import quick_analyze\n\nanalysis = quick_analyze(\"def factorial(n): return 1 if n == 0 else n * factorial(n-1)\")\nprint(analysis)\n```\n\n### Example 2: Batch Processing\n```python\nanalyzer = LLMAnalyzer()\n\nfiles = [\n    {\"id\": \"app.py\", \"content\": code1},\n    {\"id\": \"utils.py\", \"content\": code2}\n]\n\nresults = analyzer.batch_analyze(files, AnalysisType.CODE_REVIEW)\nfor r in results:\n    print(f\"{r['item_id']}: {r['analysis']}\")\n```\n\n### Example 3: Custom Prompts\n```python\nanalyzer = LLMAnalyzer()\n\nresult = analyzer.analyze(\n    content=code,\n    analysis_type=AnalysisType.CODE_REVIEW,\n    custom_prompt=\"Focus on security vulnerabilities and best practices\"\n)\n```\n\n### Example 4: Generate Portfolio\n```python\nproject = {\n    \"name\": \"My Project\",\n    \"technologies\": [\"Python\", \"FastAPI\"],\n    \"commit_count\": 150\n}\n\nresult = analyzer.generate_portfolio_entry(project)\nprint(result[\"analysis\"])  # Professional portfolio text!\n```\n\n---\n\n## \ud83d\udd27 Customization\n\n### Change Model\n```python\n# Faster, cheaper (default)\nanalyzer = LLMAnalyzer(model=\"gpt-4o-mini\")\n\n# Better quality\nanalyzer = LLMAnalyzer(model=\"gpt-4o\")\n```\n\n### Adjust Creativity\n```python\n# More focused/deterministic\nanalyzer = LLMAnalyzer(temperature=0.2)\n\n# More creative\nanalyzer = LLMAnalyzer(temperature=1.0)\n```\n\n### Custom System Prompt\n```python\nanalyzer.set_custom_system_prompt(\n    AnalysisType.CODE_REVIEW,\n    \"You are a security expert. Focus on vulnerabilities.\"\n)\n```\n\nSee `docs/PROMPT_ENGINEERING_GUIDE.md` for complete customization guide!\n\n---\n\n## \u2705 Testing\n\n### Run Tests\n```bash\n# Unit tests (no API key needed)\npytest tests/test_llm_analyzer.py -v\n\n# With coverage\npytest tests/test_llm_analyzer.py --cov=src --cov-report=html\n\n# Integration tests (requires API key)\nexport OPENAI_API_KEY=your_key\npytest tests/test_llm_analyzer.py::TestIntegration -v\n```\n\n### Run Examples\n```bash\ncd src\npython example_usage.py          # All basic examples\npython integration_example.py    # Full pipeline demo\n```\n\n---\n\n## \ud83d\udea8 Troubleshooting\n\n### \"API key not found\"\n```bash\n# Check .env file exists\ncat ../.env\n\n# Should show: OPENAI_API_KEY=sk-...\n\n# Verify it's loaded\npython -c \"import os; from dotenv import load_dotenv; load_dotenv(); print(os.getenv('OPENAI_API_KEY'))\"\n```\n\n### \"Rate limit error\"\nWait a few minutes or upgrade OpenAI plan. Implement retry logic (see docs).\n\n### \"High costs\"\n- Use `gpt-4o-mini` instead of `gpt-4o`\n- Reduce `max_tokens` parameter\n- Cache results\n- Set billing alerts in OpenAI dashboard\n\nSee `docs/LLM_SETUP_GUIDE.md` for complete troubleshooting!\n\n---\n\n## \ud83d\udcc8 Next Steps\n\n### Immediate (This Week)\n1. \u2705 Get OpenAI API key\n2. \u2705 Run `pip install -r requirements.txt`\n3. \u2705 Try `example_usage.py`\n4. \u2705 Read `QUICKSTART.md`\n\n### Short Term (Next 2 Weeks)\n1. \ud83d\udcdd Integrate with git adapter (R3)\n2. \ud83d\udcdd Add LLM analysis to API endpoints (R8)\n3. \ud83d\udcdd Test with real project data\n4. \ud83d\udcdd Customize prompts for your needs\n\n### Long Term (Month 2+)\n1. \ud83c\udfaf Add caching layer\n2. \ud83c\udfaf Implement batch job processing\n3. \ud83c\udfaf Create portfolio export with LLM content\n4. \ud83c\udfaf Build dashboard to show insights\n5. \ud83c\udfaf Add more analysis types as needed\n\n---\n\n## \ud83e\udd1d Team Integration\n\n| Team Member | Component | How to Use LLM |\n|------------|-----------|----------------|\n| **Misha** | R2: Type Detection | Analyze file types, suggest categorization |\n| **Abijeet** | R3: Git Adapter | Summarize commits, identify patterns |\n| **Abhinav** | R4,R8: Docs & API | Summarize docs, expose LLM via API |\n| **Abdur** | R6: Storage | Store LLM analysis results |\n| **Tahsin** | R7: Analytics | Generate insights from metrics |\n| **Kaiden** | R10: Export | Create portfolio content for export |\n\n**Integration point example:**\n```python\n# In your git_adapter.py\nfrom llm_analyzer import LLMAnalyzer\n\ndef process_repository(repo_path):\n    # Your existing code\n    commits = extract_commits(repo_path)\n    \n    # Add LLM analysis\n    analyzer = LLMAnalyzer()\n    insights = analyzer.analyze_git_commits(commits, repo_name)\n    \n    # Store in database\n    save_to_db({\"commits\": commits, \"insights\": insights})\n```\n\n---\n\n## \ud83d\udcdd Summary\n\nYou now have:\n\u2705 Full-featured LLM integration\n\u2705 6 analysis types ready to use\n\u2705 Comprehensive documentation (3 guides)\n\u2705 Working examples\n\u2705 Test suite\n\u2705 Production-ready code\n\n**Total Lines of Code:** ~2,000+\n**Documentation Pages:** 4 comprehensive guides\n**Examples:** 15+ working examples\n**Tests:** 25+ unit tests\n\n**Everything is ready to use!** Just add your OpenAI API key and start analyzing! \ud83d\ude80\n\n---\n\n## \ud83d\udcde Resources\n\n- **OpenAI Platform**: https://platform.openai.com/\n- **API Documentation**: https://platform.openai.com/docs\n- **Get API Key**: https://platform.openai.com/api-keys\n- **Pricing**: https://openai.com/pricing\n- **Python SDK**: https://github.com/openai/openai-python\n\n---\n\n## \ud83c\udf89 You're All Set!\n\nStart with:\n```bash\npip install -r requirements.txt\necho \"OPENAI_API_KEY=your-key\" > .env\npython src/example_usage.py\n```\n\nHappy coding! \ud83d\ude80\n\n",
+      "line_count": 448,
+      "non_empty_lines": 339,
+      "word_count": 1431,
+      "encoding": "utf-8",
+      "metadata": {},
+      "ai_summary": "The document outlines the development of an **OpenAI LLM integration system** designed for analyzing digital work artifacts (like code and commits) and generating portfolio content. \n\n### Key Components:\n- **Core Module**: \n  - Contains the LLM analyzer class with six types of analysis: code review, commit summary, skill extraction, project overview, documentation summary, and portfolio generation.\n  - Features batch processing, caching, error handling, and full API integration with OpenAI.\n\n- **Examples and Documentation**: \n  - Includes working examples, integration demos, and comprehensive guides on setup, usage, and prompt engineering.\n\n- **Testing**: \n  - A robust testing suite with over 25 unit tests and mock testing capabilities.\n\n- **Configuration**: \n  - Lists dependencies and project-specific ignores.\n\n### Quick Start Steps:\n1. Install required packages.\n2. Configure the OpenAI API key.\n3. Use the LLMAnalyzer class to analyze code.\n\n### Features:\n- User"
+    },
+    {
+      "file_name": "requirements.txt",
+      "file_type": "txt",
+      "text": "# Core Dependencies\nfastapi==0.104.1\nuvicorn[standard]==0.24.0\npydantic==2.5.0\npython-dotenv==1.0.0\n\n# OpenAI Integration\nopenai==1.3.0\n\n# Git Analysis\nGitPython==3.1.30\npydriller==2.5\n\n# Document Parsing\npython-docx==1.1.0\npython-pptx==0.6.23\npdfminer.six==20221105\nreportlab==4.0.7\n\n# Database\nsqlalchemy==2.0.23\n\n# Testing\npytest==7.4.3\npytest-cov==4.1.0\npytest-asyncio==0.21.1\n\n# Utilities\npython-multipart==0.0.6\ncolorama==0.4.6\n\n# Video Analysis\nmoviepy==1.0.3\nopenai-whisper>=20231117\ntorch>=2.0.0\ntorchaudio>=2.0.0\n\n# Code Analysis\npygments>=2.16.0  \ntoml>=0.10.2  \nrequirements-parser>=0.5.0 \n\npytest\npandas\nmoviepy==1.0.3\nffmpeg-python\ncoverage\n\n# Image Processing\nPillow==10.1.0\nnumpy==1.26.2\nopencv-python==4.8.1.78\npytesseract==0.3.10\nscikit-image==0.22.0\npyzbar==0.1.9\n",
+      "line_count": 56,
+      "non_empty_lines": 45,
+      "word_count": 62,
+      "encoding": "utf-8",
+      "metadata": {},
+      "ai_summary": "The text lists various core dependencies and libraries required for a project, categorized by functionality:\n\n1. **Core Dependencies**: \n   - FastAPI, Uvicorn, Pydantic, and Python-dotenv for web framework and environment management.\n\n2. **OpenAI Integration**: \n   - OpenAI library for API access.\n\n3. **Git Analysis**: \n   - GitPython and Pydriller for working with Git repositories.\n\n4. **Document Parsing**: \n   - Libraries for parsing DOCX, PPTX, PDF, and generating reports.\n\n5. **Database**: \n   - SQLAlchemy for database management.\n\n6. **Testing**: \n   - Pytest and related plugins for testing and coverage.\n\n7. **Utilities**: \n   - Python-multipart and Colorama for handling multipart data and terminal text coloring.\n\n8. **Video Analysis**: \n   - MoviePy, OpenAI Whisper, and PyTorch libraries for video processing and analysis."
+    },
+    {
+      "file_name": "README.md",
+      "file_type": "md",
+      "text": "[![Open in Visual Studio Code](https://classroom.github.com/assets/open-in-vscode-2e0aaae1b6195c2367325f4f02e2d04e9abb55f0b24a779b69b11b9e10269abc.svg)](https://classroom.github.com/online_ide?assignment_repo_id=20510468&assignment_repo_type=AssignmentRepo)\n\n# Digital Work Artifact Miner\n**Team 14 - COSC 499 Capstone Project**\n\nA privacy-first application that scans local folders to mine digital work artifacts (code repositories, documents, media files) and generates professional portfolio summaries powered by AI.\n\n## \ud83d\ude80 Quick Start\n\n### Prerequisites\n- Python 3.11+\n- OpenAI API key (get one at https://platform.openai.com/api-keys)\n\n### Setup\n```bash\n# Install dependencies\npip install -r requirements.txt\n\n# Configure API key\ncp env.template .env\n# Edit .env and add your OpenAI API key\n\n# Run examples\npython src/example_usage.py\n```\n\n## \u2728 Features\n\n### Current (Implemented)\n- \u2705 **LLM Integration** - OpenAI-powered artifact analysis\n  - Code review and quality analysis\n  - Git commit history summarization\n  - Technical skill extraction\n  - Professional portfolio generation\n  - Document summarization\n  - Project overview generation\n\n### Planned\n- \ud83d\udcc5 Local file scanning and type detection (R2)\n- \ud83d\udcc5 Git repository analysis (R3)\n- \ud83d\udcc5 Office/PDF document parsing (R4)\n- \ud83d\udcc5 Media/design file metadata extraction (R5)\n- \ud83d\udcc5 Local database storage (R6)\n- \ud83d\udcc5 Analytics and insights (R7)\n- \ud83d\udcc5 REST API endpoints (R8)\n- \ud83d\udcc5 Export to JSON/CSV/PDF (R10)\n- \ud83d\udcc5 Privacy/PII redaction (R12)\n\n## \ud83d\udcc1 Project Structure\n\n```\n.\n\u251c\u2500\u2500 docs/                      # Documentation files\n\u2502   \u251c\u2500\u2500 LLM_SETUP_GUIDE.md    # Complete setup instructions\n\u2502   \u251c\u2500\u2500 PROMPT_ENGINEERING_GUIDE.md  # How to customize LLM\n\u2502   \u251c\u2500\u2500 LLM_ARCHITECTURE.md   # System architecture\n\u2502   \u251c\u2500\u2500 contract/             # Team contract\n\u2502   \u251c\u2500\u2500 proposal/             # Project proposal \n\u2502   \u251c\u2500\u2500 design/               # UI mocks\n\u2502   \u251c\u2500\u2500 minutes/              # Minutes from team meetings\n\u2502   \u251c\u2500\u2500 logs/                 # Team and individual logs\n\u2502   \u2514\u2500\u2500 plan/                 # Project plan & UML\n\u251c\u2500\u2500 src/                      # Source files\n\u2502   \u251c\u2500\u2500 llm_analyzer.py       # \u2b50 LLM integration module\n\u2502   \u251c\u2500\u2500 example_usage.py      # Usage examples\n\u2502   \u251c\u2500\u2500 integration_example.py # Integration demos\n\u2502   \u2514\u2500\u2500 QUICKSTART.md         # 5-minute quick start\n\u251c\u2500\u2500 tests/                    # Automated tests\n\u2502   \u2514\u2500\u2500 test_llm_analyzer.py  # LLM module tests\n\u251c\u2500\u2500 utils/                    # Utility files\n\u251c\u2500\u2500 requirements.txt          # Python dependencies\n\u251c\u2500\u2500 env.template              # Environment variable template\n\u251c\u2500\u2500 LLM_INTEGRATION_SUMMARY.md # Complete integration summary\n\u2514\u2500\u2500 README.md                 # This file\n```\n\n## \ud83c\udfaf Use Cases\n\n1. **Configure Scan** - Select folders and set scanning preferences\n2. **Run Scan & Ingest** - Enumerate and parse artifacts with AI analysis\n3. **View Insights** - Query AI-generated summaries and insights\n4. **Export Summaries** - Generate professional portfolio exports\n5. **Manage Privacy** - Configure redaction and retention policies\n\n## \ud83d\udca1 LLM Integration\n\nThe project includes comprehensive OpenAI integration for intelligent artifact analysis:\n\n```python\nfrom src.llm_analyzer import LLMAnalyzer, AnalysisType\n\n# Initialize\nanalyzer = LLMAnalyzer(model=\"gpt-4o-mini\")\n\n# Analyze code\nresult = analyzer.analyze_code_file(\n    code=\"def hello(): return 'world'\",\n    filename=\"app.py\",\n    language=\"Python\"\n)\n\n# Generate portfolio\nportfolio = analyzer.generate_portfolio_entry({\n    \"name\": \"My Project\",\n    \"technologies\": [\"Python\", \"FastAPI\"],\n    \"commit_count\": 150\n})\n```\n\n### Documentation\n- \ud83d\udcd6 **Quick Start**: `src/QUICKSTART.md`\n- \ud83d\udcd6 **Full Setup**: `docs/LLM_SETUP_GUIDE.md`\n- \ud83d\udcd6 **Customization**: `docs/PROMPT_ENGINEERING_GUIDE.md`\n- \ud83d\udcd6 **Architecture**: `docs/LLM_ARCHITECTURE.md`\n- \ud83d\udcd6 **Summary**: `LLM_INTEGRATION_SUMMARY.md`\n\n## \ud83e\uddea Testing\n\n```bash\n# Run tests\npytest tests/test_llm_analyzer.py -v\n\n# Run with coverage\npytest tests/test_llm_analyzer.py --cov=src --cov-report=html\n\n# Integration tests (requires API key)\nexport OPENAI_API_KEY=your_key\npytest tests/test_llm_analyzer.py::TestIntegration -v\n```\n\n## \ud83d\udc65 Team\n\n| Member | GitHub | Responsibilities |\n|--------|--------|-----------------|\n| Tahsin Jawwad | @tahsinj | R1: Config, R7: Analytics |\n| Abijeet Dhillon | @abijeet-dhillon | R3: Git Adapter, R11: Notes |\n| Misha Gavura | @mishagavura | R2: Type Detection, R9: Incremental Scan |\n| Abhinav Malik | @Malik-Abhinav | R4: Office/PDF, R8: API |\n| Kaiden Merchant | @kmerchant1 | R5: Media, R10: Export |\n| Abdur Rehman | @abdur026 | R6: Storage, R12: Privacy |\n\n## \ud83d\udee0\ufe0f Technology Stack\n\n- **Backend**: Python 3.11, FastAPI\n- **AI/ML**: OpenAI API (GPT-4o-mini, GPT-4o)\n- **Parsing**: GitPython, pydriller, python-docx, python-pptx, pdfminer\n- **Database**: SQLAlchemy\n- **Testing**: pytest, pytest-cov\n- **Documentation**: Markdown\n\n## \ud83d\udcca Development Workflow\n\n1. **Branching**: Use feature branches for development\n2. **Pull Requests**: Create PR for code review before merging\n3. **Testing**: Ensure tests pass before PR\n4. **Documentation**: Keep docs up-to-date\n5. **Logs**: Update personal and team logs weekly\n\n## \ud83d\udd12 Privacy & Security\n\n- **Local-first**: All processing happens on user's machine\n- **PII Redaction**: Configurable redaction rules (R12)\n- **User Consent**: Clear policies for what's analyzed\n- **No Storage**: OpenAI doesn't train on API data\n- **Encryption**: Secure API communication (HTTPS)\n\n## \ud83d\udcc8 Project Status\n\n**Current Phase**: Week 5 - LLM Integration Complete \u2705\n\nSee `docs/logs/team-log.md` for detailed progress tracking.\n\n## \ud83d\udcdd License\n\nThis is a university capstone project for educational purposes.\n\n## \ud83d\udd17 Resources\n\n- **Project Plan**: `docs/plan/README.md`\n- **Team Logs**: `docs/logs/team-log.md`\n- **OpenAI Platform**: https://platform.openai.com/\n- **API Documentation**: https://platform.openai.com/docs\n\n---\n\n**Note**: This is an active development project. Features are being implemented iteratively throughout the term.\n",
+      "line_count": 187,
+      "non_empty_lines": 144,
+      "word_count": 759,
+      "encoding": "utf-8",
+      "metadata": {},
+      "ai_summary": "**Digital Work Artifact Miner - Team 14 - COSC 499 Capstone Project**\n\nThis project is a privacy-first application designed to scan local folders for digital work artifacts (such as code repositories and documents) and generate AI-powered professional portfolio summaries.\n\n### Quick Start\n- **Prerequisites**: Python 3.11+ and an OpenAI API key.\n- **Setup Instructions**:\n  1. Install dependencies via `pip install -r requirements.txt`.\n  2. Configure the OpenAI API key in the `.env` file.\n  3. Run examples using `python src/example_usage.py`.\n\n### Features\n- **Implemented**: \n  - LLM integration for artifact analysis (code reviews, summarizations, skill extraction, portfolio generation).\n- **Planned**: \n  - Local file scanning, Git repository analysis, document parsing, media metadata extraction, and more.\n\n### Project Structure\nIncludes directories for documentation, source files, tests, and utilities, with"
+    },
+    {
+      "file_name": "docker-compose.yml",
+      "file_type": "yaml",
+      "text": "services:\n  backend:\n    build: .\n    working_dir: /code          \n    volumes:\n      - .:/code\n      - sqlite_data:/code/data\n    ports:\n      - \"8000:8000\"\n    environment:\n      - PYTHONUNBUFFERED=1\n      - PYTHONPATH=/code        \n      - DATABASE_URL=sqlite:///data/app.db\n\nvolumes:\n  sqlite_data:",
+      "word_count": 23,
+      "metadata": {},
+      "ai_summary": "The provided text outlines a configuration for a backend service using Docker. Key points include:\n\n- The service is built from the current directory and operates in the `/code` working directory.\n- Two volumes are mounted: the current directory to `/code` and a named volume `sqlite_data` to `/code/data`.\n- The service exposes port 8000.\n- Environment variables are set for Python unbuffered output, Python path, and a SQLite database URL pointing to `app.db` in the mounted data directory.\n- A named volume `sqlite_data` is defined for persistent data storage."
+    },
+    {
+      "file_name": "test_advanced_skill_extractor.py",
+      "file_type": "py",
+      "text": "\"\"\"Tests for Advanced Skill Extractor\"\"\"\n\nimport pytest\nfrom pathlib import Path\nfrom src.analyze.advanced_skill_extractor import (\n    AdvancedSkillExtractor,\n    DeepSkillAnalysis,\n    SkillEvidence\n)\n\n\n@pytest.fixture\ndef extractor():\n    return AdvancedSkillExtractor()\n\n\n@pytest.fixture\ndef sample_code_with_caching():\n    return '''\ndef get_data(self):\n    if self._cache is None:\n        self._cache = expensive_operation()\n    return self._cache\n'''\n\n\n@pytest.fixture\ndef sample_code_with_set_optimization():\n    return '''\ndef remove_duplicates(items):\n    return list(set(items))\n'''\n\n\n@pytest.fixture\ndef sample_code_with_type_hints():\n    return '''\ndef process(data: List[str], count: int) -> Dict[str, int]:\n    return {\"result\": count}\n\ndef analyze(items: Optional[List[str]]) -> bool:\n    return True\n'''\n\n\n@pytest.fixture\ndef sample_code_with_exception():\n    return '''\nclass CustomError(Exception):\n    pass\n\nclass ValidationError(Exception):\n    pass\n'''\n\n\ndef test_extractor_initialization(extractor):\n    assert extractor is not None\n    assert extractor.skill_patterns is not None\n\n\ndef test_detect_lazy_initialization(extractor, sample_code_with_caching, tmp_path):\n    test_file = tmp_path / \"test.py\"\n    test_file.write_text(sample_code_with_caching)\n    \n    analysis = extractor.analyze_file(test_file)\n    \n    assert 'lazy-initialization' in analysis.advanced_skills\n    assert any(e.skill == 'lazy-initialization' for e in analysis.evidence)\n\n\ndef test_detect_set_optimization(extractor, sample_code_with_set_optimization, tmp_path):\n    test_file = tmp_path / \"test.py\"\n    test_file.write_text(sample_code_with_set_optimization)\n    \n    analysis = extractor.analyze_file(test_file)\n    \n    assert 'algorithmic-optimization' in analysis.advanced_skills\n    assert analysis.complexity_insights.get('set_deduplication', 0) > 0\n\n\ndef test_detect_type_hints(extractor, sample_code_with_type_hints, tmp_path):\n    test_file = tmp_path / \"test.py\"\n    test_file.write_text(sample_code_with_type_hints)\n    \n    analysis = extractor.analyze_file(test_file)\n    \n    assert 'static-type-checking' in analysis.advanced_skills\n\n\ndef test_detect_custom_exceptions(extractor, sample_code_with_exception, tmp_path):\n    test_file = tmp_path / \"test.py\"\n    test_file.write_text(sample_code_with_exception)\n    \n    analysis = extractor.analyze_file(test_file)\n    \n    assert 'custom-exception-hierarchy' in analysis.design_patterns\n\n\ndef test_syntax_error_handling(extractor, tmp_path):\n    test_file = tmp_path / \"test.py\"\n    test_file.write_text(\"def broken(:\\n    pass\")\n    \n    analysis = extractor.analyze_file(test_file)\n    \n    assert 'syntax-error-detected' in analysis.basic_skills\n\n\ndef test_analyze_directory(extractor, tmp_path):\n    (tmp_path / \"file1.py\").write_text(\"def test(): pass\")\n    (tmp_path / \"file2.py\").write_text(\"x = list(set([1,2,3]))\")\n    \n    results = extractor.analyze_directory(tmp_path)\n    \n    assert len(results) == 2\n\n\ndef test_aggregate_skills(extractor, tmp_path):\n    (tmp_path / \"file1.py\").write_text(\"x = list(set([1,2,3]))\")\n    (tmp_path / \"file2.py\").write_text(\"x = list(set([4,5,6]))\")\n    \n    results = extractor.analyze_directory(tmp_path)\n    aggregated = extractor.aggregate_skills(results)\n    \n    assert 'algorithmic-optimization' in aggregated['advanced_skills']\n    assert aggregated['total_files_analyzed'] == 2\n\n\ndef test_evidence_structure(extractor, sample_code_with_caching, tmp_path):\n    test_file = tmp_path / \"test.py\"\n    test_file.write_text(sample_code_with_caching)\n    \n    analysis = extractor.analyze_file(test_file)\n    \n    if analysis.evidence:\n        evidence = analysis.evidence[0]\n        assert hasattr(evidence, 'skill')\n        assert hasattr(evidence, 'evidence_type')\n        assert hasattr(evidence, 'location')\n        assert hasattr(evidence, 'reasoning')\n        assert hasattr(evidence, 'confidence')\n        assert 0.0 <= evidence.confidence <= 1.0\n\n\ndef test_dataclass_detection(extractor, tmp_path):\n    code = '''\nfrom dataclasses import dataclass\n\n@dataclass\nclass Person:\n    name: str\n    age: int\n'''\n    test_file = tmp_path / \"test.py\"\n    test_file.write_text(code)\n    \n    analysis = extractor.analyze_file(test_file)\n    \n    assert 'modern-python-features' in analysis.advanced_skills\n\n\ndef test_context_manager_detection(extractor, tmp_path):\n    code = '''\nwith open('file.txt') as f:\n    data = f.read()\n\nwith connection() as conn:\n    conn.execute()\n'''\n    test_file = tmp_path / \"test.py\"\n    test_file.write_text(code)\n    \n    analysis = extractor.analyze_file(test_file)\n    \n    assert 'resource-management' in analysis.advanced_skills\n\n\ndef test_comprehension_detection(extractor, tmp_path):\n    code = '''\nsquares = [x**2 for x in range(10)]\nevens = [x for x in range(10) if x % 2 == 0]\nnames = {p.name for p in people}\nmapping = {k: v for k, v in items}\n'''\n    test_file = tmp_path / \"test.py\"\n    test_file.write_text(code)\n    \n    analysis = extractor.analyze_file(test_file)\n    \n    assert 'pythonic-idioms' in analysis.advanced_skills\n\n\ndef test_graceful_degradation_detection(extractor, tmp_path):\n    code = '''\ntry:\n    result = risky_operation()\nexcept Exception:\n    result = fallback_value()\n'''\n    test_file = tmp_path / \"test.py\"\n    test_file.write_text(code)\n    \n    analysis = extractor.analyze_file(test_file)\n    \n    assert 'graceful-degradation' in analysis.advanced_skills\n\n\ndef test_cryptographic_hashing_detection(extractor, tmp_path):\n    code = '''\nimport hashlib\n\ndef hash_file(content):\n    return hashlib.sha256(content).hexdigest()\n'''\n    test_file = tmp_path / \"test.py\"\n    test_file.write_text(code)\n    \n    analysis = extractor.analyze_file(test_file)\n    \n    assert 'cryptographic-hashing' in analysis.advanced_skills\n\n\ndef test_java_language_detection(extractor, tmp_path):\n    java_code = '''\npublic class Example {\n    private List<String> items;\n    \n    public void process() {\n        items.stream()\n            .filter(x -> x.length() > 5)\n            .collect(Collectors.toList());\n    }\n}\n'''\n    test_file = tmp_path / \"Example.java\"\n    test_file.write_text(java_code)\n    \n    analysis = extractor.analyze_file(test_file)\n    \n    assert 'java' in analysis.basic_skills\n    assert any('java-' in skill for skill in analysis.advanced_skills)\n\n\ndef test_cpp_language_detection(extractor, tmp_path):\n    cpp_code = '''\n#include <memory>\n#include <vector>\n\ntemplate<typename T>\nclass Container {\n    std::unique_ptr<T> data;\n    \n    void move_data() {\n        auto moved = std::move(data);\n    }\n};\n'''\n    test_file = tmp_path / \"container.cpp\"\n    test_file.write_text(cpp_code)\n    \n    analysis = extractor.analyze_file(test_file)\n    \n    assert 'cpp' in analysis.basic_skills\n    assert any('cpp-' in skill for skill in analysis.advanced_skills)\n\n\ndef test_javascript_language_detection(extractor, tmp_path):\n    js_code = '''\nconst processData = async (items) => {\n    const {name, age} = person;\n    const result = await Promise.all(items);\n    return [...result, ...newItems];\n};\n'''\n    test_file = tmp_path / \"script.js\"\n    test_file.write_text(js_code)\n    \n    analysis = extractor.analyze_file(test_file)\n    \n    assert 'javascript' in analysis.basic_skills\n    assert any('javascript-' in skill for skill in analysis.advanced_skills)\n\n\ndef test_c_language_detection(extractor, tmp_path):\n    c_code = '''\n#include <stdlib.h>\n\ntypedef struct Node {\n    int data;\n    struct Node* next;\n} Node;\n\nNode* create_node(int value) {\n    Node* node = (Node*)malloc(sizeof(Node));\n    node->data = value;\n    return node;\n}\n'''\n    test_file = tmp_path / \"linked_list.c\"\n    test_file.write_text(c_code)\n    \n    analysis = extractor.analyze_file(test_file)\n    \n    assert 'c' in analysis.basic_skills\n\n\ndef test_hash_based_structures_detection(extractor, tmp_path):\n    java_code = '''\nimport java.util.HashMap;\n\npublic class Cache {\n    private HashMap<String, Object> cache = new HashMap<>();\n}\n'''\n    test_file = tmp_path / \"Cache.java\"\n    test_file.write_text(java_code)\n    \n    analysis = extractor.analyze_file(test_file)\n    \n    assert 'hash-based-structures' in analysis.advanced_skills\n\n\ndef test_multi_language_directory(extractor, tmp_path):\n    (tmp_path / \"script.py\").write_text(\"def test(): pass\")\n    (tmp_path / \"Main.java\").write_text(\"public class Main {}\")\n    (tmp_path / \"app.js\").write_text(\"const x = 5;\")\n    \n    results = extractor.analyze_directory(tmp_path)\n    \n    assert len(results) == 3\n    languages = set()\n    for analysis in results.values():\n        languages.update(analysis.basic_skills)\n    \n    assert 'python' in languages\n    assert 'java' in languages\n    assert 'javascript' in languages\n\n\ndef test_category_map_exists():\n    \"\"\"Verify CATEGORY_MAP is defined and comprehensive\"\"\"\n    from src.analyze.advanced_skill_extractor import CATEGORY_MAP\n    \n    assert len(CATEGORY_MAP) > 15\n    assert 'lazy-initialization' in CATEGORY_MAP\n    assert CATEGORY_MAP['lazy-initialization'] == 'architecture'\n\n\ndef test_skill_categorization(extractor, tmp_path):\n    \"\"\"Verify skills are correctly categorized\"\"\"\n    code = \"\"\"\nfrom dataclasses import dataclass\n\n@dataclass\nclass User:\n    name: str\n\ndef optimize(items):\n    return list(set(items))\n\"\"\"\n    file = tmp_path / \"test.py\"\n    file.write_text(code)\n    \n    analysis = extractor.analyze_file(file)\n    analysis.categorize_skills()\n    \n    # Check categories exist\n    assert 'code-quality' in analysis.skill_categories\n    assert 'performance' in analysis.skill_categories\n    \n    # Check skills are in correct categories\n    assert 'modern-python-features' in analysis.skill_categories['code-quality']\n    assert 'algorithmic-optimization' in analysis.skill_categories['performance']\n\n\ndef test_confidence_calculation_method(extractor):\n    \"\"\"Test the _calculate_confidence method directly\"\"\"\n    # Single occurrence, pattern type\n    conf1 = extractor._calculate_confidence(1, 'pattern', 100)\n    assert 0.85 == conf1\n    \n    # Multiple occurrences (should boost confidence)\n    conf2 = extractor._calculate_confidence(3, 'pattern', 100)\n    assert conf2 > conf1\n    assert conf2 <= 1.0\n    \n    # Decorator type (highest confidence)\n    conf3 = extractor._calculate_confidence(1, 'decorator', 100)\n    assert conf3 == 1.0\n    \n    # Small file penalty\n    conf4 = extractor._calculate_confidence(1, 'pattern', 5)\n    assert conf4 < 0.85\n\n\ndef test_code_snippet_extraction(extractor):\n    \"\"\"Test the _extract_code_snippet method directly\"\"\"\n    code = \"\"\"line 1\nline 2\nline 3 TARGET\nline 4\nline 5\"\"\"\n    \n    snippet = extractor._extract_code_snippet(code, line_number=3, context_lines=1)\n    \n    # Should contain target line with marker\n    assert \"\u2192   3 | line 3 TARGET\" in snippet\n    \n    # Should contain context lines\n    assert \"2 | line 2\" in snippet\n    assert \"4 | line 4\" in snippet\n    \n    # Should NOT contain line 1 or 5 (outside context)\n    assert \"line 1\" not in snippet\n    assert \"line 5\" not in snippet\n\n\ndef test_evidence_has_code_snippets(extractor, tmp_path):\n    \"\"\"Verify evidence now contains actual code snippets (not just descriptions)\"\"\"\n    code = \"\"\"\ndef get_data(self):\n    if self._cache is None:\n        self._cache = load_data()\n    return self._cache\n\"\"\"\n    file = tmp_path / \"test.py\"\n    file.write_text(code)\n    \n    analysis = extractor.analyze_file(file)\n    \n    # Find lazy-initialization evidence\n    lazy_evidence = [e for e in analysis.evidence if 'lazy' in e.skill]\n    assert len(lazy_evidence) > 0\n    \n    # Check that location contains actual code with line numbers\n    location = lazy_evidence[0].location\n    assert \"if self._cache is None\" in location\n    assert \"|\" in location  # Line number separator\n    assert \"\u2192\" in location  # Target line marker\n\n\ndef test_dynamic_confidence_in_real_analysis(extractor, tmp_path):\n    \"\"\"Verify confidence is actually calculated dynamically in file analysis\"\"\"\n    code = \"\"\"\nx1 = list(set([1]))\nx2 = list(set([2]))\nx3 = list(set([3]))\n\"\"\"\n    file = tmp_path / \"test.py\"\n    file.write_text(code)\n    \n    analysis = extractor.analyze_file(file)\n    \n    # Find optimization evidence\n    opt_evidence = [e for e in analysis.evidence if 'optimization' in e.skill]\n    assert len(opt_evidence) > 0\n    \n    # Confidence should be reasonable and not hardcoded\n    for evidence in opt_evidence:\n        assert isinstance(evidence.confidence, float)\n        assert 0.0 <= evidence.confidence <= 1.0\n        # Should not be exactly 0.95 (the old hardcoded value)\n        # It should be dynamically calculated\n\n\ndef test_categorize_skills_method(extractor, tmp_path):\n    \"\"\"Test that categorize_skills() method works\"\"\"\n    code = \"\"\"\n@dataclass\nclass User:\n    name: str\n\ndef process():\n    return list(set([1, 2, 3]))\n\ntry:\n    risky_operation()\nexcept Exception:\n    fallback()\n\"\"\"\n    file = tmp_path / \"test.py\"\n    file.write_text(code)\n    \n    analysis = extractor.analyze_file(file)\n    \n    # Before categorization\n    assert len(analysis.skill_categories) == 0\n    \n    # After categorization\n    analysis.categorize_skills()\n    assert len(analysis.skill_categories) > 0\n    \n    # Check expected categories\n    assert 'code-quality' in analysis.skill_categories\n    assert 'performance' in analysis.skill_categories\n    assert 'error-handling' in analysis.skill_categories",
+      "line_count": 496,
+      "non_empty_lines": 356,
+      "comment_lines": 21,
+      "word_count": 1216,
+      "encoding": "utf-8",
+      "language": "py",
+      "metadata": {},
+      "ai_summary": "The text describes a set of unit tests for the `AdvancedSkillExtractor` class, which is part of a Python module designed for analyzing code to identify advanced programming skills. The tests utilize the `pytest` framework and include various fixtures that provide sample code snippets for analysis.\n\nKey points include:\n- **Fixtures**: Various sample code snippets are defined to test different features, such as caching, set optimization, type hints, and custom exceptions.\n- **Tests**: The tests cover initialization of the extractor, detection of specific programming patterns (lazy initialization, algorithmic optimization, static type checking, custom exception hierarchy), syntax error handling, directory analysis, skill aggregation, evidence structure, and detection of modern Python features like dataclasses and context managers.\n- **Assertions**: Each test includes assertions to verify that the expected skills or patterns are detected in the analyzed code.\n\nOverall, the tests aim to ensure that the `AdvancedSkillExtractor` correctly identifies advanced programming techniques and patterns in Python code."
+    },
+    {
+      "file_name": "test_enhanced_processor.py",
+      "file_type": "py",
+      "text": "#!/usr/bin/env python3\n\"\"\"\nTest script for enhanced image processor with detailed content analysis.\n\"\"\"\n\nimport json\nimport logging\nfrom pathlib import Path\nfrom src.image_processor import ImageProcessor\n\n\nlogging.basicConfig(\n    level=logging.INFO,\n    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'\n)\n\ndef print_analysis_summary(analysis: dict):\n    \"\"\"Print a human-readable summary of the image analysis.\"\"\"\n    print(\"\\n\" + \"=\"*80)\n    print(f\"IMAGE ANALYSIS: {analysis['file_name']}\")\n    print(\"=\"*80)\n    \n  \n    print(\"\\n\ud83d\udccb CONTENT CLASSIFICATION:\")\n    content = analysis.get('content_classification', {})\n    print(f\"  Type: {content.get('primary_type', 'Unknown')}\")\n    print(f\"  Description: {content.get('description', 'N/A')}\")\n    print(f\"  Confidence: {content.get('confidence', 'N/A')}\")\n    \n    # Key Features\n    print(\"\\n\ud83d\udd11 KEY FEATURES:\")\n    key_features = analysis.get('key_features', {})\n    for feature in key_features.get('key_features', []):\n        print(f\"  \u2022 {feature}\")\n    \n    # Face Detection\n    print(\"\\n\ud83d\udc64 FACE DETECTION:\")\n    faces = analysis.get('face_detection', {})\n    print(f\"  {faces.get('description', 'N/A')}\")\n    \n    # Text Extraction\n    print(\"\\n\ud83d\udcdd TEXT EXTRACTION:\")\n    text = analysis.get('text_extraction', {})\n    print(f\"  {text.get('description', 'N/A')}\")\n    if text.get('has_text') and text.get('text_content'):\n        print(f\"  Preview: {text.get('text_content', '')[:200]}...\")\n    \n    # Shape Detection\n    print(\"\\n\ud83d\udd37 SHAPE DETECTION:\")\n    shapes = analysis.get('shape_detection', {})\n    print(f\"  {shapes.get('description', 'N/A')}\")\n    \n    # Edge Detection\n    print(\"\\n\ud83d\udd32 EDGE DETECTION:\")\n    edges = analysis.get('edge_detection', {})\n    print(f\"  {edges.get('description', 'N/A')}\")\n    \n    # Texture Analysis\n    print(\"\\n\ud83c\udfa8 TEXTURE ANALYSIS:\")\n    texture = analysis.get('texture_analysis', {})\n    print(f\"  {texture.get('description', 'N/A')}\")\n    \n    # Pattern Detection\n    print(\"\\n\ud83d\udd0d PATTERN DETECTION:\")\n    patterns = analysis.get('pattern_detection', {})\n    print(f\"  {patterns.get('description', 'N/A')}\")\n    if patterns.get('has_codes'):\n        for code in patterns.get('codes', []):\n            print(f\"    - {code.get('type')}: {code.get('data')}\")\n    \n    # Basic Metrics\n    print(\"\\n\ud83d\udcca BASIC METRICS:\")\n    resolution = analysis.get('resolution', {})\n    print(f\"  Resolution: {resolution.get('width')}x{resolution.get('height')} pixels\")\n    \n    aspect = analysis.get('aspect_ratio', {})\n    print(f\"  Aspect Ratio: {aspect.get('ratio_string')} ({aspect.get('decimal')})\")\n    \n    brightness = analysis.get('brightness', {})\n    print(f\"  Brightness: {brightness.get('brightness_percentage')}%\")\n    \n    dominant = analysis.get('dominant_color', {}).get('most_dominant', {})\n    if dominant:\n        print(f\"  Dominant Color: {dominant.get('hex')} ({dominant.get('percentage')}%)\")\n    \n    print(\"\\n\" + \"=\"*80 + \"\\n\")\n\n\ndef main():\n    \"\"\"Main test function.\"\"\"\n    print(\"Enhanced Image Processor Test\")\n    print(\"=\"*80)\n    \n    \n    processor = ImageProcessor()\n    \n   \n    print(\"\\nEnter the path to an image file (or press Enter to skip):\")\n    image_path = input(\"> \").strip()\n    \n    if not image_path:\n        print(\"\\nNo image path provided. Please provide an image to analyze.\")\n        print(\"\\nExample usage:\")\n        print(\"  python test_enhanced_processor.py\")\n        print(\"\\nThen enter the path to an image file when prompted.\")\n        print(\"\\nThe processor can analyze:\")\n        print(\"  \u2022 Portraits and group photos (face detection)\")\n        print(\"  \u2022 Documents and text images (OCR)\")\n        print(\"  \u2022 Diagrams and illustrations (shape detection)\")\n        print(\"  \u2022 Screenshots and UI captures\")\n        print(\"  \u2022 QR codes and barcodes\")\n        print(\"  \u2022 General images with detailed texture and edge analysis\")\n        return\n    \n   \n    if not Path(image_path).exists():\n        print(f\"\\n\u274c Error: File not found: {image_path}\")\n        return\n    \n \n    print(f\"\\n\ud83d\udd0d Analyzing image: {image_path}\")\n    print(\"This may take a moment...\\n\")\n    \n    try:\n        analysis = processor.analyze_image(image_path)\n        \n       \n        print_analysis_summary(analysis)\n        \n       \n        output_file = Path(image_path).stem + \"_analysis.json\"\n        with open(output_file, 'w') as f:\n            json.dump(analysis, f, indent=2)\n        print(f\"\u2705 Full analysis saved to: {output_file}\")\n        \n    except Exception as e:\n        print(f\"\\n\u274c Error analyzing image: {e}\")\n        import traceback\n        traceback.print_exc()\n\n\nif __name__ == \"__main__\":\n    main()\n",
+      "line_count": 144,
+      "non_empty_lines": 106,
+      "comment_lines": 9,
+      "word_count": 401,
+      "encoding": "utf-8",
+      "language": "py",
+      "metadata": {},
+      "ai_summary": "The provided Python script is a test utility for an enhanced image processor that performs detailed content analysis on images. Key features of the script include:\n\n1. **Logging Setup**: It initializes logging to capture information about the processing.\n\n2. **Analysis Summary Function**: The `print_analysis_summary` function formats and displays the results of the image analysis, including:\n   - Content classification (type, description, confidence).\n   - Key features detected in the image.\n   - Results from face detection, text extraction, shape detection, edge detection, texture analysis, and pattern detection.\n   - Basic metrics such as image resolution, aspect ratio, brightness, and dominant color.\n\n3. **Main Functionality**:\n   - Prompts the user to input the path to an image file for analysis.\n   - Validates the image path and checks for file existence.\n   - Uses the `ImageProcessor` class to analyze the image.\n   - Displays the analysis summary and saves the results to a JSON file."
+    },
+    {
+      "file_name": "test_llm_analyzer.py",
+      "file_type": "py",
+      "text": "\"\"\"\nUnit tests for LLM Analyzer module\n\"\"\"\n\nimport pytest\nfrom unittest.mock import Mock, patch, MagicMock\nimport os\nimport sys\n\n# Add src to path for imports\nsys.path.insert(0, os.path.join(os.path.dirname(__file__), '../src'))\n\nfrom llm_analyzer import LLMAnalyzer, AnalysisType, quick_analyze\n\n\nclass TestLLMAnalyzer:\n    \"\"\"Test suite for LLMAnalyzer class\"\"\"\n    \n    @pytest.fixture\n    def mock_openai_response(self):\n        \"\"\"Mock OpenAI API response\"\"\"\n        mock_response = Mock()\n        mock_response.choices = [Mock()]\n        mock_response.choices[0].message.content = \"This is a test analysis response\"\n        mock_response.choices[0].finish_reason = \"stop\"\n        mock_response.usage.total_tokens = 150\n        return mock_response\n    \n    @pytest.fixture\n    def analyzer(self):\n        \"\"\"Create analyzer instance with mocked API key\"\"\"\n        with patch.dict(os.environ, {\"OPENAI_API_KEY\": \"test-key\"}):\n            return LLMAnalyzer(api_key=\"test-key\")\n    \n    def test_initialization_with_api_key(self):\n        \"\"\"Test analyzer initialization with API key\"\"\"\n        analyzer = LLMAnalyzer(api_key=\"test-key-123\")\n        assert analyzer.api_key == \"test-key-123\"\n        assert analyzer.model == \"gpt-4o-mini\"\n        assert analyzer.temperature == 0.7\n    \n    def test_initialization_without_api_key_raises_error(self):\n        \"\"\"Test that missing API key raises ValueError\"\"\"\n        with patch.dict(os.environ, {}, clear=True):\n            with pytest.raises(ValueError, match=\"OpenAI API key not found\"):\n                LLMAnalyzer()\n    \n    def test_initialization_with_custom_parameters(self):\n        \"\"\"Test initialization with custom parameters\"\"\"\n        analyzer = LLMAnalyzer(\n            api_key=\"test-key\",\n            model=\"gpt-4o\",\n            temperature=0.5,\n            max_tokens=2000\n        )\n        assert analyzer.model == \"gpt-4o\"\n        assert analyzer.temperature == 0.5\n        assert analyzer.max_tokens == 2000\n    \n    def test_system_prompts_exist_for_all_types(self, analyzer):\n        \"\"\"Test that system prompts are defined for all analysis types\"\"\"\n        for analysis_type in AnalysisType:\n            assert analysis_type in analyzer.system_prompts\n            assert len(analyzer.system_prompts[analysis_type]) > 0\n    \n    @patch('llm_analyzer.OpenAI')\n    def test_analyze_success(self, mock_openai_class, analyzer, mock_openai_response):\n        \"\"\"Test successful analysis\"\"\"\n        # Setup mock\n        mock_client = Mock()\n        mock_client.chat.completions.create.return_value = mock_openai_response\n        analyzer.client = mock_client\n        \n        # Run analysis\n        result = analyzer.analyze(\n            content=\"Test code\",\n            analysis_type=AnalysisType.CODE_REVIEW\n        )\n        \n        # Assertions\n        assert result[\"success\"] is True\n        assert result[\"analysis\"] == \"This is a test analysis response\"\n        assert result[\"tokens_used\"] == 150\n        assert result[\"model\"] == \"gpt-4o-mini\"\n        assert result[\"analysis_type\"] == \"code_review\"\n    \n    @patch('llm_analyzer.OpenAI')\n    def test_analyze_with_custom_prompt(self, mock_openai_class, analyzer, mock_openai_response):\n        \"\"\"Test analysis with custom prompt\"\"\"\n        mock_client = Mock()\n        mock_client.chat.completions.create.return_value = mock_openai_response\n        analyzer.client = mock_client\n        \n        custom_prompt = \"Please analyze this carefully\"\n        result = analyzer.analyze(\n            content=\"Test content\",\n            analysis_type=AnalysisType.CODE_REVIEW,\n            custom_prompt=custom_prompt\n        )\n        \n        assert result[\"success\"] is True\n        # Verify the custom prompt was used\n        call_args = mock_client.chat.completions.create.call_args\n        user_message = call_args[1][\"messages\"][1][\"content\"]\n        assert custom_prompt in user_message\n    \n    @patch('llm_analyzer.OpenAI')\n    def test_analyze_with_context(self, mock_openai_class, analyzer, mock_openai_response):\n        \"\"\"Test analysis with context\"\"\"\n        mock_client = Mock()\n        mock_client.chat.completions.create.return_value = mock_openai_response\n        analyzer.client = mock_client\n        \n        context = {\"filename\": \"test.py\", \"language\": \"Python\"}\n        result = analyzer.analyze(\n            content=\"def test(): pass\",\n            analysis_type=AnalysisType.CODE_REVIEW,\n            context=context\n        )\n        \n        assert result[\"success\"] is True\n    \n    @patch('llm_analyzer.OpenAI')\n    def test_analyze_api_error(self, mock_openai_class, analyzer):\n        \"\"\"Test handling of API errors\"\"\"\n        mock_client = Mock()\n        mock_client.chat.completions.create.side_effect = Exception(\"API Error\")\n        analyzer.client = mock_client\n        \n        result = analyzer.analyze(\n            content=\"Test\",\n            analysis_type=AnalysisType.CODE_REVIEW\n        )\n        \n        assert result[\"success\"] is False\n        assert \"API Error\" in result[\"error\"]\n    \n    @patch('llm_analyzer.OpenAI')\n    def test_analyze_code_file(self, mock_openai_class, analyzer, mock_openai_response):\n        \"\"\"Test code file analysis\"\"\"\n        mock_client = Mock()\n        mock_client.chat.completions.create.return_value = mock_openai_response\n        analyzer.client = mock_client\n        \n        result = analyzer.analyze_code_file(\n            code=\"def hello(): return 'world'\",\n            filename=\"hello.py\",\n            language=\"Python\"\n        )\n        \n        assert result[\"success\"] is True\n        assert result[\"analysis_type\"] == \"code_review\"\n    \n    @patch('llm_analyzer.OpenAI')\n    def test_analyze_git_commits(self, mock_openai_class, analyzer, mock_openai_response):\n        \"\"\"Test git commit analysis\"\"\"\n        mock_client = Mock()\n        mock_client.chat.completions.create.return_value = mock_openai_response\n        analyzer.client = mock_client\n        \n        commits = [\n            {\"hash\": \"abc123\", \"message\": \"Initial commit\", \"author\": \"Test\", \"date\": \"2024-01-01\"},\n            {\"hash\": \"def456\", \"message\": \"Add feature\", \"author\": \"Test\", \"date\": \"2024-01-02\"}\n        ]\n        \n        result = analyzer.analyze_git_commits(\n            commits=commits,\n            repo_name=\"test-repo\"\n        )\n        \n        assert result[\"success\"] is True\n        assert result[\"analysis_type\"] == \"commit_summary\"\n    \n    @patch('llm_analyzer.OpenAI')\n    def test_extract_skills(self, mock_openai_class, analyzer, mock_openai_response):\n        \"\"\"Test skill extraction\"\"\"\n        mock_client = Mock()\n        mock_client.chat.completions.create.return_value = mock_openai_response\n        analyzer.client = mock_client\n        \n        artifacts = [\n            \"Built with Python and FastAPI\",\n            \"Used React and TypeScript for frontend\"\n        ]\n        \n        result = analyzer.extract_skills(artifacts)\n        \n        assert result[\"success\"] is True\n        assert result[\"analysis_type\"] == \"skill_extraction\"\n    \n    @patch('llm_analyzer.OpenAI')\n    def test_generate_portfolio_entry(self, mock_openai_class, analyzer, mock_openai_response):\n        \"\"\"Test portfolio entry generation\"\"\"\n        mock_client = Mock()\n        mock_client.chat.completions.create.return_value = mock_openai_response\n        analyzer.client = mock_client\n        \n        project_data = {\n            \"name\": \"Test Project\",\n            \"description\": \"A test project\",\n            \"technologies\": [\"Python\", \"FastAPI\"],\n            \"commit_count\": 50,\n            \"file_count\": 20\n        }\n        \n        result = analyzer.generate_portfolio_entry(project_data)\n        \n        assert result[\"success\"] is True\n        assert result[\"analysis_type\"] == \"portfolio_generation\"\n    \n    @patch('llm_analyzer.OpenAI')\n    def test_batch_analyze(self, mock_openai_class, analyzer, mock_openai_response):\n        \"\"\"Test batch analysis\"\"\"\n        mock_client = Mock()\n        mock_client.chat.completions.create.return_value = mock_openai_response\n        analyzer.client = mock_client\n        \n        items = [\n            {\"id\": \"item1\", \"content\": \"code 1\"},\n            {\"id\": \"item2\", \"content\": \"code 2\"}\n        ]\n        \n        results = analyzer.batch_analyze(items, AnalysisType.CODE_REVIEW)\n        \n        assert len(results) == 2\n        assert results[0][\"item_id\"] == \"item1\"\n        assert results[1][\"item_id\"] == \"item2\"\n    \n    def test_set_custom_system_prompt(self, analyzer):\n        \"\"\"Test setting custom system prompt\"\"\"\n        custom_prompt = \"You are a specialized code reviewer\"\n        analyzer.set_custom_system_prompt(AnalysisType.CODE_REVIEW, custom_prompt)\n        \n        assert analyzer.system_prompts[AnalysisType.CODE_REVIEW] == custom_prompt\n    \n    def test_build_user_prompt_with_custom_prompt(self, analyzer):\n        \"\"\"Test user prompt building with custom prompt\"\"\"\n        prompt = analyzer._build_user_prompt(\n            content=\"test content\",\n            analysis_type=AnalysisType.CODE_REVIEW,\n            custom_prompt=\"Custom instruction\",\n            context=None\n        )\n        \n        assert \"Custom instruction\" in prompt\n        assert \"test content\" in prompt\n    \n    def test_build_user_prompt_with_context(self, analyzer):\n        \"\"\"Test user prompt building with context\"\"\"\n        context = {\"file\": \"test.py\", \"lines\": 100}\n        prompt = analyzer._build_user_prompt(\n            content=\"test content\",\n            analysis_type=AnalysisType.CODE_REVIEW,\n            custom_prompt=None,\n            context=context\n        )\n        \n        assert \"test.py\" in prompt\n        assert \"test content\" in prompt\n\n\nclass TestQuickAnalyze:\n    \"\"\"Test suite for quick_analyze convenience function\"\"\"\n    \n    @patch('llm_analyzer.LLMAnalyzer')\n    def test_quick_analyze_success(self, mock_analyzer_class):\n        \"\"\"Test quick analyze function\"\"\"\n        mock_analyzer = Mock()\n        mock_analyzer.analyze.return_value = {\n            \"success\": True,\n            \"analysis\": \"Quick analysis result\"\n        }\n        mock_analyzer_class.return_value = mock_analyzer\n        \n        with patch.dict(os.environ, {\"OPENAI_API_KEY\": \"test-key\"}):\n            result = quick_analyze(\"test code\", \"code_review\", \"gpt-4o-mini\")\n        \n        assert result == \"Quick analysis result\"\n    \n    @patch('llm_analyzer.LLMAnalyzer')\n    def test_quick_analyze_error(self, mock_analyzer_class):\n        \"\"\"Test quick analyze with error\"\"\"\n        mock_analyzer = Mock()\n        mock_analyzer.analyze.return_value = {\n            \"success\": False,\n            \"error\": \"Test error\"\n        }\n        mock_analyzer_class.return_value = mock_analyzer\n        \n        with patch.dict(os.environ, {\"OPENAI_API_KEY\": \"test-key\"}):\n            result = quick_analyze(\"test code\")\n        \n        assert \"Error\" in result\n        assert \"Test error\" in result\n\n\nclass TestAnalysisType:\n    \"\"\"Test AnalysisType enum\"\"\"\n    \n    def test_analysis_types_exist(self):\n        \"\"\"Test that all expected analysis types exist\"\"\"\n        expected_types = [\n            \"code_review\",\n            \"commit_summary\",\n            \"project_overview\",\n            \"skill_extraction\",\n            \"documentation_summary\",\n            \"portfolio_generation\"\n        ]\n        \n        for expected in expected_types:\n            assert any(t.value == expected for t in AnalysisType)\n    \n    def test_analysis_type_values(self):\n        \"\"\"Test analysis type values are strings\"\"\"\n        for analysis_type in AnalysisType:\n            assert isinstance(analysis_type.value, str)\n\n\n# Integration tests (require actual API key)\nclass TestIntegration:\n    \"\"\"Integration tests - only run if API key is available\"\"\"\n    \n    @pytest.mark.skipif(\n        not os.getenv(\"OPENAI_API_KEY\"),\n        reason=\"Requires OPENAI_API_KEY environment variable\"\n    )\n    def test_real_api_call(self):\n        \"\"\"Test actual API call (requires valid API key)\"\"\"\n        analyzer = LLMAnalyzer(model=\"gpt-4o-mini\", max_tokens=100)\n        \n        result = analyzer.analyze(\n            content=\"def add(a, b): return a + b\",\n            analysis_type=AnalysisType.CODE_REVIEW\n        )\n        \n        assert result[\"success\"] is True\n        assert len(result[\"analysis\"]) > 0\n        assert result[\"tokens_used\"] > 0\n\n",
+      "line_count": 341,
+      "non_empty_lines": 273,
+      "comment_lines": 6,
+      "word_count": 892,
+      "encoding": "utf-8",
+      "language": "py",
+      "metadata": {},
+      "ai_summary": "The text outlines a unit test suite for the `LLMAnalyzer` module using the `pytest` framework. Key points include:\n\n1. **Setup**: The tests import necessary libraries and set up the environment for testing, including mocking the OpenAI API response.\n\n2. **Test Class**: The `TestLLMAnalyzer` class contains various test methods to validate the functionality of the `LLMAnalyzer`.\n\n3. **Fixtures**:\n   - `mock_openai_response`: Mocks a response from the OpenAI API.\n   - `analyzer`: Creates an instance of `LLMAnalyzer` with a mocked API key.\n\n4. **Tests**:\n   - **Initialization Tests**: Validate correct initialization with and without an API key, and with custom parameters.\n   - **System Prompts**: Ensures system prompts exist for all analysis types.\n   - **Analysis Tests**: \n     - Tests successful analysis, including with custom prompts and context.\n     - Checks that API"
+    },
+    {
+      "file_name": "test_git_individual_analyzer.py",
+      "file_type": "py",
+      "text": "\"\"\"\nTests for individual contributor Git analytics.\nCreates a temporary Git repository and validates per-author metrics.\n\"\"\"\nimport os\nimport tempfile\nimport shutil\nfrom pathlib import Path\nfrom datetime import datetime, timedelta\nimport subprocess\nimport pytest\n\n\n@pytest.fixture\ndef multi_author_repo():\n    \"\"\"\n    Create a temporary Git repo with two authors:\n    - Author A: 6 commits\n    - Author B: 4 commits\n    Total: 10 commits across multiple files and weeks.\n    \"\"\"\n    temp_dir = tempfile.mkdtemp()\n    repo_path = Path(temp_dir)\n    \n    try:\n        # Initialize git repo\n        subprocess.run([\"git\", \"init\"], cwd=repo_path, check=True, capture_output=True)\n        \n        # Base date for commits\n        base_date = datetime(2024, 1, 1, 12, 0, 0)\n        \n        commits_data = [\n            # Author A commits (6 total)\n            (\"author_a@example.com\", \"Author A\", \"feat: initial implementation\", base_date, \"module1.py\"),\n            (\"author_a@example.com\", \"Author A\", \"fix: resolve startup bug\", base_date + timedelta(days=1), \"module1.py\"),\n            (\"author_a@example.com\", \"Author A\", \"feat: add user authentication\", base_date + timedelta(days=3), \"auth.py\"),\n            (\"author_a@example.com\", \"Author A\", \"test: add auth tests\", base_date + timedelta(days=8), \"test_auth.py\"),\n            (\"author_a@example.com\", \"Author A\", \"refactor: clean up module1\", base_date + timedelta(days=10), \"module1.py\"),\n            (\"author_a@example.com\", \"Author A\", \"docs: update README\", base_date + timedelta(days=12), \"README.md\"),\n            \n            # Author B commits (4 total)\n            (\"author_b@example.com\", \"Author B\", \"feat: add dashboard\", base_date + timedelta(days=2), \"dashboard.py\"),\n            (\"author_b@example.com\", \"Author B\", \"fix: fix dashboard layout\", base_date + timedelta(days=4), \"dashboard.py\"),\n            (\"author_b@example.com\", \"Author B\", \"add new widget\", base_date + timedelta(days=9), \"widget.py\"),\n            (\"author_b@example.com\", \"Author B\", \"test: add widget tests\", base_date + timedelta(days=11), \"test_widget.py\"),\n        ]\n        \n        for email, name, message, commit_date, filename in commits_data:\n            # Set git author for this commit\n            subprocess.run(\n                [\"git\", \"config\", \"user.name\", name],\n                cwd=repo_path, check=True, capture_output=True\n            )\n            subprocess.run(\n                [\"git\", \"config\", \"user.email\", email],\n                cwd=repo_path, check=True, capture_output=True\n            )\n            \n            # Create/modify file with varying content to generate insertions\n            file_path = repo_path / filename\n            with open(file_path, \"a\") as f:\n                f.write(f\"# Content added at {commit_date}\\n\")\n                f.write(f\"# {message}\\n\")\n                f.write(f\"def function_{len(message)}():\\n\")\n                f.write(f\"    pass\\n\\n\")\n            \n            # Stage and commit with specific date\n            subprocess.run([\"git\", \"add\", filename], cwd=repo_path, check=True, capture_output=True)\n            \n            date_str = commit_date.strftime(\"%Y-%m-%d %H:%M:%S\")\n            env = os.environ.copy()\n            env[\"GIT_AUTHOR_DATE\"] = date_str\n            env[\"GIT_COMMITTER_DATE\"] = date_str\n            \n            subprocess.run(\n                [\"git\", \"commit\", \"-m\", message],\n                cwd=repo_path, check=True, capture_output=True, env=env\n            )\n        \n        yield repo_path\n    \n    finally:\n        # Cleanup\n        shutil.rmtree(temp_dir, ignore_errors=True)\n\n\ndef test_summarize_author_contrib_basic_stats(multi_author_repo):\n    \"\"\"Test basic author contribution statistics.\"\"\"\n    from src.git.individual_contrib_analyzer import summarize_author_contrib\n    \n    result = summarize_author_contrib(multi_author_repo, \"author_a@example.com\")\n    \n    assert result[\"commits\"] == 6\n    assert result[\"author\"][\"email\"] == \"author_a@example.com\"\n    assert result[\"author\"][\"name\"] == \"Author A\"\n    \n    # Check insertions/deletions are counted\n    assert result[\"insertions\"] > 0\n    assert result[\"deletions\"] >= 0\n\n\ndef test_summarize_author_contrib_share_percentage(multi_author_repo):\n    \"\"\"Test share of commits percentage calculation.\"\"\"\n    from src.git.individual_contrib_analyzer import summarize_author_contrib\n    \n    # Author A has 6 out of 10 commits = 60%\n    result_a = summarize_author_contrib(multi_author_repo, \"author_a@example.com\")\n    assert abs(result_a[\"share_of_commits_pct\"] - 60.0) < 0.1\n    \n    # Author B has 4 out of 10 commits = 40%\n    result_b = summarize_author_contrib(multi_author_repo, \"author_b@example.com\")\n    assert abs(result_b[\"share_of_commits_pct\"] - 40.0) < 0.1\n\n\ndef test_summarize_author_contrib_files_touched(multi_author_repo):\n    \"\"\"Test files touched count.\"\"\"\n    from src.git.individual_contrib_analyzer import summarize_author_contrib\n    \n    # Author A touched: module1.py, auth.py, test_auth.py, README.md = 4 files\n    result_a = summarize_author_contrib(multi_author_repo, \"author_a@example.com\")\n    assert result_a[\"files_touched\"] == 4\n    \n    # Author B touched: dashboard.py, widget.py, test_widget.py = 3 files\n    result_b = summarize_author_contrib(multi_author_repo, \"author_b@example.com\")\n    assert result_b[\"files_touched\"] == 3\n\n\ndef test_summarize_author_contrib_active_weeks(multi_author_repo):\n    \"\"\"Test active weeks count.\"\"\"\n    from src.git.individual_contrib_analyzer import summarize_author_contrib\n    \n    # Author A has commits spanning multiple weeks\n    result = summarize_author_contrib(multi_author_repo, \"author_a@example.com\")\n    assert result[\"active_weeks\"] >= 2\n\n\ndef test_summarize_author_contrib_activity_mix(multi_author_repo):\n    \"\"\"Test activity mix classification for author.\"\"\"\n    from src.git.individual_contrib_analyzer import summarize_author_contrib\n    \n    # Author A: feat:2, fix:1, test:1, refactor:1, docs:1\n    result = summarize_author_contrib(multi_author_repo, \"author_a@example.com\")\n    \n    activity_mix = result[\"activity_mix\"]\n    assert activity_mix[\"feature\"] == 2\n    assert activity_mix[\"bugfix\"] == 1\n    assert activity_mix[\"test\"] == 1\n    assert activity_mix[\"refactor\"] == 1\n    assert activity_mix[\"docs\"] == 1\n    \n    # Total should equal author's commits\n    total_classified = sum(activity_mix.values())\n    assert total_classified == result[\"commits\"]\n\n\ndef test_summarize_author_contrib_date_range(multi_author_repo):\n    \"\"\"Test first and last commit dates.\"\"\"\n    from src.git.individual_contrib_analyzer import summarize_author_contrib\n    \n    result = summarize_author_contrib(multi_author_repo, \"author_a@example.com\")\n    \n    assert \"first_commit_at\" in result\n    assert \"last_commit_at\" in result\n    \n    # Validate date format YYYY-MM-DD\n    first = result[\"first_commit_at\"]\n    last = result[\"last_commit_at\"]\n    assert len(first.split(\"-\")) == 3\n    assert len(last.split(\"-\")) == 3\n    \n    # First should be <= last\n    assert first <= last\n\n\ndef test_summarize_author_contrib_top_files(multi_author_repo):\n    \"\"\"Test top files touched by author.\"\"\"\n    from src.git.individual_contrib_analyzer import summarize_author_contrib\n    \n    # Author A touched module1.py 3 times (initial + fix + refactor)\n    result = summarize_author_contrib(multi_author_repo, \"author_a@example.com\")\n    \n    top_files = result[\"top_files\"]\n    assert len(top_files) > 0\n    assert len(top_files) <= 10  # Should cap at 10\n    \n    # Each file entry should have path and touches\n    for file_info in top_files:\n        assert \"path\" in file_info\n        assert \"touches\" in file_info\n        assert file_info[\"touches\"] > 0\n    \n    # Should be sorted by touches (descending)\n    touches = [f[\"touches\"] for f in top_files]\n    assert touches == sorted(touches, reverse=True)\n    \n    # module1.py should be the most touched\n    assert top_files[0][\"path\"] == \"module1.py\"\n    assert top_files[0][\"touches\"] == 3\n\n\ndef test_summarize_author_contrib_fuzzy_match_by_name(multi_author_repo):\n    \"\"\"Test fuzzy matching by author name.\"\"\"\n    from src.git.individual_contrib_analyzer import summarize_author_contrib\n    \n    # Match by partial name\n    result = summarize_author_contrib(\n        multi_author_repo,\n        \"Author A\",\n        prefer_email=False,\n        fuzzy=True\n    )\n    \n    assert result[\"commits\"] == 6\n    assert result[\"author\"][\"name\"] == \"Author A\"\n\n\ndef test_summarize_author_contrib_fuzzy_match_substring(multi_author_repo):\n    \"\"\"Test fuzzy matching with substring.\"\"\"\n    from src.git.individual_contrib_analyzer import summarize_author_contrib\n    \n    # Match by substring of email\n    result = summarize_author_contrib(\n        multi_author_repo,\n        \"author_a\",\n        fuzzy=True\n    )\n    \n    assert result[\"commits\"] == 6\n    assert \"author_a@example.com\" in result[\"author\"][\"email\"]\n\n\ndef test_summarize_author_contrib_case_insensitive(multi_author_repo):\n    \"\"\"Test case-insensitive matching.\"\"\"\n    from src.git.individual_contrib_analyzer import summarize_author_contrib\n    \n    # Match with different case\n    result = summarize_author_contrib(\n        multi_author_repo,\n        \"AUTHOR_A@EXAMPLE.COM\",\n        fuzzy=True\n    )\n    \n    assert result[\"commits\"] == 6\n\n\ndef test_summarize_author_contrib_all_fields_present(multi_author_repo):\n    \"\"\"Test that all required fields are present in result.\"\"\"\n    from src.git.individual_contrib_analyzer import summarize_author_contrib\n    \n    result = summarize_author_contrib(multi_author_repo, \"author_a@example.com\")\n    \n    # Check all required fields\n    required_fields = [\n        \"author\", \"commits\", \"insertions\", \"deletions\",\n        \"files_touched\", \"active_weeks\", \"first_commit_at\",\n        \"last_commit_at\", \"activity_mix\", \"share_of_commits_pct\",\n        \"top_files\"\n    ]\n    \n    for field in required_fields:\n        assert field in result, f\"Missing field: {field}\"\n    \n    # Check author sub-fields\n    assert \"name\" in result[\"author\"]\n    assert \"email\" in result[\"author\"]\n\n\n\n",
+      "line_count": 269,
+      "non_empty_lines": 200,
+      "comment_lines": 27,
+      "word_count": 860,
+      "encoding": "utf-8",
+      "language": "py",
+      "metadata": {},
+      "ai_summary": "The text outlines a Python script that tests Git analytics for individual contributors by creating a temporary Git repository with two authors. \n\nKey points include:\n\n- **Repository Setup**: A temporary Git repository is initialized with 10 commits from two authors (Author A with 6 commits and Author B with 4) over multiple files and weeks.\n- **Commit Data**: Each commit includes the author's email, name, commit message, date, and file modified. The base date for commits starts on January 1, 2024.\n- **Testing Functions**: The script contains several pytest functions that:\n  - Validate basic contribution statistics for Author A.\n  - Calculate the share of commits for each author (60% for Author A and 40% for Author B).\n  - Assess the files modified by each author.\n- **Cleanup**: The temporary repository is removed after tests are completed to avoid clutter.\n\nOverall, the script serves to validate metrics related to individual contributions in a Git repository."
+    },
+    {
+      "file_name": "test_image_processor.py",
+      "file_type": "py",
+      "text": "\"\"\"\nTests for image processor functionality.\n\n\"\"\"\n\nimport json\nimport pytest\nimport os\nimport time\nfrom datetime import datetime\nfrom pathlib import Path\nfrom PIL import Image\nimport numpy as np\n\nimport sys\nsys.path.insert(0, str(Path(__file__).parent.parent))\n\nfrom src.image_processor import ImageProcessor\n\n\n@pytest.fixture\ndef processor():\n    \"\"\"Create a fresh ImageProcessor for each test.\"\"\"\n    return ImageProcessor()\n\n\n@pytest.fixture\ndef sample_png(tmp_path):\n    \"\"\"Create a sample PNG image for testing.\"\"\"\n    img_path = tmp_path / \"test_image.png\"\n    \n    \n    img = Image.new('RGB', (100, 50))\n    pixels = img.load()\n    \n    for x in range(100):\n        for y in range(50):\n          \n            r = int((x / 100) * 255)\n            g = int((y / 50) * 255)\n            b = 128\n            pixels[x, y] = (r, g, b)\n    \n    img.save(img_path, 'PNG')\n    return str(img_path)\n\n\n@pytest.fixture\ndef sample_jpeg(tmp_path):\n    \"\"\"Create a sample JPEG image for testing.\"\"\"\n    img_path = tmp_path / \"test_image.jpg\"\n    \n    \n    img = Image.new('RGB', (200, 100), color=(255, 0, 0))  # Red image\n    img.save(img_path, 'JPEG')\n    return str(img_path)\n\n\n@pytest.fixture\ndef sample_grayscale(tmp_path):\n    \"\"\"Create a grayscale image for testing.\"\"\"\n    img_path = tmp_path / \"test_gray.png\"\n    \n    \n    img = Image.new('L', (50, 50), color=128)  # Mid-gray\n    img.save(img_path, 'PNG')\n    return str(img_path)\n\n\n@pytest.fixture\ndef sample_with_exif(tmp_path):\n    \"\"\"Create a JPEG image with EXIF data.\"\"\"\n    img_path = tmp_path / \"test_exif.jpg\"\n    \n    \n    img = Image.new('RGB', (100, 100), color=(0, 255, 0))  # Green image\n    \n    \n    exif_dict = {\n        271: \"Test Camera Make\",  # Make\n        272: \"Test Camera Model\",  # Model\n    }\n    \n    img.save(img_path, 'JPEG', exif=img.info.get('exif', b''))\n    return str(img_path)\n\n\nclass TestImageProcessor:\n    \"\"\"Test cases for ImageProcessor class.\"\"\"\n    \n    def test_initialization(self, processor):\n        \"\"\"Test processor initialization.\"\"\"\n        assert processor is not None\n        assert processor.supported_formats == {'.png', '.jpg', '.jpeg', '.PNG', '.JPG', '.JPEG'}\n    \n    def test_is_supported_format(self, processor):\n        \"\"\"Test format validation.\"\"\"\n        assert processor.is_supported_format(\"image.png\")\n        assert processor.is_supported_format(\"image.jpg\")\n        assert processor.is_supported_format(\"image.jpeg\")\n        assert processor.is_supported_format(\"IMAGE.PNG\")\n        assert processor.is_supported_format(\"IMAGE.JPG\")\n        assert not processor.is_supported_format(\"image.gif\")\n        assert not processor.is_supported_format(\"image.bmp\")\n        assert not processor.is_supported_format(\"image.txt\")\n    \n    def test_get_resolution(self, processor, sample_png):\n        \"\"\"Test resolution extraction.\"\"\"\n        with Image.open(sample_png) as img:\n            resolution = processor.get_resolution(img)\n        \n        assert resolution[\"width\"] == 100\n        assert resolution[\"height\"] == 50\n        assert resolution[\"total_pixels\"] == 5000\n    \n    def test_get_aspect_ratio(self, processor):\n        \"\"\"Test aspect ratio calculation.\"\"\"\n        ratio = processor.get_aspect_ratio(100, 50)\n        \n        assert ratio[\"ratio\"] == 2.0\n        assert ratio[\"ratio_string\"] == \"2:1\"\n        assert ratio[\"decimal\"] == 2.0\n        \n        \n        ratio_16_9 = processor.get_aspect_ratio(1920, 1080)\n        assert ratio_16_9[\"ratio_string\"] == \"16:9\"\n        \n       \n        ratio_square = processor.get_aspect_ratio(100, 100)\n        assert ratio_square[\"ratio_string\"] == \"1:1\"\n        assert ratio_square[\"decimal\"] == 1.0\n    \n    def test_get_aspect_ratio_zero_height(self, processor):\n        \"\"\"Test aspect ratio with zero height.\"\"\"\n        ratio = processor.get_aspect_ratio(100, 0)\n        assert ratio[\"ratio\"] == 0\n        assert ratio[\"decimal\"] == 0\n    \n    def test_get_file_format_png(self, processor, sample_png):\n        \"\"\"Test file format extraction for PNG.\"\"\"\n        with Image.open(sample_png) as img:\n            format_info = processor.get_file_format(img, sample_png)\n        \n        assert format_info[\"format\"] == \"PNG\"\n        assert format_info[\"mode\"] == \"RGB\"\n        assert format_info[\"extension\"] == \".png\"\n    \n    def test_get_file_format_jpeg(self, processor, sample_jpeg):\n        \"\"\"Test file format extraction for JPEG.\"\"\"\n        with Image.open(sample_jpeg) as img:\n            format_info = processor.get_file_format(img, sample_jpeg)\n        \n        assert format_info[\"format\"] == \"JPEG\"\n        assert format_info[\"mode\"] == \"RGB\"\n        assert format_info[\"extension\"] == \".jpg\"\n    \n    def test_get_file_stats(self, processor, sample_png):\n        \"\"\"Test file statistics extraction.\"\"\"\n        stats = processor.get_file_stats(sample_png)\n        \n        assert \"size_bytes\" in stats\n        assert \"size_kb\" in stats\n        assert \"size_mb\" in stats\n        assert stats[\"size_bytes\"] > 0\n        assert stats[\"size_kb\"] > 0\n        \n        assert \"created_timestamp\" in stats\n        assert \"created_datetime\" in stats\n        assert \"modified_timestamp\" in stats\n        assert \"modified_datetime\" in stats\n        assert \"accessed_timestamp\" in stats\n        assert \"accessed_datetime\" in stats\n        \n        \n        datetime.fromisoformat(stats[\"created_datetime\"])\n        datetime.fromisoformat(stats[\"modified_datetime\"])\n    \n    def test_get_average_brightness(self, processor, sample_grayscale):\n        \"\"\"Test brightness calculation.\"\"\"\n        with Image.open(sample_grayscale) as img:\n            brightness = processor.get_average_brightness(img)\n        \n        assert \"average_brightness\" in brightness\n        assert \"brightness_percentage\" in brightness\n        assert \"min_brightness\" in brightness\n        assert \"max_brightness\" in brightness\n        \n        \n        assert 45 <= brightness[\"brightness_percentage\"] <= 55\n        assert brightness[\"min_brightness\"] == 128\n        assert brightness[\"max_brightness\"] == 128\n    \n    def test_get_average_color(self, processor, sample_jpeg):\n        \"\"\"Test average color calculation.\"\"\"\n        with Image.open(sample_jpeg) as img:\n            avg_color = processor.get_average_color(img)\n        \n        assert \"average_rgb\" in avg_color\n        assert \"average_hex\" in avg_color\n        \n        rgb = avg_color[\"average_rgb\"]\n        assert \"r\" in rgb\n        assert \"g\" in rgb\n        assert \"b\" in rgb\n        \n        \n        assert rgb[\"r\"] > 200\n        assert rgb[\"g\"] < 50\n        assert rgb[\"b\"] < 50\n        \n        \n        assert avg_color[\"average_hex\"].startswith(\"#\")\n        assert len(avg_color[\"average_hex\"]) == 7\n    \n    def test_get_dominant_color(self, processor, sample_jpeg):\n        \"\"\"Test dominant color extraction.\"\"\"\n        with Image.open(sample_jpeg) as img:\n            dominant = processor.get_dominant_color(img, num_colors=3)\n        \n        assert \"dominant_colors\" in dominant\n        assert \"most_dominant\" in dominant\n        assert len(dominant[\"dominant_colors\"]) <= 3\n        \n        if dominant[\"dominant_colors\"]:\n            color = dominant[\"dominant_colors\"][0]\n            assert \"rgb\" in color\n            assert \"hex\" in color\n            assert \"frequency\" in color\n            assert \"percentage\" in color\n            \n            assert color[\"hex\"].startswith(\"#\")\n            assert 0 <= color[\"percentage\"] <= 100\n    \n    def test_get_exif_metadata_no_exif(self, processor, sample_png):\n        \"\"\"Test EXIF extraction when no EXIF data present.\"\"\"\n        with Image.open(sample_png) as img:\n            exif = processor.get_exif_metadata(img)\n        \n        assert \"has_exif\" in exif\n        assert exif[\"has_exif\"] is False\n        assert \"data\" in exif\n    \n    def test_calculate_edit_frequency(self, processor, sample_png):\n        \"\"\"Test edit frequency calculation.\"\"\"\n        edit_freq = processor.calculate_edit_frequency(sample_png)\n        \n        assert \"was_edited\" in edit_freq\n        assert \"created\" in edit_freq\n        assert \"last_modified\" in edit_freq\n        assert \"days_since_creation\" in edit_freq\n        assert \"time_between_create_modify_seconds\" in edit_freq\n        \n        \n        datetime.fromisoformat(edit_freq[\"created\"])\n        datetime.fromisoformat(edit_freq[\"last_modified\"])\n        \n        \n        assert edit_freq[\"days_since_creation\"] >= 0\n    \n    def test_calculate_edit_frequency_modified_file(self, processor, tmp_path):\n        \"\"\"Test edit frequency with modified file.\"\"\"\n        img_path = tmp_path / \"test_modified.png\"\n        \n       \n        img = Image.new('RGB', (50, 50), color=(0, 0, 255))\n        img.save(img_path, 'PNG')\n        \n        \n        time.sleep(0.1)\n        os.utime(img_path, None)  \n        \n        edit_freq = processor.calculate_edit_frequency(str(img_path))\n        \n       \n        assert edit_freq[\"time_between_create_modify_seconds\"] >= 0\n    \n    def test_analyze_image_complete(self, processor, sample_png):\n        \"\"\"Test complete image analysis.\"\"\"\n        result = processor.analyze_image(sample_png)\n        \n        \n        expected_keys = [\n            \"file_path\", \"file_name\", \"resolution\", \"aspect_ratio\",\n            \"format\", \"file_stats\", \"brightness\", \"average_color\",\n            \"dominant_color\", \"exif_metadata\", \"edit_frequency\",\n            \"analysis_timestamp\"\n        ]\n        \n        for key in expected_keys:\n            assert key in result, f\"Missing key: {key}\"\n        \n       \n        assert result[\"resolution\"][\"width\"] == 100\n        assert result[\"resolution\"][\"height\"] == 50\n        \n       \n        assert result[\"aspect_ratio\"][\"ratio_string\"] == \"2:1\"\n        \n        \n        assert result[\"format\"][\"format\"] == \"PNG\"\n        \n        \n        datetime.fromisoformat(result[\"analysis_timestamp\"])\n    \n    def test_analyze_image_jpeg(self, processor, sample_jpeg):\n        \"\"\"Test analysis of JPEG image.\"\"\"\n        result = processor.analyze_image(sample_jpeg)\n        \n        assert result[\"resolution\"][\"width\"] == 200\n        assert result[\"resolution\"][\"height\"] == 100\n        assert result[\"format\"][\"format\"] == \"JPEG\"\n        assert result[\"format\"][\"extension\"] == \".jpg\"\n    \n    def test_analyze_image_file_not_found(self, processor):\n        \"\"\"Test error handling for non-existent file.\"\"\"\n        with pytest.raises(FileNotFoundError):\n            processor.analyze_image(\"/nonexistent/path/image.png\")\n    \n    def test_analyze_image_unsupported_format(self, processor, tmp_path):\n        \"\"\"Test error handling for unsupported format.\"\"\"\n        txt_file = tmp_path / \"test.txt\"\n        txt_file.write_text(\"not an image\")\n        \n        with pytest.raises(ValueError):\n            processor.analyze_image(str(txt_file))\n    \n    def test_batch_analyze(self, processor, sample_png, sample_jpeg):\n        \"\"\"Test batch analysis of multiple images.\"\"\"\n        results = processor.batch_analyze([sample_png, sample_jpeg])\n        \n        assert len(results) == 2\n        \n        \n        assert results[0][\"format\"][\"format\"] == \"PNG\"\n        assert results[0][\"resolution\"][\"width\"] == 100\n        \n        \n        assert results[1][\"format\"][\"format\"] == \"JPEG\"\n        assert results[1][\"resolution\"][\"width\"] == 200\n    \n    def test_batch_analyze_with_errors(self, processor, sample_png):\n        \"\"\"Test batch analysis with some invalid files.\"\"\"\n        results = processor.batch_analyze([\n            sample_png,\n            \"/nonexistent/image.png\"\n        ])\n        \n        assert len(results) == 2\n        \n        \n        assert \"error\" not in results[0]\n        assert results[0][\"format\"][\"format\"] == \"PNG\"\n        \n        \n        assert \"error\" in results[1]\n        assert results[1][\"file_path\"] == \"/nonexistent/image.png\"\n    \n    def test_batch_analyze_empty_list(self, processor):\n        \"\"\"Test batch analysis with empty list.\"\"\"\n        results = processor.batch_analyze([])\n        assert results == []\n    \n    def test_different_aspect_ratios(self, processor, tmp_path):\n        \"\"\"Test various aspect ratios.\"\"\"\n        test_cases = [\n            (1920, 1080, \"16:9\"),\n            (1280, 720, \"16:9\"),\n            (800, 600, \"4:3\"),\n            (1024, 768, \"4:3\"),\n            (100, 100, \"1:1\"),\n        ]\n        \n        for width, height, expected_ratio in test_cases:\n            img_path = tmp_path / f\"test_{width}x{height}.png\"\n            img = Image.new('RGB', (width, height))\n            img.save(img_path, 'PNG')\n            \n            result = processor.analyze_image(str(img_path))\n            assert result[\"aspect_ratio\"][\"ratio_string\"] == expected_ratio\n    \n    def test_brightness_extremes(self, processor, tmp_path):\n        \"\"\"Test brightness calculation for black and white images.\"\"\"\n       \n        black_path = tmp_path / \"black.png\"\n        black_img = Image.new('RGB', (50, 50), color=(0, 0, 0))\n        black_img.save(black_path, 'PNG')\n        \n        with Image.open(black_path) as img:\n            brightness = processor.get_average_brightness(img)\n        \n        assert brightness[\"average_brightness\"] < 10\n        assert brightness[\"brightness_percentage\"] < 5\n        \n        \n        white_path = tmp_path / \"white.png\"\n        white_img = Image.new('RGB', (50, 50), color=(255, 255, 255))\n        white_img.save(white_path, 'PNG')\n        \n        with Image.open(white_path) as img:\n            brightness = processor.get_average_brightness(img)\n        \n        assert brightness[\"average_brightness\"] > 245\n        assert brightness[\"brightness_percentage\"] > 95\n    \n    def test_color_modes(self, processor, tmp_path):\n        \"\"\"Test handling of different color modes.\"\"\"\n        \n        rgba_path = tmp_path / \"rgba.png\"\n        rgba_img = Image.new('RGBA', (50, 50), color=(255, 0, 0, 128))\n        rgba_img.save(rgba_path, 'PNG')\n        \n        result = processor.analyze_image(str(rgba_path))\n        assert result[\"format\"][\"mode\"] == \"RGBA\"\n        \n        \n        gray_path = tmp_path / \"gray.png\"\n        gray_img = Image.new('L', (50, 50), color=128)\n        gray_img.save(gray_path, 'PNG')\n        \n        result = processor.analyze_image(str(gray_path))\n        assert result[\"format\"][\"mode\"] == \"L\"\n",
+      "line_count": 422,
+      "non_empty_lines": 293,
+      "comment_lines": 0,
+      "word_count": 1114,
+      "encoding": "utf-8",
+      "language": "py",
+      "metadata": {},
+      "ai_summary": "The provided text outlines a series of tests for the functionality of an `ImageProcessor` class using the `pytest` framework. Key points include:\n\n1. **Fixtures**: Several fixtures are defined to create sample images in various formats (PNG, JPEG, grayscale, and JPEG with EXIF data) for testing purposes.\n\n2. **Test Class**: The `TestImageProcessor` class contains multiple test methods to verify the functionality of the `ImageProcessor`:\n   - **Initialization**: Confirms that the processor initializes correctly and supports specific image formats.\n   - **Format Validation**: Tests whether the processor correctly identifies supported and unsupported image formats.\n   - **Resolution Extraction**: Validates the ability to extract image resolution.\n   - **Aspect Ratio Calculation**: Tests calculations for aspect ratios, including edge cases such as zero height.\n   - **File Format Extraction**: Checks the extraction of file format and related information for both PNG and JPEG images.\n   - **File Statistics**:"
+    },
+    {
+      "file_name": "test_orchestrator.py",
+      "file_type": "py",
+      "text": "\"\"\"\nComprehensive test suite for the Pipeline Orchestrator\nTests ZIP parsing, categorization, and orchestrator integration\n\"\"\"\n\nimport sys\nfrom pathlib import Path\n\n# Add project root to Python path\nproject_root = Path(__file__).parent.parent.parent\nsys.path.insert(0, str(project_root))\n\nimport pytest\nimport zipfile\nimport json\nfrom src.pipeline.orchestrator import ArtifactPipeline\n\n\n@pytest.fixture\ndef test_project_dir(tmp_path):\n    \"\"\"\n    Create a temporary test project with various file types\n    \"\"\"\n    project_dir = tmp_path / \"test_project\"\n    project_dir.mkdir()\n    \n    # Create code files\n    (project_dir / \"src\").mkdir()\n    (project_dir / \"src\" / \"main.py\").write_text(\"\"\"\ndef hello_world():\n    print(\"Hello, World!\")\n    \nif __name__ == \"__main__\":\n    hello_world()\n\"\"\")\n    \n    (project_dir / \"src\" / \"utils.js\").write_text(\"\"\"\nfunction greet(name) {\n    console.log(`Hello, ${name}!`);\n}\n\nmodule.exports = { greet };\n\"\"\")\n    \n    (project_dir / \"src\" / \"config.json\").write_text(\"\"\"\n{\n    \"app_name\": \"Test App\",\n    \"version\": \"1.0.0\"\n}\n\"\"\")\n    \n    # Create documentation files\n    (project_dir / \"README.md\").write_text(\"\"\"\n# Test Project\n\nThis is a test project for the orchestrator.\n\n## Features\n- Feature 1\n- Feature 2\n\"\"\")\n    \n    (project_dir / \"docs\").mkdir()\n    (project_dir / \"docs\" / \"guide.txt\").write_text(\"\"\"\nUser Guide\n\nThis is a simple user guide for the test application.\nIt contains multiple lines of documentation.\n\"\"\")\n    \n    # Create image files (empty placeholders)\n    (project_dir / \"assets\").mkdir()\n    (project_dir / \"assets\" / \"logo.png\").write_bytes(b\"fake png data\")\n    (project_dir / \"assets\" / \"banner.jpg\").write_bytes(b\"fake jpg data\")\n    \n    # Create other files\n    (project_dir / \"data.csv\").write_text(\"name,age\\nJohn,30\\nJane,25\\n\")\n    (project_dir / \".gitignore\").write_text(\"*.pyc\\n__pycache__/\\n\")\n    \n    return project_dir\n\n\n@pytest.fixture\ndef test_zip_file(test_project_dir, tmp_path):\n    \"\"\"\n    Create a ZIP file from the test project\n    \"\"\"\n    zip_path = tmp_path / \"test_project.zip\"\n    \n    with zipfile.ZipFile(zip_path, 'w', zipfile.ZIP_DEFLATED) as zipf:\n        for file_path in test_project_dir.rglob('*'):\n            if file_path.is_file():\n                arcname = file_path.relative_to(test_project_dir.parent)\n                zipf.write(file_path, arcname)\n    \n    return zip_path\n\n\n@pytest.fixture\ndef pipeline():\n    \"\"\"Create a pipeline instance\"\"\"\n    return ArtifactPipeline()\n\n\nclass TestOrchestratorBasics:\n    \"\"\"Test basic orchestrator functionality\"\"\"\n    \n    def test_pipeline_initialization(self, pipeline):\n        \"\"\"Test that pipeline initializes correctly\"\"\"\n        assert pipeline is not None\n        assert isinstance(pipeline, ArtifactPipeline)\n    \n    def test_start_with_valid_zip(self, pipeline, test_zip_file):\n        \"\"\"Test that start() works with a valid ZIP file\"\"\"\n        result = pipeline.start(str(test_zip_file))\n        \n        assert result is not None\n        assert isinstance(result, dict)\n        assert 'zip_metadata' in result\n        assert 'file_info' in result\n        assert 'categorized_contents' in result\n    \n    def test_start_with_nonexistent_zip(self, pipeline):\n        \"\"\"Test that start() raises error for non-existent ZIP\"\"\"\n        with pytest.raises(FileNotFoundError):\n            pipeline.start('/path/to/nonexistent.zip')\n    \n    def test_start_with_non_zip_file(self, pipeline, tmp_path):\n        \"\"\"Test that start() raises error for non-ZIP file\"\"\"\n        txt_file = tmp_path / \"not_a_zip.txt\"\n        txt_file.write_text(\"This is not a ZIP file\")\n        \n        with pytest.raises(ValueError, match=\"must be a ZIP archive\"):\n            pipeline.start(str(txt_file))\n\n\nclass TestZipMetadata:\n    \"\"\"Test ZIP metadata extraction\"\"\"\n    \n    def test_zip_metadata_structure(self, pipeline, test_zip_file):\n        \"\"\"Test that ZIP metadata has correct structure\"\"\"\n        result = pipeline.start(str(test_zip_file))\n        metadata = result['zip_metadata']\n        \n        assert 'root_name' in metadata\n        assert 'file_count' in metadata\n        assert 'total_uncompressed_bytes' in metadata\n        assert 'total_compressed_bytes' in metadata\n    \n    def test_zip_metadata_values(self, pipeline, test_zip_file):\n        \"\"\"Test that ZIP metadata has reasonable values\"\"\"\n        result = pipeline.start(str(test_zip_file))\n        metadata = result['zip_metadata']\n        \n        assert metadata['file_count'] > 0\n        assert metadata['total_uncompressed_bytes'] > 0\n        assert metadata['total_compressed_bytes'] >= 0\n        assert 'test_project' in metadata['root_name']\n\n\nclass TestFileInfo:\n    \"\"\"Test file info extraction\"\"\"\n    \n    def test_file_info_structure(self, pipeline, test_zip_file):\n        \"\"\"Test that file_info has correct structure\"\"\"\n        result = pipeline.start(str(test_zip_file))\n        file_info = result['file_info']\n        \n        assert isinstance(file_info, list)\n        assert len(file_info) > 0\n        \n        # Check first file has required fields\n        first_file = file_info[0]\n        assert 'abs_path' in first_file\n        assert 'rel_path' in first_file\n        assert 'size' in first_file\n        assert 'sha256' in first_file\n        assert 'ext' in first_file\n    \n    def test_file_info_contains_expected_files(self, pipeline, test_zip_file):\n        \"\"\"Test that file_info contains our test files\"\"\"\n        result = pipeline.start(str(test_zip_file))\n        file_info = result['file_info']\n        \n        rel_paths = [f['rel_path'] for f in file_info]\n        \n        # Check for some expected files\n        assert any('main.py' in path for path in rel_paths)\n        assert any('utils.js' in path for path in rel_paths)\n        assert any('README.md' in path for path in rel_paths)\n\n\nclass TestCategorization:\n    \"\"\"Test file categorization\"\"\"\n    \n    def test_categorized_contents_structure(self, pipeline, test_zip_file):\n        \"\"\"Test that categorized_contents has correct structure\"\"\"\n        result = pipeline.start(str(test_zip_file))\n        categorized = result['categorized_contents']\n        \n        assert isinstance(categorized, dict)\n        assert 'code' in categorized\n        assert 'code_by_language' in categorized\n        assert 'documentation' in categorized\n        assert 'images' in categorized\n        assert 'sketches' in categorized\n        assert 'other' in categorized\n    \n    def test_code_files_categorized(self, pipeline, test_zip_file):\n        \"\"\"Test that code files are properly categorized\"\"\"\n        result = pipeline.start(str(test_zip_file))\n        categorized = result['categorized_contents']\n        \n        code_files = categorized['code']\n        assert len(code_files) > 0\n        \n        # Check that our Python and JS files are in code\n        assert any('main.py' in f for f in code_files)\n        assert any('utils.js' in f for f in code_files)\n    \n    def test_code_by_language(self, pipeline, test_zip_file):\n        \"\"\"Test that code files are grouped by language\"\"\"\n        result = pipeline.start(str(test_zip_file))\n        categorized = result['categorized_contents']\n        \n        code_by_lang = categorized['code_by_language']\n        assert isinstance(code_by_lang, dict)\n        \n        # Should have Python and JavaScript\n        assert 'python' in code_by_lang\n        assert 'javascript' in code_by_lang\n        \n        # Check files are in correct language groups\n        python_files = code_by_lang['python']\n        js_files = code_by_lang['javascript']\n        \n        assert any('main.py' in f for f in python_files)\n        assert any('utils.js' in f for f in js_files)\n    \n    def test_documentation_categorized(self, pipeline, test_zip_file):\n        \"\"\"Test that documentation files are properly categorized\"\"\"\n        result = pipeline.start(str(test_zip_file))\n        categorized = result['categorized_contents']\n        \n        doc_files = categorized['documentation']\n        assert len(doc_files) > 0\n        \n        # Check that README and guide are in documentation\n        assert any('README.md' in f for f in doc_files)\n        assert any('guide.txt' in f for f in doc_files)\n    \n    def test_images_categorized(self, pipeline, test_zip_file):\n        \"\"\"Test that image files are properly categorized\"\"\"\n        result = pipeline.start(str(test_zip_file))\n        categorized = result['categorized_contents']\n        \n        image_files = categorized['images']\n        assert len(image_files) > 0\n        \n        # Check that our image files are categorized\n        assert any('logo.png' in f for f in image_files)\n        assert any('banner.jpg' in f for f in image_files)\n    \n    def test_other_files_categorized(self, pipeline, test_zip_file):\n        \"\"\"Test that uncategorized files go to 'other'\"\"\"\n        result = pipeline.start(str(test_zip_file))\n        categorized = result['categorized_contents']\n        \n        other_files = categorized['other']\n        \n        # CSV should be in other\n        assert any('data.csv' in f for f in other_files)\n        \n        # JSON is actually categorized as code (language: json)\n        # So config.json should be in code, not other\n        code_files = categorized['code']\n        assert any('config.json' in f for f in code_files)\n        \n        # Verify it's in the json language group\n        json_files = categorized['code_by_language'].get('json', [])\n        assert any('config.json' in f for f in json_files)\n\n\nclass TestEdgeCases:\n    \"\"\"Test edge cases and error handling\"\"\"\n    \n    def test_empty_zip(self, pipeline, tmp_path):\n        \"\"\"Test handling of empty ZIP file\"\"\"\n        empty_zip = tmp_path / \"empty.zip\"\n        with zipfile.ZipFile(empty_zip, 'w'):\n            pass  # Create empty ZIP\n        \n        result = pipeline.start(str(empty_zip))\n        \n        # Should still return valid structure\n        assert 'categorized_contents' in result\n        categorized = result['categorized_contents']\n        \n        # All categories should be empty\n        assert len(categorized['code']) == 0\n        assert len(categorized['documentation']) == 0\n        assert len(categorized['images']) == 0\n    \n    def test_zip_with_nested_directories(self, pipeline, tmp_path):\n        \"\"\"Test ZIP with deeply nested directory structure\"\"\"\n        nested_dir = tmp_path / \"nested\"\n        nested_dir.mkdir()\n        \n        # Create deeply nested structure\n        deep_path = nested_dir / \"level1\" / \"level2\" / \"level3\"\n        deep_path.mkdir(parents=True)\n        (deep_path / \"deep_file.py\").write_text(\"print('deep')\")\n        \n        # Create ZIP\n        zip_path = tmp_path / \"nested.zip\"\n        with zipfile.ZipFile(zip_path, 'w') as zipf:\n            for file_path in nested_dir.rglob('*'):\n                if file_path.is_file():\n                    arcname = file_path.relative_to(nested_dir.parent)\n                    zipf.write(file_path, arcname)\n        \n        result = pipeline.start(str(zip_path))\n        categorized = result['categorized_contents']\n        \n        # Should find the deeply nested Python file\n        assert len(categorized['code']) > 0\n        assert any('deep_file.py' in f for f in categorized['code'])\n\n\nclass TestIntegration:\n    \"\"\"Integration tests for full pipeline\"\"\"\n    \n    def test_full_pipeline_execution(self, pipeline, test_zip_file):\n        \"\"\"Test complete pipeline execution from start to finish\"\"\"\n        result = pipeline.start(str(test_zip_file))\n        \n        # Verify all major components are present\n        assert result['zip_metadata']['file_count'] > 0\n        assert len(result['file_info']) > 0\n        assert len(result['categorized_contents']['code']) > 0\n        assert len(result['categorized_contents']['documentation']) > 0\n        assert len(result['categorized_contents']['images']) > 0\n    \n    def test_result_is_json_serializable(self, pipeline, test_zip_file):\n        \"\"\"Test that result can be serialized to JSON\"\"\"\n        result = pipeline.start(str(test_zip_file))\n        \n        # Should be able to convert to JSON without errors\n        json_str = json.dumps(result)\n        assert json_str is not None\n        \n        # Should be able to parse back\n        parsed = json.loads(json_str)\n        assert parsed['zip_metadata'] == result['zip_metadata']",
+      "line_count": 354,
+      "non_empty_lines": 267,
+      "comment_lines": 26,
+      "word_count": 1133,
+      "encoding": "utf-8",
+      "language": "py",
+      "metadata": {},
+      "ai_summary": "The document outlines a comprehensive test suite for a Pipeline Orchestrator, focusing on ZIP file parsing, categorization, and integration with the orchestrator. Key components include:\n\n- **Setup**: It uses Python's `pytest` framework to create a temporary project directory containing various file types (Python scripts, JavaScript files, JSON configuration, documentation, and image placeholders).\n- **ZIP File Creation**: A fixture is implemented to package the test project into a ZIP file for testing purposes.\n- **Test Cases**: \n  - Tests ensure proper initialization of the `ArtifactPipeline`.\n  - Valid ZIP files are tested for successful processing and expected output structure.\n  - Error handling is verified for non-existent ZIP files and non-ZIP files.\n  - Additional tests check the structure and values of extracted ZIP metadata and file information.\n\nOverall, the suite aims to validate the functionality and robustness of the Pipeline Orchestrator when handling ZIP files."
+    }
+  ],
+  "code_summary": {
+    "codebase_summary": "The codebase is designed for analyzing digital images, specifically PNG and JPEG formats, as part of a capstone project titled \"Mining Digital Work Artifacts\" by Team 14. The main functionality revolves around an `ImageProcessor` module that extracts various metrics from images, such as resolution, aspect ratio, file format, file size, average brightness, average color, and dominant color. Additionally, it retrieves EXIF metadata, including camera details and editing history, providing a comprehensive analysis of each image.\n\nThe project utilizes Python as the primary programming language, leveraging modules like `json` for data handling and `pathlib` for file path operations. The architecture includes a main script (`image_processor_example.py`) that demonstrates how to use the `ImageProcessor`, along with a helper file (`helpers.py`) that provides a project banner. The overall structure indicates a focus on modularity, allowing for easy extension and maintenance of the image processing functionalities.",
+    "files_analyzed": 10,
+    "languages": [
+      ".py"
+    ]
+  },
+  "summary": {
+    "total_git_repos": 1,
+    "total_documents": 10,
+    "has_code": true,
+    "total_contributors": 9
+  }
+}
