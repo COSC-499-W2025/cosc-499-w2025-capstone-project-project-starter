@@ -1792,58 +1792,81 @@ async def set_project_image(
     file: UploadFile = File(...),
     db: Session = Depends(get_db),
 ):
-    # 1) Early FK check -> clearer 404 than FK error later
+    # 1. Early FK check
     exists = db.execute(
         text("SELECT 1 FROM projects WHERE id = :pid"),
-        {"pid": str(project_id)}
+        {"pid": str(project_id)},
     ).scalar()
     if not exists:
         raise HTTPException(status_code=404, detail="Project not found")
 
-    # 2) Read data and hash
+    # 2. Read file
     data = await file.read()
     if not data:
         raise HTTPException(status_code=400, detail="Uploaded file is empty")
+
+    # 3. Hash
     sha256 = hashlib.sha256(data).hexdigest()
 
-    # 3) Upsert FileBlob by sha256 (no duplicate rows)
-    blob = db.query(FileBlob).filter(FileBlob.sha256 == sha256).one_or_none()
-    if blob is None:
-        # Infer a basic mime from filename or request content type
-        _, ext = os.path.splitext(file.filename or "")
-        ext = ext.lower().lstrip(".")
-        mime = f"image/{ext}" if ext else (file.content_type or None)
+    # 4. Ensure upload directory exists
+    UPLOAD_DIR = "uploads/project_images"
+    os.makedirs(UPLOAD_DIR, exist_ok=True)
 
-        # You can store the original filename, or a persisted path if you save the file to disk
-        stored_path = (file.filename or "")[:1024]
+    # 5) Infer mime + build safe stored path
+    _, ext = os.path.splitext(file.filename or "")
+    ext = ext.lower() or ".png"
+
+    stored_path = os.path.join(
+        UPLOAD_DIR,
+        f"{sha256}{ext}",
+    )
+    stored_path = stored_path[:1024]  # DB safety
+
+    # 6) Upsert file_blobs
+    blob = (
+        db.query(FileBlob)
+        .filter(FileBlob.sha256 == sha256)
+        .one_or_none()
+    )
+
+    if blob is None:
+        # Write file to disk once
+        with open(stored_path, "wb") as f:
+            f.write(data)
 
         blob = FileBlob(
             sha256=sha256,
             size_bytes=len(data),
-            mime_type=mime,
+            mime_type=file.content_type,
             stored_path=stored_path,
         )
         db.add(blob)
 
-    # 4) Create/update the project’s showcase to point to this blob
+    # 7) Create/update portfolio showcase
     showcase = (
         db.query(PortfolioShowcase)
         .filter(PortfolioShowcase.project_id == project_id)
         .one_or_none()
     )
+
     if showcase is None:
-        showcase = PortfolioShowcase(project_id=project_id, thumbnail_blob_sha256=sha256)
+        showcase = PortfolioShowcase(
+            project_id=project_id,
+            thumbnail_blob_sha256=sha256,
+        )
         db.add(showcase)
     else:
         showcase.thumbnail_blob_sha256 = sha256
 
-    # 5) Commit once
+    # 8) Commit once
     db.commit()
 
     return {
         "project_id": str(project_id),
         "thumbnail_blob_sha256": sha256,
+        "stored_path": stored_path,
     }
+
 
 
 
