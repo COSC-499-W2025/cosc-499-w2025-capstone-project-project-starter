@@ -1,4 +1,7 @@
+
 from __future__ import annotations
+
+from fastapi.middleware.cors import CORSMiddleware  # <-- ADD THIS LINE
 
 from curses import raw
 import os
@@ -61,6 +64,18 @@ from src.db.deletion import (
 
 app = FastAPI(title="Artifact Miner API", version="0.1.0")
 
+origins = [
+    "http://localhost:3000",
+]
+
+# CORS middleware - adjust for production as needed
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=origins,  # Allows all origins - okay for development
+    allow_credentials=True,
+    allow_methods=["*"],  # Allows all methods (GET, POST, etc.)
+    allow_headers=["*"],  # Allows all headers
+)
 
 class PrivacyConsentIn(BaseModel):
     user_id: str | None = None
@@ -84,7 +99,13 @@ class SetUserContributorIn(BaseModel):
     persist_to_config: bool = True
 
 class ProjectUpdateIn(BaseModel):
-    display_name: str
+    display_name: Optional[str] = Field(default=None, max_length=255)
+    user_role: Optional[str] = Field(default=None, max_length=128)
+    evidence_json: Optional[Dict[str, Any]] = None
+    evidence: Optional[Dict[str, Any]] = None
+    metrics: Optional[Dict[str, Any]] = None
+    feedback: Optional[Any] = None
+    evaluation: Optional[Any] = None
 
 class ResumeGenerateIn(BaseModel):
     project_id: str
@@ -224,7 +245,7 @@ async def upload_project(
 
 
 @app.get("/snapshots/{snapshot_id}/analyses")
-def list_snapshot_analyses(snapshot_id: str):
+def list_snapshot_analyses(snapshot_id: str):  
     engine = get_engine()
     with engine.connect() as conn:
         rows = conn.execute(
@@ -875,24 +896,89 @@ def compare_projects(
 @app.patch("/projects/{project_id}")
 def update_project(project_id: str, payload: ProjectUpdateIn):
     """
-    Updates the project's display name.
+    Partial project metadata update.
+    Supports display_name, user_role, and evidence fields.
     """
     engine = get_engine()
     with engine.begin() as conn:
-        exists = conn.execute(
+        row = conn.execute(
             text("SELECT 1 FROM projects WHERE id = :pid"),
             {"pid": project_id}
         ).scalar()
-        
-        if not exists:
+
+        if not row:
             raise HTTPException(status_code=404, detail="Project not found")
 
+        updates = payload.model_dump(exclude_unset=True)
+        if not updates:
+            raise HTTPException(status_code=400, detail="No update fields provided")
+
+        if "evidence_json" in updates and "evidence" in updates:
+            raise HTTPException(status_code=400, detail="Provide either evidence_json or evidence, not both")
+
+        set_clauses: List[str] = []
+        params: Dict[str, Any] = {"pid": project_id}
+
+        if "display_name" in updates:
+            set_clauses.append("display_name = :display_name")
+            params["display_name"] = updates["display_name"]
+
+        if "user_role" in updates:
+            set_clauses.append("user_role = :user_role")
+            params["user_role"] = updates["user_role"]
+
+        evidence_keys = {"evidence_json", "evidence", "metrics", "feedback", "evaluation"}
+        evidence_payload_present = any(k in updates for k in evidence_keys)
+        if evidence_payload_present:
+            if "evidence_json" in updates:
+                evidence_obj = updates["evidence_json"]
+            elif "evidence" in updates:
+                evidence_obj = updates["evidence"]
+            else:
+                evidence_obj = conn.execute(
+                    text("SELECT evidence_json FROM projects WHERE id = :pid"),
+                    {"pid": project_id},
+                ).scalar() or {}
+
+            if evidence_obj is None or not isinstance(evidence_obj, dict):
+                raise HTTPException(status_code=400, detail="Evidence payload must be a JSON object")
+
+            evidence_obj = dict(evidence_obj)
+            if "metrics" in updates:
+                evidence_obj["metrics"] = updates["metrics"]
+            if "feedback" in updates:
+                evidence_obj["feedback"] = updates["feedback"]
+            if "evaluation" in updates:
+                evidence_obj["evaluation"] = updates["evaluation"]
+
+            set_clauses.append("evidence_json = CAST(:evidence_json AS jsonb)")
+            params["evidence_json"] = json.dumps(evidence_obj)
+
+        if not set_clauses:
+            raise HTTPException(status_code=400, detail="No valid update fields provided")
+
         conn.execute(
-            text("UPDATE projects SET display_name = :dn WHERE id = :pid"),
-            {"dn": payload.display_name, "pid": project_id}
+            text(f"UPDATE projects SET {', '.join(set_clauses)} WHERE id = :pid"),
+            params,
         )
 
-    return {"project_id": project_id, "display_name": payload.display_name}
+        updated = conn.execute(
+            text(
+                """
+                SELECT id, display_name, user_role, evidence_json
+                FROM projects
+                WHERE id = :pid
+                """
+            ),
+            {"pid": project_id},
+        ).mappings().first()
+
+    return {
+        "project_id": str(updated["id"]),
+        "display_name": updated.get("display_name"),
+        "user_role": updated.get("user_role"),
+        "evidence_json": updated.get("evidence_json") or {},
+    }
 
 @app.get("/portfolio/{portfolio_id}/top-projects")
 def top_projects(portfolio_id: str, limit: int = Query(default=5, ge=1, le=50)):

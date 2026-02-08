@@ -508,7 +508,31 @@ def cmd_project_update(args: argparse.Namespace, st: DemoState) -> int:
         _eprint("missing project_id")
         return 2
 
-    payload = {"display_name": args.display_name}
+    payload: Dict[str, Any] = {}
+    if args.display_name is not None:
+        payload["display_name"] = args.display_name
+    if args.user_role is not None:
+        payload["user_role"] = args.user_role
+
+    json_fields = [
+        ("evidence_json", args.evidence_json),
+        ("metrics", args.metrics_json),
+        ("feedback", args.feedback_json),
+        ("evaluation", args.evaluation_json),
+    ]
+    for key, raw in json_fields:
+        if raw is None:
+            continue
+        try:
+            payload[key] = json.loads(raw)
+        except Exception:
+            _eprint(f"invalid JSON for --{key.replace('_', '-')}: {raw}")
+            return 2
+
+    if not payload:
+        _eprint("provide at least one update field")
+        return 2
+
     out = api.patch(f"/projects/{pid}", json_body=payload)
     print(_pretty(out))
     return 0
@@ -966,7 +990,12 @@ def build_parser() -> argparse.ArgumentParser:
 
     sp_upd = psub.add_parser("update", help="Update project details")
     sp_upd.add_argument("project_id", nargs="?", default=None)
-    sp_upd.add_argument("--display-name", required=True, help="New name for resume")
+    sp_upd.add_argument("--display-name", default=None, help="Project display name")
+    sp_upd.add_argument("--user-role", default=None, help="Primary user role for this project")
+    sp_upd.add_argument("--evidence-json", default=None, help="JSON object to replace project evidence_json")
+    sp_upd.add_argument("--metrics-json", default=None, help="JSON value for evidence.metrics")
+    sp_upd.add_argument("--feedback-json", default=None, help="JSON value for evidence.feedback")
+    sp_upd.add_argument("--evaluation-json", default=None, help="JSON value for evidence.evaluation")
     sp_upd.set_defaults(_handler="project_update")
 
     sp1 = psub.add_parser("list", help="GET /projects (ranked)")
