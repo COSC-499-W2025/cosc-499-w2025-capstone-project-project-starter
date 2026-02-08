@@ -13,6 +13,7 @@ from .menus import (
     handle_zip_success_report
 )
 from account.user_manager import AuthManager
+from cli.cli_output import print_header, safe_input, print_error
 
 MENU_ITEMS = [
     "List/Manage projects",                               # 1
@@ -32,37 +33,31 @@ def run_main_menu(consent_manager, collab_manager):
     while True:
         # Check if user is still logged in (in case of session timeout or logout)
         if not AuthManager.is_user_logged_in():
-            print("\nSession expired or user logged out. Please log in again.")
+            print_error("Session expired or user logged out. Please log in again.")
             from cli.user_menus import login_menu
             if not login_menu():
                 # User chose to exit
                 return
         
-        print("\n" + "="*70)
-        print("MINING DIGITAL WORK ARTIFACTS - Main Menu")
-        print("="*70)
-        
-        # Show user info
         current_user = AuthManager.get_current_username()
-        print(f"Logged in as: {current_user}")
-        print("="*70)
+        print_header(
+            "MINING DIGITAL WORK ARTIFACTS - Main Menu",
+            subtitle=f"Logged in as: {current_user}"
+        )
         
         for idx, label in enumerate(MENU_ITEMS, start=1):
             print(f"{idx}. {label}")
 
         print("="*70) 
         
-        if os.getenv("GITHUB_ACTIONS") == "true" or not sys.stdin.isatty():
-            choice = "10"
-        else:
-            try:
-                choice = input("Choose an option (1-10): ").strip()
-            except EOFError:
-                choice = "10"
+        non_interactive = os.getenv("GITHUB_ACTIONS") == "true" or not sys.stdin.isatty()
+        default_choice = "10" if non_interactive else ""
+        choice = safe_input("Choose an option (1-10): ", default=default_choice)
+
         
         # Check authentication before processing any choice
         if not AuthManager.is_user_logged_in():
-            print("Error: User session invalid. Please log in again.")
+            print_error("Invalid choice. Please enter 1-10.")
             continue
             
         handlers = {

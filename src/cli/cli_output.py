@@ -10,7 +10,7 @@ Goal:
 
 from __future__ import annotations
 
-from typing import Any, Callable, Iterable, Mapping, Optional
+from typing import Any, Callable, Mapping, Optional
 
 
 PrintFn = Callable[[str], None]
@@ -66,7 +66,7 @@ def pause(
     prompt: str = "\nPress Enter to continue...",
     *,
     input_fn: Optional[Callable[[str], str]] = None,
-    print_fn=print,
+    print_fn: PrintFn = print,
 ) -> None:
     safe_input(prompt, input_fn=input_fn, default="", print_fn=print_fn)
 
@@ -76,7 +76,7 @@ def safe_input(
     *,
     input_fn: Optional[Callable[[str], str]] = None,
     default: str = "",
-    print_fn=print,
+    print_fn: PrintFn = print,
 ) -> str:
     # IMPORTANT: resolve input at runtime so tests can patch builtins.input
     if input_fn is None:
