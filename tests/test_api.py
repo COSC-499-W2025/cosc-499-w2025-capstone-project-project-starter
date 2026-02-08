@@ -730,6 +730,71 @@ def test_project_display_name_update_and_resume_integration(client, monkeypatch,
     assert content["project"]["name"] != "ugly_filename_v1.zip"
 
 
+def test_project_patch_persists_user_role_and_evidence_end_to_end(client, engine):
+    _, _, project_id, _ = _mk_graph(engine)
+
+    evidence = {
+        "metrics": {"downloads": 1234, "latency_ms_p95": 87},
+        "feedback": [{"from": "mentor", "note": "Strong ownership"}],
+        "evaluation": {"overall": "exceeds_expectations"},
+    }
+
+    r_patch = client.patch(
+        f"/projects/{project_id}",
+        json={"user_role": "Technical Lead", "evidence_json": evidence},
+    )
+    assert r_patch.status_code == 200
+    body = r_patch.json()
+    assert body["user_role"] == "Technical Lead"
+    assert body["evidence_json"] == evidence
+
+    r_report = client.get(f"/projects/{project_id}/report")
+    assert r_report.status_code == 200
+    rep_project = r_report.json()["project"]
+    assert rep_project["user_role"] == "Technical Lead"
+    assert rep_project["evidence_json"] == evidence
+
+    r_resume = client.post(
+        "/resume/generate",
+        json={"project_id": project_id, "prefer_external_bullets": False},
+    )
+    assert r_resume.status_code == 200
+    resume_project = r_resume.json()["content"]["project"]
+    assert resume_project["user_role"] == "Technical Lead"
+
+
+def test_project_patch_updates_targeted_evidence_sections(client, engine):
+    _, _, project_id, _ = _mk_graph(engine)
+
+    r1 = client.patch(
+        f"/projects/{project_id}",
+        json={
+            "metrics": {"stars": 42},
+            "feedback": [{"from": "peer", "score": 5}],
+            "evaluation": {"grade": "A"},
+        },
+    )
+    assert r1.status_code == 200
+    ev1 = r1.json()["evidence_json"]
+    assert ev1["metrics"] == {"stars": 42}
+    assert ev1["feedback"] == [{"from": "peer", "score": 5}]
+    assert ev1["evaluation"] == {"grade": "A"}
+
+    r2 = client.patch(f"/projects/{project_id}", json={"metrics": {"stars": 100}})
+    assert r2.status_code == 200
+    ev2 = r2.json()["evidence_json"]
+    assert ev2["metrics"] == {"stars": 100}
+    assert ev2["feedback"] == [{"from": "peer", "score": 5}]
+    assert ev2["evaluation"] == {"grade": "A"}
+
+
+def test_project_patch_requires_at_least_one_field(client, engine):
+    _, _, project_id, _ = _mk_graph(engine)
+    r = client.patch(f"/projects/{project_id}", json={})
+    assert r.status_code == 400
+    assert "No update fields provided" in r.text
+
+
 
 
 def test_export_portfolio_pdf_with_image(tmp_path):
