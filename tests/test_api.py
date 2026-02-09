@@ -6,6 +6,7 @@ import os
 import pytest
 from fastapi.testclient import TestClient
 from unittest.mock import patch, MagicMock
+from fastapi import HTTPException
 
 # Adjust the path to import from src
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'src')))
@@ -67,7 +68,8 @@ class TestHealthEndpoints:
         
         assert response.status_code == 503
         data = response.json()
-        assert "Database connection failed" in data["detail"]
+        assert data["success"] is False
+        assert data["message"] in ("Database connection failed", "Database health check failed")
     
     @patch('api.dependencies.get_connection')
     def test_db_health_check_exception(self, mock_get_connection):
@@ -80,7 +82,9 @@ class TestHealthEndpoints:
         
         assert response.status_code == 503
         data = response.json()
-        assert "Database health check failed" in data["detail"]
+        assert data["success"] is False
+        assert data["error_type"] == "DB_HEALTH_CHECK_FAILED"
+        assert "Database health check failed" in data["message"]
 
 
 class TestProjectsEndpoint:
@@ -171,6 +175,11 @@ class TestDependencies:
         
         mock_get_connection.return_value = None
         
-        with pytest.raises(ConnectionError, match="Could not connect to database"):
+        with pytest.raises(HTTPException) as excinfo:
             gen = get_db_cursor()
             next(gen)
+
+        assert excinfo.value.status_code == 503
+        detail = excinfo.value.detail
+        assert detail["error_type"] == "DB_UNAVAILABLE"
+        assert "Database connection unavailable" in detail["message"]

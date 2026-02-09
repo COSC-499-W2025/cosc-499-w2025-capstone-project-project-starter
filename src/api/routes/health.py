@@ -25,10 +25,16 @@ async def db_health_check():
         else:
             raise HTTPException(
                 status_code=503,
-                detail="Database connection failed"
+                detail={
+                    "error_type": "DB_UNAVAILABLE",
+                    "message": "Database connection failed"
+                }
             )
-    except Exception as e:
+    except Exception:
         raise HTTPException(
             status_code=503,
-            detail=f"Database health check failed: {str(e)}"
+            detail={
+                "error_type": "DB_HEALTH_CHECK_FAILED",
+                "message": "Database health check failed"
+            }
         )
