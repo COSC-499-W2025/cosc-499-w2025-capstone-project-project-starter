@@ -1,37 +1,36 @@
 
 from __future__ import annotations
 
-from fastapi.middleware.cors import CORSMiddleware  # <-- ADD THIS LINE
-
-from curses import raw
-import os
-import uuid
-from uuid import UUID as PyUUID
-from typing import Any, Dict, List, Optional, Tuple
-import tempfile
-import zipfile
-import json
-from typing import Any, Dict, List, Optional
-from git import Repo, InvalidGitRepositoryError
+import base64
 from collections import Counter
 import hashlib
+import hmac
+import json
+import os
+import re
+import secrets
+import tempfile
+import zipfile
+import uuid
+from datetime import datetime, timedelta, timezone
+from typing import Any, Dict, List, Optional, Tuple
+from uuid import UUID as PyUUID
 
-from fastapi import FastAPI, UploadFile, File, HTTPException, Form, Query, Body, Depends
-from pydantic import BaseModel, Field
-from sqlalchemy import text
-from sqlalchemy import text, bindparam
-from sqlalchemy.orm import Session
-from sqlalchemy.dialects.postgresql import ARRAY, UUID
+from fastapi import Body, Depends, FastAPI, File, Form, HTTPException, Query, UploadFile
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import Response
-from src.db.session import get_engine
-from src.api.ingest import ingest_zip_to_db, save_upload_to_temp, extract_commits_from_git_zip, find_git_repo, assign_roles
+from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
+from git import InvalidGitRepositoryError, Repo
+from pydantic import BaseModel, Field
+from sqlalchemy import bindparam, text
+from sqlalchemy.dialects.postgresql import ARRAY, UUID
+from sqlalchemy.orm import Session
+
+from src.api.ingest import assign_roles, extract_commits_from_git_zip, find_git_repo, ingest_zip_to_db, save_upload_to_temp
 from src.api.report import build_project_report
-from src.db.consents import get_snapshot_owner_user_id, is_external_services_allowed 
-from src.api.generation import generate_resume_item
-from src.db.session import get_engine, get_db
+from src.db.consents import get_snapshot_owner_user_id, is_external_services_allowed
+from src.db.session import get_db, get_engine
 from src.db.base import FileBlob, PortfolioShowcase, Project
-from pydantic import BaseModel
-from sqlalchemy import text
 
 from src.db.user_config import (
     get_user_config,
@@ -127,6 +126,174 @@ class PortfolioEditRequest(BaseModel):
     title: Optional[str] = None
     summary_text: Optional[str] = None
 
+class AuthRegisterIn(BaseModel):
+    email: str = Field(min_length=3, max_length=320)
+    password: str = Field(min_length=8, max_length=256)
+    display_name: Optional[str] = Field(default=None, max_length=200)
+    consent_data_access: bool = True
+
+class AuthLoginIn(BaseModel):
+    email: str = Field(min_length=3, max_length=320)
+    password: str = Field(min_length=1, max_length=256)
+
+AUTH_EMAIL_RE = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
+PASSWORD_MIN_LENGTH = 8
+SESSION_TTL_DAYS = max(1, int(os.environ.get("AUTH_SESSION_TTL_DAYS", "14")))
+auth_bearer = HTTPBearer(auto_error=False)
+
+def _normalize_email(email: str) -> str:
+    return str(email or "").strip().casefold()
+
+def _b64u_encode(raw: bytes) -> str:
+    return base64.urlsafe_b64encode(raw).decode("ascii").rstrip("=")
+
+def _b64u_decode(raw: str) -> bytes:
+    pad = "=" * ((4 - (len(raw) % 4)) % 4)
+    return base64.urlsafe_b64decode(raw + pad)
+
+def _hash_password(password: str) -> str:
+    if len(password or "") < PASSWORD_MIN_LENGTH:
+        raise HTTPException(status_code=400, detail=f"Password must be at least {PASSWORD_MIN_LENGTH} characters")
+    iterations = 260_000
+    salt = os.urandom(16)
+    digest = hashlib.pbkdf2_hmac("sha256", password.encode("utf-8"), salt, iterations)
+    return f"pbkdf2_sha256${iterations}${_b64u_encode(salt)}${_b64u_encode(digest)}"
+
+def _verify_password(password: str, encoded: str) -> bool:
+    try:
+        algorithm, iter_s, salt_s, hash_s = (encoded or "").split("$", 3)
+        if algorithm != "pbkdf2_sha256":
+            return False
+        iterations = int(iter_s)
+        salt = _b64u_decode(salt_s)
+        expected = _b64u_decode(hash_s)
+        actual = hashlib.pbkdf2_hmac("sha256", password.encode("utf-8"), salt, iterations)
+        return hmac.compare_digest(actual, expected)
+    except Exception:
+        return False
+
+def _issue_session() -> Tuple[str, str, datetime]:
+    token = secrets.token_urlsafe(48)
+    token_hash = hashlib.sha256(token.encode("utf-8")).hexdigest()
+    expires_at = datetime.now(timezone.utc) + timedelta(days=SESSION_TTL_DAYS)
+    return token, token_hash, expires_at
+
+def _ensure_user_config_row(conn, user_id: str) -> None:
+    conn.execute(
+        text(
+            """
+            INSERT INTO user_config (user_id, config_json)
+            VALUES (:uid, '{}'::jsonb)
+            ON CONFLICT (user_id) DO NOTHING
+            """
+        ),
+        {"uid": user_id},
+    )
+
+def _ensure_default_portfolio(conn, user_id: str) -> str:
+    existing = conn.execute(
+        text(
+            """
+            SELECT id
+            FROM portfolios
+            WHERE user_id = :uid AND name = 'default'
+            ORDER BY created_at ASC
+            LIMIT 1
+            """
+        ),
+        {"uid": user_id},
+    ).scalar()
+    if existing:
+        return str(existing)
+    created = conn.execute(
+        text("INSERT INTO portfolios (user_id, name) VALUES (:uid, 'default') RETURNING id"),
+        {"uid": user_id},
+    ).scalar_one()
+    return str(created)
+
+def _portfolio_owner_user_id(conn, portfolio_id: str) -> Optional[str]:
+    owner = conn.execute(
+        text("SELECT user_id FROM portfolios WHERE id = :pid"),
+        {"pid": portfolio_id},
+    ).scalar()
+    return str(owner) if owner else None
+
+def _assert_portfolio_owned_by(conn, *, portfolio_id: str, user_id: str) -> None:
+    owner = _portfolio_owner_user_id(conn, portfolio_id)
+    if owner is None:
+        raise HTTPException(status_code=404, detail="Portfolio not found")
+    if owner != str(user_id):
+        raise HTTPException(status_code=403, detail="Portfolio does not belong to the authenticated user")
+
+def _auth_user_payload(user_id: str, email: str, display_name: Optional[str], portfolio_id: Optional[str]) -> Dict[str, Any]:
+    return {
+        "user_id": str(user_id),
+        "email": email,
+        "display_name": display_name,
+        "portfolio_id": str(portfolio_id) if portfolio_id else None,
+    }
+
+def _resolve_auth_context(
+    credentials: Optional[HTTPAuthorizationCredentials],
+    *,
+    required: bool,
+) -> Optional[Dict[str, Any]]:
+    def _unauthorized() -> None:
+        raise HTTPException(status_code=401, detail="Invalid or expired bearer token")
+
+    if credentials is None:
+        if required:
+            _unauthorized()
+        return None
+
+    if credentials.scheme.lower() != "bearer":
+        _unauthorized()
+
+    token = (credentials.credentials or "").strip()
+    if not token:
+        _unauthorized()
+
+    token_hash = hashlib.sha256(token.encode("utf-8")).hexdigest()
+
+    with get_engine().connect() as conn:
+        row = conn.execute(
+            text(
+                """
+                SELECT
+                  s.user_id,
+                  s.expires_at,
+                  s.revoked_at,
+                  a.email,
+                  a.display_name,
+                  p.id AS portfolio_id
+                FROM auth_sessions s
+                JOIN auth_accounts a ON a.user_id = s.user_id
+                LEFT JOIN LATERAL (
+                  SELECT id
+                  FROM portfolios
+                  WHERE user_id = s.user_id AND name = 'default'
+                  ORDER BY created_at ASC
+                  LIMIT 1
+                ) p ON TRUE
+                WHERE s.token_hash = :th
+                """
+            ),
+            {"th": token_hash},
+        ).mappings().first()
+
+    now = datetime.now(timezone.utc)
+    if (not row) or row.get("revoked_at") is not None or row.get("expires_at") is None or row["expires_at"] <= now:
+        _unauthorized()
+
+    return {
+        "token": token,
+        "token_hash": token_hash,
+        "user_id": str(row["user_id"]),
+        "email": row["email"],
+        "display_name": row.get("display_name"),
+        "portfolio_id": str(row["portfolio_id"]) if row.get("portfolio_id") else None,
+    }
+
 def _rank_score(user_commits: int, total_commits: int) -> Optional[float]:
     # Deterministic and transparent. Only meaningful if user_commits > 0.
     if user_commits <= 0:
@@ -208,6 +375,149 @@ def post_privacy_consent(payload: PrivacyConsentIn):
     return {"user_id": str(user_id), "consent_type": payload.consent_type, "granted": payload.granted}
 
 
+@app.post("/auth/register")
+def auth_register(payload: AuthRegisterIn):
+    email = _normalize_email(payload.email)
+    if not AUTH_EMAIL_RE.match(email):
+        raise HTTPException(status_code=400, detail="A valid email address is required")
+    if not payload.consent_data_access:
+        raise HTTPException(status_code=400, detail="Data access consent is required to register")
+
+    display_name = (payload.display_name or "").strip() or None
+    password_hash = _hash_password(payload.password)
+
+    engine = get_engine()
+    with engine.begin() as conn:
+        existing = conn.execute(
+            text("SELECT user_id FROM auth_accounts WHERE LOWER(email) = :email LIMIT 1"),
+            {"email": email},
+        ).scalar()
+        if existing:
+            raise HTTPException(status_code=409, detail="Email already registered")
+
+        user_id = str(conn.execute(text("INSERT INTO users DEFAULT VALUES RETURNING id")).scalar_one())
+        _ensure_user_config_row(conn, user_id)
+        portfolio_id = _ensure_default_portfolio(conn, user_id)
+
+        conn.execute(
+            text(
+                """
+                INSERT INTO privacy_consents (user_id, consent_type, granted, version, granted_at, revoked_at)
+                VALUES (:user_id, 'data_access', TRUE, 1, NOW(), NULL)
+                """
+            ),
+            {"user_id": user_id},
+        )
+
+        conn.execute(
+            text(
+                """
+                INSERT INTO auth_accounts (user_id, email, password_hash, display_name)
+                VALUES (:uid, :email, :pwd, :display_name)
+                """
+            ),
+            {
+                "uid": user_id,
+                "email": email,
+                "pwd": password_hash,
+                "display_name": display_name,
+            },
+        )
+
+        token, token_hash, expires_at = _issue_session()
+        conn.execute(
+            text(
+                """
+                INSERT INTO auth_sessions (token_hash, user_id, expires_at)
+                VALUES (:th, :uid, :exp)
+                """
+            ),
+            {"th": token_hash, "uid": user_id, "exp": expires_at},
+        )
+
+    return {
+        "token": token,
+        "expires_at": expires_at,
+        "user": _auth_user_payload(user_id, email, display_name, portfolio_id),
+    }
+
+
+@app.post("/auth/login")
+def auth_login(payload: AuthLoginIn):
+    email = _normalize_email(payload.email)
+    if not AUTH_EMAIL_RE.match(email):
+        raise HTTPException(status_code=400, detail="A valid email address is required")
+
+    engine = get_engine()
+    with engine.begin() as conn:
+        row = conn.execute(
+            text(
+                """
+                SELECT user_id, email, password_hash, display_name
+                FROM auth_accounts
+                WHERE LOWER(email) = :email
+                LIMIT 1
+                """
+            ),
+            {"email": email},
+        ).mappings().first()
+
+        if not row or not _verify_password(payload.password, row["password_hash"]):
+            raise HTTPException(status_code=401, detail="Invalid email or password")
+
+        user_id = str(row["user_id"])
+        account_email = str(row["email"])
+        account_display_name = row.get("display_name")
+        portfolio_id = _ensure_default_portfolio(conn, user_id)
+        token, token_hash, expires_at = _issue_session()
+        conn.execute(
+            text(
+                """
+                INSERT INTO auth_sessions (token_hash, user_id, expires_at)
+                VALUES (:th, :uid, :exp)
+                """
+            ),
+            {"th": token_hash, "uid": user_id, "exp": expires_at},
+        )
+
+    return {
+        "token": token,
+        "expires_at": expires_at,
+        "user": _auth_user_payload(
+            user_id=user_id,
+            email=account_email,
+            display_name=account_display_name,
+            portfolio_id=portfolio_id,
+        ),
+    }
+
+
+@app.get("/auth/me")
+def auth_me(credentials: Optional[HTTPAuthorizationCredentials] = Depends(auth_bearer)):
+    auth = _resolve_auth_context(credentials, required=True)
+    assert auth is not None
+    return {"user": _auth_user_payload(auth["user_id"], auth["email"], auth.get("display_name"), auth.get("portfolio_id"))}
+
+
+@app.post("/auth/logout")
+def auth_logout(credentials: Optional[HTTPAuthorizationCredentials] = Depends(auth_bearer)):
+    auth = _resolve_auth_context(credentials, required=True)
+    assert auth is not None
+    with get_engine().begin() as conn:
+        conn.execute(
+            text(
+                """
+                UPDATE auth_sessions
+                SET revoked_at = NOW()
+                WHERE token_hash = :th
+                  AND revoked_at IS NULL
+                """
+            ),
+            {"th": auth["token_hash"]},
+        )
+    return {"ok": True}
+
+
 @app.post("/projects/upload")
 async def upload_project(
     file: UploadFile = File(...),
@@ -215,7 +525,17 @@ async def upload_project(
     portfolio_id: str | None = Form(default=None),
     project_name: str | None = Form(default=None),
     snapshot_label: str | None = Form(default=None),
+    credentials: Optional[HTTPAuthorizationCredentials] = Depends(auth_bearer),
 ):
+    auth = _resolve_auth_context(credentials, required=False)
+    if auth:
+        if user_id and str(user_id) != auth["user_id"]:
+            raise HTTPException(status_code=403, detail="Authenticated user does not match provided user_id")
+        user_id = auth["user_id"]
+        if portfolio_id:
+            with get_engine().connect() as conn:
+                _assert_portfolio_owned_by(conn, portfolio_id=portfolio_id, user_id=auth["user_id"])
+
     if not file.filename or not file.filename.lower().endswith(".zip"):
         raise HTTPException(status_code=400, detail="Expected a .zip upload")
 
@@ -624,6 +944,7 @@ def set_project_user_contributor(project_id: str, contributor_id: str, payload: 
 def list_projects(
     portfolio_id: Optional[str] = Query(default=None),
     user_id: Optional[str] = Query(default=None),
+    credentials: Optional[HTTPAuthorizationCredentials] = Depends(auth_bearer),
 ):
     """
     Lists projects with derived ranking metrics.
@@ -631,7 +952,15 @@ def list_projects(
     If user_id is provided, uses the user's default portfolio (name='default') if it exists.
     """
     engine = get_engine()
+    auth = _resolve_auth_context(credentials, required=False)
     with engine.connect() as conn:
+        if auth:
+            if user_id and str(user_id) != auth["user_id"]:
+                raise HTTPException(status_code=403, detail="Authenticated user does not match provided user_id")
+            user_id = auth["user_id"]
+            if portfolio_id:
+                _assert_portfolio_owned_by(conn, portfolio_id=portfolio_id, user_id=auth["user_id"])
+
         if not portfolio_id and not user_id:
             raise HTTPException(status_code=400, detail="Provide portfolio_id or user_id")
 
@@ -1088,13 +1417,22 @@ def update_project(project_id: str, payload: ProjectUpdateIn):
     }
 
 @app.get("/portfolio/{portfolio_id}/top-projects")
-def top_projects(portfolio_id: str, limit: int = Query(default=5, ge=1, le=50)):
+def top_projects(
+    portfolio_id: str,
+    limit: int = Query(default=5, ge=1, le=50),
+    credentials: Optional[HTTPAuthorizationCredentials] = Depends(auth_bearer),
+):
     """
     Returns a ranked summary for the top projects in a portfolio.
     Summary is local-only and derived from latest completed parser/local_ml for each project's latest snapshot (best effort).
     """
     engine = get_engine()
-    listing = list_projects(portfolio_id=portfolio_id, user_id=None)
+    auth = _resolve_auth_context(credentials, required=False)
+    if auth:
+        with engine.connect() as conn:
+            _assert_portfolio_owned_by(conn, portfolio_id=portfolio_id, user_id=auth["user_id"])
+
+    listing = list_projects(portfolio_id=portfolio_id, user_id=None, credentials=None)
     projects = listing.get("projects") or []
 
     # list_projects is already ordered according to user_config.ranking.
@@ -1177,8 +1515,12 @@ def top_projects(portfolio_id: str, limit: int = Query(default=5, ge=1, le=50)):
     return {"portfolio_id": portfolio_id, "limit": int(limit), "top_projects": summaries}
 
 @app.get("/portfolio/{portfolio_id}")
-def get_portfolio(portfolio_id: str):
+def get_portfolio(
+    portfolio_id: str,
+    credentials: Optional[HTTPAuthorizationCredentials] = Depends(auth_bearer),
+):
     engine = get_engine()
+    auth = _resolve_auth_context(credentials, required=False)
     with engine.connect() as conn:
         row = conn.execute(
             text("SELECT id, user_id, name, created_at FROM portfolios WHERE id = :id"),
@@ -1186,6 +1528,8 @@ def get_portfolio(portfolio_id: str):
         ).mappings().first()
         if not row:
             raise HTTPException(status_code=404, detail="Portfolio not found")
+        if auth and str(row["user_id"]) != auth["user_id"]:
+            raise HTTPException(status_code=403, detail="Portfolio does not belong to the authenticated user")
     return dict(row)
 
 class PortfolioGenerateIn(BaseModel):
@@ -1746,13 +2090,18 @@ def list_portfolio_projects_chronological(
     portfolio_id: str,
     direction: str = Query(default="asc", pattern="^(asc|desc)$"),
     limit: int = Query(default=200, ge=1, le=2000),
+    credentials: Optional[HTTPAuthorizationCredentials] = Depends(auth_bearer),
 ):
     """
     Portfolio-level chronological list of projects.
     This is distinct from /projects (which returns ranked ordering).
     """
     engine = get_engine()
+    auth = _resolve_auth_context(credentials, required=False)
     with engine.connect() as conn:
+        if auth:
+            _assert_portfolio_owned_by(conn, portfolio_id=portfolio_id, user_id=auth["user_id"])
+
         owned = conn.execute(text("SELECT 1 FROM portfolios WHERE id = :pid"), {"pid": portfolio_id}).scalar()
         if not owned:
             raise HTTPException(status_code=404, detail="Portfolio not found")
@@ -1844,6 +2193,7 @@ def list_portfolio_skills_chronological(
     portfolio_id: str,
     direction: str = Query(default="asc", pattern="^(asc|desc)$"),
     limit: int = Query(default=500, ge=1, le=5000),
+    credentials: Optional[HTTPAuthorizationCredentials] = Depends(auth_bearer),
 ):
     """
     Portfolio-level chronological list of skills exercised.
@@ -1856,8 +2206,12 @@ def list_portfolio_skills_chronological(
     This aligns with the existing local_ml output schema. :contentReference[oaicite:2]{index=2}
     """
     engine = get_engine()
+    auth = _resolve_auth_context(credentials, required=False)
 
     with engine.connect() as conn:
+        if auth:
+            _assert_portfolio_owned_by(conn, portfolio_id=portfolio_id, user_id=auth["user_id"])
+
         owned = conn.execute(text("SELECT 1 FROM portfolios WHERE id = :pid"), {"pid": portfolio_id}).scalar()
         if not owned:
             raise HTTPException(status_code=404, detail="Portfolio not found")
