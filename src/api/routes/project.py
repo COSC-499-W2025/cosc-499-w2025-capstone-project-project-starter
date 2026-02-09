@@ -1,12 +1,10 @@
 """Project-related endpoints."""
 from fastapi import APIRouter, HTTPException, UploadFile, File, Query
-from fastapi.responses import Response
 from typing import Optional
 import json
 import tempfile
 import os
-import imghdr
-from upload_file import add_file_to_db, list_uploaded_files, add_thumbnail_to_project
+from upload_file import add_file_to_db, list_uploaded_files
 from project_manager import list_projects, get_project_by_id
 from project_analyzer import analyze_project_by_id
 from analysis.project_ranking import rank_all_projects, save_rankings_with_summaries, rank_and_summarize_top_projects
@@ -79,101 +77,6 @@ async def upload_project(
             status_code=500,
             detail=f"Error uploading file: {str(e)}"
         )
-
-
-@router.post("/projects/{project_id}/thumbnail")
-async def upload_project_thumbnail(
-    project_id: int,
-    file: UploadFile = File(...),
-    user_name: Optional[str] = Query(None, description="Username for the upload"),
-):
-    """
-    Upload a thumbnail image for an existing project.
-    """
-    allowed_exts = {".png", ".jpg", ".jpeg", ".gif", ".bmp", ".webp", ".tiff", ".svg"}
-    filename = file.filename or ""
-    ext = os.path.splitext(filename)[1].lower()
-    content_type = (file.content_type or "").lower()
-
-    if not (content_type.startswith("image/") or ext in allowed_exts):
-        raise HTTPException(
-            status_code=400,
-            detail="Thumbnail must be an image file"
-        )
-
-    temp_path = None
-    try:
-        content = await file.read()
-        if not content:
-            raise HTTPException(
-                status_code=400,
-                detail="Empty file upload"
-            )
-
-        if content_type == "image/svg+xml" or ext == ".svg":
-            if b"<svg" not in content[:4096].lower():
-                raise HTTPException(
-                    status_code=400,
-                    detail="Invalid SVG thumbnail"
-                )
-        else:
-            img_type = imghdr.what(None, h=content)
-            if img_type not in {"jpeg", "png", "gif", "bmp", "tiff", "webp"}:
-                raise HTTPException(
-                    status_code=400,
-                    detail="Invalid image file"
-                )
-
-        with tempfile.NamedTemporaryFile(delete=False, suffix=ext or ".img") as temp_file:
-            temp_file.write(content)
-            temp_path = temp_file.name
-
-        result = add_thumbnail_to_project(project_id, temp_path)
-
-        if not result.success:
-            raise HTTPException(
-                status_code=400,
-                detail=result.message
-            )
-
-        return result.to_dict()
-    finally:
-        if temp_path and os.path.exists(temp_path):
-            try:
-                os.unlink(temp_path)
-            except Exception:
-                pass
-
-
-@router.get("/projects/{project_id}/thumbnail")
-async def get_project_thumbnail(project_id: int):
-    """
-    Get a project's thumbnail image bytes.
-    """
-    try:
-        from config.db_config import with_db_cursor
-        with with_db_cursor() as cursor:
-            cursor.execute("""
-                SELECT thumbnail
-                FROM uploaded_files
-                WHERE id = %s
-            """, (project_id,))
-            row = cursor.fetchone()
-        if not row or not row[0]:
-            raise HTTPException(status_code=404, detail="Thumbnail not found")
-
-        thumb_bytes = row[0]
-        if b"<svg" in thumb_bytes[:4096].lower():
-            media_type = "image/svg+xml"
-        else:
-            img_type = imghdr.what(None, h=thumb_bytes) or "png"
-            media_type = f"image/{img_type}"
-
-        return Response(content=thumb_bytes, media_type=media_type)
-    except HTTPException:
-        raise
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error retrieving thumbnail: {e}")
 
 
 @router.get("/projects")
