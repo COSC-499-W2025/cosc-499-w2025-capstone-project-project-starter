@@ -46,6 +46,12 @@
         .menu-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 10px; margin-bottom: 20px; }
         .menu-btn { padding: 15px; background: var(--bg-card); border: 1px solid var(--border-color); border-radius: 8px; color: var(--text-primary); cursor: pointer; text-align: left; transition: all 0.2s; font-size: 14px; }
         .menu-btn:hover { background: var(--bg-secondary); border-color: var(--accent-primary); }
+        .menu-group { display: flex; flex-direction: column; gap: 8px; position: relative; }
+        .submenu-grid { display: none; position: absolute; top: calc(100% + 6px); left: 0; width: 100%; z-index: 10; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 8px; padding: 6px; background: var(--bg-secondary); border: 1px solid var(--border-color); border-radius: 8px; box-shadow: 0 6px 18px rgba(0,0,0,0.08); }
+        .submenu-grid.open { display: grid; }
+        .submenu-btn { padding: 12px; font-size: 13px; }
+        .menu-btn.caret::after { content: "▾"; float: right; color: var(--text-muted); }
+        .menu-btn.caret.open::after { content: "▴"; }
         .view-panel { background: var(--bg-secondary); border: 1px solid var(--border-color); border-radius: 8px; padding: 20px; margin-top: 20px; }
         .view-panel h3 { margin-bottom: 15px; color: var(--text-primary); }
         .btn { padding: 10px 20px; background: var(--accent-primary); border: none; border-radius: 6px; color: var(--bg-primary); cursor: pointer; margin: 5px; font-weight: 500; transition: all 0.2s; }
@@ -129,21 +135,41 @@
     <div id="messageBox" class="message" style="display: none;"></div>
     
     <div class="menu-grid">
-        <button class="menu-btn" onclick="showView('upload')">1. Upload ZIP</button>
-        <button class="menu-btn" onclick="showView('list')">2. List Projects</button>
-        <button class="menu-btn" onclick="showView('analyze')">3. Analyze Project</button>
-        <button class="menu-btn" onclick="showView('rank')">4. Rank Projects</button>
-        <button class="menu-btn" onclick="showView('rank-top3')">5. Rank Top 3</button>
-        <button class="menu-btn" onclick="showView('rankings')">6. View Rankings</button>
-        <button class="menu-btn" onclick="showView('external')">7. External Services</button>
-        <button class="menu-btn" onclick="showView('cleanup')">8. Cleanup Insights</button>
-        <button class="menu-btn" onclick="showView('preferences')">9. Preferences</button>
-        <button class="menu-btn" onclick="showView('account')">10. Account</button>
-        <button class="menu-btn" onclick="showView('resume-gen')">11. Generate Resume</button>
-        <button class="menu-btn" onclick="showView('resume-view')">12. View Resume</button>
-        <button class="menu-btn" onclick="showView('resume-delete')">13. Delete Resume</button>
+        <div class="menu-group">
+            <button class="menu-btn caret" id="projectMenuToggle" onclick="toggleSubmenu('projectSubmenu', 'projectMenuToggle')">Project Actions</button>
+            <div class="submenu-grid" id="projectSubmenu">
+                <button class="menu-btn submenu-btn" onclick="showView('upload')">1. Upload ZIP</button>
+                <button class="menu-btn submenu-btn" onclick="showView('list')">2. List Projects</button>
+                <button class="menu-btn submenu-btn" onclick="showView('analyze')">3. Analyze Project</button>
+                <button class="menu-btn submenu-btn" onclick="showView('thumbnail')">15. Add Thumbnail</button>
+            </div>
+        </div>
+        <div class="menu-group">
+            <button class="menu-btn caret" id="rankingMenuToggle" onclick="toggleSubmenu('rankingSubmenu', 'rankingMenuToggle')">Ranking Tools</button>
+            <div class="submenu-grid" id="rankingSubmenu">
+                <button class="menu-btn submenu-btn" onclick="showView('rank')">4. Rank Projects</button>
+                <button class="menu-btn submenu-btn" onclick="showView('rank-top3')">5. Rank Top 3</button>
+                <button class="menu-btn submenu-btn" onclick="showView('rankings')">6. View Rankings</button>
+            </div>
+        </div>
+        <div class="menu-group">
+            <button class="menu-btn caret" id="settingsMenuToggle" onclick="toggleSubmenu('settingsSubmenu', 'settingsMenuToggle')">Settings</button>
+            <div class="submenu-grid" id="settingsSubmenu">
+                <button class="menu-btn submenu-btn" onclick="showView('external')">7. External Services</button>
+                <button class="menu-btn submenu-btn" onclick="showView('cleanup')">8. Cleanup Insights</button>
+                <button class="menu-btn submenu-btn" onclick="showView('preferences')">9. Preferences</button>
+                <button class="menu-btn submenu-btn" onclick="showView('account')">10. Account</button>
+            </div>
+        </div>
+        <div class="menu-group">
+            <button class="menu-btn caret" id="resumeMenuToggle" onclick="toggleSubmenu('resumeSubmenu', 'resumeMenuToggle')">Resume Tools</button>
+            <div class="submenu-grid" id="resumeSubmenu">
+                <button class="menu-btn submenu-btn" onclick="showView('resume-gen')">11. Generate Resume</button>
+                <button class="menu-btn submenu-btn" onclick="showView('resume-view')">12. View Resume</button>
+                <button class="menu-btn submenu-btn" onclick="showView('resume-delete')">13. Delete Resume</button>
+            </div>
+        </div>
         <button class="menu-btn" onclick="showView('portfolio')">14. View Portfolio</button>
-        <button class="menu-btn" onclick="showView('thumbnail')">15. Add Thumbnail</button>
         <button class="menu-btn" onclick="showView('llm-summary')">16. LLM Summary</button>
     </div>
     
@@ -210,6 +236,13 @@
             } catch (e) {
                 return null;
             }
+        }
+
+        function toggleSubmenu(submenuId, toggleId) {
+            const submenu = document.getElementById(submenuId);
+            const toggle = document.getElementById(toggleId);
+            const isOpen = submenu.classList.toggle('open');
+            toggle.classList.toggle('open', isOpen);
         }
 
         async function submitPrivacyConsent(consentGiven) {
