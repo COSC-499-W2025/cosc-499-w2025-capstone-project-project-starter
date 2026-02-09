@@ -39,6 +39,7 @@
   - <https://github.com/COSC-499-W2025/capstone-project-team-15/pull/223>
   - <https://github.com/COSC-499-W2025/capstone-project-team-15/pull/218>
   - <https://github.com/COSC-499-W2025/capstone-project-team-15/pull/231>
+- Spent about 2 hours on call with Alex helping him troubleshoot terminal error in setting up his test database, it was a fun example of some highly collegial work and successfully error fixing that led to a successful fix and him being able to run tests once again
 
 
 ---
