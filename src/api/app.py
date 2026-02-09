@@ -64,17 +64,22 @@ from src.db.deletion import (
 
 app = FastAPI(title="Artifact Miner API", version="0.1.0")
 
-origins = [
+default_origins = [
     "http://localhost:3000",
+    "http://127.0.0.1:3000",
+    "http://host.docker.internal:3000",
 ]
+origins_env = os.environ.get("CORS_ALLOW_ORIGINS")
+origins = [o.strip() for o in origins_env.split(",") if o.strip()] if origins_env else default_origins
 
 # CORS middleware - adjust for production as needed
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=origins,  # Allows all origins - okay for development
+    allow_origins=origins,
+    allow_origin_regex=r"^https?://(localhost|127\.0\.0\.1)(:\d+)?$",
     allow_credentials=True,
-    allow_methods=["*"],  # Allows all methods (GET, POST, etc.)
-    allow_headers=["*"],  # Allows all headers
+    allow_methods=["*"],
+    allow_headers=["*"],
 )
 
 class PrivacyConsentIn(BaseModel):
