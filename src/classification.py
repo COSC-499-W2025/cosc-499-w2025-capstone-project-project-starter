@@ -2,7 +2,7 @@
 # - activity type (code, test, docs, design)
 # - framework detection
 # - skill inference from extensions
-
+from __future__ import annotations
 
 def detect_activity(category: str, filename: str) -> str:
     low = filename.lower()
