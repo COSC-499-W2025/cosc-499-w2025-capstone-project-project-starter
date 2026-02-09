@@ -37,3 +37,16 @@ class LogoutResponse(BaseModel):
     """Response model for logout attempts."""
     success: bool
     message: str
+
+
+class RegisterRequest(BaseModel):
+    """Request model for user registration."""
+    username: str = Field(..., min_length=1, description="Username for the new account")
+    password: str = Field(..., min_length=6, description="Password (minimum 6 characters)")
+
+
+class RegisterResponse(BaseModel):
+    """Response model for registration attempts."""
+    success: bool
+    message: str
+    user_id: Optional[int] = None

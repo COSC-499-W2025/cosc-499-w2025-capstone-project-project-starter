@@ -356,6 +356,45 @@
             border-color: var(--error-color);
             color: var(--error-color);
         }
+
+        /* Registration Form */
+        .register-form {
+            display: none;
+        }
+
+        .register-form.active {
+            display: block;
+        }
+
+        .login-form.hidden {
+            display: none;
+        }
+
+        .btn-secondary {
+            width: 100%;
+            padding: 14px 24px;
+            background: transparent;
+            border: 1px solid var(--border-color);
+            border-radius: 10px;
+            color: var(--text-secondary);
+            font-size: 15px;
+            font-weight: 500;
+            font-family: inherit;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            margin-top: 12px;
+        }
+
+        .btn-secondary:hover {
+            border-color: var(--accent-primary);
+            color: var(--text-primary);
+        }
+
+        .password-requirements {
+            font-size: 12px;
+            color: var(--text-muted);
+            margin-top: 6px;
+        }
     </style>
 </head>
 <body>
@@ -416,6 +455,66 @@
                 </div>
             </form>
 
+            <!-- Registration Form -->
+            <form id="registerForm" class="register-form">
+                <div id="registerMessageBox" class="message"></div>
+                
+                <div class="form-group">
+                    <label for="regUsername">Username</label>
+                    <input 
+                        type="text" 
+                        id="regUsername" 
+                        name="username" 
+                        placeholder="Choose a username"
+                        autocomplete="username"
+                        required
+                    >
+                </div>
+
+                <div class="form-group">
+                    <label for="regPassword">Password</label>
+                    <div class="input-wrapper">
+                        <input 
+                            type="password" 
+                            id="regPassword" 
+                            name="password" 
+                            placeholder="Create a password"
+                            autocomplete="new-password"
+                            required
+                        >
+                        <button type="button" class="password-toggle" id="toggleRegPassword" aria-label="Toggle password visibility">
+                            <svg id="regEyeIcon" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                            </svg>
+                        </button>
+                    </div>
+                    <p class="password-requirements">Password must be at least 6 characters</p>
+                </div>
+
+                <div class="form-group">
+                    <label for="regConfirmPassword">Confirm Password</label>
+                    <div class="input-wrapper">
+                        <input 
+                            type="password" 
+                            id="regConfirmPassword" 
+                            name="confirmPassword" 
+                            placeholder="Confirm your password"
+                            autocomplete="new-password"
+                            required
+                        >
+                    </div>
+                </div>
+
+                <button type="submit" class="btn-login" id="registerBtn">
+                    Create Account
+                </button>
+
+                <button type="button" class="btn-secondary" id="backToLoginBtn">
+                    Back to Sign In
+                </button>
+            </form>
+
             <!-- Welcome View (shown after successful login) -->
             <div id="welcomeView" class="welcome-view">
                 <div class="welcome-icon">
@@ -451,7 +550,7 @@
     <script>
         const API_BASE_URL = window.location.origin;
         
-        // DOM Elements
+        // DOM Elements - Login
         const loginForm = document.getElementById('loginForm');
         const welcomeView = document.getElementById('welcomeView');
         const messageBox = document.getElementById('messageBox');
@@ -462,6 +561,17 @@
         const togglePassword = document.getElementById('togglePassword');
         const eyeIcon = document.getElementById('eyeIcon');
         const registerLink = document.getElementById('registerLink');
+
+        // DOM Elements - Registration
+        const registerForm = document.getElementById('registerForm');
+        const registerMessageBox = document.getElementById('registerMessageBox');
+        const registerBtn = document.getElementById('registerBtn');
+        const backToLoginBtn = document.getElementById('backToLoginBtn');
+        const regUsernameInput = document.getElementById('regUsername');
+        const regPasswordInput = document.getElementById('regPassword');
+        const regConfirmPasswordInput = document.getElementById('regConfirmPassword');
+        const toggleRegPassword = document.getElementById('toggleRegPassword');
+        const regEyeIcon = document.getElementById('regEyeIcon');
 
         // Check if user is already logged in on page load
         document.addEventListener('DOMContentLoaded', () => {
@@ -527,8 +637,10 @@
         // Show login form
         function showLoginForm() {
             welcomeView.classList.remove('active');
+            registerForm.classList.remove('active');
             loginForm.classList.remove('hidden');
             clearMessage();
+            clearRegisterMessage();
             usernameInput.value = '';
             passwordInput.value = '';
         }
@@ -622,10 +734,125 @@
             }
         });
 
-        // Register link (placeholder - to be implemented in future PR)
+        // Show registration form
         registerLink.addEventListener('click', (e) => {
             e.preventDefault();
-            showMessage('Registration will be available soon!', 'error');
+            showRegisterForm();
+        });
+
+        // Back to login button
+        backToLoginBtn.addEventListener('click', () => {
+            showLoginForm();
+        });
+
+        // Password visibility toggle for registration
+        toggleRegPassword.addEventListener('click', () => {
+            const type = regPasswordInput.type === 'password' ? 'text' : 'password';
+            regPasswordInput.type = type;
+            
+            // Update icon
+            if (type === 'text') {
+                regEyeIcon.innerHTML = `
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21" />
+                `;
+            } else {
+                regEyeIcon.innerHTML = `
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                `;
+            }
+        });
+
+        // Show register message helper
+        function showRegisterMessage(message, type) {
+            registerMessageBox.textContent = message;
+            registerMessageBox.className = `message ${type}`;
+        }
+
+        // Clear register message
+        function clearRegisterMessage() {
+            registerMessageBox.className = 'message';
+            registerMessageBox.textContent = '';
+        }
+
+        // Show registration form
+        function showRegisterForm() {
+            loginForm.classList.add('hidden');
+            welcomeView.classList.remove('active');
+            registerForm.classList.add('active');
+            clearMessage();
+            clearRegisterMessage();
+            regUsernameInput.value = '';
+            regPasswordInput.value = '';
+            regConfirmPasswordInput.value = '';
+            regUsernameInput.focus();
+        }
+
+        // Registration form submission
+        registerForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const username = regUsernameInput.value.trim();
+            const password = regPasswordInput.value;
+            const confirmPassword = regConfirmPasswordInput.value;
+
+            // Client-side validation
+            if (!username) {
+                showRegisterMessage('Please enter a username', 'error');
+                regUsernameInput.focus();
+                return;
+            }
+
+            if (!password) {
+                showRegisterMessage('Please enter a password', 'error');
+                regPasswordInput.focus();
+                return;
+            }
+
+            if (password.length < 6) {
+                showRegisterMessage('Password must be at least 6 characters long', 'error');
+                regPasswordInput.focus();
+                return;
+            }
+
+            if (password !== confirmPassword) {
+                showRegisterMessage('Passwords do not match', 'error');
+                regConfirmPasswordInput.focus();
+                return;
+            }
+
+            // Show loading state
+            registerBtn.classList.add('loading');
+            registerBtn.disabled = true;
+            clearRegisterMessage();
+
+            try {
+                const response = await fetch(`${API_BASE_URL}/api/auth/register`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ username, password }),
+                });
+
+                const data = await response.json();
+
+                if (data.success) {
+                    // Show success message and switch to login form
+                    showLoginForm();
+                    showMessage('Account created successfully! Please sign in.', 'success');
+                    usernameInput.value = username;
+                    usernameInput.focus();
+                } else {
+                    showRegisterMessage(data.message || 'Registration failed. Please try again.', 'error');
+                }
+            } catch (error) {
+                console.error('Registration error:', error);
+                showRegisterMessage('Unable to connect to the server. Please check if the API is running.', 'error');
+            } finally {
+                registerBtn.classList.remove('loading');
+                registerBtn.disabled = false;
+            }
         });
 
         // Theme Toggle

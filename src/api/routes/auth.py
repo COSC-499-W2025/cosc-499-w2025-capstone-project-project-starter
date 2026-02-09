@@ -5,6 +5,8 @@ from api.schemas.auth import (
     LoginResponse,
     LogoutRequest,
     LogoutResponse,
+    RegisterRequest,
+    RegisterResponse,
     UserInfo,
 )
 from database.user_informations import (
@@ -13,6 +15,7 @@ from database.user_informations import (
     logout_user,
     get_user_by_username,
 )
+from account.user_manager import AuthManager
 
 router = APIRouter()
 
@@ -78,6 +81,42 @@ async def login(request: LoginRequest):
     )
 
     return LoginResponse(success=True, message="Login successful", user=user_info)
+
+
+@router.post("/register", response_model=RegisterResponse)
+async def register(request: RegisterRequest):
+    """
+    Register a new user account.
+    
+    Creates a new user with the provided username and password.
+    Password must be at least 6 characters long.
+    """
+    username = request.username.strip()
+    password = request.password
+    
+    # Validate input
+    if not username:
+        return RegisterResponse(
+            success=False,
+            message="Username cannot be empty",
+            user_id=None
+        )
+    
+    if not password or len(password) < 6:
+        return RegisterResponse(
+            success=False,
+            message="Password must be at least 6 characters long",
+            user_id=None
+        )
+    
+    # Use AuthManager to register the user
+    result = AuthManager.register(username, password)
+    
+    return RegisterResponse(
+        success=result['success'],
+        message=result['message'],
+        user_id=result.get('user_id')
+    )
 
 
 @router.post("/logout", response_model=LogoutResponse)
