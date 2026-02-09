@@ -196,6 +196,7 @@ def manage_external_services_menu():
 def ask_user_preferences(consent_manager, collab_manager, is_start):
     """Handle user preferences menu."""
     just_changed = False
+    user_name = collab_manager.user_name
     
     # Check/request user consent first
     if not is_start and consent_manager.has_access():
@@ -225,12 +226,12 @@ def ask_user_preferences(consent_manager, collab_manager, is_start):
             print("Collaborative not granted. Doing individual.")
         else:
             print("Collaborative granted. Doing colabrative and individual.")
-            git_username = get_user_git_username()
+            git_username = get_user_git_username(user_name)
             if not git_username:
                 response = safe_input("\nWhat is you GitHub user name: ", default = "").strip()
-                update_user_git_username(response)
+                update_user_git_username(user_name, response)
                 just_changed = True
-            print("\nYour github username is:"+str(get_user_git_username()))
+            print("\nYour github username is:"+str(get_user_git_username(user_name)))
             # Path to the ZIP file
             zip_path = os.path.abspath(os.path.join(os.path.dirname(__file__), "../../test.zip"))
             ic = identify_contributors(zip_path=zip_path)
@@ -243,12 +244,12 @@ def ask_user_preferences(consent_manager, collab_manager, is_start):
             profile = ic.get_full_contribution_profile()
             ic.cleanup()
             
-    if not just_changed and get_user_git_username() is not None and not is_start:
+    if not just_changed and get_user_git_username(user_name) is not None and not is_start:
         while True:
             response = safe_input("\nWould you like to change you GitHub username? (y/n) ", default = "").strip().lower()
             if response in ['yes', 'y']:
                 new_username = safe_input("\nWhat is you GitHub user name: ", default = "").strip()
-                update_user_git_username(new_username)
+                update_user_git_username(user_name, new_username)
                 break
             elif response in ['no', 'n']:
                 break
