@@ -134,6 +134,22 @@ class ProjectAnalyzer:
             'contribution_metrics': self._calculate_contribution_metrics(file_contents)
         }
         try:
+            import zipfile
+            if zipfile.is_zipfile(project_path):
+                from analysis.zip_project_analyzer import analyze_zip_project
+                zip_report = analyze_zip_project(project_path)
+                analysis['zip_success_report'] = {
+                    'project_name': zip_report.get('project_name'),
+                    'metrics': zip_report.get('metrics', {}),
+                    'signals': zip_report.get('signals', {}),
+                    'evidence': zip_report.get('evidence', {}),
+                    'success': zip_report.get('success', {}),
+                }
+        except Exception as e:
+            analysis['zip_success_report'] = {
+                'error': f'Zip success report unavailable: {e}'
+            }
+        try:
             deep_analysis = self.local_analyzer.analyze_files_from_db(file_contents)
             if deep_analysis:
                 analysis['deep_analysis'] = deep_analysis
