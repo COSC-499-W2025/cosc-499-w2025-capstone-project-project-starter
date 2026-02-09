@@ -54,4 +54,4 @@ def test_run_menu_returns_eof_on_eoferror() -> None:
     text = out.getvalue()
 
     assert result == "EOF"
-    assert "EOF received" in text
+    assert "Exiting menu" in text

@@ -1,81 +1,68 @@
+"""
+CollaborativeStorage - Wrapper around user_preferences for collaborative features.
+Now uses user_name for proper data isolation instead of hardcoded user_id.
+"""
+from database.user_preferences import (
+    init_user_preferences_table,
+    update_user_preferences,
+    get_user_preferences,
+    update_user_collaboration,
+    get_user_collaboration
+)
 from config.db_config import with_db_cursor
-from datetime import datetime
 
 class CollaborativeStorage:
     """
     Handles storage and retrieval of user consent and collaborative preferences.
+    Uses user_name for data isolation.
     """
-
-    USER_ID = 1  # Default user
 
     @staticmethod
     def init_table():
         """Create user_preferences table if it does not exist."""
-        try:
-            with with_db_cursor() as cursor:
-                cursor.execute("""
-                    CREATE TABLE IF NOT EXISTS user_preferences (
-                        user_id SERIAL PRIMARY KEY,
-                        consent BOOLEAN DEFAULT FALSE,
-                        collaborative BOOLEAN DEFAULT FALSE,
-                        git_username VARCHAR(255),
-                        last_updated TIMESTAMP DEFAULT NOW()
-                    );
-                """)
-                cursor.execute("""
-                    ALTER TABLE user_preferences
-                    ADD COLUMN IF NOT EXISTS git_username VARCHAR(255);
-                """)
-        except ConnectionError:
-            raise Exception("Failed to connect to database")
-        except Exception as e:
-            raise Exception(f"Error initializing user_preferences table: {e}")
+        return init_user_preferences_table()
 
     @staticmethod
-    def update_consent(consent: bool):
-        """Update user consent preference."""
-        try:
-            with with_db_cursor() as cursor:
-                cursor.execute("""
-                    INSERT INTO user_preferences (user_id, consent, last_updated)
-                    VALUES (%s, %s, NOW())
-                    ON CONFLICT (user_id)
-                    DO UPDATE SET consent = EXCLUDED.consent, last_updated = NOW();
-                """, (CollaborativeStorage.USER_ID, consent))
-        except ConnectionError:
-            raise Exception("Failed to connect to database")
-        except Exception as e:
-            raise Exception(f"Error updating consent: {e}")
+    def update_consent(user_name: str, consent: bool):
+        """
+        Update user consent preference.
+        
+        Args:
+            user_name: The username from user_informations table
+            consent: The consent preference value
+        """
+        return update_user_preferences(user_name, consent)
 
     @staticmethod
-    def update_collaborative(collaborative: bool):
-        """Update user collaborative preference."""
-        try:
-            with with_db_cursor() as cursor:
-                cursor.execute("""
-                    INSERT INTO user_preferences (user_id, collaborative, last_updated)
-                    VALUES (%s, %s, NOW())
-                    ON CONFLICT (user_id)
-                    DO UPDATE SET collaborative = EXCLUDED.collaborative, last_updated = NOW();
-                """, (CollaborativeStorage.USER_ID, collaborative))
-        except ConnectionError:
-            raise Exception("Failed to connect to database")
-        except Exception as e:
-            raise Exception(f"Error updating collaborative preference: {e}")
+    def update_collaborative(user_name: str, collaborative: bool):
+        """
+        Update user collaborative preference.
+        
+        Args:
+            user_name: The username from user_informations table
+            collaborative: The collaboration preference value
+        """
+        return update_user_collaboration(user_name, collaborative)
 
     @staticmethod
-    def get_preferences():
-        """Return tuple (consent: bool, collaborative: bool, last_updated: datetime)"""
+    def get_preferences(user_name: str):
+        """
+        Return tuple (consent: bool, collaborative: bool, last_updated: datetime).
+        
+        Args:
+            user_name: The username from user_informations table
+            
+        Returns:
+            tuple: (consent, collaborative, last_updated) or None
+        """
         try:
             with with_db_cursor() as cursor:
                 cursor.execute("""
                     SELECT consent, collaborative, last_updated 
                     FROM user_preferences 
-                    WHERE user_id = %s;
-                """, (CollaborativeStorage.USER_ID,))
+                    WHERE user_name = %s;
+                """, (user_name,))
                 result = cursor.fetchone()
             return result
-        except ConnectionError:
-            return None
         except Exception:
             return None

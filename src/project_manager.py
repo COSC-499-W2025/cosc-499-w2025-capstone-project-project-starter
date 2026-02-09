@@ -329,6 +329,7 @@ def get_project_by_id(project_id, user_name=None):
     """
     Retrieves the raw analysis data for a specific project ID.
     Used by the Resume and Portfolio formatters.
+    Returns project data with nested 'project_info' structure including analysis metadata.
     """
     # 1. Get User Context
     if user_name is None:

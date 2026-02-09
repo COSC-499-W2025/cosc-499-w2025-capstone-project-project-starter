@@ -1,5 +1,10 @@
 import datetime
 import pytest
+import sys
+import os
+
+# Add src directory to path
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "../src")))
 
 # Adjust this import to your actual module path
 from project_summarizer import ProjectSummarizer
@@ -31,7 +36,13 @@ def test_analyze_collaboration_when_user_collab_denied(monkeypatch):
     # 3) Key patch: user collaboration returns a tuple with first element False
     monkeypatch.setattr(
         "project_summarizer.get_user_collaboration",
-        lambda: (False, datetime.datetime(2025, 1, 1, 0, 0, 0)),
+        lambda user_name: (False, datetime.datetime(2025, 1, 1, 0, 0, 0)),
+    )
+    
+    # 4) Mock AuthManager to return a username
+    monkeypatch.setattr(
+        "project_summarizer.AuthManager.get_current_username",
+        lambda: "test_user",
     )
 
     summarizer = ProjectSummarizer()

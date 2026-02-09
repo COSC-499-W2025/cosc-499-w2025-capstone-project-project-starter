@@ -1,8 +1,3 @@
-"""
-Unit tests for analysis routing conditional logic.
-Tests Sub-issue #38: Implement conditional logic.
-"""
-
 import pytest
 import sys
 import os
@@ -29,14 +24,13 @@ class TestAnalysisRouter:
         from config.db_config import get_connection
         from external_services.service_config import ServiceConfig
         from database.user_informations import init_user_informations_table, create_user
-        
-        # Ensure user_informations table exists and create test user
-        init_user_informations_table()
-        try:
-            create_user('test_user', 'test_password')
-        except:
-            pass  # User might already exist
-        
+        conn = get_connection()
+        if conn:
+            with conn.cursor() as cursor:
+                cursor.execute("DROP TABLE IF EXISTS external_service_permissions CASCADE")
+            conn.commit()
+            conn.close()
+
         config = ServiceConfig()
         config.initialize_table()
         

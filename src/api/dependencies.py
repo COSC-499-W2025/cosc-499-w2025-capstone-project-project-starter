@@ -11,16 +11,28 @@ def get_db_cursor() -> Generator:
     """
     conn = get_connection()
     if not conn:
-        raise ConnectionError("Could not connect to database")
+        raise HTTPException(
+            status_code=503,
+            detail={
+                "error_type": "DB_UNAVAILABLE",
+                "message": "Database connection unavailable"
+            }
+        )
     
     cursor = None
     try:
         cursor = conn.cursor()
         yield cursor
         conn.commit()
-    except Exception as e:
+    except Exception:
         conn.rollback()
-        raise
+        raise HTTPException(
+            status_code=500,
+            detail={
+                "error_type": "DB_ERROR",
+                "message": "Database operation failed"
+            }
+        )
     finally:
         if cursor:
             cursor.close()
@@ -53,21 +65,30 @@ def get_authenticated_user(
     if not username or not username.strip():
         raise HTTPException(
             status_code=401,
-            detail="Username is required for authentication"
+            detail={
+                "error_type": "AUTH_REQUIRED",
+                "message": "Username is required for authentication"
+            }
         )
-    
+
     user_data = get_user_by_username(username.strip())
-    
+
     if not user_data:
         raise HTTPException(
             status_code=401,
-            detail="User not found"
+            detail={
+                "error_type": "USER_NOT_FOUND",
+                "message": "User not found"
+            }
         )
-    
-    if not user_data.get('is_login', False):
+
+    if not user_data.get("is_login", False):
         raise HTTPException(
             status_code=401,
-            detail="User is not authenticated. Please log in first."
+            detail={
+                "error_type": "NOT_LOGGED_IN",
+                "message": "User is not authenticated. Please log in first."
+            }
         )
-    
+
     return user_data

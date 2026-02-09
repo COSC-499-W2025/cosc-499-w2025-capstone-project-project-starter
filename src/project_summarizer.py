@@ -163,7 +163,8 @@ class ProjectSummarizer:
             'collaboration_score': 0
         }
         
-        if get_user_collaboration() and not get_user_collaboration()[0]:
+        current_user = AuthManager.get_current_username()
+        if current_user and get_user_collaboration(current_user) and not get_user_collaboration(current_user)[0]:
             return {
                 "collaboration_level": "collaboration not granted",
                 "indicators": indicators,
