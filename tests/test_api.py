@@ -17,7 +17,11 @@ from PIL import Image
 
 import tempfile
 from pathlib import Path
-from src.api.pdf_exporter import export_portfolio_top_projects_pdf
+
+from io import BytesIO
+import base64
+from reportlab.lib.pagesizes import LETTER
+from src.api.pdf_exporter import export_portfolio_top_projects_pdf,export_resume_item_pdf_bytes
 
 from git import Repo, InvalidGitRepositoryError
 
@@ -59,6 +63,18 @@ def _mk_graph(engine):
         )
 
     return user_id, portfolio_id, project_id, snapshot_id
+
+# def fake_thumbnail_blob():
+#     # 1x1 PNG transparent pixel
+#     png_base64 = (
+#         "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8"
+#         "/w8AAgMBAQEGxEAAAAAASUVORK5CYII="
+#     )
+#     return {
+#         "data_base64": png_base64,
+#         "mime_type": "image/png"
+#     }
+
 
 
 def test_privacy_consent_creates_user_and_config(client):
@@ -1305,3 +1321,55 @@ def test_extract_commit_counts_from_git_zip():
     assert counts["Bob"] == 1
 
     os.remove(tmpzip_path)
+
+
+def test_pdf_with_thumbnail_contains_image():
+    # 1. Setup paths
+    current_dir = os.path.dirname(os.path.abspath(__file__))
+    image_path = os.path.join(current_dir, "data", "thumbnail.png")
+
+    # 2. Read the image and encode it to Base64 (because your function decodes it)
+    with open(image_path, "rb") as f:
+        image_bytes = f.read()
+        base64_image = base64.b64encode(image_bytes).decode('utf-8')
+
+    # 3. Construct the item matching the exact expected schema
+    resume_item = {
+        "resume_id": "test1",
+        "content": {
+            "project": {"name": "Test Project"},
+            "summary_text": "This is a test summary",
+            "resume_bullets": ["Bullet 1", "Bullet 2"],
+            "thumbnail_blob": {
+                "data_base64": base64_image, # Your code looks for this key
+                "mime_type": "image/png"     # Your code uses this for the suffix
+            }
+        }
+    }
+
+    # 4. Run the export
+    pdf_bytes = export_resume_item_pdf_bytes(resume_item)
+
+    # 5. Assertions
+    assert pdf_bytes.startswith(b"%PDF"), "Output is not a PDF"
+    # This checks for the existence of the image object in the PDF binary
+    assert b"/XObject" in pdf_bytes or b"/Image" in pdf_bytes, "Thumbnail image not embedded"
+
+
+# --- Test case 2: PDF without thumbnail ---
+def test_pdf_without_thumbnail_no_image_marker():
+    resume_item = {
+        "resume_id": "test2",
+        "content": {
+            "project": {"name": "No Image Project"},
+            "summary_text": "No image here",
+            "resume_bullets": ["Bullet 1"],
+            # No thumbnail_blob key
+        }
+    }
+
+    pdf_bytes = export_resume_item_pdf_bytes(resume_item)
+    assert pdf_bytes.startswith(b"%PDF"), "Output is not a PDF"
+
+    # Ensure no image stream is present
+    assert b"/XObject" not in pdf_bytes, "Unexpected image embedded"

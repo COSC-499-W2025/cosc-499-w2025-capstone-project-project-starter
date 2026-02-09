@@ -5,6 +5,7 @@ from reportlab.lib.styles import getSampleStyleSheet
 from reportlab.lib import colors
 import os
 import tempfile
+import base64
 from io import BytesIO
 
 
