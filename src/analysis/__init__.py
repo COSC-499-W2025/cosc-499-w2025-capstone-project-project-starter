@@ -34,6 +34,12 @@ def analyze_zip_projects_in_dir(base_dir, max_readme_bytes=65536):
     return analyze_zip_projects_in_dir(base_dir, max_readme_bytes=max_readme_bytes)
 
 
+# Gemini-powered ranking
+def rank_projects_with_gemini(user_name=None):
+    from .gemini_ranker import rank_projects_with_gemini as _rank
+    return _rank(user_name)
+
+
 # Gemini-powered analysis
 def GeminiAnalyzer():
     from .gemini_analyzer import GeminiAnalyzer as _GeminiAnalyzer

@@ -9,6 +9,7 @@ from project_manager import list_projects, get_project_by_id
 from project_analyzer import analyze_project_by_id
 from analysis.project_ranking import rank_all_projects, save_rankings_with_summaries, rank_and_summarize_top_projects
 from analysis.ranking_storage import get_stored_rankings
+from analysis.gemini_ranker import rank_projects_with_gemini
 from tools.cleanup_insights import delete_insights
 from database.user_preferences import update_user_git_username, get_user_git_username
 
@@ -394,6 +395,20 @@ async def get_rankings():
         return {"success": True, "rankings": rankings}
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error retrieving rankings: {str(e)}")
+
+
+@router.post("/projects/rank-gemini")
+async def rank_projects_gemini(user_name: Optional[str] = Query(None)):
+    """Rank all projects using Gemini AI comparison."""
+    try:
+        result = rank_projects_with_gemini(user_name=user_name)
+        if not result.get("success"):
+            raise HTTPException(status_code=400, detail=result.get("error", "Gemini ranking failed"))
+        return result
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error in Gemini ranking: {str(e)}")
 
 
 @router.delete("/projects/{project_id}/data")
