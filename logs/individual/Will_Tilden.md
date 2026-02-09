@@ -1,5 +1,68 @@
 # Weekly Navigation (Term 2)
-- [Term 2 Week 3](#term-2-week-3--january-1218-2026)
+- [Term 2 Week 5](#term-2-week-5--january-1218-2026)
+
+## Will Tilden Personal Logs  //  Term 2 Week 5 – January 26 – February 8, 2026
+
+### Connection to Previous Week
+- Last week I made a big contribtuion on adding the ability for the user to customize which parts of the resume would and wouldn't render, this week I worked on different tasks that aren't really related. New issues.
+
+---
+
+### Coding Tasks
+
+- completed features numbers 32.4 and 32.5, adding two new endpoints to the API along with assoicated tests.
+  - Issue: <https://github.com/COSC-499-W2025/capstone-project-team-15/issues/224>
+  - PR: <https://github.com/COSC-499-W2025/capstone-project-team-15/pull/225>
+- vastly improved the testing suite of the program by perforiming testing coverage and identifying areas that needed improved coverage, focusing strongly on our main api file app.py, which had just 74% test coverage with some large sections not covered. Made one PR adding 13 new tests to increase that file's coverage from 74% to 86%, and then second PR focusing on the codeparser module where the fileclassification.py and chunking.py files had no tests at all, and brought them up to near perfect coverage with the addition of about 7 new tests.
+  - app.py test addition:
+      - Issue: <https://github.com/COSC-499-W2025/capstone-project-team-15/issues/222>
+      - PR: <https://github.com/COSC-499-W2025/capstone-project-team-15/pull/223>
+  - codeparser test addition:
+      - Issue: <https://github.com/COSC-499-W2025/capstone-project-team-15/issues/228>
+      - PR: <https://github.com/COSC-499-W2025/capstone-project-team-15/pull/229>
+
+---
+
+### Testing & Debugging Tasks
+- As mentioned, I massively improved the testing coverage of the app across multiple files and modules with the addition of ~20 tests
+- I also tested my own contribtuion of the new endpoints both manually and using the pytest tests
+- I also tested Liam's PRs both manually and using the pytest suite:
+  - <https://github.com/COSC-499-W2025/capstone-project-team-15/pull/223>
+  - <https://github.com/COSC-499-W2025/capstone-project-team-15/pull/218>
+- And I tested Alex's PR manually:
+  - <https://github.com/COSC-499-W2025/capstone-project-team-15/pull/231>
+
+---
+
+### Reviewing & Collaboration Tasks
+- I reviewed two of Liam's PRs and one of Alex's PRs
+  - <https://github.com/COSC-499-W2025/capstone-project-team-15/pull/223>
+  - <https://github.com/COSC-499-W2025/capstone-project-team-15/pull/218>
+  - <https://github.com/COSC-499-W2025/capstone-project-team-15/pull/231>
+
+
+---
+
+### Issues or Blockers
+- No blockers or issues to report from this week.
+- Myself and the team are feeling confident as the milestone 2 deadline approaches as we have very few features left to tick off and are already getting a headstart on our front end 
+
+---
+
+### Plan for Next Week
+- As my plans for these weeks changed and I ended up not doing the things I had planned to do but instead still found lots of work to do, for next week I will be coming back to what I planned to do this week which is the following:
+  
+    - #29: Display textual information about a project as a portfolio showcase
+    - #30: Display textual information about a project as a résumé item
+
+- I suspect these can be batched together a bit more easily than other features as they all involved the addition of textual information to the resume so they might even make sense to batch together
+
+---
+
+### Peer evaluation Term 2 Week 5
+![Alt text](imgs/will_tilden_t2_w5.png)
+
+---
 
 ## Will Tilden Personal Logs  //  Term 2 Week 3 – January 19–25, 2026
 
