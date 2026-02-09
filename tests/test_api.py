@@ -1374,6 +1374,54 @@ def test_extract_commit_counts_from_git_zip():
 
     os.remove(tmpzip_path)
 
+def test_get_project_by_id(engine, client):
+    # 1. Create a project using your existing helper
+    user_id, portfolio_id, project_id, snapshot_id = _mk_graph(engine)
+    
+    # 2. Call the new endpoint
+    resp = client.get(f"/projects/{project_id}")
+    assert resp.status_code == 200
+    
+    data = resp.json()
+    assert data["id"] == project_id
+    assert data["portfolio_id"] == portfolio_id
+    # Check that our 'metrics' transformation worked
+    assert "metrics" in data
+    assert "total_commits" in data["metrics"]
+    assert "latest_snapshot" in data
+    
+def test_get_project_by_id_404(client):
+    # Test with a valid UUID format that isn't in the DB
+    fake_id = _u()
+    resp = client.get(f"/projects/{fake_id}")
+    assert resp.status_code == 404
+    assert resp.json()["detail"] == "Project not found"
+
+def test_list_all_skills(engine, client):
+    # 1. Seed the skills table manually
+    skill_id = _u()
+    try:
+        with engine.begin() as conn:
+            conn.execute(
+                text("INSERT INTO skills (id, skill_name, category) VALUES (:id, :name, :cat)"),
+                {"id": skill_id, "name": "Python_Test_Unique", "cat": "backend"}
+            )
+        
+        # 2. Test global fetch
+        resp = client.get("/skills")
+        assert resp.status_code == 200
+        skills = resp.json()["skills"]
+        assert any(s["skill_name"] == "Python_Test_Unique" for s in skills)
+
+        # 3. Test filter fetch
+        resp_filtered = client.get("/skills?category=backend")
+        assert resp_filtered.status_code == 200
+        assert any(s["skill_name"] == "Python_Test_Unique" for s in resp_filtered.json()["skills"])
+        
+    finally:
+        # 4. CLEANUP: Delete the test record so it doesn't break other tests
+        with engine.begin() as conn:
+            conn.execute(text("DELETE FROM skills WHERE id = :id"), {"id": skill_id})
 def test_rank_logic():
     # 1. Logic: Standard case (10 user + 90 other * 0.1 = 19.0)
     assert _rank_score(10, 100) == 19.0

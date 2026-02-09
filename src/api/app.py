@@ -307,6 +307,26 @@ def list_snapshot_skills(snapshot_id: str, limit: int = Query(default=20, ge=1, 
 
     return {"snapshot_id": snapshot_id, "analysis_id": str(aid), "skills": [dict(r) for r in rows]}
 
+@app.get("/skills")
+def list_all_skills(category: Optional[str] = Query(None)):
+    """
+    Returns a list of all unique skills from the global skills table.
+    Optionally filterable by category.
+    """
+    engine = get_engine()
+    with engine.connect() as conn:
+        query = "SELECT id, skill_name, category FROM skills"
+        params = {}
+        
+        if category:
+            query += " WHERE category = :cat"
+            params["cat"] = category
+            
+        query += " ORDER BY skill_name ASC"
+        
+        rows = conn.execute(text(query), params).mappings().all()
+        
+    return {"skills": [dict(r) for r in rows]}
 
 @app.post("/snapshots/{snapshot_id}/external-analysis")
 def request_external_analysis(snapshot_id: str):
@@ -725,7 +745,6 @@ def list_projects(
 
     return {"portfolio_id": str(portfolio_id), "projects": out}
 
-
 @app.get("/projects/compare")
 def compare_projects(
     project_ids: List[str] = Query(..., min_length=1),
@@ -892,6 +911,89 @@ def compare_projects(
         "highlight_skills": highlight_skills,
         "projects": per_project,
     }
+
+@app.get("/projects/{project_id}")
+def get_project_by_id(project_id: str):
+    """
+    Retrieves full details for a single project by its ID.
+    """
+    engine = get_engine()
+    with engine.connect() as conn:
+        row = conn.execute(
+            text(
+                """
+                WITH totals AS (
+                  SELECT
+                    s.project_id,
+                    COALESCE(SUM(ce.commit_count), 0) AS total_commits,
+                    COUNT(DISTINCT ce.contributor_id) AS contributor_count
+                  FROM snapshots s
+                  LEFT JOIN contribution_events ce ON ce.snapshot_id = s.id
+                  WHERE s.project_id = :pid
+                  GROUP BY s.project_id
+                ),
+                user_totals AS (
+                  SELECT
+                    s.project_id,
+                    COALESCE(SUM(ce.commit_count), 0) AS user_commits
+                  FROM snapshots s
+                  JOIN contribution_events ce ON ce.snapshot_id = s.id
+                  JOIN project_contributors pc
+                    ON pc.project_id = s.project_id
+                   AND pc.contributor_id = ce.contributor_id
+                   AND pc.is_user = TRUE
+                  WHERE s.project_id = :pid
+                  GROUP BY s.project_id
+                ),
+                latest AS (
+                  SELECT 
+                    id AS latest_snapshot_id,
+                    ingested_at AS latest_ingested_at
+                  FROM snapshots
+                  WHERE project_id = :pid
+                  ORDER BY ingested_at DESC
+                  LIMIT 1
+                )
+                SELECT
+                  pr.id,
+                  pr.portfolio_id,
+                  pr.name,
+                  pr.display_name,
+                  pr.project_type,
+                  pr.collaboration_type,
+                  pr.user_role,
+                  pr.created_at,
+                  COALESCE(t.total_commits, 0) AS total_commits,
+                  COALESCE(ut.user_commits, 0) AS user_commits,
+                  COALESCE(t.contributor_count, 0) AS contributor_count,
+                  l.latest_snapshot_id,
+                  l.latest_ingested_at
+                FROM projects pr
+                LEFT JOIN totals t ON t.project_id = pr.id
+                LEFT JOIN user_totals ut ON ut.project_id = pr.id
+                LEFT JOIN latest l ON 1=1
+                WHERE pr.id = :pid
+                """
+            ),
+            {"pid": project_id},
+        ).mappings().first()
+
+        if not row:
+            raise HTTPException(status_code=404, detail="Project not found")
+
+        # Convert to dict and format metrics as seen in list_projects
+        res = dict(row)
+        res["metrics"] = {
+            "total_commits": int(res.pop("total_commits")),
+            "user_commits": int(res.pop("user_commits")) or None,
+            "contributor_count": int(res.pop("contributor_count")),
+        }
+        res["latest_snapshot"] = {
+            "id": str(res.pop("latest_snapshot_id")) if res.get("latest_snapshot_id") else None,
+            "ingested_at": res.pop("latest_ingested_at"),
+        }
+        
+    return res
 
 @app.patch("/projects/{project_id}")
 def update_project(project_id: str, payload: ProjectUpdateIn):
