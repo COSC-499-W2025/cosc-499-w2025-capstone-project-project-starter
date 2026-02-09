@@ -4,7 +4,27 @@ from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, Tabl
 from reportlab.lib.styles import getSampleStyleSheet
 from reportlab.lib import colors
 import os
+import tempfile
+import base64
 from io import BytesIO
+
+
+def materialize_blob_to_tempfile(blob, default_ext=".png"):
+    """
+    Takes a FileBlob row and writes it to a temporary file.
+    Returns the file path.
+    """
+    suffix = default_ext
+
+    # Try to infer extension from mime type
+    if blob.mime_type and "/" in blob.mime_type:
+        suffix = "." + blob.mime_type.split("/")[-1]
+
+    tmp = tempfile.NamedTemporaryFile(delete=False, suffix=suffix)
+    tmp.write(blob.data)
+    tmp.close()
+
+    return tmp.name
 
 
 
@@ -215,16 +235,24 @@ def export_portfolio_top_projects_pdf(portfolio_summary: dict, filename: str = "
         elements.append(Spacer(1, 6))
     
         # Add portfolio image if exists
-        image_path = item.get("portfolio_image")  # <- new field
-        if image_path and os.path.exists(image_path):
+        blob = item.get("thumbnail_blob")
+        blob_sha = item.get("thumbnail_blob_sha256")  # optional, for logs only
+
+        if blob:
             try:
-                img = Image(image_path)
-                img.drawHeight = 1.5 * 72  # 1.5 inches height
-                img.drawWidth = 2.5 * 72   # 2.5 inches width
+                tmp_path = materialize_blob_to_tempfile(blob)
+
+                img = Image(tmp_path)
+                img.drawHeight = 1.5 * 72   # 1.5 inches
+                img.drawWidth = 2.5 * 72    # 2.5 inches
+
                 elements.append(img)
                 elements.append(Spacer(1, 6))
+
+                print(f"✅ Image embedded from blob {blob_sha}")
+
             except Exception as e:
-                print(f"⚠️ Could not add image {image_path}: {e}")
+                print(f"⚠️ Could not add image from blob {blob_sha}: {e}")
 
         # Add summary
         if summary:
@@ -297,6 +325,7 @@ def export_resume_item_pdf(resume_item: dict, filename: str = "resume_item.pdf")
 def export_resume_item_pdf_bytes(resume_item: dict, filters: dict = None) -> bytes:
     """
     Build a PDF in-memory for a single resume item, respecting user toggles.
+    Embeds thumbnail image if available.
     """
     if not isinstance(resume_item, dict):
         resume_item = {}
@@ -333,6 +362,34 @@ def export_resume_item_pdf_bytes(resume_item: dict, filters: dict = None) -> byt
         elements.append(Paragraph(f"Generated at: {content.get('generated_at', '(unknown)')}", styles["Normal"]))
         elements.append(Spacer(1, 12))
 
+    # --- Embed thumbnail if available ---
+    thumbnail_blob = content.get("thumbnail_blob")
+    if thumbnail_blob:
+        try:
+            import tempfile
+            import base64
+
+            # If blob has base64 data (as in your artifact)
+            file_bytes = base64.b64decode(thumbnail_blob.get("data_base64", ""))
+            suffix = ".png"  # default
+            if "mime_type" in thumbnail_blob and "/" in thumbnail_blob["mime_type"]:
+                suffix = "." + thumbnail_blob["mime_type"].split("/")[-1]
+
+            tmp = tempfile.NamedTemporaryFile(delete=False, suffix=suffix)
+            tmp.write(file_bytes)
+            tmp.close()
+
+            img = Image(tmp.name)
+            img.drawHeight = 1.5 * 72
+            img.drawWidth = 2.5 * 72
+            elements.append(img)
+            elements.append(Spacer(1, 12))
+            print(f"✅ Embedded thumbnail image in PDF")
+
+        except Exception as e:
+            print(f"⚠️ Could not embed thumbnail: {e}")
+
+    # Summary section
     if show_summary:
         summary = str(content.get("summary_text") or "").strip()
         if summary:
@@ -341,12 +398,12 @@ def export_resume_item_pdf_bytes(resume_item: dict, filters: dict = None) -> byt
             elements.append(Paragraph(summary, styles["Normal"]))
             elements.append(Spacer(1, 12))
 
+    # Bullets section
     if show_bullets:
         bullets = content.get("resume_bullets") or []
         if isinstance(bullets, list) and bullets:
             elements.append(Paragraph("Resume Bullets", styles["Heading2"]))
             elements.append(Spacer(1, 6))
-            # Slice the list based on the user's max_bullets preference
             for b in bullets[:max_bullets]:
                 b = str(b).strip()
                 if b:

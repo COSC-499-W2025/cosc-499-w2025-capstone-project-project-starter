@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import base64
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional, Tuple
 
@@ -577,6 +578,37 @@ def generate_resume_item(
                 highlight_skills=highlight_skills,
             )
 
+        # --- FIXED THUMBNAIL HANDLING ---
+        thumb = conn.execute(
+            text("""
+                SELECT fb.sha256, fb.mime_type, fb.stored_path
+                FROM portfolio_showcases ps
+                JOIN file_blobs fb
+                  ON fb.sha256 = ps.thumbnail_blob_sha256
+                WHERE ps.project_id = :pid
+                LIMIT 1
+            """),
+            {"pid": str(proj["id"])},
+        ).mappings().first()
+
+        thumbnail_blob_json = None
+        thumbnail_blob_sha256 = None
+
+        if thumb and thumb.get("stored_path"):
+            try:
+                with open(thumb["stored_path"], "rb") as f:
+                    file_bytes = f.read()
+                    # ENCODE FOR JSON
+                    thumbnail_blob_json = {
+                        "data_base64": base64.b64encode(file_bytes).decode("ascii"),
+                        "mime_type": thumb.get("mime_type"),
+                    }
+                    thumbnail_blob_sha256 = thumb.get("sha256")
+            except Exception as e:
+                print(f"⚠️ Failed to load thumbnail blob: {e}")
+
+
+
         artifact = {
             "type": "resume_item",
             "generated_at": generated_at,
@@ -590,6 +622,8 @@ def generate_resume_item(
             "latest_snapshot_id": sid,
             "summary_text": summary_text,
             "resume_bullets": bullets,
+            "thumbnail_blob": thumbnail_blob_json,
+            "thumbnail_blob_sha256": thumbnail_blob_sha256,
             "signals": {
                 "parser": {"generated_at": parser_out.get("generated_at"), "top_languages": parser_out.get("top_languages"), "activity_counts": parser_out.get("activity_counts")},
                 "local_ml": {"generated_at": ml_out.get("generated_at"), "threshold": ml_out.get("threshold"), "top_skills": (ml_out.get("skills") or [])[:25]},
@@ -602,6 +636,7 @@ def generate_resume_item(
             },
         }
 
+
         payload = json.dumps(artifact, default=str)
         rid = conn.execute(
             text(
@@ -613,6 +648,10 @@ def generate_resume_item(
             ),
             {"pid": project_id, "cj": payload},
         ).scalar_one()
+
+        artifact["thumbnail_blob"] = thumbnail_blob_json
+        artifact["thumbnail_blob_sha256"] = thumbnail_blob_sha256
+
 
     return {"resume_id": str(rid), "content": artifact}
 
@@ -688,6 +727,36 @@ def get_resume_item(
 
     if not row:
         raise KeyError("Resume item not found")
+    
+    project_id = row["project_id"]
+
+    # Look up the showcase entry for this project
+    with engine.connect() as conn:
+        showcase = conn.execute(
+            text("""
+                SELECT thumbnail_blob_sha256
+                FROM portfolio_showcases
+                WHERE project_id = :pid
+            """),
+            {"pid": project_id},
+        ).mappings().first()
+
+    blob = None
+    blob_sha = None
+
+    if showcase and showcase.get("thumbnail_blob_sha256"):
+        blob_sha = showcase["thumbnail_blob_sha256"]
+
+        with engine.connect() as conn:
+            blob = conn.execute(
+                text("""
+                    SELECT sha256, size_bytes, mime_type, stored_path
+                    FROM file_blobs
+                    WHERE sha256 = :sha
+                """),
+                {"sha": blob_sha},
+            ).mappings().first()
+
 
     cj = row.get("content_json") or {}
     return {
@@ -696,4 +765,6 @@ def get_resume_item(
         "created_at": row.get("created_at"),
         "updated_at": row.get("updated_at"),
         "content": cj if isinstance(cj, dict) else {"raw": cj},
+        "thumbnail_blob_sha256": blob_sha,
+        "thumbnail_blob": blob,
     }
