@@ -6,12 +6,15 @@ import shutil
 import zipfile
 import os
 from pypdf import PdfReader
+from src.api.app import _rank_score, _get_or_create_showcase, _apply_is_user_flag
 
 from sqlalchemy import text
 import re
 import json
 from sqlalchemy import text, bindparam
 from sqlalchemy.dialects.postgresql import JSONB
+from unittest.mock import MagicMock
+import hashlib
 
 from PIL import Image
 
@@ -19,7 +22,7 @@ import tempfile
 from pathlib import Path
 from src.api.pdf_exporter import export_portfolio_top_projects_pdf
 
-from git import Repo, InvalidGitRepositoryError
+from git import Repo, InvalidGitRepositoryError, Actor
 
 from src.api.ingest import extract_commits_from_git_zip, extract_commit_counts_from_git_zip
 
@@ -1419,3 +1422,360 @@ def test_list_all_skills(engine, client):
         # 4. CLEANUP: Delete the test record so it doesn't break other tests
         with engine.begin() as conn:
             conn.execute(text("DELETE FROM skills WHERE id = :id"), {"id": skill_id})
+def test_rank_logic():
+    # 1. Logic: Standard case (10 user + 90 other * 0.1 = 19.0)
+    assert _rank_score(10, 100) == 19.0
+    # 2. Boundaries: Only user (no other) and Minimum valid input
+    assert _rank_score(10, 10) == 10.0
+    assert _rank_score(1, 1) == 1.0
+    # 3. Safety: User has no commits or data is weird
+    assert _rank_score(0, 100) is None
+    assert _rank_score(10, 5) == 10.0  # total < user
+
+def test_get_or_create_showcase_existing():
+    """Test case: The record already exists in the DB."""
+    mock_conn = MagicMock()
+    
+    # 1. Setup: When .scalar() is called, return '99'
+    mock_conn.execute.return_value.scalar.return_value = 99
+    
+    result = _get_or_create_showcase(mock_conn, "project_123")
+    
+    assert result == "99"
+    # Verify only ran the SELECT (1 call) and didn't reach the INSERT
+    assert mock_conn.execute.call_count == 1
+
+def test_get_or_create_showcase_integration(engine):
+    _, _, project_id, _ = _mk_graph(engine)
+    
+    with engine.connect() as conn:
+        
+        id_1 = _get_or_create_showcase(conn, project_id)
+        
+        assert id_1 is not None
+
+        db_check = conn.execute(
+            text("SELECT count(*) FROM portfolio_showcases WHERE id = :id"),
+            {"id": id_1}
+        ).scalar()
+        assert db_check == 1
+
+        id_2 = _get_or_create_showcase(conn, project_id)
+        
+        assert id_1 == id_2  # Proves it didn't create a second one
+
+def test_top_projects_ranked_summary(client, engine):
+    # 1. Setup the graph (User, Portfolio, Project, Snapshot)
+    user_id, portfolio_id, project_id, snapshot_id = _mk_graph(engine)
+    
+    # 2. Insert the specific analyses this endpoint looks for
+    with engine.begin() as conn:
+        # Insert Parser analysis (for languages)
+        conn.execute(
+            text("""
+                INSERT INTO analyses (id, snapshot_id, analysis_type, status, output_json, completed_at)
+                VALUES (:id, :sid, 'parser', 'complete', '{"top_languages": [{"language": "Python"}]}'::jsonb, NOW())
+            """),
+            {"id": _u(), "sid": snapshot_id},
+        )
+        # Insert Local ML analysis (for skills)
+        conn.execute(
+            text("""
+                INSERT INTO analyses (id, snapshot_id, analysis_type, status, output_json, completed_at)
+                VALUES (:id, :sid, 'local_ml', 'complete', '{"skills": [{"skill": "FastAPI"}]}'::jsonb, NOW())
+            """),
+            {"id": _u(), "sid": snapshot_id},
+        )
+
+    # 3. Hit the actual endpoint
+    r = client.get(f"/portfolio/{portfolio_id}/top-projects?limit=5")
+    assert r.status_code == 200
+    body = r.json()
+
+    # 4. Verify the transformation logic
+    assert body["portfolio_id"] == portfolio_id
+    project = body["top_projects"][0]
+    assert project["project_id"] == project_id
+    assert project["summary"]["top_languages"] == "Python"
+    assert project["summary"]["top_skills"] == "FastAPI"
+
+def test_apply_is_user_flag_swaps_user(engine):
+    # 1. Setup: Create the environment
+    user_id, _, project_id, _ = _mk_graph(engine)
+    cid_old = _u()
+    cid_new = _u()
+
+    # 2. Initial State: Two contributors, cid_old is 'is_user'
+    with engine.begin() as conn:
+        conn.execute(
+            text("INSERT INTO contributors (id, canonical_name) VALUES (:id1, 'Old'), (:id2, 'New')"),
+            {"id1": cid_old, "id2": cid_new}
+        )
+        conn.execute(
+            text("""
+                INSERT INTO project_contributors (project_id, contributor_id, is_user) 
+                VALUES (:pid, :c1, TRUE), (:pid, :c2, FALSE)
+            """),
+            {"pid": project_id, "c1": cid_old, "c2": cid_new}
+        )
+
+    # 3. Action: Call the function to make cid_new the user
+    with engine.begin() as conn:
+        _apply_is_user_flag(conn, project_id=project_id, contributor_id=cid_new, unset_others=True)
+
+    # 4. Verification: Check the database state
+    with engine.connect() as conn:
+        # Check cid_new is now TRUE
+        new_status = conn.execute(
+            text("SELECT is_user FROM project_contributors WHERE project_id = :pid AND contributor_id = :cid"),
+            {"pid": project_id, "cid": cid_new}
+        ).scalar()
+        
+        # Check cid_old was flipped to FALSE
+        old_status = conn.execute(
+            text("SELECT is_user FROM project_contributors WHERE project_id = :pid AND contributor_id = :cid"),
+            {"pid": project_id, "cid": cid_old}
+        ).scalar()
+
+        assert new_status is True
+        assert old_status is False
+
+def test_extract_commits_success(client):
+    # 1. Setup: Create a real temporary git repo
+    with tempfile.TemporaryDirectory() as git_dir:
+        repo = Repo.init(git_dir)
+        # Create a dummy commit
+        file_path = f"{git_dir}/readme.txt"
+        with open(file_path, "w") as f:
+            f.write("hello")
+        repo.index.add([file_path])
+        repo.index.commit("Initial commit", author=None)
+        
+        # 2. Package that repo into a ZIP in memory
+        zip_buffer = io.BytesIO()
+        with zipfile.ZipFile(zip_buffer, "a", zipfile.ZIP_DEFLATED) as zf:
+            for root, dirs, files in os.walk(git_dir):
+                for file in files + dirs:
+                    full_path = os.path.join(root, file)
+                    archive_name = os.path.relpath(full_path, git_dir)
+                    zf.write(full_path, archive_name)
+        
+        zip_buffer.seek(0)
+
+        # 3. Action: Upload to the endpoint
+        response = client.post(
+            "/extract-commits/",
+            files={"file": ("repo.zip", zip_buffer, "application/zip")}
+        )
+
+    # 4. Assertions
+    assert response.status_code == 200
+    data = response.json()
+    assert "commits" in data
+    assert data["commits"][0]["message"].strip() == "Initial commit"
+
+def test_extract_commits_invalid_repo(client):
+    # 1. Setup: Create a zip that is NOT a git repo
+    zip_buffer = io.BytesIO()
+    with zipfile.ZipFile(zip_buffer, "a") as zf:
+        zf.writestr("hello.txt", "not a git repo")
+    zip_buffer.seek(0)
+
+    # 2. Action
+    response = client.post(
+        "/extract-commits/",
+        files={"file": ("normal.zip", zip_buffer, "application/zip")}
+    )
+
+    # 3. Assertions
+    assert response.status_code == 200 # The endpoint returns 200 but with an error key
+    assert "error" in response.json()
+    assert "not a valid git repo" in response.json()["error"]
+
+def test_extract_commit_counts_logic(client):
+    # 1. Setup: Create a real temporary git repo with two authors
+    with tempfile.TemporaryDirectory() as git_dir:
+        repo = Repo.init(git_dir)
+        file_path = os.path.join(git_dir, "readme.txt")
+        
+        # Define two different authors
+        author_a = Actor("User A", "a@example.com")
+        author_b = Actor("User B", "b@example.com")
+
+        # Create 2 commits for User A and 1 commit for User B
+        for i in range(2):
+            with open(file_path, "a") as f: f.write(f"a{i}")
+            repo.index.add([file_path])
+            repo.index.commit(f"A commit {i}", author=author_a, committer=author_a)
+            
+        with open(file_path, "a") as f: f.write("b1")
+        repo.index.add([file_path])
+        repo.index.commit("B commit 1", author=author_b, committer=author_b)
+
+        # 2. Package into ZIP
+        zip_buffer = io.BytesIO()
+        with zipfile.ZipFile(zip_buffer, "a", zipfile.ZIP_DEFLATED) as zf:
+            for root, dirs, files in os.walk(git_dir):
+                for file in files + dirs:
+                    full_path = os.path.join(root, file)
+                    archive_name = os.path.relpath(full_path, git_dir)
+                    zf.write(full_path, archive_name)
+        zip_buffer.seek(0)
+
+        # 3. Action: Upload
+        response = client.post(
+            "/extract-commit-counts/",
+            files={"file": ("repo_counts.zip", zip_buffer, "application/zip")}
+        )
+
+    # 4. Assertions
+    assert response.status_code == 200
+    counts = response.json()["commit_counts"]
+    
+    # Verify counts are correct
+    assert counts["User A"] == 2
+    assert counts["User B"] == 1
+    
+    # Verify sorting (User A should be first)
+    assert list(counts.keys())[0] == "User A"
+
+def test_give_users_roles_logic(client):
+    # 1. Setup: Create a git repo with 3 different levels of contribution
+    with tempfile.TemporaryDirectory() as git_dir:
+        repo = Repo.init(git_dir)
+        file_path = os.path.join(git_dir, "work.txt")
+        
+        # 3 authors to test all logic branches of assign_roles
+        authors = [
+            (Actor("Alice", "a@ex.com"), 5), # Should be #1 Contributor
+            (Actor("Bob", "b@ex.com"), 3),   # Should be Top Contributor
+            (Actor("Charlie", "c@ex.com"), 1) # Should be Top Contributor
+        ]
+
+        for author, count in authors:
+            for i in range(count):
+                with open(file_path, "a") as f: f.write(f"{author.name} {i}\n")
+                repo.index.add([file_path])
+                repo.index.commit(f"Commit by {author.name}", author=author, committer=author)
+
+        # 2. Package into ZIP
+        zip_buffer = io.BytesIO()
+        with zipfile.ZipFile(zip_buffer, "a", zipfile.ZIP_DEFLATED) as zf:
+            for root, dirs, files in os.walk(git_dir):
+                for file in files + dirs:
+                    full_path = os.path.join(root, file)
+                    archive_name = os.path.relpath(full_path, git_dir)
+                    zf.write(full_path, archive_name)
+        zip_buffer.seek(0)
+
+        # 3. Action
+        response = client.post(
+            "/give-users-roles/",
+            files={"file": ("repo_roles.zip", zip_buffer, "application/zip")}
+        )
+
+    # 4. Assertions (Matching your assign_roles logic exactly)
+    assert response.status_code == 200
+    data = response.json()
+    roles = data["roles"]
+    
+    # Alice had 5 commits (Most)
+    assert roles["Alice"] == "#1 Contributor"
+    
+    # Bob and Charlie are in the Top 3
+    assert roles["Bob"] == "Top Contributor"
+    assert roles["Charlie"] == "Top Contributor"
+    
+    # Verify the counts matches what we injected
+    assert data["commit_counts"]["Alice"] == 5
+
+def test_set_project_image_success(client, engine):
+    # 1. Setup: Create a real project using your graph helper
+    _, _, project_id, _ = _mk_graph(engine)
+    
+    # Create dummy image data
+    image_data = b"fake-image-bytes-123"
+    expected_sha = hashlib.sha256(image_data).hexdigest()
+    
+    # 2. Action: Upload the "image"
+    response = client.put(
+        f"/projects/{project_id}/image",
+        files={"file": ("test.png", io.BytesIO(image_data), "image/png")}
+    )
+    
+    # 3. Assertions: API Response
+    assert response.status_code == 200
+    assert response.json()["thumbnail_blob_sha256"] == expected_sha
+    
+    # 4. Assertions: Database State
+    with engine.connect() as conn:
+        # Verify Blob exists
+        blob = conn.execute(
+            text("SELECT size_bytes FROM file_blobs WHERE sha256 = :sha"),
+            {"sha": expected_sha}
+        ).fetchone()
+        assert blob.size_bytes == len(image_data)
+        
+        # Verify Showcase points to the blob
+        showcase = conn.execute(
+            text("SELECT thumbnail_blob_sha256 FROM portfolio_showcases WHERE project_id = :pid"),
+            {"pid": project_id}
+        ).fetchone()
+        assert showcase.thumbnail_blob_sha256 == expected_sha
+
+def test_set_project_image_404(client):
+    # Use a random UUID that definitely doesn't exist
+    fake_id = _u()
+    response = client.put(
+        f"/projects/{fake_id}/image",
+        files={"file": ("test.png", b"data", "image/png")}
+    )
+    assert response.status_code == 404
+    assert response.json()["detail"] == "Project not found"
+
+def test_delete_project_image_success(client, engine):
+    # 1. Setup: Create project and a showcase with an image
+    _, _, project_id, _ = _mk_graph(engine)
+    blob_sha = "fake_sha_256_hash"
+    
+    with engine.begin() as conn:
+        # add the blob first to satisfy the Foreign Key constraint
+        conn.execute(
+            text("""
+                INSERT INTO file_blobs (sha256, size_bytes, mime_type, stored_path)
+                VALUES (:sha, 123, 'image/png', 'test_path')
+            """),
+            {"sha": blob_sha}
+        )
+
+        conn.execute(
+            text("""
+                INSERT INTO portfolio_showcases (id, project_id, thumbnail_blob_sha256)
+                VALUES (:sid, :pid, :sha)
+            """),
+            {"sid": _u(), "pid": project_id, "sha": blob_sha}
+        )
+
+    # 2. Action: Call the delete endpoint
+    response = client.delete(f"/projects/{project_id}/image")
+
+    # 3. Assertions
+    assert response.status_code == 200
+    assert response.json() == {"project_id": project_id, "deleted": True}
+
+    # 4. Database Verification
+    with engine.connect() as conn:
+        updated_row = conn.execute(
+            text("SELECT thumbnail_blob_sha256 FROM portfolio_showcases WHERE project_id = :pid"),
+            {"pid": project_id}
+        ).mappings().first()
+        
+        assert updated_row["thumbnail_blob_sha256"] is None
+
+def test_delete_project_image_404(client, engine):
+    # Case: Project exists, but has no showcase/image
+    _, _, project_id, _ = _mk_graph(engine)
+    
+    response = client.delete(f"/projects/{project_id}/image")
+    assert response.status_code == 404
+    assert "image not found" in response.json()["detail"].lower()
