@@ -63,6 +63,9 @@
         .project-item { padding: 10px; border-bottom: 1px solid var(--border-color); cursor: pointer; transition: background 0.2s; }
         .project-item:hover { background: var(--bg-secondary); }
         .project-item.selected { background: var(--bg-secondary); border-left: 3px solid var(--accent-primary); }
+        .project-row { display: flex; flex-direction: row; gap: 12px; align-items: center; }
+        .project-info { flex: 1; min-width: 0; }
+        .project-thumbnail { width: 96px; height: 96px; object-fit: cover; border-radius: 6px; border: 1px solid var(--border-color); background: var(--bg-secondary); }
         .message { padding: 12px; border-radius: 6px; margin: 10px 0; }
         .message.error { background: rgba(220, 38, 38, 0.1); border: 1px solid rgba(220, 38, 38, 0.3); color: var(--error-color); }
         .message.success { background: rgba(22, 163, 74, 0.1); border: 1px solid rgba(22, 163, 74, 0.3); color: var(--success-color); }
@@ -221,12 +224,40 @@
             }
         }
 
+        async function loadProjectThumbnail(projectId, imgEl) {
+            try {
+                const data = await apiCall(`/api/projects/${projectId}/thumbnail?user_name=${currentUser.user_name}`);
+                if (data.success && data.has_thumbnail && data.thumbnail_data) {
+                    imgEl.src = data.thumbnail_data;
+                } else {
+                    imgEl.remove();
+                }
+            } catch (e) {
+                imgEl.remove();
+            }
+        }
+
         async function loadProjects() {
             try {
                 const data = await apiCall(`/api/projects?user_name=${currentUser.user_name}`);
                 if (data.success) projects = data.projects || [];
             } catch (e) {
                 console.error('Failed to load projects:', e);
+            }
+        }
+
+        function refreshProjectListsWithThumbnails() {
+            const listId = 'projectsList';
+            const analyzeId = 'analyzeProjectsList';
+            const thumbnailId = 'thumbnailProjectsList';
+            if (document.getElementById(listId)) {
+                renderProjectsList(listId, 'onProjectSelect', true);
+            }
+            if (document.getElementById(analyzeId)) {
+                renderProjectsList(analyzeId, 'onProjectSelect', true);
+            }
+            if (document.getElementById(thumbnailId)) {
+                renderProjectsList(thumbnailId, 'onProjectSelect', true);
             }
         }
 
@@ -263,7 +294,7 @@
             }
         }
 
-        function renderProjectsList(containerId, onSelect) {
+        function renderProjectsList(containerId, onSelect, showThumbnails = false) {
             const container = document.getElementById(containerId);
             if (!projects.length) {
                 container.innerHTML = '<p>No projects found</p>';
@@ -271,10 +302,24 @@
             }
             container.innerHTML = projects.map(p => 
                 `<div class="project-item" onclick="selectProject(${p.id}, '${containerId}', '${onSelect}')">
-                    <strong>${p.filename}</strong> (ID: ${p.id})<br>
-                    <small>Files: ${p.file_count || 0} | Created: ${new Date(p.created_at).toLocaleDateString()}</small>
+                    <div class="project-row">
+                        ${showThumbnails && p.has_thumbnail ? `<img class="project-thumbnail" data-project-id="${p.id}" alt="Thumbnail for ${p.filename}" />` : ''}
+                        <div class="project-info">
+                            <strong>${p.filename}</strong> (ID: ${p.id})<br>
+                            <small>Files: ${p.file_count || 0} | Created: ${new Date(p.created_at).toLocaleDateString()}</small>
+                        </div>
+                    </div>
                 </div>`
             ).join('');
+
+            if (showThumbnails) {
+                container.querySelectorAll('.project-thumbnail').forEach(img => {
+                    const projectId = img.getAttribute('data-project-id');
+                    if (projectId) {
+                        loadProjectThumbnail(projectId, img);
+                    }
+                });
+            }
         }
 
         function selectProject(id, containerId, callback) {
@@ -316,7 +361,8 @@
                                   viewName === 'analyze' ? 'analyzeProjectsList' :
                                   viewName === 'cleanup' ? 'cleanupProjectsList' :
                                   viewName === 'thumbnail' ? 'thumbnailProjectsList' : 'llmProjectsList';
-                    renderProjectsList(listId, 'onProjectSelect');
+                    const showThumbs = viewName === 'list' || viewName === 'analyze' || viewName === 'thumbnail';
+                    renderProjectsList(listId, 'onProjectSelect', showThumbs);
                 }, 100);
             }
         }
@@ -353,7 +399,7 @@
 
         function refreshProjects() {
             loadProjects().then(() => {
-                renderProjectsList('projectsList', 'onProjectSelect');
+                renderProjectsList('projectsList', 'onProjectSelect', true);
                 showMessage('Projects refreshed', 'success');
             });
         }
@@ -1168,8 +1214,39 @@
                 showMessage('Please select a project', 'error');
                 return;
             }
-            document.getElementById('thumbnailResult').innerHTML = 'Uploading thumbnail... (API endpoint needed)';
-            showMessage('Thumbnail feature requires API endpoint', 'error');
+            const fileInput = document.getElementById('thumbnailFile');
+            const resultDiv = document.getElementById('thumbnailResult');
+            if (!fileInput?.files[0]) {
+                showMessage('Please select an image file', 'error');
+                return;
+            }
+            const file = fileInput.files[0];
+            if (!file.type || !file.type.startsWith('image/')) {
+                showMessage('Thumbnail must be an image file', 'error');
+                return;
+            }
+            const formData = new FormData();
+            formData.append('file', file);
+            resultDiv.innerHTML = 'Uploading thumbnail...';
+            try {
+                const response = await fetch(`${API_BASE_URL}/api/projects/${selectedProjectId}/thumbnail?user_name=${currentUser.user_name}`, {
+                    method: 'POST',
+                    body: formData
+                });
+                const data = await response.json();
+                if (response.ok && data.success) {
+                    resultDiv.innerHTML = 'Thumbnail uploaded successfully';
+                    showMessage('Thumbnail uploaded', 'success');
+                    await loadProjects();
+                    refreshProjectListsWithThumbnails();
+                } else {
+                    resultDiv.innerHTML = data.detail || data.message || 'Thumbnail upload failed';
+                    showMessage('Thumbnail upload failed', 'error');
+                }
+            } catch (e) {
+                resultDiv.innerHTML = `Error: ${e.message}`;
+                showMessage('Thumbnail upload failed', 'error');
+            }
         }
 
         async function runLLMSummary() {

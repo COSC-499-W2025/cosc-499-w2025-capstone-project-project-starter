@@ -470,6 +470,65 @@ def add_thumbnail_to_project(project_id, thumbnail_path) -> UploadResult:
         )
 
 
+def add_thumbnail_bytes_to_project(project_id, thumbnail_bytes) -> UploadResult:
+    """Attach a thumbnail image (raw bytes) to an existing uploaded project."""
+    if not isinstance(project_id, int) or project_id <= 0:
+        return UploadResult(
+            success=False,
+            message="Invalid project ID.",
+            error_type="INVALID_PROJECT_ID",
+            data={"project_id": project_id},
+        )
+
+    if not isinstance(thumbnail_bytes, (bytes, bytearray)) or len(thumbnail_bytes) == 0:
+        return UploadResult(
+            success=False,
+            message="Thumbnail content is empty or invalid.",
+            error_type="THUMBNAIL_INVALID_BYTES",
+            data={"project_id": project_id},
+        )
+
+    try:
+        with with_db_cursor() as cursor:
+            cursor.execute("""
+                UPDATE uploaded_files
+                SET thumbnail = %s,
+                    last_modified_at = CURRENT_TIMESTAMP
+                WHERE id = %s
+                RETURNING id
+            """, (bytes(thumbnail_bytes), project_id))
+            updated = cursor.fetchone()
+
+        if not updated:
+            return UploadResult(
+                success=False,
+                message=f"No project found with ID {project_id}.",
+                error_type="PROJECT_NOT_FOUND",
+                data={"project_id": project_id},
+            )
+
+        return UploadResult(
+            success=True,
+            message="Thumbnail updated successfully.",
+            error_type=None,
+            data={"project_id": project_id},
+        )
+    except ConnectionError:
+        return UploadResult(
+            success=False,
+            message="Could not connect to the database while saving the thumbnail.",
+            error_type="DATABASE_CONNECTION_ERROR",
+            data={"project_id": project_id},
+        )
+    except Exception as e:
+        return UploadResult(
+            success=False,
+            message=f"Failed to save thumbnail: {e}",
+            error_type="THUMBNAIL_SAVE_ERROR",
+            data={"project_id": project_id},
+        )
+
+
 def list_uploaded_files():
     """
     Get a list of all uploaded files with their metadata.
