@@ -391,6 +391,50 @@
             }
             
             html += '</div>';
+
+            // Evidence of Success (ZIP)
+            const zipReport = analysis.zip_success_report || null;
+            if (zipReport) {
+                html += '<div class="analysis-section">';
+                html += '<h4> - Evidence of Success (ZIP)</h4>';
+                if (zipReport.error) {
+                    html += `<div class="analysis-item"><span class="analysis-label">Status:</span><span class="analysis-value">${zipReport.error}</span></div>`;
+                } else {
+                    const success = zipReport.success || {};
+                    const status = (success.status || 'unknown').toUpperCase();
+                    const score = success.score !== undefined ? success.score : 0;
+                    const confidence = success.confidence !== undefined ? success.confidence : 0;
+                    const statusColor = status === 'SUCCESS' ? '#22c55e' : status === 'PARTIAL' ? '#d97706' : '#dc2626';
+                    html += `<div class="analysis-item"><span class="analysis-label">Status:</span><span class="analysis-value" style="color: ${statusColor}; font-weight: 600;">${status}</span></div>`;
+                    html += `<div class="analysis-item"><span class="analysis-label">Score:</span><span class="analysis-value">${score}/100 (confidence ${confidence})</span></div>`;
+                    html += `<div class="analysis-item"><span class="analysis-label">Result:</span><span class="analysis-value">${success.is_successful ? 'SUCCESS' : 'NOT SUCCESSFUL'}</span></div>`;
+
+                    const evidence = zipReport.evidence || {};
+                    const addEvidenceRow = (label, values, limit = 10) => {
+                        if (!values || (Array.isArray(values) && values.length === 0)) return;
+                        html += '<div class="analysis-item">';
+                        html += `<span class="analysis-label">${label}:</span>`;
+                        html += '<div style="margin-top: 5px;">';
+                        const list = Array.isArray(values) ? values.slice(0, limit) : [values];
+                        list.forEach(val => {
+                            html += `<span class="badge">${val}</span>`;
+                        });
+                        html += '</div></div>';
+                    };
+
+                    addEvidenceRow('Entrypoints', evidence.entrypoints);
+                    addEvidenceRow('Dependencies', evidence.dependency_manifests);
+                    addEvidenceRow('Tests', evidence.test_files);
+                    addEvidenceRow('CI Files', evidence.ci_files);
+                    addEvidenceRow('README', evidence.readme_file, 1);
+                    addEvidenceRow('Docs', evidence.docs_files);
+                    addEvidenceRow('Usage Markers', evidence.usage_markers);
+                    addEvidenceRow('Incomplete Markers', evidence.incomplete_markers);
+                    addEvidenceRow('Build Artifacts', evidence.build_artifacts);
+                    addEvidenceRow('License', evidence.license_files);
+                }
+                html += '</div>';
+            }
             
             // File Statistics
             const stats = analysis.file_statistics || {};
@@ -732,6 +776,36 @@
                 }
                 if (overall.summary) {
                     html += `<div class="analysis-item" style="margin-top: 10px;"><p style="font-style: italic;">"${overall.summary}"</p></div>`;
+                }
+                html += '</div>';
+            }
+
+            // Project Completion
+            const completion = analysis.project_completion || {};
+            if (completion.status || completion.evidence || completion.missing_or_risks) {
+                html += '<div class="analysis-section">';
+                html += '<h4>Project Completion</h4>';
+                if (completion.status) {
+                    const status = completion.status.toUpperCase();
+                    const statusColor = status === 'COMPLETE' ? '#22c55e' : status === 'MOSTLY_COMPLETE' ? '#84cc16' : status === 'PARTIAL' ? '#d97706' : '#dc2626';
+                    html += `<div class="analysis-item"><span class="analysis-label">Status:</span><span class="analysis-value" style="color: ${statusColor}; font-weight: 600;">${status}</span></div>`;
+                }
+                if (completion.confidence !== undefined) {
+                    html += `<div class="analysis-item"><span class="analysis-label">Confidence:</span><span class="analysis-value">${completion.confidence}</span></div>`;
+                }
+                if (completion.evidence && completion.evidence.length > 0) {
+                    html += '<div class="analysis-item"><span class="analysis-label">Evidence:</span><div style="margin-top: 5px;">';
+                    completion.evidence.forEach(item => {
+                        html += `<span class="badge">${item}</span>`;
+                    });
+                    html += '</div></div>';
+                }
+                if (completion.missing_or_risks && completion.missing_or_risks.length > 0) {
+                    html += '<div class="analysis-item"><span class="analysis-label">Missing/Risks:</span><div style="margin-top: 5px;">';
+                    completion.missing_or_risks.forEach(item => {
+                        html += `<span class="badge" style="background: #d97706;">${item}</span>`;
+                    });
+                    html += '</div></div>';
                 }
                 html += '</div>';
             }

@@ -297,6 +297,12 @@ Please provide a detailed analysis in the following JSON format:
         "skill_level": "<junior|mid|senior|expert>",
         "summary": "<2-3 sentence overall assessment>"
     }},
+    "project_completion": {{
+        "status": "<complete|mostly_complete|partial|incomplete|unknown>",
+        "confidence": <0-1 float>,
+        "evidence": ["<signals suggesting completeness>"],
+        "missing_or_risks": ["<signals suggesting the project is incomplete>"]
+    }},
     "architecture": {{
         "patterns_used": ["<list of design patterns/architectural patterns identified>"],
         "structure_quality": "<poor|fair|good|excellent>",
