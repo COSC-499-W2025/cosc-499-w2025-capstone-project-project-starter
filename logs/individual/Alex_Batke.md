@@ -1,6 +1,29 @@
 # Personal Log of Alex Batke
 
-# Personal Log of Alex Batke
+
+# Term 2 Week 5
+
+## Applicable Date Range
+- Monday, 26th to Sunday, Feburary 8th
+
+## Peer Evaluation Screenshot
+![alt text](<imgs/alex_batke_T2W5.png>)
+
+
+### Recap On Your Weeks Goals
+- Which Features Were Yours in the Project Plan for this Milestone?
+  In addition to all my previously completed work, I worked on reimplementing our thumbnail image API endpoint and FINALLY got
+  the thumbnail image to display on the downloaded pdf so the user can have a visual of the associated project image. but it took an extremely long time (about 20 hours in total over the 2 weeks of this sprint). I also recieved help from the team in trouble shooting and bug fixing the implementation.
+- Which Tasks from the Project Board are Associated with these Features?
+   The relevant issue was #216, which was the image showing up
+   on the user side of it being on the pdf
+- Among these tasks, which have you completed/in progress in the last 2 weeks?
+ Not only is the endpoint not implemented, but the full requirement
+ has all components and user side visuals properly formatted as well.
+- Planning for next sprint: 
+  Next sprint will be focusing on learning how to style the frontend we will have as it is something I have not used previously.
+- Optional text: additional context that we should be aware of:
+  My local version of Docker this week had several issues, which severely impacted my ability to complete the implementation in a timely manner. I was able to rule out any possibilities that it was to do with any changes made (there were none). It only appeared to be my machine to have issues. It could cause problems for the final portion of the project if issues arise again.
 
 # Rerm 2 Week 3
 
