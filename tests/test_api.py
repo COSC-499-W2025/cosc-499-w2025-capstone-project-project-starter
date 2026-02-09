@@ -1328,7 +1328,7 @@ def test_pdf_with_thumbnail_contains_image():
     current_dir = os.path.dirname(os.path.abspath(__file__))
     image_path = os.path.join(current_dir, "data", "thumbnail.png")
 
-    # 2. Read the image and encode it to Base64 (because your function decodes it)
+    # 2. Read the image and encode it to Base64
     with open(image_path, "rb") as f:
         image_bytes = f.read()
         base64_image = base64.b64encode(image_bytes).decode('utf-8')
@@ -1340,9 +1340,9 @@ def test_pdf_with_thumbnail_contains_image():
             "project": {"name": "Test Project"},
             "summary_text": "This is a test summary",
             "resume_bullets": ["Bullet 1", "Bullet 2"],
-            "thumbnail_blob": {
-                "data_base64": base64_image, # Your code looks for this key
-                "mime_type": "image/png"     # Your code uses this for the suffix
+            "thumbnail_blob": { 
+                "data_base64": base64_image,
+                "mime_type": "image/png"     
             }
         }
     }
@@ -1364,7 +1364,6 @@ def test_pdf_without_thumbnail_no_image_marker():
             "project": {"name": "No Image Project"},
             "summary_text": "No image here",
             "resume_bullets": ["Bullet 1"],
-            # No thumbnail_blob key
         }
     }
 
