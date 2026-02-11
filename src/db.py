@@ -43,6 +43,7 @@ CREATE TABLE IF NOT EXISTS full_scan_summaries (
     timestamp TEXT NOT NULL,
     analysis_mode TEXT NOT NULL,
     user_consent TEXT NOT NULL,
+    zip_hash TEXT,
     project_summaries_json TEXT NOT NULL
 )
 """
@@ -61,6 +62,12 @@ def ensure_db_initialized(conn: sqlite3.Connection) -> None:
     conn.execute(USER_CONFIG_TABLE_SQL)
     # Ensure the table for full scans exists.
     conn.execute(CREATE_FULL_SCAN_TABLE_SQL)
+    
+    # Migration: Add zip_hash column if it doesn't exist (for existing DBs)
+    try:
+        conn.execute("ALTER TABLE full_scan_summaries ADD COLUMN zip_hash TEXT")
+    except sqlite3.OperationalError:
+        pass  # Column likely already exists
 
 # ----------------------
 # Save results
@@ -121,18 +128,21 @@ def save_full_scan(
         "user_consent": "Yes" if user_consent else "No",
         "timestamp": datetime.now().isoformat()
     }
+    
+    zip_hash = analysis_results.get("zip_hash")
 
     with sqlite3.connect(db_path) as conn:
         ensure_db_initialized(conn)
         conn.execute(
             """
-            INSERT INTO full_scan_summaries (timestamp, analysis_mode, user_consent, project_summaries_json)
-            VALUES (?, ?, ?, ?)
+            INSERT INTO full_scan_summaries (timestamp, analysis_mode, user_consent, zip_hash, project_summaries_json)
+            VALUES (?, ?, ?, ?, ?)
             """,
             (
                 full_scan_data["timestamp"],
                 analysis_mode,
                 full_scan_data["user_consent"],
+                zip_hash,
                 json.dumps(full_scan_data, ensure_ascii=False, default=str),
             )
         )
@@ -170,3 +180,12 @@ def delete_full_scan_by_id(summary_id, db_path=DB_NAME):
         cursor = conn.execute("DELETE FROM full_scan_summaries WHERE summary_id = ?", (summary_id,))
         conn.commit()
     return cursor.rowcount > 0
+
+def scan_exists(zip_hash, db_path=DB_NAME):
+    """Checks if a scan with the given zip_hash already exists."""
+    if not zip_hash:
+        return False
+    with sqlite3.connect(db_path) as conn:
+        ensure_db_initialized(conn)
+        row = conn.execute("SELECT 1 FROM full_scan_summaries WHERE zip_hash = ?", (zip_hash,)).fetchone()
+        return row is not None
