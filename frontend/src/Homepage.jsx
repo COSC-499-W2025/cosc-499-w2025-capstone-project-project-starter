@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 
 const API_BASE = process.env.REACT_APP_API_URL || 'http://localhost:5001';
 
@@ -43,12 +43,18 @@ function App() {
     }
   }, []);
 
-  useEffect(() => {
-    if (!userId) return;
-    fetchProjects();
-  }, [userId]);
+  const fetchTopProjects = useCallback(async (pId) => {
+    try {
+      const res = await fetch(`${API_BASE}/portfolio/${pId}/top-projects?limit=5`);
+      const data = await res.json();
+      setTopProjects(data.top_projects || []);
+    } catch (err) {
+      console.error("Error fetching top projects:", err);
+    }
+  }, []);
 
-  const fetchProjects = async () => {
+  const fetchProjects = useCallback(async () => {
+    if (!userId) return;
     try {
       const res = await fetch(`${API_BASE}/projects?user_id=${userId}`);
       const data = await res.json();
@@ -61,17 +67,12 @@ function App() {
     } catch (err) {
       console.error("Error fetching projects:", err);
     }
-  };
+  }, [userId, fetchTopProjects]);
 
-  const fetchTopProjects = async (pId) => {
-    try {
-      const res = await fetch(`${API_BASE}/portfolio/${pId}/top-projects?limit=5`);
-      const data = await res.json();
-      setTopProjects(data.top_projects || []);
-    } catch (err) {
-      console.error("Error fetching top projects:", err);
-    }
-  };
+  useEffect(() => {
+    if (!userId) return;
+    fetchProjects();
+  }, [userId, fetchProjects]);
 
   const fetchProjectReport = async (projectId) => {
     setLoading(true);

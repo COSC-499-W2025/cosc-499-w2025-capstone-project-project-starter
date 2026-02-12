@@ -305,6 +305,104 @@ def test_users_config_put_and_patch(client, engine):
     assert body_patch["config"]["identity"]["match_names"] == ["Me"]
 
 
+def test_auth_register_me_and_logout(client):
+    reg = client.post(
+        "/auth/register",
+        json={
+            "email": "owner@example.com",
+            "password": "password123",
+            "display_name": "Owner",
+            "consent_data_access": True,
+        },
+    )
+    assert reg.status_code == 200
+    body = reg.json()
+    assert "token" in body
+    assert body["user"]["email"] == "owner@example.com"
+    assert body["user"]["display_name"] == "Owner"
+    assert body["user"]["portfolio_id"] is not None
+
+    token = body["token"]
+    headers = {"Authorization": f"Bearer {token}"}
+
+    me = client.get("/auth/me", headers=headers)
+    assert me.status_code == 200
+    assert me.json()["user"]["user_id"] == body["user"]["user_id"]
+
+    scoped_projects = client.get("/projects", headers=headers)
+    assert scoped_projects.status_code == 200
+    assert scoped_projects.json()["portfolio_id"] == body["user"]["portfolio_id"]
+    assert scoped_projects.json()["projects"] == []
+
+    logout = client.post("/auth/logout", headers=headers)
+    assert logout.status_code == 200
+    assert logout.json()["ok"] is True
+
+    me_after_logout = client.get("/auth/me", headers=headers)
+    assert me_after_logout.status_code == 401
+
+
+def test_auth_login_and_wrong_password(client):
+    reg = client.post(
+        "/auth/register",
+        json={
+            "email": "login-user@example.com",
+            "password": "good-password",
+            "display_name": "Login User",
+            "consent_data_access": True,
+        },
+    )
+    assert reg.status_code == 200
+
+    bad = client.post(
+        "/auth/login",
+        json={"email": "login-user@example.com", "password": "wrong-password"},
+    )
+    assert bad.status_code == 401
+
+    ok = client.post(
+        "/auth/login",
+        json={"email": "login-user@example.com", "password": "good-password"},
+    )
+    assert ok.status_code == 200
+    assert ok.json()["user"]["email"] == "login-user@example.com"
+    assert "token" in ok.json()
+
+
+def test_authenticated_user_scope_rejects_mismatched_user_id(client):
+    reg = client.post(
+        "/auth/register",
+        json={
+            "email": "scoped@example.com",
+            "password": "scope-password",
+            "display_name": "Scoped",
+            "consent_data_access": True,
+        },
+    )
+    assert reg.status_code == 200
+    token = reg.json()["token"]
+    headers = {"Authorization": f"Bearer {token}"}
+
+    other = client.post(
+        "/privacy-consent",
+        json={"consent_type": "data_access", "granted": True, "version": 1},
+    )
+    assert other.status_code == 200
+    other_user_id = other.json()["user_id"]
+
+    projects = client.get(f"/projects?user_id={other_user_id}", headers=headers)
+    assert projects.status_code == 403
+
+    zip_buf = _create_dummy_zip()
+    upload = client.post(
+        "/projects/upload",
+        files={"file": ("scope.zip", zip_buf, "application/zip")},
+        data={"user_id": other_user_id},
+        headers=headers,
+    )
+    assert upload.status_code == 403
+
+
 def test_list_projects_requires_scope(client):
     r = client.get("/projects")
     assert r.status_code == 400

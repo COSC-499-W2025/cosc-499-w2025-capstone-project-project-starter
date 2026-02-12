@@ -6,6 +6,30 @@ The following assumes you use:
 export API="http://localhost:5001"
 ```
 
+## Authentication (frontend login flow)
+Create an account (also grants `data_access` consent and creates a default portfolio):
+
+```bash
+curl -sS -X POST "$API/auth/register" \
+  -H "Content-Type: application/json" \
+  -d '{"email":"you@example.com","password":"password123","display_name":"You","consent_data_access":true}'
+```
+
+Log in:
+
+```bash
+curl -sS -X POST "$API/auth/login" \
+  -H "Content-Type: application/json" \
+  -d '{"email":"you@example.com","password":"password123"}'
+```
+
+Use the returned bearer token:
+
+```bash
+curl -sS "$API/auth/me" -H "Authorization: Bearer <TOKEN>"
+curl -sS "$API/projects" -H "Authorization: Bearer <TOKEN>"
+```
+
 ## Milestone 1: consent, ingest, reports, skills, ranking, deletion, chronology
 1) Provide consent (and create a user)
 
