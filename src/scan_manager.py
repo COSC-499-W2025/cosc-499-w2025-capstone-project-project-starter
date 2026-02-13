@@ -2,10 +2,12 @@ import os
 import shutil
 from datetime import datetime
 
-from db import delete_full_scan_by_id, get_full_scan_by_id, list_full_scans
+from db import delete_full_scan_by_id, get_full_scan_by_id, list_full_scans, update_full_scan
+from file_parser import get_input_file_path
 from permission_manager import get_yes_no
 from resume_generator import generate_resume, generate_contributor_portfolio
 from portfolio_generator import create_portfolios
+from services.scan_service import analyze_scan, merge_scans
 
 from print_utils import (
     print_repo_summary,
@@ -49,9 +51,10 @@ def scan_manager():
                 ("0", "Return to home screen"),
                 ("1", "View stored project analyses"),
                 ("2", "Generate Resume/Portfolio"),
-                ("3", "Delete stored scans"),
+                ("3", "Update an existing scan"),
+                ("4", "Delete stored scans"),
             ],
-            prompt="Choose an option (0–3): ",
+            prompt="Choose an option (0–4): ",
         )
 
         if choice == "1":
@@ -59,6 +62,8 @@ def scan_manager():
         elif choice == "2":
             generate_portfolio_menu()
         elif choice == "3":
+            update_scan_workflow()
+        elif choice == "4":
             delete_full_scan()
         elif choice == "0":
             break
@@ -150,6 +155,72 @@ def view_full_scan_details():
         except Exception as e:
             print(f"Error saving report: {e}")
 
+
+# --------------------------------------------------------
+# UPDATE SCAN
+# --------------------------------------------------------
+
+def update_scan_workflow():
+    _print_header("UPDATE EXISTING SCAN")
+    
+    # 1. Select existing scan
+    scans = list_full_scans()
+    if not scans:
+        print(_center_text("No existing scans found to update."))
+        return
+
+    print(_center_text("Select a scan to update:"))
+    _print_scan_list(scans)
+    
+    choice = input(_center_text(f"Choose (1-{len(scans)} or 0 to cancel): ")).strip()
+    if not choice.isdigit():
+        return
+    idx = int(choice)
+    if idx == 0 or idx > len(scans):
+        return
+    
+    target_scan_meta = scans[idx-1]
+    summary_id = target_scan_meta['summary_id']
+    
+    # Load full data
+    existing_record = get_full_scan_by_id(summary_id)
+    if not existing_record:
+        print(_center_text("Error loading scan data."))
+        return
+    
+    existing_data = existing_record['scan_data']
+
+    # 2. Select new file
+    print(_center_text("Select the new ZIP file to add:"))
+    result = get_input_file_path()
+    if not result:
+        return
+    file_list, zip_hash = result
+    
+    # Check if this file is already in the scan
+    current_hashes = set(existing_data.get("source_hashes", []))
+        
+    if zip_hash in current_hashes:
+        print(_center_text("This file has already been added to this scan."))
+        return
+
+    # 3. Analyze
+    print(_center_text("Analyzing new files..."))
+    analysis_mode = existing_record['analysis_mode']
+    # Use default advanced options (empty dict defaults to True in detailed_extraction)
+    new_results = analyze_scan(file_list, analysis_mode, {})
+    if new_results:
+        new_results["source_hashes"] = [zip_hash]
+    
+    # 4. Merge
+    merged_results = merge_scans(existing_data, new_results)
+    
+    # 5. Save
+    try:
+        update_full_scan(summary_id, merged_results)
+        print(_center_text("Portfolio updated successfully."))
+    except Exception as e:
+        print(_center_text(f"Error updating portfolio: {e}"))
 
 # --------------------------------------------------------
 # DELETE SCAN
