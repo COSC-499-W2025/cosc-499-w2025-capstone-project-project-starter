@@ -82,9 +82,11 @@ def create_app() -> Flask:
         if not zip_path:
             return jsonify({"error": "zip file or zip_path is required"}), 400
 
-        file_list = check_file_validity(zip_path)
-        if not file_list:
+        validity_result = check_file_validity(zip_path)
+        if not validity_result:
             return jsonify({"error": "invalid or empty zip file"}), 400
+        
+        file_list, zip_hash = validity_result
 
         results = run_scan(
             file_list,

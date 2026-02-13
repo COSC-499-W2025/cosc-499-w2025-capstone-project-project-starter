@@ -201,7 +201,7 @@ def generate_markdown_portfolio(data, user, timestamp):
         os.makedirs(OUTPUT_DIR, exist_ok=True)
         
         safe_name = "".join(c for c in user if c.isalnum() or c in (' ', '_', '-')).strip().replace(' ', '_')
-        filename = f"Portfolio_{safe_name}_{timestamp.replace(':', '-')}.md"
+        filename = f"Portfolio_{safe_name}.md"
         out_path = os.path.join(OUTPUT_DIR, filename)
         
         with open(out_path, "w", encoding="utf-8") as f:
@@ -309,7 +309,7 @@ def generate_portfolio_menu():
             user,
             profile,
             project_map,
-            scan_timestamp=scan["timestamp"],
+            scan_timestamp=None,
             sort_mode=sort_mode
         )
 
