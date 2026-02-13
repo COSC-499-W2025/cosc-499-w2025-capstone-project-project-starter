@@ -43,11 +43,19 @@ CREATE TABLE IF NOT EXISTS full_scan_summaries (
     timestamp TEXT NOT NULL,
     analysis_mode TEXT NOT NULL,
     user_consent TEXT NOT NULL,
-    zip_hash TEXT,
     project_summaries_json TEXT NOT NULL
 )
 """
 
+# Table to store file hashes for deduplication (One-to-Many relationship)
+CREATE_SCAN_HASHES_TABLE_SQL = """
+CREATE TABLE IF NOT EXISTS scan_hashes (
+    hash_id INTEGER PRIMARY KEY AUTOINCREMENT,
+    summary_id INTEGER NOT NULL,
+    file_hash TEXT NOT NULL,
+    FOREIGN KEY(summary_id) REFERENCES full_scan_summaries(summary_id)
+)
+"""
 
 # ----------------------
 # Initialization
@@ -62,12 +70,7 @@ def ensure_db_initialized(conn: sqlite3.Connection) -> None:
     conn.execute(USER_CONFIG_TABLE_SQL)
     # Ensure the table for full scans exists.
     conn.execute(CREATE_FULL_SCAN_TABLE_SQL)
-    
-    # Migration: Add zip_hash column if it doesn't exist (for existing DBs)
-    try:
-        conn.execute("ALTER TABLE full_scan_summaries ADD COLUMN zip_hash TEXT")
-    except sqlite3.OperationalError:
-        pass  # Column likely already exists
+    conn.execute(CREATE_SCAN_HASHES_TABLE_SQL)
 
 # ----------------------
 # Save results
@@ -126,26 +129,69 @@ def save_full_scan(
         "contributor_profiles": analysis_results.get("contributor_profiles", {}),
         "analysis_mode": analysis_mode,
         "user_consent": "Yes" if user_consent else "No",
+        "source_hashes": [analysis_results.get("zip_hash")] if analysis_results.get("zip_hash") else [],
         "timestamp": datetime.now().isoformat()
     }
     
-    zip_hash = analysis_results.get("zip_hash")
-
     with sqlite3.connect(db_path) as conn:
         ensure_db_initialized(conn)
-        conn.execute(
+        cursor = conn.execute(
             """
-            INSERT INTO full_scan_summaries (timestamp, analysis_mode, user_consent, zip_hash, project_summaries_json)
-            VALUES (?, ?, ?, ?, ?)
+            INSERT INTO full_scan_summaries (timestamp, analysis_mode, user_consent, project_summaries_json)
+            VALUES (?, ?, ?, ?)
             """,
             (
                 full_scan_data["timestamp"],
                 analysis_mode,
                 full_scan_data["user_consent"],
-                zip_hash,
                 json.dumps(full_scan_data, ensure_ascii=False, default=str),
             )
         )
+        summary_id = cursor.lastrowid
+
+        # Save hashes to the lookup table for fast deduplication
+        hashes = full_scan_data.get("source_hashes", [])
+        if hashes:
+            conn.executemany(
+                "INSERT INTO scan_hashes (summary_id, file_hash) VALUES (?, ?)",
+                [(summary_id, h) for h in hashes]
+            )
+        conn.commit()
+
+def update_full_scan(summary_id, merged_data, db_path=DB_NAME):
+    """
+    Updates the JSON data for an existing scan record.
+    Used when adding incremental information to a portfolio.
+    """
+    # Helper to serialize datetimes (similar to save_full_scan)
+    def _serialize_project(p): 
+        p_copy = p.copy()
+        for key in ["first_modified", "last_modified"]:
+            if key in p_copy and isinstance(p_copy[key], datetime):
+                p_copy[key] = p_copy[key].isoformat()
+        return p_copy
+
+    if "project_summaries" in merged_data:
+        merged_data["project_summaries"] = [
+            _serialize_project(p) for p in merged_data["project_summaries"]
+        ]
+
+    with sqlite3.connect(db_path) as conn:
+        ensure_db_initialized(conn)
+        conn.execute(
+            "UPDATE full_scan_summaries SET project_summaries_json = ? WHERE summary_id = ?",
+            (json.dumps(merged_data, ensure_ascii=False, default=str), summary_id)
+        )
+        
+        # Update hashes table: Remove old entries and re-insert the current list
+        conn.execute("DELETE FROM scan_hashes WHERE summary_id = ?", (summary_id,))
+        
+        hashes = merged_data.get("source_hashes", [])
+        if hashes:
+            conn.executemany(
+                "INSERT INTO scan_hashes (summary_id, file_hash) VALUES (?, ?)",
+                [(summary_id, h) for h in hashes]
+            )
         conn.commit()
 
 def get_full_scan_by_id(summary_id, db_path=DB_NAME):
@@ -178,6 +224,7 @@ def delete_full_scan_by_id(summary_id, db_path=DB_NAME):
     with sqlite3.connect(db_path) as conn:
         ensure_db_initialized(conn)
         cursor = conn.execute("DELETE FROM full_scan_summaries WHERE summary_id = ?", (summary_id,))
+        conn.execute("DELETE FROM scan_hashes WHERE summary_id = ?", (summary_id,))
         conn.commit()
     return cursor.rowcount > 0
 
@@ -187,5 +234,5 @@ def scan_exists(zip_hash, db_path=DB_NAME):
         return False
     with sqlite3.connect(db_path) as conn:
         ensure_db_initialized(conn)
-        row = conn.execute("SELECT 1 FROM full_scan_summaries WHERE zip_hash = ?", (zip_hash,)).fetchone()
+        row = conn.execute("SELECT 1 FROM scan_hashes WHERE file_hash = ?", (zip_hash,)).fetchone()
         return row is not None
