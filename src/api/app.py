@@ -1297,6 +1297,7 @@ def get_project_by_id(project_id: str):
                   pr.collaboration_type,
                   pr.user_role,
                   pr.created_at,
+                  pr.evidence_json,
                   COALESCE(t.total_commits, 0) AS total_commits,
                   COALESCE(ut.user_commits, 0) AS user_commits,
                   COALESCE(t.contributor_count, 0) AS contributor_count,
@@ -1317,6 +1318,10 @@ def get_project_by_id(project_id: str):
 
         # Convert to dict and format metrics as seen in list_projects
         res = dict(row)
+
+        # Pop and rename for api response
+        res["evidence"] = res.pop("evidence_json") or {}
+
         res["metrics"] = {
             "total_commits": int(res.pop("total_commits")),
             "user_commits": int(res.pop("user_commits")) or None,

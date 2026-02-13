@@ -879,6 +879,38 @@ def test_project_patch_persists_user_role_and_evidence_end_to_end(client, engine
     resume_project = r_resume.json()["content"]["project"]
     assert resume_project["user_role"] == "Technical Lead"
 
+def test_get_project_by_id_surfaces_evidence(client, engine):
+    """
+    Test for the fix: GET /projects/{project_id} must return 'evidence'
+    derived from 'evidence_json' in the database.
+    """
+    _, _, project_id, _ = _mk_graph(engine)
+
+    test_evidence = {
+        "metrics": {"velocity": 10, "quality": "high"},
+        "feedback": "Great work on the endpoint.",
+        "evaluation": "Exceeds expectations"
+    }
+
+    # PATCH the evidence using "evidence_json" as the key here because that's what PATCH expects
+    patch_response = client.patch(
+        f"/projects/{project_id}",
+        json={"evidence_json": test_evidence}
+    )
+    assert patch_response.status_code == 200
+
+    # GET the project
+    get_response = client.get(f"/projects/{project_id}")
+    assert get_response.status_code == 200
+    
+    data = get_response.json()
+    
+    # Assertions
+    assert "evidence" in data, "The 'evidence' key is missing from the response!"
+    assert data["evidence"] == test_evidence, "The evidence data does not match what was saved!"
+    
+    # Verify we aren't leaking the internal DB column name
+    assert "evidence_json" not in data
 
 def test_project_patch_updates_targeted_evidence_sections(client, engine):
     _, _, project_id, _ = _mk_graph(engine)
