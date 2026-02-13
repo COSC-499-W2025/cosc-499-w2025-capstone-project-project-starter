@@ -1,19 +1,26 @@
-import React, { useCallback, useEffect, useState } from 'react';
-import { authApi, projectApi } from './api';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { API_BASE_URL, authApi, projectApi } from './api';
 
-const AUTH_TOKEN_KEY = 'artifactMiner.authToken';
+const TOKEN_STORAGE_KEY = 'artifactMiner.authToken';
 
-function defaultProjectName(filename) {
+function normalizeProjectName(filename) {
   return filename.replace(/\.zip$/i, '');
 }
 
+function formatDate(value) {
+  if (!value) return 'N/A';
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) return 'N/A';
+  return parsed.toLocaleDateString();
+}
+
 function Homepage() {
-  const [token, setToken] = useState(() => localStorage.getItem(AUTH_TOKEN_KEY) || '');
+  const [token, setToken] = useState(() => localStorage.getItem(TOKEN_STORAGE_KEY) || '');
+  const [currentUser, setCurrentUser] = useState(null);
   const [sessionLoading, setSessionLoading] = useState(true);
-  const [user, setUser] = useState(null);
   const [authMode, setAuthMode] = useState('login');
-  const [authError, setAuthError] = useState('');
   const [authBusy, setAuthBusy] = useState(false);
+  const [authError, setAuthError] = useState('');
 
   const [loginEmail, setLoginEmail] = useState('');
   const [loginPassword, setLoginPassword] = useState('');
@@ -24,94 +31,140 @@ function Homepage() {
   const [registerConfirmPassword, setRegisterConfirmPassword] = useState('');
 
   const [view, setView] = useState('projects');
-  const [projects, setProjects] = useState([]);
-  const [loadingProjects, setLoadingProjects] = useState(false);
-  const [dashboardError, setDashboardError] = useState('');
-  const [dashboardMessage, setDashboardMessage] = useState('');
-
-  const [file, setFile] = useState(null);
-  const [projectName, setProjectName] = useState('');
+  const [loading, setLoading] = useState(false);
   const [uploading, setUploading] = useState(false);
+  const [dashboardError, setDashboardError] = useState('');
+  const [flashMessage, setFlashMessage] = useState('');
 
-  const resetDashboard = useCallback(() => {
+  const [portfolioId, setPortfolioId] = useState(null);
+  const [projects, setProjects] = useState([]);
+  const [topProjects, setTopProjects] = useState([]);
+  const [chronologicalSkills, setChronologicalSkills] = useState([]);
+  const [selectedProject, setSelectedProject] = useState(null);
+  const [projectReport, setProjectReport] = useState(null);
+  const [projectSkills, setProjectSkills] = useState(null);
+  const [contributors, setContributors] = useState([]);
+  const [file, setFile] = useState(null);
+  const [uploadProjectName, setUploadProjectName] = useState('');
+
+  const isAuthenticated = Boolean(token && currentUser);
+
+  const clearDashboardState = useCallback(() => {
+    setPortfolioId(null);
     setProjects([]);
-    setView('projects');
-    setDashboardError('');
-    setDashboardMessage('');
+    setTopProjects([]);
+    setChronologicalSkills([]);
+    setSelectedProject(null);
+    setProjectReport(null);
+    setProjectSkills(null);
+    setContributors([]);
     setFile(null);
-    setProjectName('');
+    setUploadProjectName('');
+    setView('projects');
   }, []);
 
   const clearSession = useCallback(() => {
-    localStorage.removeItem(AUTH_TOKEN_KEY);
+    localStorage.removeItem(TOKEN_STORAGE_KEY);
     setToken('');
-    setUser(null);
-    setAuthError('');
-    resetDashboard();
-  }, [resetDashboard]);
+    setCurrentUser(null);
+    setDashboardError('');
+    setFlashMessage('');
+    clearDashboardState();
+  }, [clearDashboardState]);
 
   useEffect(() => {
-    let active = true;
-
-    async function restoreSession() {
+    let cancelled = false;
+    const bootstrapSession = async () => {
       if (!token) {
-        if (active) {
-          setSessionLoading(false);
-        }
+        setSessionLoading(false);
         return;
       }
       try {
-        const response = await authApi.me(token);
-        if (active) {
-          setUser(response.user || null);
+        const me = await authApi.me(token);
+        if (!cancelled) {
+          setCurrentUser(me.user || null);
         }
       } catch (error) {
-        if (active) {
+        if (!cancelled) {
           clearSession();
-          setAuthError('Session expired. Please sign in again.');
+          setAuthError('Your session expired. Please sign in again.');
         }
       } finally {
-        if (active) {
+        if (!cancelled) {
           setSessionLoading(false);
         }
       }
-    }
-
-    restoreSession();
+    };
+    bootstrapSession();
     return () => {
-      active = false;
+      cancelled = true;
     };
   }, [token, clearSession]);
 
   const fetchProjects = useCallback(async () => {
     if (!token) return;
-    setLoadingProjects(true);
+    setLoading(true);
     setDashboardError('');
     try {
-      const response = await projectApi.list(token);
-      setProjects(response.projects || []);
+      const data = await projectApi.listProjects(token);
+      setProjects(data.projects || []);
+      setPortfolioId(data.portfolio_id || null);
     } catch (error) {
       setDashboardError(error.message || 'Unable to load projects.');
     } finally {
-      setLoadingProjects(false);
+      setLoading(false);
     }
   }, [token]);
 
+  const fetchTopProjects = useCallback(async () => {
+    if (!token || !portfolioId) return;
+    setLoading(true);
+    setDashboardError('');
+    try {
+      const data = await projectApi.getPortfolioTopProjects(token, portfolioId, 5);
+      setTopProjects(data.top_projects || []);
+    } catch (error) {
+      setDashboardError(error.message || 'Unable to load top projects.');
+    } finally {
+      setLoading(false);
+    }
+  }, [token, portfolioId]);
+
+  const fetchChronologicalSkills = useCallback(async () => {
+    if (!token || !portfolioId) return;
+    setLoading(true);
+    setDashboardError('');
+    try {
+      const data = await projectApi.getPortfolioSkillTimeline(token, portfolioId, 50);
+      setChronologicalSkills(data.skill_events || []);
+    } catch (error) {
+      setDashboardError(error.message || 'Unable to load skills timeline.');
+    } finally {
+      setLoading(false);
+    }
+  }, [token, portfolioId]);
+
   useEffect(() => {
-    if (!token || !user) return;
+    if (!isAuthenticated) return;
     fetchProjects();
-  }, [token, user, fetchProjects]);
+  }, [isAuthenticated, fetchProjects]);
+
+  useEffect(() => {
+    if (!isAuthenticated) return;
+    if (view === 'top') fetchTopProjects();
+    if (view === 'skills') fetchChronologicalSkills();
+  }, [view, isAuthenticated, fetchTopProjects, fetchChronologicalSkills]);
 
   const handleAuthSuccess = useCallback(
     (response) => {
-      localStorage.setItem(AUTH_TOKEN_KEY, response.token);
+      localStorage.setItem(TOKEN_STORAGE_KEY, response.token);
       setToken(response.token);
-      setUser(response.user || null);
+      setCurrentUser(response.user || null);
       setAuthError('');
-      resetDashboard();
-      setDashboardMessage('Signed in successfully.');
+      setFlashMessage('Signed in successfully.');
+      clearDashboardState();
     },
-    [resetDashboard]
+    [clearDashboardState]
   );
 
   const handleLogin = async (event) => {
@@ -141,7 +194,6 @@ function Homepage() {
       setAuthError('Passwords do not match.');
       return;
     }
-
     try {
       const response = await authApi.register({
         email: registerEmail,
@@ -159,29 +211,29 @@ function Homepage() {
   };
 
   const handleLogout = async () => {
-    if (token) {
-      try {
-        await authApi.logout(token);
-      } catch (error) {
-        // Clear session client-side even when server logout fails.
-      }
+    if (!token) return;
+    try {
+      await authApi.logout(token);
+    } catch (error) {
+      // Ignore logout API failures and clear local session anyway.
+    } finally {
+      clearSession();
     }
-    clearSession();
   };
 
   const handleUpload = async () => {
     if (!file) return;
     setUploading(true);
     setDashboardError('');
-    setDashboardMessage('');
+    setFlashMessage('');
     try {
-      await projectApi.upload(token, {
+      await projectApi.uploadProject(token, {
         file,
-        projectName: projectName.trim() || defaultProjectName(file.name),
+        projectName: uploadProjectName.trim() || normalizeProjectName(file.name),
       });
-      setDashboardMessage('Project uploaded.');
       setFile(null);
-      setProjectName('');
+      setUploadProjectName('');
+      setFlashMessage('Project uploaded successfully.');
       await fetchProjects();
       setView('projects');
     } catch (error) {
@@ -191,307 +243,406 @@ function Homepage() {
     }
   };
 
+  const viewProjectDetails = async (project) => {
+    if (!token) return;
+    setSelectedProject(project);
+    setView('report');
+    setProjectReport(null);
+    setProjectSkills(null);
+    setContributors([]);
+    setLoading(true);
+    setDashboardError('');
+    try {
+      const [reportResponse, contributorsResponse] = await Promise.all([
+        projectApi.getProjectReport(token, project.id),
+        projectApi.getProjectContributors(token, project.id),
+      ]);
+      setProjectReport(reportResponse);
+      setContributors(contributorsResponse.contributors || []);
+
+      const snapshotId = project.latest_snapshot?.id;
+      if (snapshotId) {
+        const skillsResponse = await projectApi.getSnapshotSkills(token, snapshotId, 20);
+        setProjectSkills(skillsResponse);
+      }
+    } catch (error) {
+      setDashboardError(error.message || 'Unable to load project details.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const generateResume = async (projectId) => {
+    if (!token) return;
+    setLoading(true);
+    setDashboardError('');
+    try {
+      const response = await projectApi.generateResume(token, projectId);
+      setFlashMessage(`Resume generated: ${response.resume_id}`);
+      window.open(`${API_BASE_URL}/resume/${response.resume_id}/pdf`, '_blank', 'noopener,noreferrer');
+    } catch (error) {
+      setDashboardError(error.message || 'Resume generation failed.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const navButtons = useMemo(
+    () => [
+      { id: 'projects', label: 'Projects' },
+      { id: 'upload', label: 'Upload' },
+      { id: 'skills', label: 'Skills Timeline' },
+      { id: 'top', label: 'Top Projects' },
+    ],
+    []
+  );
+
   if (sessionLoading) {
-    return <div style={s.centered}>Loading session...</div>;
+    return (
+      <div className="screen-shell">
+        <div className="loading-card">Restoring your session...</div>
+      </div>
+    );
   }
 
-  if (!token || !user) {
+  if (!isAuthenticated) {
     return (
-      <div style={s.centered}>
-        <div style={s.authCard}>
-          <h1 style={s.title}>Project Portfolio Dashboard</h1>
-          <p style={s.subtitle}>Log in to access your own projects.</p>
-
-          <div style={s.authToggle}>
-            <button
-              style={{ ...s.toggleButton, ...(authMode === 'login' ? s.toggleActive : {}) }}
-              onClick={() => setAuthMode('login')}
-            >
-              Log In
-            </button>
-            <button
-              style={{ ...s.toggleButton, ...(authMode === 'register' ? s.toggleActive : {}) }}
-              onClick={() => setAuthMode('register')}
-            >
-              Create Account
-            </button>
-          </div>
-
-          {authMode === 'login' ? (
-            <form onSubmit={handleLogin} style={s.form}>
-              <label style={s.label}>
-                Email
-                <input
-                  style={s.input}
-                  type="email"
-                  value={loginEmail}
-                  onChange={(e) => setLoginEmail(e.target.value)}
-                  required
-                />
-              </label>
-              <label style={s.label}>
-                Password
-                <input
-                  style={s.input}
-                  type="password"
-                  value={loginPassword}
-                  onChange={(e) => setLoginPassword(e.target.value)}
-                  required
-                />
-              </label>
-              <button style={s.primaryButton} type="submit" disabled={authBusy}>
-                {authBusy ? 'Signing in...' : 'Sign In'}
+      <div className="screen-shell">
+        <div className="auth-layout">
+          <section className="auth-hero">
+            <p className="eyebrow">Artifact Miner</p>
+            <h1>Project portfolio intelligence built around real ownership.</h1>
+            <p>
+              Sign in to manage your own project snapshots, timelines, and generated resume artifacts without relying on
+              hardcoded test identities.
+            </p>
+          </section>
+          <section className="auth-panel">
+            <div className="auth-toggle">
+              <button
+                className={authMode === 'login' ? 'tab active' : 'tab'}
+                type="button"
+                onClick={() => setAuthMode('login')}
+              >
+                Log In
               </button>
-            </form>
-          ) : (
-            <form onSubmit={handleRegister} style={s.form}>
-              <label style={s.label}>
-                Display Name (optional)
-                <input
-                  style={s.input}
-                  type="text"
-                  value={registerDisplayName}
-                  onChange={(e) => setRegisterDisplayName(e.target.value)}
-                />
-              </label>
-              <label style={s.label}>
-                Email
-                <input
-                  style={s.input}
-                  type="email"
-                  value={registerEmail}
-                  onChange={(e) => setRegisterEmail(e.target.value)}
-                  required
-                />
-              </label>
-              <label style={s.label}>
-                Password
-                <input
-                  style={s.input}
-                  type="password"
-                  minLength={8}
-                  value={registerPassword}
-                  onChange={(e) => setRegisterPassword(e.target.value)}
-                  required
-                />
-              </label>
-              <label style={s.label}>
-                Confirm Password
-                <input
-                  style={s.input}
-                  type="password"
-                  minLength={8}
-                  value={registerConfirmPassword}
-                  onChange={(e) => setRegisterConfirmPassword(e.target.value)}
-                  required
-                />
-              </label>
-              <button style={s.primaryButton} type="submit" disabled={authBusy}>
-                {authBusy ? 'Creating account...' : 'Create Account'}
+              <button
+                className={authMode === 'register' ? 'tab active' : 'tab'}
+                type="button"
+                onClick={() => setAuthMode('register')}
+              >
+                Create Account
               </button>
-            </form>
-          )}
+            </div>
 
-          {authError && <p style={s.error}>{authError}</p>}
+            {authMode === 'login' ? (
+              <form className="auth-form" onSubmit={handleLogin}>
+                <label>
+                  Email
+                  <input
+                    type="email"
+                    value={loginEmail}
+                    onChange={(e) => setLoginEmail(e.target.value)}
+                    required
+                  />
+                </label>
+                <label>
+                  Password
+                  <input
+                    type="password"
+                    value={loginPassword}
+                    onChange={(e) => setLoginPassword(e.target.value)}
+                    required
+                  />
+                </label>
+                <button className="primary-btn" type="submit" disabled={authBusy}>
+                  {authBusy ? 'Signing in...' : 'Sign In'}
+                </button>
+              </form>
+            ) : (
+              <form className="auth-form" onSubmit={handleRegister}>
+                <label>
+                  Display Name (optional)
+                  <input
+                    type="text"
+                    value={registerDisplayName}
+                    onChange={(e) => setRegisterDisplayName(e.target.value)}
+                  />
+                </label>
+                <label>
+                  Email
+                  <input
+                    type="email"
+                    value={registerEmail}
+                    onChange={(e) => setRegisterEmail(e.target.value)}
+                    required
+                  />
+                </label>
+                <label>
+                  Password
+                  <input
+                    type="password"
+                    value={registerPassword}
+                    onChange={(e) => setRegisterPassword(e.target.value)}
+                    minLength={8}
+                    required
+                  />
+                </label>
+                <label>
+                  Confirm Password
+                  <input
+                    type="password"
+                    value={registerConfirmPassword}
+                    onChange={(e) => setRegisterConfirmPassword(e.target.value)}
+                    minLength={8}
+                    required
+                  />
+                </label>
+                <button className="primary-btn" type="submit" disabled={authBusy}>
+                  {authBusy ? 'Creating account...' : 'Create Account'}
+                </button>
+              </form>
+            )}
+
+            {authError && <p className="error-banner">{authError}</p>}
+          </section>
         </div>
       </div>
     );
   }
 
   return (
-    <div style={s.page}>
-      <header style={s.header}>
-        <div>
-          <h1 style={s.headerTitle}>{user.display_name || user.email}</h1>
-          <p style={s.headerSubtitle}>Projects are now tied to your authenticated account.</p>
-        </div>
-        <button style={s.secondaryButton} onClick={handleLogout}>
-          Log Out
-        </button>
-      </header>
+    <div className="screen-shell">
+      <div className="dashboard-shell">
+        <header className="dashboard-header">
+          <div>
+            <p className="eyebrow">Signed in as</p>
+            <h1>{currentUser.display_name || currentUser.email}</h1>
+          </div>
+          <button className="ghost-btn" type="button" onClick={handleLogout}>
+            Log Out
+          </button>
+        </header>
 
-      <nav style={s.nav}>
-        <button style={{ ...s.navButton, ...(view === 'projects' ? s.navButtonActive : {}) }} onClick={() => setView('projects')}>
-          Projects
-        </button>
-        <button style={{ ...s.navButton, ...(view === 'upload' ? s.navButtonActive : {}) }} onClick={() => setView('upload')}>
-          Upload
-        </button>
-      </nav>
-
-      {dashboardMessage && <p style={s.success}>{dashboardMessage}</p>}
-      {dashboardError && <p style={s.error}>{dashboardError}</p>}
-
-      <main style={s.main}>
-        {view === 'projects' && (
-          <section style={s.section}>
-            <h2>Your Projects ({projects.length})</h2>
-            {loadingProjects ? (
-              <p>Loading projects...</p>
-            ) : projects.length === 0 ? (
-              <p>No projects yet. Upload one to get started.</p>
-            ) : (
-              <div style={s.grid}>
-                {projects.map((project) => (
-                  <article key={project.id} style={s.card}>
-                    <h3>{project.name}</h3>
-                    <p>Type: {project.project_type || 'Unknown'}</p>
-                    <p>Total commits: {project.metrics?.total_commits || 0}</p>
-                    <p>Your commits: {project.metrics?.user_commits || 0}</p>
-                    <p>Contributors: {project.metrics?.contributor_count || 0}</p>
-                  </article>
-                ))}
-              </div>
-            )}
-          </section>
-        )}
-
-        {view === 'upload' && (
-          <section style={s.section}>
-            <h2>Upload Project</h2>
-            <label style={s.label}>
-              Project Name (optional)
-              <input
-                style={s.input}
-                type="text"
-                placeholder="Defaults to ZIP filename"
-                value={projectName}
-                onChange={(e) => setProjectName(e.target.value)}
-              />
-            </label>
-            <label style={s.label}>
-              ZIP file
-              <input
-                style={s.input}
-                type="file"
-                accept=".zip"
-                onChange={(e) => {
-                  const selected = e.target.files?.[0] || null;
-                  setFile(selected);
-                  if (selected && !projectName.trim()) {
-                    setProjectName(defaultProjectName(selected.name));
-                  }
-                }}
-              />
-            </label>
-            {file && <p>Selected file: {file.name}</p>}
-            <button style={s.primaryButton} disabled={uploading || !file} onClick={handleUpload}>
-              {uploading ? 'Uploading...' : 'Upload Project'}
+        <nav className="dashboard-nav">
+          {navButtons.map((item) => (
+            <button
+              key={item.id}
+              type="button"
+              className={view === item.id ? 'nav-btn active' : 'nav-btn'}
+              onClick={() => setView(item.id)}
+            >
+              {item.label}
             </button>
-          </section>
-        )}
-      </main>
+          ))}
+        </nav>
+
+        {flashMessage && <p className="success-banner">{flashMessage}</p>}
+        {dashboardError && <p className="error-banner">{dashboardError}</p>}
+
+        <main className="dashboard-main">
+          {view === 'projects' && (
+            <section className="panel">
+              <h2>Your Projects</h2>
+              {loading ? (
+                <p>Loading projects...</p>
+              ) : projects.length === 0 ? (
+                <p>No projects yet. Upload a ZIP to begin.</p>
+              ) : (
+                <div className="project-grid">
+                  {projects.map((project) => (
+                    <article key={project.id} className="project-card">
+                      <h3>{project.name}</h3>
+                      <p>Type: {project.project_type || 'Unknown'}</p>
+                      <p>Commits: {project.metrics?.total_commits || 0}</p>
+                      <p>Your commits: {project.metrics?.user_commits || 0}</p>
+                      <p>Contributors: {project.metrics?.contributor_count || 0}</p>
+                      {project.metrics?.rank_score != null && (
+                        <p className="rank-pill">Rank score {project.metrics.rank_score.toFixed(2)}</p>
+                      )}
+                      <div className="card-actions">
+                        <button className="primary-btn" type="button" onClick={() => viewProjectDetails(project)}>
+                          View Details
+                        </button>
+                        <button className="secondary-btn" type="button" onClick={() => generateResume(project.id)}>
+                          Generate Resume
+                        </button>
+                      </div>
+                    </article>
+                  ))}
+                </div>
+              )}
+            </section>
+          )}
+
+          {view === 'upload' && (
+            <section className="panel">
+              <h2>Upload Project ZIP</h2>
+              <label className="field">
+                Project name override (optional)
+                <input
+                  type="text"
+                  value={uploadProjectName}
+                  placeholder="Defaults to filename"
+                  onChange={(e) => setUploadProjectName(e.target.value)}
+                />
+              </label>
+              <label className="field">
+                ZIP file
+                <input
+                  type="file"
+                  accept=".zip"
+                  onChange={(e) => {
+                    const selected = e.target.files?.[0] || null;
+                    setFile(selected);
+                    if (selected && !uploadProjectName.trim()) {
+                      setUploadProjectName(normalizeProjectName(selected.name));
+                    }
+                  }}
+                />
+              </label>
+              {file && <p className="muted">Selected file: {file.name}</p>}
+              <button className="primary-btn" type="button" disabled={!file || uploading} onClick={handleUpload}>
+                {uploading ? 'Uploading...' : 'Upload Project'}
+              </button>
+            </section>
+          )}
+
+          {view === 'report' && selectedProject && (
+            <section className="panel">
+              <div className="panel-title-row">
+                <button className="ghost-btn" type="button" onClick={() => setView('projects')}>
+                  Back to Projects
+                </button>
+                <h2>{selectedProject.name}</h2>
+              </div>
+              {loading ? (
+                <p>Loading project details...</p>
+              ) : (
+                <>
+                  {projectReport && (
+                    <div className="stack-block">
+                      <h3>Summary</h3>
+                      <div className="summary-grid">
+                        <p>Total files: {projectReport.summary?.total_files || 0}</p>
+                        <p>Total lines: {projectReport.summary?.total_lines || 0}</p>
+                        <p>Languages: {projectReport.summary?.language_count || 0}</p>
+                      </div>
+                      {projectReport.top_languages?.length > 0 && (
+                        <>
+                          <h4>Top languages</h4>
+                          <ul className="simple-list">
+                            {projectReport.top_languages.map((language, index) => (
+                              <li key={`${language.language}-${index}`}>
+                                <span>{language.language}</span>
+                                <span>{language.percentage.toFixed(1)}%</span>
+                              </li>
+                            ))}
+                          </ul>
+                        </>
+                      )}
+                    </div>
+                  )}
+
+                  {projectSkills?.skills?.length > 0 && (
+                    <div className="stack-block">
+                      <h3>Detected Skills</h3>
+                      <div className="badge-row">
+                        {projectSkills.skills.map((skill, index) => (
+                          <span key={`${skill.skill_name}-${index}`} className="skill-badge">
+                            {skill.skill_name}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {contributors.length > 0 && (
+                    <div className="stack-block">
+                      <h3>Contributors</h3>
+                      <div className="table-wrap">
+                        <table>
+                          <thead>
+                            <tr>
+                              <th>Name</th>
+                              <th>Email</th>
+                              <th>Commits</th>
+                              <th>Marked as You</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {contributors.map((contributor) => (
+                              <tr key={contributor.contributor_id}>
+                                <td>{contributor.canonical_name}</td>
+                                <td>{contributor.email || '-'}</td>
+                                <td>{contributor.commits}</td>
+                                <td>{contributor.is_user ? 'Yes' : 'No'}</td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  )}
+                </>
+              )}
+            </section>
+          )}
+
+          {view === 'top' && (
+            <section className="panel">
+              <h2>Top Ranked Projects</h2>
+              {loading ? (
+                <p>Loading top projects...</p>
+              ) : topProjects.length === 0 ? (
+                <p>No ranked projects yet.</p>
+              ) : (
+                <div className="top-list">
+                  {topProjects.map((project, index) => (
+                    <article key={project.project_id} className="top-card">
+                      <p className="top-rank">#{index + 1}</p>
+                      <div>
+                        <h3>{project.name}</h3>
+                        <p>Score: {project.rank_score?.toFixed(2) || 'N/A'}</p>
+                        <p>Your commits: {project.features?.user_commits || 0}</p>
+                        <p>Total commits: {project.features?.total_commits || 0}</p>
+                        {project.summary?.top_languages && <p>Languages: {project.summary.top_languages}</p>}
+                        {project.summary?.top_skills && <p>Skills: {project.summary.top_skills}</p>}
+                      </div>
+                    </article>
+                  ))}
+                </div>
+              )}
+            </section>
+          )}
+
+          {view === 'skills' && (
+            <section className="panel">
+              <h2>Skills Timeline</h2>
+              {loading ? (
+                <p>Loading skills timeline...</p>
+              ) : chronologicalSkills.length === 0 ? (
+                <p>No skill events available yet.</p>
+              ) : (
+                <div className="timeline">
+                  {chronologicalSkills.map((event, index) => (
+                    <article key={`${event.skill}-${event.snapshot_id}-${index}`} className="timeline-item">
+                      <p className="timeline-date">{formatDate(event.first_seen_ts)}</p>
+                      <div>
+                        <h3>{event.skill}</h3>
+                        <p className="muted">Project: {event.project_name}</p>
+                        {event.max_prob != null && <p>Confidence: {(event.max_prob * 100).toFixed(0)}%</p>}
+                      </div>
+                    </article>
+                  ))}
+                </div>
+              )}
+            </section>
+          )}
+        </main>
+      </div>
     </div>
   );
 }
-
-const s = {
-  page: {
-    minHeight: '100vh',
-    backgroundColor: '#f4f7fb',
-    padding: '2rem',
-    fontFamily: 'Arial, sans-serif',
-  },
-  centered: {
-    minHeight: '100vh',
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#f4f7fb',
-    padding: '1rem',
-    fontFamily: 'Arial, sans-serif',
-  },
-  authCard: {
-    width: '100%',
-    maxWidth: '560px',
-    backgroundColor: 'white',
-    borderRadius: '12px',
-    padding: '2rem',
-    boxShadow: '0 12px 24px rgba(0, 0, 0, 0.08)',
-  },
-  title: { margin: '0 0 0.5rem 0' },
-  subtitle: { margin: '0 0 1.25rem 0', color: '#5f6f86' },
-  authToggle: { display: 'flex', gap: '0.5rem', marginBottom: '1rem' },
-  toggleButton: {
-    flex: 1,
-    border: '1px solid #d4dce8',
-    backgroundColor: 'white',
-    borderRadius: '8px',
-    padding: '0.65rem 1rem',
-    cursor: 'pointer',
-    fontWeight: 600,
-  },
-  toggleActive: { backgroundColor: '#1f66d8', color: 'white', borderColor: '#1f66d8' },
-  form: { display: 'flex', flexDirection: 'column', gap: '0.85rem' },
-  label: { display: 'flex', flexDirection: 'column', gap: '0.4rem', fontWeight: 600, fontSize: '0.92rem' },
-  input: { border: '1px solid #c8d2e1', borderRadius: '8px', padding: '0.7rem 0.85rem', fontSize: '0.95rem' },
-  primaryButton: {
-    border: 'none',
-    borderRadius: '8px',
-    padding: '0.75rem 1rem',
-    backgroundColor: '#1f66d8',
-    color: 'white',
-    fontWeight: 600,
-    cursor: 'pointer',
-  },
-  secondaryButton: {
-    border: '1px solid #c8d2e1',
-    borderRadius: '8px',
-    padding: '0.7rem 1rem',
-    backgroundColor: 'white',
-    cursor: 'pointer',
-    fontWeight: 600,
-  },
-  header: {
-    maxWidth: '1100px',
-    margin: '0 auto',
-    padding: '1.25rem 1.5rem',
-    borderRadius: '12px',
-    backgroundColor: 'white',
-    boxShadow: '0 8px 20px rgba(0, 0, 0, 0.08)',
-    display: 'flex',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    gap: '1rem',
-  },
-  headerTitle: { margin: 0 },
-  headerSubtitle: { margin: '0.45rem 0 0 0', color: '#5f6f86' },
-  nav: { maxWidth: '1100px', margin: '1rem auto', display: 'flex', gap: '0.5rem' },
-  navButton: {
-    border: '1px solid #c8d2e1',
-    borderRadius: '8px',
-    backgroundColor: 'white',
-    padding: '0.65rem 1rem',
-    cursor: 'pointer',
-    fontWeight: 600,
-  },
-  navButtonActive: { backgroundColor: '#1f66d8', color: 'white', borderColor: '#1f66d8' },
-  main: { maxWidth: '1100px', margin: '0 auto' },
-  section: {
-    backgroundColor: 'white',
-    borderRadius: '12px',
-    boxShadow: '0 8px 20px rgba(0, 0, 0, 0.08)',
-    padding: '1.5rem',
-  },
-  grid: { display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))', gap: '0.8rem', marginTop: '1rem' },
-  card: { border: '1px solid #dee5f0', borderRadius: '10px', padding: '1rem', backgroundColor: '#f9fbff' },
-  error: {
-    marginTop: '0.9rem',
-    backgroundColor: '#ffecec',
-    border: '1px solid #f5b4b4',
-    color: '#bb1b1b',
-    borderRadius: '8px',
-    padding: '0.6rem 0.8rem',
-  },
-  success: {
-    maxWidth: '1100px',
-    margin: '0 auto 1rem auto',
-    backgroundColor: '#ecfaf1',
-    border: '1px solid #aee3c1',
-    color: '#1c7f45',
-    borderRadius: '8px',
-    padding: '0.6rem 0.8rem',
-  },
-};
 
 export default Homepage;
