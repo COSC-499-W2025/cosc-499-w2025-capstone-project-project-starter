@@ -1,10 +1,13 @@
 """Project-related endpoints."""
 from fastapi import APIRouter, HTTPException, UploadFile, File, Query
 from typing import Optional
+import base64
 import json
 import tempfile
 import os
-from upload_file import add_file_to_db, list_uploaded_files
+import io
+from PIL import Image
+from upload_file import add_file_to_db, list_uploaded_files, add_thumbnail_bytes_to_project
 from project_manager import list_projects, get_project_by_id
 from project_analyzer import analyze_project_by_id
 from analysis.project_ranking import rank_all_projects, save_rankings_with_summaries, rank_and_summarize_top_projects
@@ -12,8 +15,29 @@ from analysis.ranking_storage import get_stored_rankings
 from analysis.gemini_ranker import rank_projects_with_gemini
 from tools.cleanup_insights import delete_insights
 from database.user_preferences import update_user_git_username, get_user_git_username
+from config.db_config import with_db_cursor
 
 router = APIRouter()
+
+
+def _detect_image_type(image_bytes: bytes) -> Optional[str]:
+    """Return a short image type label based on magic bytes, or None."""
+    if not image_bytes:
+        return None
+    if image_bytes.startswith(b"\x89PNG\r\n\x1a\n"):
+        return "png"
+    if image_bytes.startswith(b"\xff\xd8\xff"):
+        return "jpeg"
+    if image_bytes.startswith(b"GIF87a") or image_bytes.startswith(b"GIF89a"):
+        return "gif"
+    if image_bytes.startswith(b"BM"):
+        return "bmp"
+    if image_bytes.startswith(b"II*\x00") or image_bytes.startswith(b"MM\x00*"):
+        return "tiff"
+    # WEBP: "RIFF" .... "WEBP"
+    if len(image_bytes) >= 12 and image_bytes[0:4] == b"RIFF" and image_bytes[8:12] == b"WEBP":
+        return "webp"
+    return None
 
 
 @router.post("/projects/upload")
@@ -76,6 +100,107 @@ async def upload_project(
         raise HTTPException(
             status_code=500,
             detail=f"Error uploading file: {str(e)}"
+        )
+
+
+@router.post("/projects/{project_id}/thumbnail")
+async def upload_project_thumbnail(
+    project_id: int,
+    file: UploadFile = File(...),
+    user_name: Optional[str] = Query(None, description="Username to verify project ownership")
+):
+    """
+    Upload and attach a thumbnail image to an existing project.
+    
+    Args:
+        project_id: The ID of the project to update
+        file: The thumbnail image file
+        user_name: Optional username to verify ownership
+        
+    Returns:
+        dict: Upload result
+    """
+    try:
+        if file.content_type and not file.content_type.startswith("image/"):
+            raise HTTPException(status_code=400, detail="Only image files are supported")
+
+        content = await file.read()
+        if not content:
+            raise HTTPException(status_code=400, detail="Thumbnail file is empty")
+
+        if _detect_image_type(content) is None:
+            raise HTTPException(status_code=400, detail="Uploaded file is not a valid image")
+
+        project = get_project_by_id(project_id, user_name=user_name)
+        if not project:
+            raise HTTPException(status_code=404, detail=f"Project with ID {project_id} not found")
+
+        result = add_thumbnail_bytes_to_project(project_id, content)
+        if not result.success:
+            raise HTTPException(status_code=400, detail=result.message)
+
+        return result.to_dict()
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Error uploading thumbnail: {str(e)}"
+        )
+
+
+@router.get("/projects/{project_id}/thumbnail")
+async def get_project_thumbnail(
+    project_id: int,
+    user_name: Optional[str] = Query(None, description="Username to verify project ownership")
+):
+    """
+    Get a project's thumbnail as a data URL.
+    """
+    try:
+        project = get_project_by_id(project_id, user_name=user_name)
+        if not project:
+            raise HTTPException(status_code=404, detail=f"Project with ID {project_id} not found")
+
+        with with_db_cursor() as cursor:
+            cursor.execute("SELECT thumbnail FROM uploaded_files WHERE id = %s", (project_id,))
+            row = cursor.fetchone()
+
+        if not row or row[0] is None:
+            return {"success": True, "has_thumbnail": False}
+
+        thumbnail_bytes = row[0]
+        image_type = _detect_image_type(thumbnail_bytes)
+        if image_type is None:
+            raise HTTPException(status_code=400, detail="Stored thumbnail is not a valid image")
+
+        mime_map = {
+            "jpeg": "image/jpeg",
+            "jpg": "image/jpeg",
+            "png": "image/png",
+            "gif": "image/gif",
+            "bmp": "image/bmp",
+            "webp": "image/webp",
+        }
+        if image_type == "tiff":
+            # Convert TIFF to PNG for browser display
+            with Image.open(io.BytesIO(thumbnail_bytes)) as img:
+                out = io.BytesIO()
+                img.save(out, format="PNG")
+                thumbnail_bytes = out.getvalue()
+            image_type = "png"
+
+        mime_type = mime_map.get(image_type, "image/png")
+        b64 = base64.b64encode(thumbnail_bytes).decode("ascii")
+        data_url = f"data:{mime_type};base64,{b64}"
+
+        return {"success": True, "has_thumbnail": True, "thumbnail_data": data_url}
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Error retrieving thumbnail: {str(e)}"
         )
 
 
