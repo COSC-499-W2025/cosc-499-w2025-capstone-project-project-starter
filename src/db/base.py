@@ -93,6 +93,7 @@ class PortfolioShowcase(Base):
         ForeignKey("projects.id", ondelete="CASCADE"),
         nullable=False,
         index=True,
+        unique=True
     )
 
     content_json = Column(
