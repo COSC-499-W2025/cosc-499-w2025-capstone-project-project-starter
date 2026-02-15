@@ -3,6 +3,7 @@ from fastapi import FastAPI, Request, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse, JSONResponse
+from contextlib import asynccontextmanager
 from api.routes import health
 from api.routes import project
 from api.routes import auth
@@ -11,10 +12,66 @@ from api.routes import consent
 from api.routes import resume_portfolio
 from api.routes import settings
 
+
+def initialize_database_tables():
+    """Initialize all database tables required by the application."""
+    print("Initializing database tables...")
+    
+    try:
+        # Import initialization functions
+        from database.user_informations import init_user_informations_table
+        from upload_file import init_uploaded_files_table
+        from analysis.ranking_storage import init_ranking_storage_table
+        from resume.resume_manager import ResumeManager
+        from consent.consent_storage import ConsentStorage
+        from collaborative.collaborative_storage import CollaborativeStorage
+        from external_services.service_config import ServiceConfig
+        
+        # Initialize tables in order (user_informations must be first due to foreign keys)
+        init_user_informations_table()
+        print("  ✓ user_informations table initialized")
+        
+        init_uploaded_files_table()  # This also initializes file_contents table
+        print("  ✓ uploaded_files and file_contents tables initialized")
+        
+        init_ranking_storage_table()
+        print("  ✓ project_rankings table initialized")
+        
+        ResumeManager.init_resume_table()
+        print("  ✓ generated_resumes table initialized")
+        
+        ConsentStorage.initialize_consent_table()
+        print("  ✓ user_consent table initialized")
+        
+        CollaborativeStorage.init_table()
+        print("  ✓ user_preferences table initialized")
+        
+        ServiceConfig.initialize_table()
+        print("  ✓ external_service_permissions table initialized")
+        
+        print("All database tables initialized successfully!")
+        return True
+        
+    except Exception as e:
+        print(f"Error initializing database tables: {e}")
+        return False
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """Lifespan context manager for startup and shutdown events."""
+    # Startup: Initialize database tables
+    initialize_database_tables()
+    yield
+    # Shutdown: Cleanup if needed
+    print("Application shutting down...")
+
+
 app = FastAPI(
     title="Artifact API",
     description="Backend API for artifact analysis and portfolio management",
-    version="1.0.0"
+    version="1.0.0",
+    lifespan=lifespan
 )
 
 # CORS middleware for frontend connectivity
