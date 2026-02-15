@@ -88,6 +88,68 @@ class ResumeManager:
             return False
     
     @staticmethod
+    def init_portfolio_customizations_table():
+        """
+        Initialize the portfolio_customizations table in the database.
+        Creates table structure for storing user customizations for portfolio showcase projects.
+        Each row represents customizations for a specific project by a specific user.
+        """
+        try:
+            with with_db_cursor() as cursor:
+                # Create portfolio_customizations table
+                cursor.execute("""
+                    CREATE TABLE IF NOT EXISTS portfolio_customizations (
+                        id SERIAL PRIMARY KEY,
+                        user_name VARCHAR(255) NOT NULL,
+                        project_id INTEGER NOT NULL,
+                        custom_title TEXT,
+                        custom_description TEXT,
+                        custom_role TEXT,
+                        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                        UNIQUE(user_name, project_id)
+                    );
+                """)
+                
+                # Create index on user_name for faster lookups
+                cursor.execute("""
+                    CREATE INDEX IF NOT EXISTS idx_portfolio_customizations_user_name 
+                    ON portfolio_customizations(user_name);
+                """)
+                
+                # Create index on project_id for faster lookups
+                cursor.execute("""
+                    CREATE INDEX IF NOT EXISTS idx_portfolio_customizations_project_id 
+                    ON portfolio_customizations(project_id);
+                """)
+                
+                # Add foreign key constraint to user_informations
+                cursor.execute("""
+                    DO $$
+                    BEGIN
+                        IF NOT EXISTS (
+                            SELECT 1 FROM information_schema.table_constraints 
+                            WHERE constraint_name = 'fk_portfolio_customizations_user_name' 
+                            AND table_name = 'portfolio_customizations'
+                        ) THEN
+                            ALTER TABLE portfolio_customizations
+                            ADD CONSTRAINT fk_portfolio_customizations_user_name
+                            FOREIGN KEY (user_name)
+                            REFERENCES user_informations(user_name)
+                            ON DELETE CASCADE
+                            ON UPDATE CASCADE;
+                        END IF;
+                    END $$;
+                """)
+            
+            print("[SUCCESS] Portfolio customizations table initialized successfully")
+            return True
+            
+        except Exception as e:
+            print(f"[ERROR] Error initializing portfolio customizations table: {e}")
+            return False
+    
+    @staticmethod
     def store_user_resume(user_name, resume_data):
         """
         Store or update a user-aggregated resume.
@@ -197,6 +259,134 @@ class ResumeManager:
 
         except Exception as e:
             print(f"[ERROR] Failed to save custom project wording: {e}")
+            return False
+
+    @staticmethod
+    def save_portfolio_customization(user_name: str, project_id: int, custom_data: dict) -> bool:
+        """
+        Save or update portfolio customization for a specific project.
+        
+        Args:
+            user_name (str): Username to identify the user
+            project_id (int): Project ID
+            custom_data (dict): Dictionary containing custom_title, custom_description, custom_role
+            
+        Returns:
+            bool: True if save successful, False otherwise
+        """
+        try:
+            custom_title = custom_data.get('custom_title', '').strip()
+            custom_description = custom_data.get('custom_description', '').strip()
+            custom_role = custom_data.get('custom_role', '').strip()
+            
+            with with_db_cursor() as cursor:
+                cursor.execute("""
+                    INSERT INTO portfolio_customizations 
+                        (user_name, project_id, custom_title, custom_description, custom_role)
+                    VALUES (%s, %s, %s, %s, %s)
+                    ON CONFLICT (user_name, project_id)
+                    DO UPDATE SET 
+                        custom_title = EXCLUDED.custom_title,
+                        custom_description = EXCLUDED.custom_description,
+                        custom_role = EXCLUDED.custom_role,
+                        updated_at = CURRENT_TIMESTAMP
+                """, (user_name, project_id, custom_title or None, custom_description or None, custom_role or None))
+            
+            return True
+            
+        except Exception as e:
+            print(f"[ERROR] Failed to save portfolio customization: {e}")
+            return False
+    
+    @staticmethod
+    def get_portfolio_customization(user_name: str, project_id: int) -> dict | None:
+        """
+        Retrieve portfolio customization for a specific project.
+        
+        Args:
+            user_name (str): Username to identify the user
+            project_id (int): Project ID
+            
+        Returns:
+            dict: Dictionary containing custom_title, custom_description, custom_role, created_at, updated_at
+                  Returns None if no customization exists
+        """
+        try:
+            with with_db_cursor() as cursor:
+                cursor.execute("""
+                    SELECT custom_title, custom_description, custom_role, created_at, updated_at
+                    FROM portfolio_customizations
+                    WHERE user_name = %s AND project_id = %s
+                """, (user_name, project_id))
+                
+                result = cursor.fetchone()
+            
+            if result:
+                return {
+                    'project_id': project_id,
+                    'custom_title': result[0],
+                    'custom_description': result[1],
+                    'custom_role': result[2],
+                    'created_at': result[3],
+                    'updated_at': result[4]
+                }
+            return None
+            
+        except Exception as e:
+            print(f"[ERROR] Failed to get portfolio customization: {e}")
+            return None
+    
+    @staticmethod
+    def list_customized_portfolio_projects(user_name: str) -> list[int]:
+        """
+        Return a list of project_ids that have portfolio customizations saved.
+        
+        Args:
+            user_name (str): Username to identify the user
+            
+        Returns:
+            list[int]: List of project IDs with customizations
+        """
+        try:
+            with with_db_cursor() as cursor:
+                cursor.execute("""
+                    SELECT project_id
+                    FROM portfolio_customizations
+                    WHERE user_name = %s
+                    ORDER BY project_id
+                """, (user_name,))
+                
+                results = cursor.fetchall()
+            
+            return [row[0] for row in results]
+            
+        except Exception as e:
+            print(f"[ERROR] Failed to list customized portfolio projects: {e}")
+            return []
+    
+    @staticmethod
+    def clear_portfolio_customization(user_name: str, project_id: int) -> bool:
+        """
+        Delete portfolio customization for a specific project.
+        
+        Args:
+            user_name (str): Username to identify the user
+            project_id (int): Project ID
+            
+        Returns:
+            bool: True if deletion successful, False otherwise
+        """
+        try:
+            with with_db_cursor() as cursor:
+                cursor.execute("""
+                    DELETE FROM portfolio_customizations
+                    WHERE user_name = %s AND project_id = %s
+                """, (user_name, project_id))
+            
+            return True
+            
+        except Exception as e:
+            print(f"[ERROR] Failed to clear portfolio customization: {e}")
             return False
 
     @staticmethod
