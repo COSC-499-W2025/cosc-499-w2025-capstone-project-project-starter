@@ -492,7 +492,8 @@ class TestMergeProjectEndpoint:
 
             assert response.status_code == 400
             data = response.json()
-            assert "Only ZIP files are supported" in data["detail"]
+            assert data["success"] is False
+            assert "Only ZIP files are supported" in data["message"]
         finally:
             os.unlink(temp_path)
 
@@ -567,7 +568,8 @@ class TestMergeProjectEndpoint:
 
             assert response.status_code == 404
             data = response.json()
-            assert "not found" in data["detail"].lower()
+            assert data["success"] is False
+            assert "not found" in data["message"].lower()
         finally:
             os.unlink(temp_path)
 
