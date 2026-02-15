@@ -94,6 +94,31 @@ class CustomWordingListResponse(BaseModel):
     project_ids: List[int] = Field(default_factory=list)
 
 
+class PortfolioCustomizationRequest(BaseModel):
+    """Request schema for saving portfolio project customizations."""
+    project_id: int = Field(..., ge=1, description="Project ID to customize")
+    custom_title: Optional[str] = Field(None, description="Custom title for the portfolio project")
+    custom_description: Optional[str] = Field(None, description="Custom description for the portfolio project")
+    custom_role: Optional[str] = Field(None, description="Custom role description for the portfolio project")
+
+
+class PortfolioCustomizationResponse(BaseModel):
+    """Response schema for portfolio project customization."""
+    success: bool = True
+    project_id: int
+    custom_title: Optional[str] = None
+    custom_description: Optional[str] = None
+    custom_role: Optional[str] = None
+    created_at: Optional[str] = None
+    updated_at: Optional[str] = None
+
+
+class PortfolioCustomizationListResponse(BaseModel):
+    """Response schema for listing customized portfolio projects."""
+    success: bool = True
+    project_ids: List[int] = Field(default_factory=list)
+
+
 class SimpleMessageResponse(BaseModel):
     success: bool = True
     message: str
