@@ -162,6 +162,32 @@ class APIClient:
     def clear_resume_custom_wording(self, user_id: str, project_id: int) -> Dict[str, Any]:
         return self._make_request('DELETE', f'/resume/{user_id}/custom-wording/{project_id}')
 
+    # Portfolio customization methods
+    def list_portfolio_customizations(self, user_id: str) -> Dict[str, Any]:
+        """List all projects with portfolio customizations."""
+        return self._make_request('GET', f'/portfolio/{user_id}/custom-data')
+
+    def save_portfolio_customization(self, user_id: str, project_id: int, 
+                                     custom_title: str = None, 
+                                     custom_description: str = None, 
+                                     custom_role: str = None) -> Dict[str, Any]:
+        """Save or update portfolio customization for a project."""
+        data = {
+            "project_id": project_id,
+            "custom_title": custom_title,
+            "custom_description": custom_description,
+            "custom_role": custom_role
+        }
+        return self._make_request('POST', f'/portfolio/{user_id}/custom-data', json=data)
+
+    def get_portfolio_customization(self, user_id: str, project_id: int) -> Dict[str, Any]:
+        """Get portfolio customization for a specific project."""
+        return self._make_request('GET', f'/portfolio/{user_id}/custom-data/{project_id}')
+
+    def clear_portfolio_customization(self, user_id: str, project_id: int) -> Dict[str, Any]:
+        """Clear portfolio customization for a project."""
+        return self._make_request('DELETE', f'/portfolio/{user_id}/custom-data/{project_id}')
+
 
 
 # Global client instance

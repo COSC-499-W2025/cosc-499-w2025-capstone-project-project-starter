@@ -36,6 +36,7 @@ def initialize_app():
         init_uploaded_files_table()
         init_ranking_storage_table()
         ResumeManager.init_resume_table()
+        ResumeManager.init_portfolio_customizations_table()
     except Exception as e:
         print(f"Failed to initialize database tables: {e}")
         return None
