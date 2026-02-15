@@ -145,6 +145,7 @@
                 <button class="menu-btn submenu-btn" onclick="showView('list')">2. List Projects</button>
                 <button class="menu-btn submenu-btn" onclick="showView('analyze')">3. Analyze Project</button>
                 <button class="menu-btn submenu-btn" onclick="showView('thumbnail')">15. Add Thumbnail</button>
+                <button class="menu-btn submenu-btn" onclick="showView('merge')">17. Merge ZIP into Project</button>
             </div>
         </div>
         <div class="menu-group">
@@ -349,19 +350,21 @@
                 'resume-delete': `<div class="view-panel"><h3>Delete Resume</h3><button class="btn" onclick="deleteResume()">Delete</button><div id="resumeDeleteResult" class="result"></div></div>`,
                 'portfolio': `<div class="view-panel"><h3>View Portfolio</h3><button class="btn" onclick="viewPortfolio()">Load Portfolio</button><button class="btn btn-secondary" onclick="generatePortfolio()">Generate New</button><div id="portfolioResult" class="result"></div></div>`,
                 'thumbnail': `<div class="view-panel"><h3>Add Thumbnail to Project</h3><div id="thumbnailProjectsList" class="project-list"></div><input type="file" id="thumbnailFile" accept="image/*" /><button class="btn" onclick="addThumbnail()">Upload Thumbnail</button><div id="thumbnailResult" class="result"></div></div>`,
-                'llm-summary': `<div class="view-panel"><h3>Run LLM Summary</h3><div id="llmProjectsList" class="project-list"></div><button class="btn" onclick="runLLMSummary()">Run Summary</button><div id="llmSummaryResult" class="result"></div></div>`
+                'llm-summary': `<div class="view-panel"><h3>Run LLM Summary</h3><div id="llmProjectsList" class="project-list"></div><button class="btn" onclick="runLLMSummary()">Run Summary</button><div id="llmSummaryResult" class="result"></div></div>`,
+                'merge': `<div class="view-panel"><h3>Merge ZIP into Existing Project</h3><p class="text-muted" style="margin-bottom: 15px;">Add new files from another ZIP archive to an existing project. This allows incremental additions to your portfolio or résumé. Duplicate files (same path) will be automatically skipped.</p><div id="mergeProjectsList" class="project-list"></div><input type="file" id="mergeZipFile" accept=".zip" style="margin-top: 10px;" /><button class="btn" onclick="mergeZipToProject()">Merge Files</button><div id="mergeResult" class="result"></div></div>`
             };
             
             container.innerHTML = views[viewName] || '<div class="view-panel"><p>View not found</p></div>';
             
             if (viewName === 'list' || viewName === 'analyze' || 
-                viewName === 'cleanup' || viewName === 'thumbnail' || viewName === 'llm-summary') {
+                viewName === 'cleanup' || viewName === 'thumbnail' || viewName === 'llm-summary' || viewName === 'merge') {
                 setTimeout(() => {
                     const listId = viewName === 'list' ? 'projectsList' : 
                                   viewName === 'analyze' ? 'analyzeProjectsList' :
                                   viewName === 'cleanup' ? 'cleanupProjectsList' :
-                                  viewName === 'thumbnail' ? 'thumbnailProjectsList' : 'llmProjectsList';
-                    const showThumbs = viewName === 'list' || viewName === 'analyze' || viewName === 'thumbnail';
+                                  viewName === 'thumbnail' ? 'thumbnailProjectsList' :
+                                  viewName === 'merge' ? 'mergeProjectsList' : 'llmProjectsList';
+                    const showThumbs = viewName === 'list' || viewName === 'analyze' || viewName === 'thumbnail' || viewName === 'merge';
                     renderProjectsList(listId, 'onProjectSelect', showThumbs);
                 }, 100);
             }
@@ -1246,6 +1249,69 @@
             } catch (e) {
                 resultDiv.innerHTML = `Error: ${e.message}`;
                 showMessage('Thumbnail upload failed', 'error');
+            }
+        }
+
+        async function mergeZipToProject() {
+            if (!selectedProjectId) {
+                showMessage('Please select a project to merge into', 'error');
+                return;
+            }
+            const fileInput = document.getElementById('mergeZipFile');
+            const resultDiv = document.getElementById('mergeResult');
+            if (!fileInput?.files[0]) {
+                showMessage('Please select a ZIP file to merge', 'error');
+                return;
+            }
+            const file = fileInput.files[0];
+            if (!file.name.endsWith('.zip')) {
+                showMessage('Only ZIP files can be merged', 'error');
+                return;
+            }
+            const formData = new FormData();
+            formData.append('file', file);
+            resultDiv.innerHTML = '<div style="text-align: center; padding: 20px;"><div class="spinner"></div><p style="margin-top: 10px;">Merging files into project...</p></div>';
+            try {
+                const response = await fetch(`${API_BASE_URL}/api/projects/${selectedProjectId}/merge?user_name=${currentUser.user_name}`, {
+                    method: 'POST',
+                    body: formData
+                });
+                const data = await response.json();
+                if (response.ok && data.success) {
+                    const mergeData = data.data || {};
+                    let resultHtml = `<div class="analysis-section">
+                        <h4>Merge Successful!</h4>
+                        <div class="analysis-item">
+                            <span class="analysis-label">New files added:</span>
+                            <span class="analysis-value badge badge-success">${mergeData.new_files_count || 0}</span>
+                        </div>
+                        <div class="analysis-item">
+                            <span class="analysis-label">Duplicates skipped:</span>
+                            <span class="analysis-value badge badge-info">${mergeData.skipped_duplicates || 0}</span>
+                        </div>`;
+                    
+                    if (mergeData.new_files && mergeData.new_files.length > 0) {
+                        resultHtml += `<div style="margin-top: 10px;"><strong>New files:</strong><ul class="analysis-list">`;
+                        mergeData.new_files.slice(0, 10).forEach(f => {
+                            resultHtml += `<li>${f.file_path} <span class="text-muted">(${f.file_size} bytes)</span></li>`;
+                        });
+                        if (mergeData.new_files.length > 10) {
+                            resultHtml += `<li class="text-muted">... and ${mergeData.new_files.length - 10} more files</li>`;
+                        }
+                        resultHtml += `</ul></div>`;
+                    }
+                    
+                    resultHtml += `</div>`;
+                    resultDiv.innerHTML = resultHtml;
+                    showMessage(`Merged ${mergeData.new_files_count || 0} new files`, 'success');
+                    await loadProjects();
+                } else {
+                    resultDiv.innerHTML = `<div class="message error">${data.detail || data.message || 'Merge failed'}</div>`;
+                    showMessage('Merge failed', 'error');
+                }
+            } catch (e) {
+                resultDiv.innerHTML = `<div class="message error">Error: ${e.message}</div>`;
+                showMessage('Merge failed', 'error');
             }
         }
 

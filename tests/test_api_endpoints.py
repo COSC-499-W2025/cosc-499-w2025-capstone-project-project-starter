@@ -471,6 +471,146 @@ class TestGetProjectByIdEndpoint:
         mock_get.assert_called_once_with(456, user_name=None)
 
 
+class TestMergeProjectEndpoint:
+    """Test POST /api/projects/{id}/merge endpoint."""
+
+    def test_merge_invalid_file_type(self):
+        """Test that non-ZIP files are rejected for merging."""
+        client = TestClient(app)
+
+        # Create a temporary text file
+        with tempfile.NamedTemporaryFile(mode='w', suffix='.txt', delete=False) as f:
+            f.write("not a zip file")
+            temp_path = f.name
+
+        try:
+            with open(temp_path, 'rb') as file:
+                response = client.post(
+                    "/api/projects/123/merge?user_name=test_user",
+                    files={"file": ("test.txt", file, "text/plain")}
+                )
+
+            assert response.status_code == 400
+            data = response.json()
+            assert "Only ZIP files are supported" in data["detail"]
+        finally:
+            os.unlink(temp_path)
+
+    @patch('api.routes.project.merge_zip_to_project')
+    def test_merge_valid_zip_success(self, mock_merge):
+        """Test successfully merging a valid ZIP file into a project."""
+        from upload_file import UploadResult
+        mock_merge.return_value = UploadResult(
+            success=True,
+            message="Successfully merged 5 new files into project 'test.zip'.",
+            error_type=None,
+            data={
+                "project_id": 123,
+                "new_files_count": 5,
+                "skipped_duplicates": 2,
+                "new_files": [
+                    {"file_path": "new_file1.py", "file_name": "new_file1.py", "file_size": 100},
+                    {"file_path": "new_file2.py", "file_name": "new_file2.py", "file_size": 200}
+                ],
+                "skipped_files": ["existing.py", "duplicate.py"],
+                "errors": []
+            }
+        )
+
+        # Create a temporary ZIP file
+        with tempfile.NamedTemporaryFile(suffix='.zip', delete=False) as f:
+            with zipfile.ZipFile(f.name, 'w') as zf:
+                zf.writestr("new_file.txt", "new content")
+            temp_path = f.name
+
+        try:
+            client = TestClient(app)
+            with open(temp_path, 'rb') as file:
+                response = client.post(
+                    "/api/projects/123/merge?user_name=test_user",
+                    files={"file": ("additional.zip", file, "application/zip")}
+                )
+
+            assert response.status_code == 200
+            data = response.json()
+            assert data["success"] is True
+            assert "merged" in data["message"].lower()
+            assert data["data"]["new_files_count"] == 5
+            assert data["data"]["skipped_duplicates"] == 2
+            mock_merge.assert_called_once()
+        finally:
+            os.unlink(temp_path)
+
+    @patch('api.routes.project.merge_zip_to_project')
+    def test_merge_project_not_found(self, mock_merge):
+        """Test merging into a non-existent project."""
+        from upload_file import UploadResult
+        mock_merge.return_value = UploadResult(
+            success=False,
+            message="Project with ID 999 not found or access denied.",
+            error_type="PROJECT_NOT_FOUND",
+            data={"project_id": 999}
+        )
+
+        with tempfile.NamedTemporaryFile(suffix='.zip', delete=False) as f:
+            with zipfile.ZipFile(f.name, 'w') as zf:
+                zf.writestr("test.txt", "content")
+            temp_path = f.name
+
+        try:
+            client = TestClient(app)
+            with open(temp_path, 'rb') as file:
+                response = client.post(
+                    "/api/projects/999/merge?user_name=test_user",
+                    files={"file": ("merge.zip", file, "application/zip")}
+                )
+
+            assert response.status_code == 404
+            data = response.json()
+            assert "not found" in data["detail"].lower()
+        finally:
+            os.unlink(temp_path)
+
+    @patch('api.routes.project.merge_zip_to_project')
+    def test_merge_with_duplicates_skipped(self, mock_merge):
+        """Test that duplicate files are properly reported as skipped."""
+        from upload_file import UploadResult
+        mock_merge.return_value = UploadResult(
+            success=True,
+            message="Successfully merged 0 new files into project 'test.zip'.",
+            error_type=None,
+            data={
+                "project_id": 123,
+                "new_files_count": 0,
+                "skipped_duplicates": 3,
+                "new_files": [],
+                "skipped_files": ["file1.py", "file2.py", "file3.py"],
+                "errors": []
+            }
+        )
+
+        with tempfile.NamedTemporaryFile(suffix='.zip', delete=False) as f:
+            with zipfile.ZipFile(f.name, 'w') as zf:
+                zf.writestr("file1.py", "content")
+            temp_path = f.name
+
+        try:
+            client = TestClient(app)
+            with open(temp_path, 'rb') as file:
+                response = client.post(
+                    "/api/projects/123/merge?user_name=test_user",
+                    files={"file": ("duplicates.zip", file, "application/zip")}
+                )
+
+            assert response.status_code == 200
+            data = response.json()
+            assert data["success"] is True
+            assert data["data"]["new_files_count"] == 0
+            assert data["data"]["skipped_duplicates"] == 3
+        finally:
+            os.unlink(temp_path)
+
+
 class TestResumePortfolioEndpoints:
     """Tests for the new Resume Item and Portfolio Card preview endpoints."""
 
