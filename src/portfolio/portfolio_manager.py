@@ -84,6 +84,18 @@ class PortfolioManager:
             if top_n:
                 ranked_projects = ranked_projects[:top_n]
             
+            # Load portfolio customizations for this user
+            portfolio_customizations = {}
+            try:
+                customized_project_ids = ResumeManager.list_customized_portfolio_projects(self.user_name)
+                for proj_id in customized_project_ids:
+                    customization = ResumeManager.get_portfolio_customization(self.user_name, proj_id)
+                    if customization:
+                        portfolio_customizations[proj_id] = customization
+            except Exception as e:
+                print(f"[WARNING] Could not load portfolio customizations: {e}")
+                portfolio_customizations = {}
+            
             # Process each project using existing functions
             projects_data = {}
             ordered_project_names = []
@@ -241,6 +253,16 @@ class PortfolioManager:
                         'optimization_count': len(code_analysis.get('optimization_summary', [])) if code_analysis else 0,
                         'rank_score': project_score
                     }
+                    
+                    # Apply portfolio customizations if they exist (custom data takes priority)
+                    if project_id in portfolio_customizations:
+                        customization = portfolio_customizations[project_id]
+                        if customization.get('custom_title'):
+                            projects_data[project_name]['name'] = customization['custom_title']
+                        if customization.get('custom_description'):
+                            projects_data[project_name]['summary'] = customization['custom_description']
+                        if customization.get('custom_role'):
+                            projects_data[project_name]['collaboration_level'] = customization['custom_role']
                     
                     ordered_project_names.append(project_name)
                     

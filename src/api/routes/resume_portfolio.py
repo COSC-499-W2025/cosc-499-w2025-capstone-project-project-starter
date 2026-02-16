@@ -5,7 +5,13 @@ from pydantic import BaseModel
 from resume.resume_manager import ResumeManager
 from portfolio.portfolio_manager import PortfolioManager
 from portfolio.skill_mapper import SkillMapper
-from common.schemas import CustomWordingSaveRequest, SimpleMessageResponse
+from common.schemas import (
+    CustomWordingSaveRequest, 
+    SimpleMessageResponse,
+    PortfolioCustomizationRequest,
+    PortfolioCustomizationResponse,
+    PortfolioCustomizationListResponse
+)
 from project_manager import get_project_by_id
 from resume.item_formatter import ItemFormatter
 from portfolio.portfolio_formatter import PortfolioFormatter
@@ -235,3 +241,87 @@ async def edit_portfolio(user_id: str, request: PortfolioEditRequest):
         return {"success": True, "message": "Portfolio edit feature coming soon"}
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error editing portfolio: {str(e)}")
+
+
+# Portfolio Customization Endpoints
+
+@router.post("/portfolio/{user_id}/custom-data", response_model=PortfolioCustomizationResponse)
+async def save_portfolio_customization(user_id: str, request: PortfolioCustomizationRequest):
+    """Save or update portfolio customization for a specific project."""
+    try:
+        if request.project_id <= 0:
+            raise HTTPException(status_code=400, detail="project_id must be positive")
+        
+        custom_data = {
+            'custom_title': request.custom_title,
+            'custom_description': request.custom_description,
+            'custom_role': request.custom_role
+        }
+        
+        if ResumeManager.save_portfolio_customization(user_id, request.project_id, custom_data):
+            # Retrieve the saved customization to return complete data
+            saved = ResumeManager.get_portfolio_customization(user_id, request.project_id)
+            if saved:
+                return PortfolioCustomizationResponse(
+                    project_id=saved['project_id'],
+                    custom_title=saved['custom_title'],
+                    custom_description=saved['custom_description'],
+                    custom_role=saved['custom_role'],
+                    created_at=saved['created_at'].isoformat() if saved['created_at'] else None,
+                    updated_at=saved['updated_at'].isoformat() if saved['updated_at'] else None
+                )
+        raise HTTPException(status_code=500, detail="Failed to save portfolio customization")
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error saving portfolio customization: {str(e)}")
+
+
+@router.get("/portfolio/{user_id}/custom-data", response_model=PortfolioCustomizationListResponse)
+async def list_portfolio_customizations(user_id: str):
+    """List all project IDs that have portfolio customizations."""
+    try:
+        project_ids = ResumeManager.list_customized_portfolio_projects(user_id)
+        return PortfolioCustomizationListResponse(project_ids=project_ids)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error listing portfolio customizations: {str(e)}")
+
+
+@router.get("/portfolio/{user_id}/custom-data/{project_id}", response_model=PortfolioCustomizationResponse)
+async def get_portfolio_customization(user_id: str, project_id: int):
+    """Get portfolio customization for a specific project."""
+    try:
+        if project_id <= 0:
+            raise HTTPException(status_code=400, detail="project_id must be positive")
+        
+        customization = ResumeManager.get_portfolio_customization(user_id, project_id)
+        if customization:
+            return PortfolioCustomizationResponse(
+                project_id=customization['project_id'],
+                custom_title=customization['custom_title'],
+                custom_description=customization['custom_description'],
+                custom_role=customization['custom_role'],
+                created_at=customization['created_at'].isoformat() if customization['created_at'] else None,
+                updated_at=customization['updated_at'].isoformat() if customization['updated_at'] else None
+            )
+        raise HTTPException(status_code=404, detail="Portfolio customization not found")
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error getting portfolio customization: {str(e)}")
+
+
+@router.delete("/portfolio/{user_id}/custom-data/{project_id}", response_model=SimpleMessageResponse)
+async def clear_portfolio_customization(user_id: str, project_id: int):
+    """Clear portfolio customization for a specific project."""
+    try:
+        if project_id <= 0:
+            raise HTTPException(status_code=400, detail="project_id must be positive")
+        
+        if ResumeManager.clear_portfolio_customization(user_id, project_id):
+            return SimpleMessageResponse(message="Portfolio customization cleared successfully")
+        raise HTTPException(status_code=500, detail="Failed to clear portfolio customization")
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error clearing portfolio customization: {str(e)}")
