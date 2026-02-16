@@ -146,6 +146,14 @@ def request_external_service_permission(user_name='default_user', service_name='
     Returns:
         bool: True if permission granted, False if declined
     """
+    # Get current user if not provided
+    if user_name is None:
+        from account.user_manager import AuthManager
+        user_name = AuthManager.get_current_username()
+        if user_name is None:
+            print("Error: No user is currently logged in")
+            return False
+    
     # Initialize the external service permissions table
     try:
         config = ServiceConfig()

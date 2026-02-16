@@ -43,7 +43,6 @@ class TestAnalysisRouter:
             cursor = conn.cursor()
             try:
                 cursor.execute("DELETE FROM external_service_permissions WHERE user_name = 'test_user'")
-                cursor.execute("DELETE FROM user_informations WHERE user_name = 'test_user'")
                 conn.commit()
                 
                 # Create test user
@@ -63,7 +62,6 @@ class TestAnalysisRouter:
             cursor = conn.cursor()
             try:
                 cursor.execute("DELETE FROM external_service_permissions WHERE user_name = 'test_user'")
-                cursor.execute("DELETE FROM user_informations WHERE user_name = 'test_user'")
                 conn.commit()
             except Exception as e:
                 conn.rollback()
