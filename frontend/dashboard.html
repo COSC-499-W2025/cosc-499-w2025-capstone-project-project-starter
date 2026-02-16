@@ -153,6 +153,7 @@
                 <button class="menu-btn submenu-btn" onclick="showView('rank')">4. Rank Projects</button>
                 <button class="menu-btn submenu-btn" onclick="showView('rank-top3')">5. Rank Top 3</button>
                 <button class="menu-btn submenu-btn" onclick="showView('rankings')">6. View Rankings</button>
+                <button class="menu-btn submenu-btn" onclick="showView('rank-gemini')">7. AI Rank (Gemini)</button>
             </div>
         </div>
         <div class="menu-group">
@@ -340,6 +341,7 @@
                 'rank': `<div class="view-panel"><h3>Rank All Projects</h3><button class="btn" onclick="rankProjects()">Rank Projects</button><div id="rankResult" class="result"></div></div>`,
                 'rank-top3': `<div class="view-panel"><h3>Rank and Summarize Top 3</h3><button class="btn" onclick="rankTop3()">Rank & Summarize</button><div id="rankTop3Result" class="result"></div></div>`,
                 'rankings': `<div class="view-panel"><h3>View and Edit Rankings</h3><button class="btn" onclick="loadRankings()">Load Rankings</button><div id="rankingsList" class="result"></div></div>`,
+                'rank-gemini': `<div class="view-panel"><h3>AI Rank Projects (Gemini)</h3><p class="text-muted" style="font-size:0.9em;">Uses Gemini AI to comparatively rank all your projects by quality, complexity, and skills.</p><button class="btn" onclick="rankProjectsGemini()">Rank with Gemini</button><div id="rankGeminiResult" class="result"></div></div>`,
                 'external': `<div class="view-panel"><h3>External Service Settings</h3><p>Manage external service permissions</p><div id="externalServicesResult" class="result"></div></div>`,
                 'cleanup': `<div class="view-panel"><h3>Cleanup Insights</h3><div id="cleanupProjectsList" class="project-list"></div><button class="btn" onclick="cleanupInsights()">Cleanup Selected</button><div id="cleanupResult" class="result"></div></div>`,
                 'preferences': `<div class="view-panel"><h3>User Preferences</h3><label>Privacy Consent:</label><button class="btn" onclick="submitPrivacyConsent(true)">Grant</button><button class="btn btn-secondary" onclick="submitPrivacyConsent(false)">Deny</button><label>Git Username:</label><input type="text" id="gitUsername" /><button class="btn" onclick="savePreferences()">Save</button><div id="preferencesResult" class="result"></div></div>`,
@@ -1059,6 +1061,27 @@
                 if (data.success) {
                     resultDiv.innerHTML = `Top 3 Projects:\n${data.top3.map((p, i) => `${i+1}. ${p.filename} (Score: ${p.score})`).join('\n')}`;
                     showMessage('Top 3 ranked and summarized', 'success');
+                }
+            } catch (e) {
+                resultDiv.innerHTML = `Error: ${e.message}`;
+            }
+        }
+
+        async function rankProjectsGemini() {
+            const resultDiv = document.getElementById('rankGeminiResult');
+            resultDiv.innerHTML = 'Asking Gemini to rank your projects… this may take 15-30s.';
+            try {
+                const data = await apiCall(`/api/projects/rank-gemini?user_name=${currentUser.user_name}`, { method: 'POST' });
+                if (data.success) {
+                    let html = data.rankings.map((r, i) =>
+                        `<strong>${i+1}. ${r.filename}</strong> — Score: ${r.score}/100\n` +
+                        (r.strengths.length ? `   Strengths: ${r.strengths.join(', ')}\n` : '') +
+                        (r.weaknesses.length ? `   Weaknesses: ${r.weaknesses.join(', ')}\n` : '') +
+                        (r.one_line_summary ? `   ${r.one_line_summary}\n` : '')
+                    ).join('\n');
+                    if (data.reasoning) html += `\nOverall: ${data.reasoning}`;
+                    resultDiv.innerHTML = html;
+                    showMessage('Gemini ranking complete', 'success');
                 }
             } catch (e) {
                 resultDiv.innerHTML = `Error: ${e.message}`;
