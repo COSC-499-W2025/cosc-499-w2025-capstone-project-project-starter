@@ -422,38 +422,20 @@ def generate_portfolio_top_summaries(
             if persist:
                 payload = json.dumps(artifact, default=str)
                 
-                # check if a showcase already exists for this project
-                existing_row = conn.execute(
-                    text("SELECT id FROM portfolio_showcases WHERE project_id = :pid"),
-                    {"pid": pid}
-                ).mappings().first()
-
-                if existing_row:
-                    # UPDATE existing: change content, keep the thumbnail, update timestamp
-                    showcase_id = existing_row["id"]
-                    conn.execute(
-                        text(
-                            """
-                            UPDATE portfolio_showcases
-                            SET content_json = CAST(:cj AS jsonb),
-                                updated_at = NOW()
-                            WHERE id = :sid
-                            """
-                        ),
-                        {"sid": showcase_id, "cj": payload},
-                    )
-                else:
-                    # INSERT new: only if no existing row
-                    showcase_id = conn.execute(
-                        text(
-                            """
-                            INSERT INTO portfolio_showcases (project_id, thumbnail_blob_sha256, content_json)
-                            VALUES (:pid, NULL, CAST(:cj AS jsonb))
-                            RETURNING id
-                            """
-                        ),
-                        {"pid": pid, "cj": payload},
-                    ).scalar_one()
+                # ATOMIC UPSERT: Handles the race condition safely
+                showcase_id = conn.execute(
+                    text(
+                        """
+                        INSERT INTO portfolio_showcases (project_id, thumbnail_blob_sha256, content_json, updated_at)
+                        VALUES (:pid, NULL, CAST(:cj AS jsonb), NOW())
+                        ON CONFLICT (project_id) DO UPDATE
+                        SET content_json = EXCLUDED.content_json,
+                            updated_at = EXCLUDED.updated_at
+                        RETURNING id
+                        """
+                    ),
+                    {"pid": pid, "cj": payload},
+                ).scalar_one()
                 
                 showcase_ids.append(str(showcase_id))
 
