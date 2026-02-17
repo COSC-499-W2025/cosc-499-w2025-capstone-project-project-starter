@@ -2,10 +2,14 @@
 
 import os
 from datetime import datetime
+import ctypes
 
 from docx import Document
 from docx.shared import Pt
 from file_parser import OUTPUT_DIR
+from db import update_full_scan, list_full_scans, get_full_scan_by_id
+from print_utils import _center_text, is_noise
+from permission_manager import get_yes_no
 
 
 # -------------------------------------------------------------------------
@@ -35,6 +39,81 @@ def _save_doc(doc, path):
         except Exception as e:
             print(f"Error saving document: {e}")
             return None
+
+
+def _input_with_prefill(prompt, text):
+    """
+    Prompts for input with a default value pre-filled.
+    Works on Windows (via ctypes) and Unix (via readline).
+    """
+    if not text:
+        return input(prompt)
+
+    if os.name == 'nt':
+        try:
+            # Windows implementation using WriteConsoleInputW
+            class KEY_EVENT_RECORD(ctypes.Structure):
+                _fields_ = [
+                    ("bKeyDown", ctypes.c_int),
+                    ("wRepeatCount", ctypes.c_ushort),
+                    ("wVirtualKeyCode", ctypes.c_ushort),
+                    ("wVirtualScanCode", ctypes.c_ushort),
+                    ("uChar", ctypes.c_wchar),
+                    ("dwControlKeyState", ctypes.c_ulong)
+                ]
+            
+            class INPUT_RECORD_Event(ctypes.Union):
+                _fields_ = [("KeyEvent", KEY_EVENT_RECORD)]
+            
+            class INPUT_RECORD(ctypes.Structure):
+                _fields_ = [
+                    ("EventType", ctypes.c_ushort),
+                    ("Event", INPUT_RECORD_Event)
+                ]
+
+            STD_INPUT_HANDLE = -10
+            hConsoleInput = ctypes.windll.kernel32.GetStdHandle(STD_INPUT_HANDLE)
+            
+            n = len(text)
+            records = (INPUT_RECORD * n)()
+            
+            for i, char in enumerate(text):
+                records[i].EventType = 0x0001 # KEY_EVENT
+                records[i].Event.KeyEvent.bKeyDown = 1
+                records[i].Event.KeyEvent.wRepeatCount = 1
+                records[i].Event.KeyEvent.wVirtualKeyCode = 0
+                records[i].Event.KeyEvent.wVirtualScanCode = 0
+                records[i].Event.KeyEvent.uChar = char
+                records[i].Event.KeyEvent.dwControlKeyState = 0
+
+            written = ctypes.c_ulong(0)
+            ctypes.windll.kernel32.WriteConsoleInputW(
+                hConsoleInput,
+                ctypes.byref(records),
+                n,
+                ctypes.byref(written)
+            )
+        except Exception:
+            pass
+    else:
+        try:
+            import readline
+            def hook():
+                readline.insert_text(text)
+                readline.redisplay()
+            readline.set_startup_hook(hook)
+        except ImportError:
+            pass
+
+    try:
+        return input(prompt)
+    finally:
+        if os.name != 'nt':
+            try:
+                import readline
+                readline.set_startup_hook()
+            except ImportError:
+                pass
 
 
 # -------------------------------------------------------------------------
@@ -315,7 +394,8 @@ def generate_contributor_portfolio(
              user_stats["files_worked"] = len(p_ref.get("files_list"))
 
         project_context = all_projects_map.get(p_name, {})
-        user_projects.append((p_name, user_stats, project_context))
+        custom_desc = p_ref.get("custom_description")
+        user_projects.append((p_name, user_stats, project_context, custom_desc))
 
     # Sort by impact
     user_projects.sort(key=lambda x: x[1]["score"], reverse=True)
@@ -333,7 +413,7 @@ def generate_contributor_portfolio(
     if not user_projects:
         doc.add_paragraph("No project contributions found.")
     else:
-        for p_name, u_stats, p_context in user_projects:
+        for p_name, u_stats, p_context, custom_desc in user_projects:
             # Filter negligible
             if u_stats["pct"] < 0.1 and u_stats["files_worked"] == 0 and u_stats["commit_count"] == 0:
                 continue
@@ -352,7 +432,10 @@ def generate_contributor_portfolio(
                 p_head.add_run(date_str).font.size = Pt(11)
             
             # Description
-            desc = _build_personal_project_description(p_name, p_context, u_stats)
+            if custom_desc:
+                desc = custom_desc
+            else:
+                desc = _build_personal_project_description(p_name, p_context, u_stats)
             doc.add_paragraph(desc, style="List Bullet")
             
             # Skills for this project
@@ -366,3 +449,149 @@ def generate_contributor_portfolio(
             doc.add_paragraph()
 
     return _save_doc(doc, docx_path)
+
+
+def edit_contributor_descriptions(target_scan=None):
+    """
+    Allows the user to edit the description of a project for a specific contributor.
+    """
+    if target_scan:
+        scan = target_scan
+        summary_id = target_scan["summary_id"]
+        data = target_scan["scan_data"]
+    else:
+        scans = list_full_scans()
+        if not scans:
+            print(_center_text("No scans found."))
+            return
+
+        print()
+        print(_center_text("Select a scan to edit:"))
+        for i, s in enumerate(scans, start=1):
+            print(_center_text(f"{i}. Scan {s['summary_id']} - {s['timestamp']}"))
+
+        choice = input(_center_text("Enter number (0 to cancel): ")).strip()
+        if not choice.isdigit() or int(choice) == 0:
+            return
+
+        idx = int(choice) - 1
+        if idx < 0 or idx >= len(scans):
+            print(_center_text("Invalid selection."))
+            return
+
+        summary_id = scans[idx]["summary_id"]
+        scan = get_full_scan_by_id(summary_id)
+        if not scan:
+            print(_center_text("Error loading scan data."))
+            return
+        data = scan["scan_data"]
+
+    profiles = data.get("contributor_profiles", {})
+    project_summaries = data.get("project_summaries", [])
+    project_map = {p["project"]: p for p in project_summaries}
+
+    contributors = sorted([c for c in profiles.keys() if not is_noise(c)])
+
+    if not contributors:
+        print(_center_text("No contributors found."))
+        return
+
+    while True:
+        print()
+        print(_center_text("Select contributor to edit:"))
+        for i, c in enumerate(contributors, 1):
+            print(_center_text(f"{i}. {c}"))
+
+        sel = input(_center_text("Enter number (0 to back): ")).strip()
+        if not sel.isdigit():
+            continue
+        
+        c_idx = int(sel) - 1
+        if c_idx == -1:
+            break
+        if c_idx < 0 or c_idx >= len(contributors):
+            continue
+
+        user = contributors[c_idx]
+        user_projects = profiles[user].get("projects", [])
+
+        if not user_projects:
+            print(_center_text("No projects for this user."))
+            continue
+
+        while True:
+            print()
+            print(_center_text(f"Projects for {user}:"))
+            for i, p in enumerate(user_projects, 1):
+                has_custom = " *" if p.get("custom_description") else ""
+                print(_center_text(f"{i}. {p.get('name', 'Unknown')}{has_custom}"))
+
+            p_sel = input(_center_text("Select project (0 to back): ")).strip()
+            if not p_sel.isdigit():
+                continue
+            
+            p_idx = int(p_sel) - 1
+            if p_idx == -1:
+                break
+            if p_idx < 0 or p_idx >= len(user_projects):
+                continue
+
+            target_p = user_projects[p_idx]
+            p_name = target_p.get("name")
+
+            # Reconstruct stats for preview
+            user_stats = {
+                "user_code_files": target_p.get("user_code_files", 0),
+                "user_test_files": target_p.get("user_test_files", 0),
+                "user_doc_files": target_p.get("user_doc_files", 0),
+                "user_design_files": target_p.get("user_design_files", 0),
+                "pct": target_p.get("pct", 0.0),
+                "score": target_p.get("score", 0.0),
+                "files_worked": target_p.get("files_worked", 0),
+                "commit_count": target_p.get("commit_count", 0)
+            }
+            if user_stats["files_worked"] == 0 and target_p.get("files_list"):
+                 user_stats["files_worked"] = len(target_p.get("files_list"))
+
+            p_context = project_map.get(p_name, {})
+            default_desc = _build_personal_project_description(p_name, p_context, user_stats)
+            current_custom = target_p.get("custom_description")
+
+            print("\n" + "="*60)
+            print(f"Project: {p_name}")
+            print(f"Default Generated: {default_desc}")
+            if current_custom:
+                print(f"Current Custom:    {current_custom}")
+            print("="*60)
+
+            print(_center_text("Edit description (type 'RESET' to restore default):"))
+            prefill = current_custom if current_custom else default_desc
+            new_desc = _input_with_prefill("> ", prefill).strip()
+
+            if new_desc == "RESET":
+                if "custom_description" in target_p:
+                    del target_p["custom_description"]
+                    print(_center_text("Reset to default."))
+                    update_full_scan(summary_id, data)
+                    if get_yes_no(f"Regenerate resume for {user}?"):
+                        out = generate_contributor_portfolio(
+                            user, profiles[user], project_map,
+                            scan_timestamp=scan["timestamp"],
+                            sort_mode="date"
+                        )
+                        if out:
+                            print(_center_text(f"Saved: {out}"))
+            elif new_desc:
+                target_p["custom_description"] = new_desc
+                print(_center_text("Saved custom description."))
+                update_full_scan(summary_id, data)
+                if get_yes_no(f"Regenerate resume for {user}?"):
+                    out = generate_contributor_portfolio(
+                        user, profiles[user], project_map,
+                        scan_timestamp=scan["timestamp"],
+                        sort_mode="date"
+                    )
+                    if out:
+                        print(_center_text(f"Saved: {out}"))
+            else:
+                print(_center_text("No change."))
