@@ -325,10 +325,14 @@ def generate_contributor_portfolio(
     doc = Document()
     
     # Header
-    display_name = contributor_name
-    if "@" in contributor_name:
-        display_name = contributor_name.split("@")[0]
-    display_name = display_name.replace(".", " ").replace("_", " ").title()
+    custom_name = profile_data.get("custom_name")
+    if custom_name:
+        display_name = custom_name
+    else:
+        display_name = contributor_name
+        if "@" in contributor_name:
+            display_name = contributor_name.split("@")[0]
+        display_name = display_name.replace(".", " ").replace("_", " ").title()
     
     title = doc.add_heading(display_name, level=0)
     title.runs[0].font.size = Pt(24)
@@ -526,10 +530,11 @@ def edit_contributor_descriptions(target_scan=None):
         while True:
             print()
             print(_center_text(f"--- Editing {user} ---"))
-            print(_center_text("1. Edit Professional Title"))
-            print(_center_text("2. Edit Professional Summary"))
-            print(_center_text("3. Edit Project Descriptions"))
-            print(_center_text("4. Regenerate Resume"))
+            print(_center_text("1. Edit Name"))
+            print(_center_text("2. Edit Professional Title"))
+            print(_center_text("3. Edit Professional Summary"))
+            print(_center_text("4. Edit Project Descriptions"))
+            print(_center_text("5. Regenerate Resume"))
             print(_center_text("0. Back to Contributor List"))
 
             choice = input(_center_text("Choose option: ")).strip()
@@ -538,6 +543,31 @@ def edit_contributor_descriptions(target_scan=None):
                 break
 
             if choice == "1":
+                # Calculate default name
+                default_name = user
+                if "@" in user:
+                    default_name = user.split("@")[0]
+                default_name = default_name.replace(".", " ").replace("_", " ").title()
+
+                curr = profile.get("custom_name", default_name)
+                print(_center_text("Edit Name (type 'RESET' to restore default):"))
+                val = _input_with_prefill("> ", curr).strip()
+
+                if val == "RESET":
+                    if "custom_name" in profile:
+                        del profile["custom_name"]
+                        update_full_scan(summary_id, data)
+                        print(_center_text("Reset to default."))
+                    else:
+                        print(_center_text("Already default."))
+                elif val:
+                    profile["custom_name"] = val
+                    update_full_scan(summary_id, data)
+                    print(_center_text("Saved."))
+                else:
+                    print(_center_text("No change."))
+
+            elif choice == "2":
                 # Calculate default title
                 default_title = "Software Contributor"
                 dev_keywords = {"Development", "Programming", "Engineering"}
@@ -562,7 +592,7 @@ def edit_contributor_descriptions(target_scan=None):
                 else:
                     print(_center_text("No change."))
 
-            elif choice == "2":
+            elif choice == "3":
                 # Calculate default summary
                 effective_title = profile.get("custom_title")
                 if not effective_title:
@@ -597,7 +627,7 @@ def edit_contributor_descriptions(target_scan=None):
                 else:
                     print(_center_text("No change."))
 
-            elif choice == "3":
+            elif choice == "4":
                 if not user_projects:
                     print(_center_text("No projects for this user."))
                     continue
@@ -663,7 +693,7 @@ def edit_contributor_descriptions(target_scan=None):
                     else:
                         print(_center_text("No change."))
 
-            elif choice == "4":
+            elif choice == "5":
                 out = generate_contributor_portfolio(
                     user,
                     profile,
