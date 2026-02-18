@@ -405,7 +405,8 @@ def generate_contributor_portfolio(
 
         project_context = all_projects_map.get(p_name, {})
         custom_desc = p_ref.get("custom_description")
-        user_projects.append((p_name, user_stats, project_context, custom_desc))
+        custom_skills = p_ref.get("custom_skills")
+        user_projects.append((p_name, user_stats, project_context, custom_desc, custom_skills))
 
     # Sort by impact
     user_projects.sort(key=lambda x: x[1]["score"], reverse=True)
@@ -423,7 +424,7 @@ def generate_contributor_portfolio(
     if not user_projects:
         doc.add_paragraph("No project contributions found.")
     else:
-        for p_name, u_stats, p_context, custom_desc in user_projects:
+        for p_name, u_stats, p_context, custom_desc, custom_skills in user_projects:
             # Filter negligible
             if u_stats["pct"] < 0.1 and u_stats["files_worked"] == 0 and u_stats["commit_count"] == 0:
                 continue
@@ -449,8 +450,11 @@ def generate_contributor_portfolio(
             doc.add_paragraph(desc, style="List Bullet")
             
             # Skills for this project
-            pcs = p_context.get("per_contributor_skills", {})
-            my_skills = pcs.get(contributor_name, [])
+            if custom_skills is not None:
+                my_skills = custom_skills
+            else:
+                pcs = p_context.get("per_contributor_skills", {})
+                my_skills = pcs.get(contributor_name, [])
             if my_skills:
                 s_p = doc.add_paragraph(style="List Bullet")
                 s_p.add_run("Skills: ").bold = True
@@ -533,7 +537,7 @@ def edit_contributor_descriptions(target_scan=None):
             print(_center_text("1. Edit Name"))
             print(_center_text("2. Edit Professional Title"))
             print(_center_text("3. Edit Professional Summary"))
-            print(_center_text("4. Edit Project Descriptions"))
+            print(_center_text("4. Edit Project Details (Desc/Skills)"))
             print(_center_text("5. Regenerate Resume"))
             print(_center_text("0. Back to Contributor List"))
 
@@ -652,46 +656,85 @@ def edit_contributor_descriptions(target_scan=None):
                     target_p = user_projects[p_idx]
                     p_name = target_p.get("name")
 
-                    # Reconstruct stats for preview
-                    user_stats = {
-                        "user_code_files": target_p.get("user_code_files", 0),
-                        "user_test_files": target_p.get("user_test_files", 0),
-                        "user_doc_files": target_p.get("user_doc_files", 0),
-                        "user_design_files": target_p.get("user_design_files", 0),
-                        "pct": target_p.get("pct", 0.0),
-                        "score": target_p.get("score", 0.0),
-                        "files_worked": target_p.get("files_worked", 0),
-                        "commit_count": target_p.get("commit_count", 0)
-                    }
-                    if user_stats["files_worked"] == 0 and target_p.get("files_list"):
-                        user_stats["files_worked"] = len(target_p.get("files_list"))
-
                     p_context = project_map.get(p_name, {})
-                    default_desc = _build_personal_project_description(p_name, p_context, user_stats)
-                    current_custom = target_p.get("custom_description")
 
-                    print("\n" + "="*60)
-                    print(f"Project: {p_name}")
-                    print(f"Default Generated: {default_desc}")
-                    if current_custom:
-                        print(f"Current Custom:    {current_custom}")
-                    print("="*60)
+                    while True:
+                        print()
+                        print(_center_text(f"--- Editing Project: {p_name} ---"))
+                        print(_center_text("1. Edit Description"))
+                        print(_center_text("2. Edit Skills"))
+                        print(_center_text("0. Back to Project List"))
 
-                    print(_center_text("Edit description (type 'RESET' to restore default):"))
-                    prefill = current_custom if current_custom else default_desc
-                    new_desc = _input_with_prefill("> ", prefill).strip()
+                        sub_choice = input(_center_text("Choose option: ")).strip()
 
-                    if new_desc == "RESET":
-                        if "custom_description" in target_p:
-                            del target_p["custom_description"]
-                            print(_center_text("Reset to default."))
-                            update_full_scan(summary_id, data)
-                    elif new_desc:
-                        target_p["custom_description"] = new_desc
-                        print(_center_text("Saved custom description."))
-                        update_full_scan(summary_id, data)
-                    else:
-                        print(_center_text("No change."))
+                        if sub_choice == "0":
+                            break
+
+                        if sub_choice == "1":
+                            # Reconstruct stats for preview
+                            user_stats = {
+                                "user_code_files": target_p.get("user_code_files", 0),
+                                "user_test_files": target_p.get("user_test_files", 0),
+                                "user_doc_files": target_p.get("user_doc_files", 0),
+                                "user_design_files": target_p.get("user_design_files", 0),
+                                "pct": target_p.get("pct", 0.0),
+                                "score": target_p.get("score", 0.0),
+                                "files_worked": target_p.get("files_worked", 0),
+                                "commit_count": target_p.get("commit_count", 0)
+                            }
+                            if user_stats["files_worked"] == 0 and target_p.get("files_list"):
+                                user_stats["files_worked"] = len(target_p.get("files_list"))
+
+                            default_desc = _build_personal_project_description(p_name, p_context, user_stats)
+                            current_custom = target_p.get("custom_description")
+
+                            print("\n" + "="*60)
+                            print(f"Project: {p_name}")
+                            print(f"Default Generated: {default_desc}")
+                            if current_custom:
+                                print(f"Current Custom:    {current_custom}")
+                            print("="*60)
+
+                            print(_center_text("Edit description (type 'RESET' to restore default):"))
+                            prefill = current_custom if current_custom else default_desc
+                            new_desc = _input_with_prefill("> ", prefill).strip()
+
+                            if new_desc == "RESET":
+                                if "custom_description" in target_p:
+                                    del target_p["custom_description"]
+                                    print(_center_text("Reset to default."))
+                                    update_full_scan(summary_id, data)
+                            elif new_desc:
+                                target_p["custom_description"] = new_desc
+                                print(_center_text("Saved custom description."))
+                                update_full_scan(summary_id, data)
+                            else:
+                                print(_center_text("No change."))
+
+                        elif sub_choice == "2":
+                            pcs = p_context.get("per_contributor_skills", {})
+                            default_skills = pcs.get(user, [])
+                            default_skills_str = ", ".join(default_skills)
+
+                            current_custom = target_p.get("custom_skills")
+                            current_str = ", ".join(current_custom) if current_custom is not None else default_skills_str
+
+                            print(_center_text("Edit Skills (comma-separated, type 'RESET' to restore default):"))
+                            val = _input_with_prefill("> ", current_str).strip()
+
+                            if val == "RESET":
+                                if "custom_skills" in target_p:
+                                    del target_p["custom_skills"]
+                                    update_full_scan(summary_id, data)
+                                    print(_center_text("Reset to default."))
+                                else:
+                                    print(_center_text("Already default."))
+                            else:
+                                # Parse list
+                                new_skills = [s.strip() for s in val.split(",") if s.strip()]
+                                target_p["custom_skills"] = new_skills
+                                update_full_scan(summary_id, data)
+                                print(_center_text("Saved."))
 
             elif choice == "5":
                 out = generate_contributor_portfolio(
