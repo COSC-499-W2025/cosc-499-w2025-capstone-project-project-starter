@@ -323,10 +323,10 @@ def generate_portfolio_menu():
 
     while True:
         _print_header("GENERATION OPTIONS", width=48, sep="-")
-        print(_center_text("1) Full Project Resume (Summary of all projects)"))
-        print(_center_text("2) Individual Contributor Resume (Word)"))
-        print(_center_text("3) Individual Contributor Portfolio (Markdown)"))
-        print(_center_text("4) Edit Resume Project Descriptions"))
+        print(_center_text("1) Full Project Resume"))
+        print(_center_text("2) Contributor Resume (Word)"))
+        print(_center_text("3) Contributor Portfolio (Markdown)"))
+        print(_center_text("4) Edit Resume"))
         print(_center_text("0) Back"))
 
         choice = input(_center_text("Enter number: ")).strip()

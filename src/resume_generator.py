@@ -341,20 +341,26 @@ def generate_contributor_portfolio(
     projects_ref = profile_data.get("projects", [])
     
     # Determine a professional title based on skills
-    role = "Software Contributor"
-    dev_keywords = {"Development", "Programming", "Engineering"}
-    if any(any(k in s for k in dev_keywords) for s in skills):
-        role = "Software Developer"
+    role = profile_data.get("custom_title")
+    if not role:
+        role = "Software Contributor"
+        dev_keywords = {"Development", "Programming", "Engineering"}
+        if any(any(k in s for k in dev_keywords) for s in skills):
+            role = "Software Developer"
 
-    summary_text = f"{role} with a track record of contributions across {len(projects_ref)} project(s)."
+    custom_summary = profile_data.get("custom_summary")
+    if custom_summary:
+        summary_text = custom_summary
+    else:
+        summary_text = f"{role} with a track record of contributions across {len(projects_ref)} project(s)."
 
-    if skills:
-        # List top 3 skills naturally
-        top_skills = skills[:3]
-        summary_text += f" Proficient in {', '.join(top_skills)}"
-        if len(skills) > 3:
-            summary_text += f", along with expertise in {len(skills)-3} other technologies"
-        summary_text += "."
+        if skills:
+            # List top 3 skills naturally
+            top_skills = skills[:3]
+            summary_text += f" Proficient in {', '.join(top_skills)}"
+            if len(skills) > 3:
+                summary_text += f", along with expertise in {len(skills)-3} other technologies"
+            summary_text += "."
         
     doc.add_paragraph(summary_text)
     doc.add_paragraph()
@@ -513,85 +519,158 @@ def edit_contributor_descriptions(target_scan=None):
             continue
 
         user = contributors[c_idx]
-        user_projects = profiles[user].get("projects", [])
-
-        if not user_projects:
-            print(_center_text("No projects for this user."))
-            continue
+        profile = profiles[user]
+        user_projects = profile.get("projects", [])
+        skills = profile.get("skills", [])
 
         while True:
             print()
-            print(_center_text(f"Projects for {user}:"))
-            for i, p in enumerate(user_projects, 1):
-                has_custom = " *" if p.get("custom_description") else ""
-                print(_center_text(f"{i}. {p.get('name', 'Unknown')}{has_custom}"))
+            print(_center_text(f"--- Editing {user} ---"))
+            print(_center_text("1. Edit Professional Title"))
+            print(_center_text("2. Edit Professional Summary"))
+            print(_center_text("3. Edit Project Descriptions"))
+            print(_center_text("4. Regenerate Resume"))
+            print(_center_text("0. Back to Contributor List"))
 
-            p_sel = input(_center_text("Select project (0 to back): ")).strip()
-            if not p_sel.isdigit():
-                continue
-            
-            p_idx = int(p_sel) - 1
-            if p_idx == -1:
+            choice = input(_center_text("Choose option: ")).strip()
+
+            if choice == "0":
                 break
-            if p_idx < 0 or p_idx >= len(user_projects):
-                continue
 
-            target_p = user_projects[p_idx]
-            p_name = target_p.get("name")
+            if choice == "1":
+                # Calculate default title
+                default_title = "Software Contributor"
+                dev_keywords = {"Development", "Programming", "Engineering"}
+                if any(any(k in s for k in dev_keywords) for s in skills):
+                    default_title = "Software Developer"
 
-            # Reconstruct stats for preview
-            user_stats = {
-                "user_code_files": target_p.get("user_code_files", 0),
-                "user_test_files": target_p.get("user_test_files", 0),
-                "user_doc_files": target_p.get("user_doc_files", 0),
-                "user_design_files": target_p.get("user_design_files", 0),
-                "pct": target_p.get("pct", 0.0),
-                "score": target_p.get("score", 0.0),
-                "files_worked": target_p.get("files_worked", 0),
-                "commit_count": target_p.get("commit_count", 0)
-            }
-            if user_stats["files_worked"] == 0 and target_p.get("files_list"):
-                 user_stats["files_worked"] = len(target_p.get("files_list"))
+                curr = profile.get("custom_title", default_title)
+                print(_center_text("Edit Title (type 'RESET' to restore default):"))
+                val = _input_with_prefill("> ", curr).strip()
 
-            p_context = project_map.get(p_name, {})
-            default_desc = _build_personal_project_description(p_name, p_context, user_stats)
-            current_custom = target_p.get("custom_description")
-
-            print("\n" + "="*60)
-            print(f"Project: {p_name}")
-            print(f"Default Generated: {default_desc}")
-            if current_custom:
-                print(f"Current Custom:    {current_custom}")
-            print("="*60)
-
-            print(_center_text("Edit description (type 'RESET' to restore default):"))
-            prefill = current_custom if current_custom else default_desc
-            new_desc = _input_with_prefill("> ", prefill).strip()
-
-            if new_desc == "RESET":
-                if "custom_description" in target_p:
-                    del target_p["custom_description"]
-                    print(_center_text("Reset to default."))
+                if val == "RESET":
+                    if "custom_title" in profile:
+                        del profile["custom_title"]
+                        update_full_scan(summary_id, data)
+                        print(_center_text("Reset to default."))
+                    else:
+                        print(_center_text("Already default."))
+                elif val:
+                    profile["custom_title"] = val
                     update_full_scan(summary_id, data)
-                    if get_yes_no(f"Regenerate resume for {user}?"):
-                        out = generate_contributor_portfolio(
-                            user, profiles[user], project_map,
-                            scan_timestamp=scan["timestamp"],
-                            sort_mode="date"
-                        )
-                        if out:
-                            print(_center_text(f"Saved: {out}"))
-            elif new_desc:
-                target_p["custom_description"] = new_desc
-                print(_center_text("Saved custom description."))
-                update_full_scan(summary_id, data)
-                if get_yes_no(f"Regenerate resume for {user}?"):
-                    out = generate_contributor_portfolio(
-                        user, profiles[user], project_map,
-                        scan_timestamp=scan["timestamp"],
-                        sort_mode="date"
-                    )
-                    if out:
-                        print(_center_text(f"Saved: {out}"))
-            else:
-                print(_center_text("No change."))
+                    print(_center_text("Saved."))
+                else:
+                    print(_center_text("No change."))
+
+            elif choice == "2":
+                # Calculate default summary
+                effective_title = profile.get("custom_title")
+                if not effective_title:
+                    effective_title = "Software Contributor"
+                    dev_keywords = {"Development", "Programming", "Engineering"}
+                    if any(any(k in s for k in dev_keywords) for s in skills):
+                        effective_title = "Software Developer"
+
+                default_summary = f"{effective_title} with a track record of contributions across {len(user_projects)} project(s)."
+                if skills:
+                    top_skills = skills[:3]
+                    default_summary += f" Proficient in {', '.join(top_skills)}"
+                    if len(skills) > 3:
+                        default_summary += f", along with expertise in {len(skills)-3} other technologies"
+                    default_summary += "."
+
+                curr = profile.get("custom_summary", default_summary)
+                print(_center_text("Edit Summary (type 'RESET' to restore default):"))
+                val = _input_with_prefill("> ", curr).strip()
+
+                if val == "RESET":
+                    if "custom_summary" in profile:
+                        del profile["custom_summary"]
+                        update_full_scan(summary_id, data)
+                        print(_center_text("Reset to default."))
+                    else:
+                        print(_center_text("Already default."))
+                elif val:
+                    profile["custom_summary"] = val
+                    update_full_scan(summary_id, data)
+                    print(_center_text("Saved."))
+                else:
+                    print(_center_text("No change."))
+
+            elif choice == "3":
+                if not user_projects:
+                    print(_center_text("No projects for this user."))
+                    continue
+
+                while True:
+                    print()
+                    print(_center_text(f"Projects for {user}:"))
+                    for i, p in enumerate(user_projects, 1):
+                        has_custom = " *" if p.get("custom_description") else ""
+                        print(_center_text(f"{i}. {p.get('name', 'Unknown')}{has_custom}"))
+
+                    p_sel = input(_center_text("Select project (0 to back): ")).strip()
+                    if not p_sel.isdigit():
+                        continue
+                    
+                    p_idx = int(p_sel) - 1
+                    if p_idx == -1:
+                        break
+                    if p_idx < 0 or p_idx >= len(user_projects):
+                        continue
+
+                    target_p = user_projects[p_idx]
+                    p_name = target_p.get("name")
+
+                    # Reconstruct stats for preview
+                    user_stats = {
+                        "user_code_files": target_p.get("user_code_files", 0),
+                        "user_test_files": target_p.get("user_test_files", 0),
+                        "user_doc_files": target_p.get("user_doc_files", 0),
+                        "user_design_files": target_p.get("user_design_files", 0),
+                        "pct": target_p.get("pct", 0.0),
+                        "score": target_p.get("score", 0.0),
+                        "files_worked": target_p.get("files_worked", 0),
+                        "commit_count": target_p.get("commit_count", 0)
+                    }
+                    if user_stats["files_worked"] == 0 and target_p.get("files_list"):
+                        user_stats["files_worked"] = len(target_p.get("files_list"))
+
+                    p_context = project_map.get(p_name, {})
+                    default_desc = _build_personal_project_description(p_name, p_context, user_stats)
+                    current_custom = target_p.get("custom_description")
+
+                    print("\n" + "="*60)
+                    print(f"Project: {p_name}")
+                    print(f"Default Generated: {default_desc}")
+                    if current_custom:
+                        print(f"Current Custom:    {current_custom}")
+                    print("="*60)
+
+                    print(_center_text("Edit description (type 'RESET' to restore default):"))
+                    prefill = current_custom if current_custom else default_desc
+                    new_desc = _input_with_prefill("> ", prefill).strip()
+
+                    if new_desc == "RESET":
+                        if "custom_description" in target_p:
+                            del target_p["custom_description"]
+                            print(_center_text("Reset to default."))
+                            update_full_scan(summary_id, data)
+                    elif new_desc:
+                        target_p["custom_description"] = new_desc
+                        print(_center_text("Saved custom description."))
+                        update_full_scan(summary_id, data)
+                    else:
+                        print(_center_text("No change."))
+
+            elif choice == "4":
+                out = generate_contributor_portfolio(
+                    user,
+                    profile,
+                    project_map,
+                    scan_timestamp=scan["timestamp"],
+                    sort_mode="date"
+                )
+                if out:
+                    print(_center_text(f"Saved resume to:\n{out}"))
+                input(_center_text("Press Enter to continue..."))
