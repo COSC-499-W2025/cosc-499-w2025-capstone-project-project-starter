@@ -1,20 +1,111 @@
-# Project-Starter
-Please use the provided folder structure for your project. You are free to organize any additional internal folder structure as required by the project. 
+# Portfolio Analysis (Team 7)
 
-```
-.
-├── docs                    # Documentation files
-│   ├── contract            # Team contract
-│   ├── proposal            # Project proposal 
-│   ├── design              # UI mocks
-│   ├── minutes             # Minutes from team meetings
-│   ├── logs                # Team and individual Logs
-│   └── ...          
-├── src                     # Source files (alternatively `app`)
-├── tests                   # Automated tests 
-├── utils                   # Utility files
-└── README.md
+A portfolio analysis system for scanning projects, summarizing artifacts, and generating resume-ready snippets. The stack couples a Python/FastAPI backend, Supabase persistence, and optional OpenAI-powered analysis while keeping all local analysis (PDFs/documents/media/git) on-device.
+
+```text
+├── backend/                  # FastAPI app + analyzers + services
+│   └── src/
+│       ├── analyzer/         # LLM client + skills extractor
+│       │   └── llm/          # OpenAI integration
+│       ├── api/              # FastAPI routes (projects, auth, consent, uploads, etc.)
+│       │   └── models/       # Pydantic request/response models
+│       ├── auth/             # Consent + session handling (Supabase)
+│       ├── services/         # Business logic services
+│       ├── config/           # Configuration management
+│       ├── local_analysis/   # PDF/doc/media/git analyzers (offline)
+│       ├── scanner/          # File walker, duplicate detection, preferences
+│       └── main.py           # FastAPI entrypoint
+├── frontend/                 # Next.js web UI (in development)
+│   ├── app/                  # Next.js App Router pages
+│   ├── components/           # React components + shadcn/ui
+│   ├── lib/                  # Utilities and helpers
+│   └── types/                # TypeScript type definitions
+├── electron/                 # Desktop app wrapper (in development)
+│   └── ipc/                  # IPC handlers for main/renderer
+├── db/                       # SQL migration scripts
+├── docs/                     # Architecture, DFD, WBS, proposal/requirements
+│   └── assets/               # Documentation images
+├── supabase/                 # Schema guide + migrations
+│   └── migrations/           # Supabase migration files
+├── scripts/                  # Setup + launch helpers
+└── tests/                    # Pytest suite for services/analyzers
+    ├── analyzers/            # Analyzer unit tests
+    ├── services/             # Service tests
+    ├── fixtures/             # Test fixtures and sample data
+    ├── integration/          # Integration tests
+    ├── local_analysis/       # Local analysis tests
+    └── scanner/              # Scanner tests
 ```
 
-Please use a branching workflow, and once an item is ready, do remember to issue a PR, review, and merge it into the master branch.
-Be sure to keep your docs and README.md up-to-date.
+## Highlights
+- Local analysis pipeline (PDF/doc/media summaries, git timelines, contribution scoring, duplicate detection) with no external calls.
+- AI-powered insights and resume bullet generation via OpenAI (opt-in; consent gates + key verification API).
+- FastAPI backend for project scanning, analysis, and portfolio management.
+- Supabase-backed storage for scans (`projects`/`scan_files`), resume snippets (`resume_items`), user configs, and consent records.
+- Privacy-first controls: consent screens, offline-first defaults, and ability to clear stored API keys/sessions.
+
+## Prerequisites
+- Python 3.12.x (see `.python-version`). The launcher can install `python@3.12` via Homebrew when missing.
+- `ffmpeg` and `libsndfile1` are required for media analysis (installed automatically in Docker; on macOS `brew install ffmpeg libsndfile`).
+- Supabase project URL + service role key (`.env`), optional OpenAI API key for AI features.
+
+## Docs & Resources
+- [Data Flow Diagrams](docs/dfd.md)
+- [System Architecture](docs/systemArchitecture.md)
+- [Work Breakdown Structure](docs/WBS.md)
+- [Team Contract](docs/teamContract.pdf)
+- [Shared Drive](https://drive.google.com/drive/folders/1Ic_HO0ReyS5_xveO-FNnUX63wc-phoV9?usp=sharing)
+
+## Setup & Run the FastAPI Service
+From `backend/`:
+```bash
+uvicorn src.main:app --reload --host 0.0.0.0 --port 8000
+```
+Exposes health checks plus `/api/llm` routes for API-key verification and consent-aware client status.
+
+First-time setup:
+1) Copy env vars: `cp .env.example .env` and fill `SUPABASE_URL` + `SUPABASE_KEY` (service role). Set `PORTFOLIO_USER_EMAIL` for commit attribution filtering; provide `OPENAI_API_KEY` at runtime when prompted.
+2) Create virtual environment and install dependencies:
+```bash
+cd backend
+python -m venv .venv && source .venv/bin/activate  # or use existing venv
+pip install -r requirements.txt
+uvicorn src.main:app --reload --host 0.0.0.0 --port 8000
+```
+
+## Docker
+Before running for the first time:
+```bash
+cp .env.example .env   # populate values first
+```
+
+To run the FastAPI service inside the container:
+```bash
+docker compose up api
+```
+
+## Testing
+
+### Backend
+```bash
+cd backend
+python -m venv .venv && source .venv/bin/activate  # or use existing venv
+pip install -r requirements.txt
+pytest -q
+```
+Tests cover services, analyzers (PDF/doc/media/git), consent flows, Supabase-backed services, and API routes. Some suites load Torch/vision/audio; allow extra time on first install.
+
+### Frontend
+```bash
+cd frontend
+npm run test          # single run (vitest)
+npm run test:watch    # watch mode
+```
+Tests use Vitest + Testing Library (jsdom). Test files are in `frontend/__tests__/`.
+
+## Key references
+- Architecture + diagrams: `docs/systemArchitecture.md`, `docs/dfd.md`
+- Requirements & planning: `docs/projectRequirements.md`, `docs/projectProposal.md`, `docs/WBS.md`
+- Supabase schema & migrations: `supabase/SCHEMA.md`, `supabase/migrations/`
+- Analyzer guides: `backend/src/local_analysis/README.md`, `backend/src/analyzer/README.md`
+- Consent system: `backend/src/auth/README.md`
