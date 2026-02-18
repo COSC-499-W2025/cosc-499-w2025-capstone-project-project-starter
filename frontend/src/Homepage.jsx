@@ -298,6 +298,19 @@ function Homepage() {
   );
 
   const reportStats = useMemo(() => {
+    const toNumber = (value) => {
+      if (value === null || value === undefined) return null;
+      if (typeof value === 'number' && Number.isFinite(value)) return value;
+      if (typeof value === 'string') {
+        const normalized = value.replace(/[^0-9.-]/g, '');
+        if (!normalized) return null;
+        const parsed = Number(normalized);
+        return Number.isFinite(parsed) ? parsed : null;
+      }
+      const parsed = Number(value);
+      return Number.isFinite(parsed) ? parsed : null;
+    };
+
     if (!projectReport) {
       return {
         totalFiles: 0,
@@ -313,21 +326,31 @@ function Homepage() {
     const parserTotals = parser?.totals || {};
     const summary = projectReport.summary || {};
 
-    const totalFiles =
+    const totalFilesRaw =
       summary.total_files ??
       summary.files ??
       parserTotals.total_files ??
       parserTotals.files ??
       0;
 
-    const totalLines =
+    const totalLinesRaw =
       summary.total_lines ??
+      summary.totalLines ??
       summary.lines ??
+      summary.line_count ??
+      summary.lineCount ??
+      summary.loc ??
+      summary.sloc ??
       parserTotals.total_lines ??
+      parserTotals.totalLines ??
       parserTotals.lines ??
+      parserTotals.line_count ??
+      parserTotals.lineCount ??
+      parserTotals.loc ??
+      parserTotals.sloc ??
       0;
 
-    const inferredLanguageCount =
+    const inferredLanguageCountRaw =
       summary.language_count ??
       summary.languages ??
       summary.total_languages ??
@@ -341,9 +364,9 @@ function Homepage() {
       [];
 
     return {
-      totalFiles: Number(totalFiles) || 0,
-      totalLines: Number(totalLines) || 0,
-      languageCount: Number(inferredLanguageCount) || 0,
+      totalFiles: toNumber(totalFilesRaw) ?? 0,
+      totalLines: toNumber(totalLinesRaw) ?? 0,
+      languageCount: toNumber(inferredLanguageCountRaw) ?? 0,
       topLanguages,
     };
   }, [projectReport]);

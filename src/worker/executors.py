@@ -51,6 +51,7 @@ def run_parser(engine: Engine, snapshot_id: str) -> Dict[str, Any]:
 
     total_files = len(files)
     size_total = sum(f.size_bytes for f in files)
+    total_lines = 0
 
     language_counts = Counter()
     activity_counts = Counter()
@@ -76,8 +77,26 @@ def run_parser(engine: Engine, snapshot_id: str) -> Dict[str, Any]:
 
         text_count += 1
         try:
+            captured_parts: List[str] = []
+            captured_chars = 0
+            line_count = 0
+
             with open(f.stored_path, "r", encoding="utf-8", errors="replace") as fp:
-                s = fp.read(1_000_000)
+                for line in fp:
+                    line_count += 1
+                    if captured_chars >= 1_000_000:
+                        continue
+
+                    remaining = 1_000_000 - captured_chars
+                    if len(line) <= remaining:
+                        captured_parts.append(line)
+                        captured_chars += len(line)
+                    else:
+                        captured_parts.append(line[:remaining])
+                        captured_chars = 1_000_000
+
+            total_lines += line_count
+            s = "".join(captured_parts)
             c = sum(1 for _ in chunk_text(s))
             chunks_total += c
             chunks_by_lang[lang] += c
@@ -91,6 +110,8 @@ def run_parser(engine: Engine, snapshot_id: str) -> Dict[str, Any]:
         "generated_at": _utcnow_iso(),
         "totals": {
             "files": total_files,
+            "total_lines": total_lines,
+            "lines": total_lines,
             "bytes": size_total,
             "text_files": text_count,
             "binary_files": binary_count,
