@@ -269,11 +269,12 @@ def generate_markdown_portfolio(data, user, timestamp):
 
     if target_portfolio:
         from file_parser import OUTPUT_DIR
-        os.makedirs(OUTPUT_DIR, exist_ok=True)
+        resume_dir = os.path.join(OUTPUT_DIR, "resumes")
+        os.makedirs(resume_dir, exist_ok=True)
         
         safe_name = "".join(c for c in user if c.isalnum() or c in (' ', '_', '-')).strip().replace(' ', '_')
         filename = f"Portfolio_{safe_name}.md"
-        out_path = os.path.join(OUTPUT_DIR, filename)
+        out_path = os.path.join(resume_dir, filename)
         
         with open(out_path, "w", encoding="utf-8") as f:
             f.write(target_portfolio.to_markdown())
