@@ -297,6 +297,57 @@ function Homepage() {
     []
   );
 
+  const reportStats = useMemo(() => {
+    if (!projectReport) {
+      return {
+        totalFiles: 0,
+        totalLines: 0,
+        languageCount: 0,
+        topLanguages: [],
+      };
+    }
+
+    const snapshots = Array.isArray(projectReport.snapshots) ? projectReport.snapshots : [];
+    const latestSnapshot = snapshots[snapshots.length - 1] || null;
+    const parser = latestSnapshot?.analyses?.parser || {};
+    const parserTotals = parser?.totals || {};
+    const summary = projectReport.summary || {};
+
+    const totalFiles =
+      summary.total_files ??
+      summary.files ??
+      parserTotals.total_files ??
+      parserTotals.files ??
+      0;
+
+    const totalLines =
+      summary.total_lines ??
+      summary.lines ??
+      parserTotals.total_lines ??
+      parserTotals.lines ??
+      0;
+
+    const inferredLanguageCount =
+      summary.language_count ??
+      summary.languages ??
+      summary.total_languages ??
+      parserTotals.language_count ??
+      (parser?.language_counts ? Object.keys(parser.language_counts).length : undefined) ??
+      0;
+
+    const topLanguages =
+      (Array.isArray(projectReport.top_languages) && projectReport.top_languages) ||
+      (Array.isArray(parser?.top_languages) && parser.top_languages) ||
+      [];
+
+    return {
+      totalFiles: Number(totalFiles) || 0,
+      totalLines: Number(totalLines) || 0,
+      languageCount: Number(inferredLanguageCount) || 0,
+      topLanguages,
+    };
+  }, [projectReport]);
+
   if (sessionLoading) {
     return (
       <div className="screen-shell">
@@ -524,18 +575,22 @@ function Homepage() {
                     <div className="stack-block">
                       <h3>Summary</h3>
                       <div className="summary-grid">
-                        <p>Total files: {projectReport.summary?.total_files || 0}</p>
-                        <p>Total lines: {projectReport.summary?.total_lines || 0}</p>
-                        <p>Languages: {projectReport.summary?.language_count || 0}</p>
+                        <p>Total files: {reportStats.totalFiles}</p>
+                        <p>Total lines: {reportStats.totalLines}</p>
+                        <p>Languages: {reportStats.languageCount}</p>
                       </div>
-                      {projectReport.top_languages?.length > 0 && (
+                      {reportStats.topLanguages.length > 0 && (
                         <>
                           <h4>Top languages</h4>
                           <ul className="simple-list">
-                            {projectReport.top_languages.map((language, index) => (
-                              <li key={`${language.language}-${index}`}>
-                                <span>{language.language}</span>
-                                <span>{language.percentage.toFixed(1)}%</span>
+                            {reportStats.topLanguages.map((language, index) => (
+                              <li key={`${language.language || language.name || 'unknown'}-${index}`}>
+                                <span>{language.language || language.name || 'Unknown'}</span>
+                                <span>
+                                  {typeof language.percentage === 'number'
+                                    ? `${language.percentage.toFixed(1)}%`
+                                    : `${Number(language.files || 0)} files`}
+                                </span>
                               </li>
                             ))}
                           </ul>
