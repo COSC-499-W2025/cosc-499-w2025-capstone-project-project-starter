@@ -50,8 +50,8 @@ def scan_manager():
             [
                 ("0", "Return to home screen"),
                 ("1", "View stored project analyses"),
-                ("2", "Generate Resume/Portfolio"),
-                ("3", "Update an existing scan"),
+                ("2", "Update an existing scan"),
+                ("3", "Generate Resume/Portfolio"),
                 ("4", "Delete stored scans"),
             ],
             prompt="Choose an option (0–4): ",
@@ -60,9 +60,9 @@ def scan_manager():
         if choice == "1":
             view_full_scan_details()
         elif choice == "2":
-            generate_portfolio_menu()
-        elif choice == "3":
             update_scan_workflow()
+        elif choice == "3":
+            generate_portfolio_menu()
         elif choice == "4":
             delete_full_scan()
         elif choice == "0":

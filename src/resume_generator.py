@@ -529,13 +529,19 @@ def edit_contributor_descriptions(target_scan=None):
         while True:
             print()
             print(_center_text(f"--- Editing {user} ---"))
-            print(_center_text("1. Edit Name"))
-            print(_center_text("2. Edit Professional Title"))
-            print(_center_text("3. Edit Professional Summary"))
-            print(_center_text("4. Edit Project Details (Desc/Skills)"))
-            print(_center_text("5. Regenerate Resume"))
-            print(_center_text("6. Reset All Changes"))
-            print(_center_text("0. Back to Contributor List"))
+            
+            menu_opts = [
+                "1. Edit Name",
+                "2. Edit Professional Title",
+                "3. Edit Professional Summary",
+                "4. Edit Project Details (Desc/Skills)",
+                "5. Regenerate Resume",
+                "6. Reset All Changes",
+                "0. Back to Contributor List"
+            ]
+            max_len = max(len(o) for o in menu_opts)
+            for opt in menu_opts:
+                print(_center_text(opt.ljust(max_len)))
 
             choice = input(_center_text("Choose option: ")).strip()
 
@@ -657,9 +663,15 @@ def edit_contributor_descriptions(target_scan=None):
                     while True:
                         print()
                         print(_center_text(f"--- Editing Project: {p_name} ---"))
-                        print(_center_text("1. Edit Description"))
-                        print(_center_text("2. Edit Skills"))
-                        print(_center_text("0. Back to Project List"))
+                        
+                        sub_opts = [
+                            "1. Edit Description",
+                            "2. Edit Skills",
+                            "0. Back to Project List"
+                        ]
+                        max_sub = max(len(o) for o in sub_opts)
+                        for opt in sub_opts:
+                            print(_center_text(opt.ljust(max_sub)))
 
                         sub_choice = input(_center_text("Choose option: ")).strip()
 
@@ -747,14 +759,16 @@ def edit_contributor_descriptions(target_scan=None):
             elif choice == "6":
                 if get_yes_no(f"Are you sure you want to discard ALL manual edits for {user}?"):
                     # Clear profile-level fields
-                    profile.pop("custom_name", None)
-                    profile.pop("custom_title", None)
-                    profile.pop("custom_summary", None)
+                    # Remove any key starting with 'custom_' to ensure complete reset
+                    for k in list(profile.keys()):
+                        if k.startswith("custom_"):
+                            profile.pop(k, None)
                     
                     # Clear project-level fields
                     for p in user_projects:
-                        p.pop("custom_description", None)
-                        p.pop("custom_skills", None)
+                        for k in list(p.keys()):
+                            if k.startswith("custom_"):
+                                p.pop(k, None)
                     
                     update_full_scan(summary_id, data)
                     print(_center_text("All custom fields cleared. Reverted to defaults."))
