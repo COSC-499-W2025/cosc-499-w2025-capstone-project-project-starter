@@ -2,9 +2,12 @@ import os
 import shutil
 from datetime import datetime
 
-from db import delete_full_scan_by_id, get_full_scan_by_id, list_full_scans
+from db import delete_full_scan_by_id, get_full_scan_by_id, list_full_scans, update_full_scan
+from file_parser import get_input_file_path
 from permission_manager import get_yes_no
 from resume_generator import generate_resume, generate_contributor_portfolio
+from portfolio_generator import create_portfolios
+from services.scan_service import analyze_scan, merge_scans
 
 from print_utils import (
     print_repo_summary,
@@ -48,9 +51,10 @@ def scan_manager():
                 ("0", "Return to home screen"),
                 ("1", "View stored project analyses"),
                 ("2", "Generate Resume/Portfolio"),
-                ("3", "Delete stored scans"),
+                ("3", "Update an existing scan"),
+                ("4", "Delete stored scans"),
             ],
-            prompt="Choose an option (0–3): ",
+            prompt="Choose an option (0–4): ",
         )
 
         if choice == "1":
@@ -58,6 +62,8 @@ def scan_manager():
         elif choice == "2":
             generate_portfolio_menu()
         elif choice == "3":
+            update_scan_workflow()
+        elif choice == "4":
             delete_full_scan()
         elif choice == "0":
             break
@@ -151,6 +157,72 @@ def view_full_scan_details():
 
 
 # --------------------------------------------------------
+# UPDATE SCAN
+# --------------------------------------------------------
+
+def update_scan_workflow():
+    _print_header("UPDATE EXISTING SCAN")
+    
+    # 1. Select existing scan
+    scans = list_full_scans()
+    if not scans:
+        print(_center_text("No existing scans found to update."))
+        return
+
+    print(_center_text("Select a scan to update:"))
+    _print_scan_list(scans)
+    
+    choice = input(_center_text(f"Choose (1-{len(scans)} or 0 to cancel): ")).strip()
+    if not choice.isdigit():
+        return
+    idx = int(choice)
+    if idx == 0 or idx > len(scans):
+        return
+    
+    target_scan_meta = scans[idx-1]
+    summary_id = target_scan_meta['summary_id']
+    
+    # Load full data
+    existing_record = get_full_scan_by_id(summary_id)
+    if not existing_record:
+        print(_center_text("Error loading scan data."))
+        return
+    
+    existing_data = existing_record['scan_data']
+
+    # 2. Select new file
+    print(_center_text("Select the new ZIP file to add:"))
+    result = get_input_file_path()
+    if not result:
+        return
+    file_list, zip_hash = result
+    
+    # Check if this file is already in the scan
+    current_hashes = set(existing_data.get("source_hashes", []))
+        
+    if zip_hash in current_hashes:
+        print(_center_text("This file has already been added to this scan."))
+        return
+
+    # 3. Analyze
+    print(_center_text("Analyzing new files..."))
+    analysis_mode = existing_record['analysis_mode']
+    # Use default advanced options (empty dict defaults to True in detailed_extraction)
+    new_results = analyze_scan(file_list, analysis_mode, {})
+    if new_results:
+        new_results["source_hashes"] = [zip_hash]
+    
+    # 4. Merge
+    merged_results = merge_scans(existing_data, new_results)
+    
+    # 5. Save
+    try:
+        update_full_scan(summary_id, merged_results)
+        print(_center_text("Portfolio updated successfully."))
+    except Exception as e:
+        print(_center_text(f"Error updating portfolio: {e}"))
+
+# --------------------------------------------------------
 # DELETE SCAN
 # --------------------------------------------------------
 """
@@ -190,6 +262,27 @@ def delete_full_scan():
         print(_center_text("Deletion canceled."))
 
 
+def generate_markdown_portfolio(data, user, timestamp):
+    """Generates a Markdown portfolio for a specific user."""
+    portfolios = create_portfolios(data)
+    target_portfolio = next((p for p in portfolios if p.user_name == user), None)
+
+    if target_portfolio:
+        from file_parser import OUTPUT_DIR
+        os.makedirs(OUTPUT_DIR, exist_ok=True)
+        
+        safe_name = "".join(c for c in user if c.isalnum() or c in (' ', '_', '-')).strip().replace(' ', '_')
+        filename = f"Portfolio_{safe_name}.md"
+        out_path = os.path.join(OUTPUT_DIR, filename)
+        
+        with open(out_path, "w", encoding="utf-8") as f:
+            f.write(target_portfolio.to_markdown())
+            
+        print(_center_text(f"Saved portfolio to:\n{out_path}"))
+    else:
+        print(_center_text("Error: Could not generate portfolio for selected user."))
+
+
 # --------------------------------------------------------
 # PORTFOLIO GENERATION
 # --------------------------------------------------------
@@ -200,7 +293,8 @@ def generate_portfolio_menu():
     Menu for generating Word documents from a saved scan.
     Options:
     1) Full Project Resume (summary of all projects in the scan).
-    2) Individual Contributor Portfolio (specific to one person).
+    2) Individual Contributor Resume (Word)
+    3) Individual Contributor Portfolio (Markdown)specific to one person).
     """
     scans = list_full_scans()
     if not scans:
@@ -229,21 +323,23 @@ def generate_portfolio_menu():
 
     _print_header("GENERATION OPTIONS", width=48, sep="-")
     print(_center_text("1) Full Project Resume (Summary of all projects)"))
-    print(_center_text("2) Individual Contributor Portfolio"))
+    print(_center_text("2) Individual Contributor Resume (Word)"))
+    print(_center_text("3) Individual Contributor Portfolio (Markdown)"))
 
     choice = input(_center_text("Enter number (0 to cancel): ")).strip()
 
     if choice == "1":
-        txt, docx = generate_resume(
+        docx = generate_resume(
             data.get("project_summaries", []),
             data.get("projects_chronological", []),
             data.get("skills_chronological", []),
             scan_timestamp=scan["timestamp"],
         )
-        print(_center_text(f"Saved:\n{txt}\n{docx}"))
+        if docx:
+            print(_center_text(f"Saved:\n{docx}"))
         return
 
-    if choice != "2":
+    if choice not in ("2", "3"):
         return
 
     # --- Contributor Portfolio Logic ---
@@ -272,18 +368,24 @@ def generate_portfolio_menu():
 
     user = contributors[idx]
     profile = data["contributor_profiles"][user]
+    
+    if choice == "3":
+        generate_markdown_portfolio(data, user, scan["timestamp"])
+    elif choice == "2":
+        # Default to chronological sorting
+        sort_mode = "date"
 
-    project_map = {p["project"]: p for p in data.get("project_summaries", [])}
+        project_map = {p["project"]: p for p in data.get("project_summaries", [])}
+        out = generate_contributor_portfolio(
+            user,
+            profile,
+            project_map,
+            scan_timestamp=None,
+            sort_mode=sort_mode
+        )
 
-    out = generate_contributor_portfolio(
-        user,
-        profile,
-        project_map,
-        scan_timestamp=scan["timestamp"],
-    )
-
-    if out:
-        print(_center_text(f"Saved portfolio to:\n{out}"))
+        if out:
+            print(_center_text(f"Saved resume to:\n{out}"))
 
 
 # --------------------------------------------------------
@@ -316,8 +418,9 @@ def _print_menu(title, options, prompt="Choose an option: "):
 
 def _print_scan_list(scans):
     for i, s in enumerate(scans, start=1):
+        ts = _format_timestamp(s['timestamp'])
         print(
             _center_text(
-                f"{i}. [ID: {s['summary_id']}] {s['timestamp']} ({s['analysis_mode']})"
+                f"{i}. Scan {s['summary_id']} - {ts} ({s['analysis_mode']})"
             )
         )
