@@ -165,14 +165,52 @@ Generate portfolio data for the user.
 
 ---
 
-## Other endpoints
+## Required vs extra APIs
 
-- **GET /api/health**, **GET /api/health/db** – Health checks.
-- **POST /api/projects/{id}/analyze**, **.../analyze-gemini**, **.../quick-summary** – Analysis.
-- **POST /api/projects/rank**, **rank-top3**, **rank-gemini**, **GET /api/projects/rankings** – Ranking and re-ranking.
-- **DELETE /api/projects/{id}/data** – Delete project data (requires `user_name`).
-- **POST /api/preferences** – User preferences (e.g. git username).
-- **Auth:** **POST /api/auth/login**, **register**, **logout**, **GET /api/auth/me**.
-- **Settings:** **GET/POST /api/settings**, **/account**, **/privacy**, **/general**.
+**Milestone #2 required (11 endpoints) – all implemented:**
+
+| Required | Implemented path |
+|---------|------------------|
+| POST /projects/upload | **POST /api/projects/upload** |
+| POST /privacy-consent | **POST /api/privacy-consent** |
+| GET /projects | **GET /api/projects** |
+| GET /projects/{id} | **GET /api/projects/{project_id}** |
+| GET /skills | **GET /api/skills** |
+| GET /resume/{id} | **GET /api/resume/{user_id}** |
+| POST /resume/generate | **POST /api/resume/generate** |
+| POST /resume/{id}/edit | **POST /api/resume/{user_id}/edit** |
+| GET /portfolio/{id} | **GET /api/portfolio/{user_id}** |
+| POST /portfolio/generate | **POST /api/portfolio/generate** |
+| POST /portfolio/{id}/edit | **POST /api/portfolio/{user_id}/edit** |
+
+**Extra APIs (not in the milestone requirements):**
+
+- **Resume/portfolio display & customization**
+  - GET /api/resume/preview/{project_id} – one project as résumé item text
+  - GET /api/portfolio/card/{project_id} – one project as portfolio card text
+  - GET /api/resume/{user_id}/custom-wording – list projects with custom wording
+  - POST /api/resume/{user_id}/custom-wording – save custom wording (alternate to /edit body)
+  - DELETE /api/resume/{user_id}/custom-wording/{project_id} – clear custom wording
+  - DELETE /api/resume/{user_id} – delete user’s resume
+  - POST /api/portfolio/{user_id}/custom-data – save portfolio customization (same as edit)
+  - GET /api/portfolio/{user_id}/custom-data – list customized project IDs
+  - GET /api/portfolio/{user_id}/custom-data/{project_id} – get one customization
+  - DELETE /api/portfolio/{user_id}/custom-data/{project_id} – clear customization
+- **Projects (incremental, thumbnails, analysis, ranking)**
+  - POST /api/projects/{project_id}/merge – add zip to same project (incremental)
+  - POST /api/projects/{project_id}/thumbnail – upload portfolio image
+  - GET /api/projects/{project_id}/thumbnail – get thumbnail
+  - POST /api/projects/{project_id}/analyze – local analysis
+  - POST /api/projects/{project_id}/analyze-gemini – Gemini analysis
+  - POST /api/projects/{project_id}/quick-summary – quick AI summary
+  - POST /api/projects/rank, /api/projects/rank-top3, /api/projects/rank-gemini – ranking
+  - GET /api/projects/rankings – stored rankings
+  - DELETE /api/projects/{project_id}/data – delete project data
+  - POST /api/preferences – user preferences (e.g. git username)
+- **Health, auth, settings**
+  - GET /api/health, GET /api/health/db – health checks
+  - POST /api/auth/login, /register, /logout – auth
+  - GET /api/auth/me – current user
+  - GET/POST /api/settings, /api/settings/account, /api/settings/privacy, /api/settings/general – unified settings
 
 All API errors return a consistent shape: `{ "success": false, "error_type": "...", "message": "...", "data": ... }` with appropriate HTTP status codes (400, 403, 404, 422, 500).
