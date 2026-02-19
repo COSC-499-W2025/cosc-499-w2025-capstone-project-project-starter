@@ -16,9 +16,10 @@ from analysis.gemini_ranker import rank_projects_with_gemini
 from tools.cleanup_insights import delete_insights
 from database.user_preferences import update_user_git_username, get_user_git_username
 from config.db_config import with_db_cursor
+from common.logger import setup_logger
 
 router = APIRouter()
-
+logger = setup_logger(__name__)
 
 def _detect_image_type(image_bytes: bytes) -> Optional[str]:
     """Return a short image type label based on magic bytes, or None."""
@@ -497,8 +498,7 @@ async def analyze_project_gemini(project_id: int, user_name: Optional[str] = Que
                     VALUES (%s, %s, %s)
                 """, (project_id, json.dumps(results, default=str), 'gemini'))
         except Exception as db_err:
-            # Log but don't fail - analysis was successful
-            print(f"Warning: Could not store Gemini analysis results: {db_err}")
+            logger.warning(f"Could not store Gemini analysis results: {db_err}")
         
         return {"success": True, "analysis": results, "analysis_type": "gemini"}
         

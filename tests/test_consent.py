@@ -1,17 +1,5 @@
-"""
-Pytest tests for Requirement #1: User Consent Management
-Tests all 3 sub-issues:
-- Sub-issue #11: Define consent scope
-- Sub-issue #14: Check consent status before access
-- Sub-issue #18: Allow withdrawal of consent
-
-Run with: $env:PYTHONPATH="."; pytest tests -v
-"""
-
 import sys
 import os
-
-# Add src directory to Python path
 current_dir = os.path.dirname(os.path.abspath(__file__))
 parent_dir = os.path.dirname(current_dir)
 src_dir = os.path.join(parent_dir, 'src')
@@ -23,16 +11,17 @@ from consent.consent_storage import ConsentStorage
 from consent.consent_display import ConsentDisplay
 from config.db_config import get_connection
 from database.user_informations import init_user_informations_table, create_user, get_user_by_username
-
-
 @pytest.fixture(scope="function")
 def consent_manager():
-    """
-    Fixture to provide a fresh ConsentManager instance for each test.
-    Uses a unique test user name to avoid conflicts between tests.
-    """
     test_user_name = 'test_user_pytest'
     
+    # Drop table to ensure fresh schema if it's corrupted/old
+    conn = get_connection()
+    cur = conn.cursor()
+    cur.execute("DROP TABLE IF EXISTS user_consent CASCADE;")
+    conn.commit()
+    conn.close()
+
     # Initialize user_informations table
     init_user_informations_table()
     
@@ -133,11 +122,6 @@ class TestSubIssue11_ConsentScope:
 
 
 class TestSubIssue14_CheckConsent:
-    """
-    Tests for Sub-issue #14: Check consent status before granting access
-    Verifies that data access is properly controlled by consent status.
-    """
-    
     def test_no_consent_blocks_access(self, consent_manager):
         """Test that access is blocked when no consent exists."""
         # Don't store any consent
@@ -204,11 +188,6 @@ class TestSubIssue14_CheckConsent:
 
 
 class TestSubIssue18_WithdrawConsent:
-    """
-    Tests for Sub-issue #18: Allow user to withdraw consent
-    Verifies that consent can be withdrawn and access is immediately blocked.
-    """
-    
     def test_withdraw_consent_success(self, consent_manager):
         """Test that consent can be successfully withdrawn."""
         # First grant consent
@@ -282,8 +261,6 @@ class TestSubIssue18_WithdrawConsent:
 
 
 class TestConsentWorkflow:
-    """Integration tests for the complete consent workflow."""
-    
     def test_complete_consent_workflow(self, consent_manager):
         """Test the complete consent workflow from start to finish."""
         # 1. Initially no consent
