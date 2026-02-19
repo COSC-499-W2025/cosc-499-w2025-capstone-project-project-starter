@@ -577,6 +577,210 @@ def list_uploaded_files():
         return []
 
 
+def merge_zip_to_project(project_id: int, zip_file_path: str, user_name: str = None) -> UploadResult:
+    """
+    Merge files from a new ZIP archive into an existing project.
+    
+    This allows incremental additions to a portfolio/résumé by adding new files
+    from another zipped folder. Duplicate files (same path and content) are skipped.
+    
+    Args:
+        project_id: The ID of the existing project to merge into
+        zip_file_path: Path to the new ZIP file to merge
+        user_name: Optional username to verify ownership
+        
+    Returns:
+        UploadResult with merge statistics
+    """
+    from parsing.file_contents_manager import _is_binary_file, _get_content_type
+    from psycopg import Binary
+    
+    # 1. Validate project exists and user has access
+    try:
+        with with_db_cursor() as cursor:
+            if user_name:
+                cursor.execute(
+                    "SELECT id, filename, metadata FROM uploaded_files WHERE id = %s AND user_name = %s",
+                    (project_id, user_name)
+                )
+            else:
+                cursor.execute(
+                    "SELECT id, filename, metadata FROM uploaded_files WHERE id = %s",
+                    (project_id,)
+                )
+            project = cursor.fetchone()
+            
+            if not project:
+                return UploadResult(
+                    success=False,
+                    message=f"Project with ID {project_id} not found or access denied.",
+                    error_type="PROJECT_NOT_FOUND",
+                    data={"project_id": project_id}
+                )
+    except Exception as e:
+        return UploadResult(
+            success=False,
+            message=f"Database error checking project: {e}",
+            error_type="DATABASE_ERROR",
+            data={"project_id": project_id}
+        )
+    
+    project_filename = project[1]
+    existing_metadata = project[2] or {}
+    
+    # 2. Validate new ZIP file
+    if not os.path.exists(zip_file_path):
+        return UploadResult(
+            success=False,
+            message=f"ZIP file does not exist: {zip_file_path}",
+            error_type="FILE_NOT_FOUND",
+            data={"filepath": zip_file_path}
+        )
+    
+    if not zipfile.is_zipfile(zip_file_path):
+        return UploadResult(
+            success=False,
+            message="The provided file is not a valid ZIP archive.",
+            error_type="INVALID_ZIP",
+            data={"filepath": zip_file_path}
+        )
+    
+    # 3. Get existing file paths to detect duplicates
+    existing_paths = set()
+    try:
+        with with_db_cursor() as cursor:
+            cursor.execute(
+                "SELECT file_path FROM file_contents WHERE uploaded_file_id = %s",
+                (project_id,)
+            )
+            existing_paths = {row[0] for row in cursor.fetchall()}
+    except Exception as e:
+        return UploadResult(
+            success=False,
+            message=f"Error reading existing files: {e}",
+            error_type="DATABASE_ERROR",
+            data={"project_id": project_id}
+        )
+    
+    # 4. Extract and merge new files
+    new_files = []
+    skipped_files = []
+    errors = []
+    
+    try:
+        from datetime import datetime
+        from config.db_config import with_db_connection
+        
+        with with_db_connection() as (conn, cursor):
+            with zipfile.ZipFile(zip_file_path, 'r') as zip_ref:
+                file_list = zip_ref.namelist()
+                
+                for file_path in file_list:
+                    try:
+                        # Skip directories
+                        if file_path.endswith('/'):
+                            continue
+                        
+                        # Check if file already exists in the project
+                        if file_path in existing_paths:
+                            skipped_files.append(file_path)
+                            continue
+                        
+                        file_name = os.path.basename(file_path)
+                        file_extension = os.path.splitext(file_name)[1].lower()
+                        file_info = zip_ref.getinfo(file_path)
+                        file_size = file_info.file_size
+                        
+                        # Get source timestamp
+                        try:
+                            src_ts = datetime(*file_info.date_time)
+                        except Exception:
+                            src_ts = None
+                        
+                        is_binary = _is_binary_file(file_extension)
+                        content_type = _get_content_type(file_extension)
+                        
+                        file_bytes = zip_ref.read(file_path)
+                        file_content = Binary(file_bytes)
+                        
+                        # Insert new file
+                        cursor.execute("""
+                            INSERT INTO file_contents 
+                            (uploaded_file_id, file_path, file_name, file_extension, 
+                             file_size, file_content, content_type, is_binary,
+                             source_created_at, source_modified_at)
+                            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                        """, (
+                            project_id,
+                            file_path,
+                            file_name,
+                            file_extension,
+                            file_size,
+                            file_content,
+                            content_type,
+                            is_binary,
+                            src_ts,
+                            src_ts,
+                        ))
+                        
+                        new_files.append({
+                            "file_path": file_path,
+                            "file_name": file_name,
+                            "file_size": file_size
+                        })
+                        
+                    except Exception as e:
+                        errors.append(f"Error processing {file_path}: {str(e)}")
+            
+            # Update project metadata
+            if isinstance(existing_metadata, str):
+                try:
+                    existing_metadata = json.loads(existing_metadata)
+                except:
+                    existing_metadata = {}
+            
+            existing_files_list = existing_metadata.get('files', [])
+            new_file_paths = [f['file_path'] for f in new_files]
+            updated_files_list = existing_files_list + new_file_paths
+            
+            updated_metadata = {
+                **existing_metadata,
+                'files': updated_files_list,
+                'last_merge': datetime.now().isoformat(),
+                'merge_count': existing_metadata.get('merge_count', 0) + 1
+            }
+            
+            cursor.execute("""
+                UPDATE uploaded_files 
+                SET metadata = %s, last_modified_at = CURRENT_TIMESTAMP
+                WHERE id = %s
+            """, (json.dumps(updated_metadata), project_id))
+            
+            conn.commit()
+        
+        return UploadResult(
+            success=True,
+            message=f"Successfully merged {len(new_files)} new files into project '{project_filename}'.",
+            error_type=None,
+            data={
+                "project_id": project_id,
+                "new_files_count": len(new_files),
+                "skipped_duplicates": len(skipped_files),
+                "new_files": new_files,
+                "skipped_files": skipped_files,
+                "errors": errors
+            }
+        )
+        
+    except Exception as e:
+        return UploadResult(
+            success=False,
+            message=f"Error merging files: {e}",
+            error_type="MERGE_ERROR",
+            data={"project_id": project_id}
+        )
+
+
 def list_uploaded_files_by_user(user_name: str):
     """
     Get a list of all uploaded files for a specific user.

@@ -8,6 +8,8 @@ import json
 from typing import Dict, Any, Optional, List
 from src.common.schemas import PortfolioCardResponse, TechStack
 from src.resume.evidence_extractor import build_evidence
+from src.common.logger import setup_logger
+logger = setup_logger(__name__)
 
 class PortfolioFormatter:
     """Formats portfolio data into various output formats."""
@@ -152,7 +154,7 @@ class PortfolioFormatter:
             return "\n".join(lines)
             
         except Exception as e:
-            print(f"[ERROR] Error formatting portfolio as text: {e}")
+            logger.error(f"Error formatting portfolio as text: {e}")
             return None
     
     @staticmethod
@@ -283,7 +285,7 @@ class PortfolioFormatter:
             return "\n".join(lines)
             
         except Exception as e:
-            print(f"[ERROR] Error formatting portfolio as Markdown: {e}")
+            logger.error(f"Error formatting portfolio as Markdown: {e}")
             return None
     
     @staticmethod
@@ -305,7 +307,7 @@ class PortfolioFormatter:
         elif format_type == 'text':
             return PortfolioFormatter.format_text(portfolio_data)
         else:
-            print(f"[ERROR] Unknown format type: {format_type}. Using text format.")
+            logger.error(f"Unknown format type: {format_type}. Using text format.")
             return PortfolioFormatter.format_text(portfolio_data)
     @staticmethod
     def format_project_card(project_data: Dict[str, Any], user_options: Optional[Dict[str, Any]] = None) -> PortfolioCardResponse:

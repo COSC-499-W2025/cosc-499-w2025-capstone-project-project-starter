@@ -1,19 +1,7 @@
-"""
-Pytest tests for CollaborativeManager functionality
-Tests implemented features:
-- Table initialization
-- Retrieving preferences
-- Requesting collaborative consent
-
-Run with: $env:PYTHONPATH="."; pytest tests -vv
-"""
-
 import sys
 import os
 import pytest
 import builtins
-
-# Add src directory to Python path
 current_dir = os.path.dirname(os.path.abspath(__file__))
 parent_dir = os.path.dirname(current_dir)
 src_dir = os.path.join(parent_dir, 'src')
@@ -22,31 +10,31 @@ sys.path.insert(0, src_dir)
 from collaborative.collaborative_manager import CollaborativeManager
 from collaborative.collaborative_storage import CollaborativeStorage
 from collaborative.collaborative_display import CollaborativeDisplay
+from database.user_preferences import init_user_preferences_table
+from database.user_informations import init_user_informations_table
 
 from config.db_config import get_connection
 
 @pytest.fixture(scope="function")
 def collaborative_manager():
-    """
-    Fixture to provide a fresh CollaborativeManager instance for each test.
-    """
-    # Ensure test_user exists for foreign key constraint
+    init_user_informations_table()
+    
     conn = get_connection()
     cursor = conn.cursor()
+    cursor.execute("DROP TABLE IF EXISTS user_preferences CASCADE;")
+    conn.commit()
+    init_user_preferences_table()
     cursor.execute("""
         INSERT INTO user_informations (user_name, password) 
         VALUES ('test_user', 'test_password') 
         ON CONFLICT (user_name) DO NOTHING;
     """)
-    cursor.execute("DELETE FROM user_preferences;")
     conn.commit()
     conn.close()
     
     manager = CollaborativeManager(user_name='test_user')
     
     yield manager
-
-    # Cleanup after test
     conn = get_connection()
     cursor = conn.cursor()
     cursor.execute("DELETE FROM user_preferences;")
