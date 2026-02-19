@@ -117,6 +117,136 @@
         @keyframes spin {
             to { transform: rotate(360deg); }
         }
+        
+        /* Modal Styles */
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 1000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.6);
+            backdrop-filter: blur(4px);
+            animation: fadeIn 0.2s ease;
+        }
+        .modal.show { display: flex; align-items: center; justify-content: center; }
+        .modal-content {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            padding: 25px;
+            max-width: 600px;
+            width: 90%;
+            max-height: 80vh;
+            overflow-y: auto;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.3);
+            animation: slideIn 0.3s ease;
+        }
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+            padding-bottom: 15px;
+            border-bottom: 1px solid var(--border-color);
+        }
+        .modal-header h3 { margin: 0; color: var(--text-primary); }
+        .modal-close {
+            background: none;
+            border: none;
+            font-size: 24px;
+            color: var(--text-muted);
+            cursor: pointer;
+            padding: 0;
+            width: 30px;
+            height: 30px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 4px;
+            transition: all 0.2s;
+        }
+        .modal-close:hover {
+            background: var(--bg-card);
+            color: var(--text-primary);
+        }
+        .form-group {
+            margin-bottom: 20px;
+        }
+        .form-group label {
+            display: block;
+            margin-bottom: 8px;
+            color: var(--text-secondary);
+            font-weight: 500;
+            font-size: 14px;
+        }
+        .form-group input[type="text"],
+        .form-group textarea {
+            width: 100%;
+            padding: 10px;
+            background: var(--bg-card);
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            color: var(--text-primary);
+            font-family: inherit;
+            font-size: 14px;
+            transition: border-color 0.2s;
+        }
+        .form-group textarea {
+            min-height: 100px;
+            resize: vertical;
+        }
+        .form-group input:focus,
+        .form-group textarea:focus {
+            outline: none;
+            border-color: var(--accent-primary);
+        }
+        .form-hint {
+            font-size: 12px;
+            color: var(--text-muted);
+            margin-top: 5px;
+        }
+        .modal-actions {
+            display: flex;
+            gap: 10px;
+            justify-content: flex-end;
+            margin-top: 25px;
+            padding-top: 20px;
+            border-top: 1px solid var(--border-color);
+        }
+        .btn-customize {
+            background: none;
+            border: 1px solid var(--border-color);
+            color: var(--accent-primary);
+            padding: 6px 12px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 12px;
+            transition: all 0.2s;
+            margin-left: 8px;
+        }
+        .btn-customize:hover {
+            background: var(--bg-secondary);
+            border-color: var(--accent-primary);
+        }
+        .badge-customized {
+            background: #7c3aed;
+            color: #ffffff;
+            font-size: 11px;
+            padding: 3px 8px;
+            border-radius: 3px;
+            margin-left: 8px;
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+        @keyframes slideIn {
+            from { transform: translateY(-20px); opacity: 0; }
+            to { transform: translateY(0); opacity: 1; }
+        }
     </style>
 </head>
 <body>
@@ -137,6 +267,41 @@
     
     <div id="messageBox" class="message" style="display: none;"></div>
     
+    <!-- Customization Modal -->
+    <div id="customizeModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Customize Portfolio Project</h3>
+                <button class="modal-close" onclick="closeCustomizeModal()">&times;</button>
+            </div>
+            <div id="modalProjectInfo" style="margin-bottom: 20px; padding: 10px; background: var(--bg-card); border-radius: 6px;">
+                <strong id="modalProjectName"></strong>
+            </div>
+            <form id="customizeForm" onsubmit="saveCustomization(event)">
+                <div class="form-group">
+                    <label for="customTitle">Custom Title</label>
+                    <input type="text" id="customTitle" placeholder="e.g., Advanced Web Application" />
+                    <div class="form-hint">Override the project's default title</div>
+                </div>
+                <div class="form-group">
+                    <label for="customDescription">Custom Description</label>
+                    <textarea id="customDescription" placeholder="Describe what makes this project special..."></textarea>
+                    <div class="form-hint">Provide a custom description for your portfolio</div>
+                </div>
+                <div class="form-group">
+                    <label for="customRole">Your Role</label>
+                    <input type="text" id="customRole" placeholder="e.g., Lead Developer, Full Stack Engineer" />
+                    <div class="form-hint">Specify your role in this project</div>
+                </div>
+                <div class="modal-actions">
+                    <button type="button" class="btn btn-secondary" onclick="closeCustomizeModal()">Cancel</button>
+                    <button type="button" class="btn" style="background: #dc2626;" onclick="clearCustomization()">Clear</button>
+                    <button type="submit" class="btn">Save</button>
+                </div>
+            </form>
+        </div>
+    </div>
+    
     <div class="menu-grid">
         <div class="menu-group">
             <button class="menu-btn caret" id="projectMenuToggle" onclick="toggleSubmenu('projectSubmenu', 'projectMenuToggle')">Project Actions</button>
@@ -144,7 +309,7 @@
                 <button class="menu-btn submenu-btn" onclick="showView('upload')">1. Upload ZIP</button>
                 <button class="menu-btn submenu-btn" onclick="showView('list')">2. List Projects</button>
                 <button class="menu-btn submenu-btn" onclick="showView('analyze')">3. Analyze Project</button>
-                <button class="menu-btn submenu-btn" onclick="showView('thumbnail')">15. Add Thumbnail</button>
+                <button class="menu-btn submenu-btn" onclick="showView('thumbnail')">17. Add Thumbnail</button>
             </div>
         </div>
         <div class="menu-group">
@@ -174,6 +339,7 @@
             </div>
         </div>
         <button class="menu-btn" onclick="showView('portfolio')">14. View Portfolio</button>
+        <button class="menu-btn" onclick="showView('customize-portfolio')">15. Customize Portfolio</button>
         <button class="menu-btn" onclick="showView('llm-summary')">16. LLM Summary</button>
     </div>
     
@@ -350,6 +516,7 @@
                 'resume-view': `<div class="view-panel"><h3>View Resume</h3><button class="btn" onclick="viewResume()">Load Resume</button><div id="resumeViewResult" class="result"></div></div>`,
                 'resume-delete': `<div class="view-panel"><h3>Delete Resume</h3><button class="btn" onclick="deleteResume()">Delete</button><div id="resumeDeleteResult" class="result"></div></div>`,
                 'portfolio': `<div class="view-panel"><h3>View Portfolio</h3><button class="btn" onclick="viewPortfolio()">Load Portfolio</button><button class="btn btn-secondary" onclick="generatePortfolio()">Generate New</button><div id="portfolioResult" class="result"></div></div>`,
+                'customize-portfolio': `<div class="view-panel"><h3>Customize Portfolio Projects</h3><p class="text-muted" style="margin-bottom: 15px;">Add custom titles, descriptions, and roles to your portfolio projects to better showcase your work.</p><button class="btn" onclick="loadCustomizedProjects()">Refresh List</button><div id="customizeProjectsList" class="project-list"></div></div>`,
                 'thumbnail': `<div class="view-panel"><h3>Add Thumbnail to Project</h3><div id="thumbnailProjectsList" class="project-list"></div><input type="file" id="thumbnailFile" accept="image/*" /><button class="btn" onclick="addThumbnail()">Upload Thumbnail</button><div id="thumbnailResult" class="result"></div></div>`,
                 'llm-summary': `<div class="view-panel"><h3>Run LLM Summary</h3><div id="llmProjectsList" class="project-list"></div><button class="btn" onclick="runLLMSummary()">Run Summary</button><div id="llmSummaryResult" class="result"></div></div>`
             };
@@ -365,6 +532,12 @@
                                   viewName === 'thumbnail' ? 'thumbnailProjectsList' : 'llmProjectsList';
                     const showThumbs = viewName === 'list' || viewName === 'analyze' || viewName === 'thumbnail';
                     renderProjectsList(listId, 'onProjectSelect', showThumbs);
+                }, 100);
+            }
+            
+            if (viewName === 'customize-portfolio') {
+                setTimeout(() => {
+                    loadCustomizedProjects();
                 }, 100);
             }
         }
@@ -1308,6 +1481,154 @@
                 window.location.href = 'index.html';
             }
         }
+
+        // Portfolio Customization Functions
+        let customizedProjectIds = [];
+        let currentCustomizingProjectId = null;
+
+        async function loadCustomizedProjects() {
+            const container = document.getElementById('customizeProjectsList');
+            if (!container) return;
+            
+            container.innerHTML = '<p style="text-align: center; padding: 20px;">Loading projects...</p>';
+            
+            try {
+                // Load list of customized project IDs
+                const customData = await apiCall(`/api/portfolio/${currentUser.user_name}/custom-data`);
+                customizedProjectIds = customData.project_ids || [];
+                
+                if (!projects.length) {
+                    container.innerHTML = '<p>No projects found. Upload projects first.</p>';
+                    return;
+                }
+                
+                // Render project list with customization status
+                container.innerHTML = projects.map(p => {
+                    const isCustomized = customizedProjectIds.includes(p.id);
+                    const badge = isCustomized ? '<span class="badge-customized">CUSTOMIZED</span>' : '';
+                    return `<div class="project-item">
+                        <div class="project-row">
+                            <div class="project-info">
+                                <strong>${p.filename}</strong> (ID: ${p.id})${badge}
+                                <br>
+                                <small>Files: ${p.file_count || 0} | Created: ${new Date(p.created_at).toLocaleDateString()}</small>
+                            </div>
+                            <button class="btn-customize" onclick="openCustomizeModal(${p.id}, '${p.filename.replace(/'/g, "\\'")}')">
+                                ${isCustomized ? 'Edit' : 'Customize'}
+                            </button>
+                        </div>
+                    </div>`;
+                }).join('');
+                
+            } catch (e) {
+                container.innerHTML = '<p class="message error">Error loading projects</p>';
+                showMessage('Failed to load projects', 'error');
+            }
+        }
+
+        async function openCustomizeModal(projectId, projectName) {
+            currentCustomizingProjectId = projectId;
+            const modal = document.getElementById('customizeModal');
+            const modalProjectName = document.getElementById('modalProjectName');
+            
+            modalProjectName.textContent = projectName;
+            
+            // Clear form
+            document.getElementById('customTitle').value = '';
+            document.getElementById('customDescription').value = '';
+            document.getElementById('customRole').value = '';
+            
+            // Load existing customization if any
+            try {
+                const data = await apiCall(`/api/portfolio/${currentUser.user_name}/custom-data/${projectId}`);
+                if (data.success) {
+                    document.getElementById('customTitle').value = data.custom_title || '';
+                    document.getElementById('customDescription').value = data.custom_description || '';
+                    document.getElementById('customRole').value = data.custom_role || '';
+                }
+            } catch (e) {
+                // No existing customization, keep form empty
+                console.log('No existing customization');
+            }
+            
+            modal.classList.add('show');
+        }
+
+        function closeCustomizeModal() {
+            const modal = document.getElementById('customizeModal');
+            modal.classList.remove('show');
+            currentCustomizingProjectId = null;
+        }
+
+        async function saveCustomization(event) {
+            event.preventDefault();
+            
+            if (!currentCustomizingProjectId) {
+                showMessage('No project selected', 'error');
+                return;
+            }
+            
+            const customTitle = document.getElementById('customTitle').value.trim();
+            const customDescription = document.getElementById('customDescription').value.trim();
+            const customRole = document.getElementById('customRole').value.trim();
+            
+            try {
+                const data = await apiCall(`/api/portfolio/${currentUser.user_name}/custom-data`, {
+                    method: 'POST',
+                    body: JSON.stringify({
+                        project_id: currentCustomizingProjectId,
+                        custom_title: customTitle,
+                        custom_description: customDescription,
+                        custom_role: customRole
+                    })
+                });
+                
+                if (data.success) {
+                    showMessage('Portfolio customization saved successfully', 'success');
+                    closeCustomizeModal();
+                    loadCustomizedProjects();
+                } else {
+                    showMessage('Failed to save customization', 'error');
+                }
+            } catch (e) {
+                showMessage('Error saving customization', 'error');
+            }
+        }
+
+        async function clearCustomization() {
+            if (!currentCustomizingProjectId) {
+                showMessage('No project selected', 'error');
+                return;
+            }
+            
+            if (!confirm('Are you sure you want to clear all customizations for this project?')) {
+                return;
+            }
+            
+            try {
+                const data = await apiCall(`/api/portfolio/${currentUser.user_name}/custom-data/${currentCustomizingProjectId}`, {
+                    method: 'DELETE'
+                });
+                
+                if (data.success) {
+                    showMessage('Portfolio customization cleared', 'success');
+                    closeCustomizeModal();
+                    loadCustomizedProjects();
+                } else {
+                    showMessage('Failed to clear customization', 'error');
+                }
+            } catch (e) {
+                showMessage('Error clearing customization', 'error');
+            }
+        }
+
+        // Close modal when clicking outside
+        window.addEventListener('click', function(event) {
+            const modal = document.getElementById('customizeModal');
+            if (event.target === modal) {
+                closeCustomizeModal();
+            }
+        });
 
         // Theme Toggle
         function toggleTheme() {
