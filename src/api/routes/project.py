@@ -7,7 +7,7 @@ import tempfile
 import os
 import io
 from PIL import Image
-from upload_file import add_file_to_db, list_uploaded_files, add_thumbnail_bytes_to_project
+from upload_file import add_file_to_db, list_uploaded_files, add_thumbnail_bytes_to_project, merge_zip_to_project
 from project_manager import list_projects, get_project_by_id
 from project_analyzer import analyze_project_by_id
 from analysis.project_ranking import rank_all_projects, save_rankings_with_summaries, rank_and_summarize_top_projects
@@ -16,9 +16,10 @@ from analysis.gemini_ranker import rank_projects_with_gemini
 from tools.cleanup_insights import delete_insights
 from database.user_preferences import update_user_git_username, get_user_git_username
 from config.db_config import with_db_cursor
+from common.logger import setup_logger
 
 router = APIRouter()
-
+logger = setup_logger(__name__)
 
 def _detect_image_type(image_bytes: bytes) -> Optional[str]:
     """Return a short image type label based on magic bytes, or None."""
@@ -100,6 +101,75 @@ async def upload_project(
         raise HTTPException(
             status_code=500,
             detail=f"Error uploading file: {str(e)}"
+        )
+
+
+@router.post("/projects/{project_id}/merge")
+async def merge_project_files(
+    project_id: int,
+    file: UploadFile = File(...),
+    user_name: Optional[str] = Query(None, description="Username for ownership verification")
+):
+    """
+    Merge files from a new ZIP archive into an existing project.
+    
+    This enables incremental additions to a portfolio or résumé by adding
+    new files from another zipped folder at a later point in time.
+    Duplicate files (same path) are automatically skipped.
+    
+    Args:
+        project_id: The ID of the existing project to merge into
+        file: The new ZIP file containing additional files
+        user_name: Username to verify project ownership
+        
+    Returns:
+        dict: Merge result with statistics about new and skipped files
+    """
+    # Validate file type
+    if not file.filename.endswith('.zip'):
+        raise HTTPException(
+            status_code=400,
+            detail="Only ZIP files are supported for merging"
+        )
+    
+    temp_file = None
+    try:
+        # Save uploaded file to temporary location
+        with tempfile.NamedTemporaryFile(delete=False, suffix='.zip') as temp_file:
+            content = await file.read()
+            temp_file.write(content)
+            temp_path = temp_file.name
+        
+        # Perform the merge
+        result = merge_zip_to_project(project_id, temp_path, user_name=user_name)
+        
+        # Clean up temp file
+        try:
+            os.unlink(temp_path)
+        except Exception:
+            pass
+        
+        if not result.success:
+            status_code = 404 if result.error_type == "PROJECT_NOT_FOUND" else 400
+            raise HTTPException(
+                status_code=status_code,
+                detail=result.message
+            )
+        
+        return result.to_dict()
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        # Clean up temp file on error
+        if temp_file and os.path.exists(temp_path):
+            try:
+                os.unlink(temp_path)
+            except Exception:
+                pass
+        raise HTTPException(
+            status_code=500,
+            detail=f"Error merging files: {str(e)}"
         )
 
 
@@ -428,8 +498,7 @@ async def analyze_project_gemini(project_id: int, user_name: Optional[str] = Que
                     VALUES (%s, %s, %s)
                 """, (project_id, json.dumps(results, default=str), 'gemini'))
         except Exception as db_err:
-            # Log but don't fail - analysis was successful
-            print(f"Warning: Could not store Gemini analysis results: {db_err}")
+            logger.warning(f"Could not store Gemini analysis results: {db_err}")
         
         return {"success": True, "analysis": results, "analysis_type": "gemini"}
         

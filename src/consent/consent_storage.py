@@ -1,15 +1,9 @@
-"""
-Module for storing and retrieving consent data from the database.
-Sub-issue #14 & #18: Store and check consent, allow withdrawal
-"""
-
 from datetime import datetime
 from config.db_config import with_db_cursor
-
-
+from common.logger import setup_logger
+logger = setup_logger(__name__)
 class ConsentStorage:
-    """Handles database operations for consent management."""
-    
+
     @staticmethod
     def initialize_consent_table():
         """Create the consent table if it doesn't exist."""
@@ -38,12 +32,13 @@ class ConsentStorage:
                     ON user_consent(user_name);
                 """)
             
-            print("Consent table initialized")
+            logger.info("Consent table initialized")
             
         except ConnectionError:
+            logger.error("Failed to connect to database during consent table initialization")
             raise Exception("Failed to connect to database")
         except Exception as e:
-            print(f"Error initializing consent table: {e}")
+            logger.error(f"Error initializing consent table: {e}")
             raise
     
     @staticmethod
@@ -75,20 +70,18 @@ class ConsentStorage:
                         VALUES (%s, %s, %s)
                     """, (user_name, consent_given, datetime.now()))
             
+            logger.info(f"Consent stored for user: {user_name}, status: {consent_given}")
             return True
             
         except ConnectionError:
+            logger.error(f"Database connection error while storing consent for {user_name}")
             return False
         except Exception as e:
-            print(f"Error storing consent: {e}")
+            logger.error(f"Error storing consent for {user_name}: {e}")
             return False
     
     @staticmethod
     def get_consent_status(user_name):
-        """
-        Get current consent status.
-        Sub-issue #14: Check consent before access
-        """
         try:
             with with_db_cursor() as cursor:
                 cursor.execute("""
@@ -111,9 +104,10 @@ class ConsentStorage:
             return None
             
         except ConnectionError:
+            logger.error("Database connection error retrieval consent")
             return None
         except Exception as e:
-            print(f"✗ Error retrieving consent: {e}")
+            logger.error(f"Error retrieving consent for {user_name}: {e}")
             return None
     
     @staticmethod
@@ -132,20 +126,17 @@ class ConsentStorage:
                     WHERE user_name = %s
                 """, (datetime.now(), user_name))
             
+            logger.info(f"Consent withdrawn for user: {user_name}")
             return True
             
         except ConnectionError:
+            logger.error("Database connection error withdrawing consent")
             return False
         except Exception as e:
-            print(f"Error withdrawing consent: {e}")
+            logger.error(f"Error withdrawing consent for {user_name}: {e}")
             return False
-    
     @staticmethod
     def has_valid_consent(user_name):
-        """
-        Check if user has valid consent.
-        Sub-issue #14: Main access control check
-        """
         consent_data = ConsentStorage.get_consent_status(user_name)
         
         if not consent_data:

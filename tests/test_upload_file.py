@@ -15,6 +15,7 @@ from src.upload_file import (
     add_file_to_db,
     add_thumbnail_to_project,
     init_uploaded_files_table,
+    merge_zip_to_project,
     UPLOAD_FOLDER,
     UploadResult,
     WrongFormatError,
@@ -485,6 +486,151 @@ def test_add_thumbnail_to_project_not_found(mock_exists, mock_open, mock_with_db
     assert isinstance(result, UploadResult)
     assert result.success is False
     assert result.error_type == "PROJECT_NOT_FOUND"
+
+
+class TestMergeZipToProject:
+    """Test suite for merge_zip_to_project functionality."""
+
+    def setup_method(self):
+        """Set up test environment before each test."""
+        self.test_dir = tempfile.mkdtemp()
+
+    def teardown_method(self):
+        """Clean up after each test."""
+        if os.path.exists(self.test_dir):
+            shutil.rmtree(self.test_dir)
+
+    def create_test_zip(self, filename="merge.zip", files=None):
+        """Helper method to create a test ZIP file with multiple files."""
+        if files is None:
+            files = {"new_file.txt": "new content"}
+        zip_path = os.path.join(self.test_dir, filename)
+        with zipfile.ZipFile(zip_path, 'w') as zf:
+            for name, content in files.items():
+                zf.writestr(name, content)
+        return zip_path
+
+    @patch('src.upload_file.with_db_cursor')
+    def test_merge_nonexistent_zip(self, mock_with_db_cursor):
+        """Test merging a non-existent ZIP file."""
+        nonexistent_path = os.path.join(self.test_dir, "nonexistent.zip")
+        
+        # Mock project check to return a valid project first
+        mock_cursor = Mock()
+        mock_context = MagicMock()
+        mock_context.__enter__.return_value = mock_cursor
+        mock_with_db_cursor.return_value = mock_context
+        mock_cursor.fetchone.return_value = (1, "test.zip", {})  # Project exists
+        
+        result = merge_zip_to_project(1, nonexistent_path, user_name="test_user")
+        
+        assert isinstance(result, UploadResult)
+        assert result.success is False
+        assert result.error_type == "FILE_NOT_FOUND"
+
+    @patch('src.upload_file.with_db_cursor')
+    def test_merge_invalid_zip(self, mock_with_db_cursor):
+        """Test merging an invalid ZIP file."""
+        invalid_file = os.path.join(self.test_dir, "invalid.zip")
+        with open(invalid_file, 'w') as f:
+            f.write("not a zip file")
+        
+        # Mock project check to return a valid project first
+        mock_cursor = Mock()
+        mock_context = MagicMock()
+        mock_context.__enter__.return_value = mock_cursor
+        mock_with_db_cursor.return_value = mock_context
+        mock_cursor.fetchone.return_value = (1, "test.zip", {})  # Project exists
+        
+        result = merge_zip_to_project(1, invalid_file, user_name="test_user")
+        
+        assert isinstance(result, UploadResult)
+        assert result.success is False
+        assert result.error_type == "INVALID_ZIP"
+
+    @patch('src.upload_file.with_db_cursor')
+    def test_merge_project_not_found(self, mock_with_db_cursor):
+        """Test merging into a non-existent project."""
+        zip_path = self.create_test_zip()
+        
+        mock_cursor = Mock()
+        mock_context = MagicMock()
+        mock_context.__enter__.return_value = mock_cursor
+        mock_with_db_cursor.return_value = mock_context
+        mock_cursor.fetchone.return_value = None  # Project not found
+        
+        result = merge_zip_to_project(999, zip_path, user_name="test_user")
+        
+        assert isinstance(result, UploadResult)
+        assert result.success is False
+        assert result.error_type == "PROJECT_NOT_FOUND"
+        assert "not found" in result.message.lower()
+
+    @patch('config.db_config.with_db_connection')
+    @patch('src.upload_file.with_db_cursor')
+    def test_merge_success_with_new_files(self, mock_with_db_cursor, mock_with_db_connection):
+        """Test successful merge with new files added."""
+        zip_path = self.create_test_zip(files={
+            "new_file1.py": "print('hello')",
+            "new_file2.py": "print('world')"
+        })
+        
+        # Mock cursor for project existence check and existing paths check
+        mock_cursor_check = Mock()
+        mock_context_check = MagicMock()
+        mock_context_check.__enter__.return_value = mock_cursor_check
+        mock_with_db_cursor.return_value = mock_context_check
+        
+        # First call: project check (returns project)
+        # Second call: existing paths check (returns empty)
+        mock_cursor_check.fetchone.return_value = (1, "test.zip", {"files": []})
+        mock_cursor_check.fetchall.return_value = []  # No existing files
+        
+        # Mock connection for file insertion
+        mock_conn = MagicMock()
+        mock_cursor_insert = MagicMock()
+        mock_with_db_connection.return_value.__enter__.return_value = (mock_conn, mock_cursor_insert)
+        
+        result = merge_zip_to_project(1, zip_path, user_name="test_user")
+        
+        assert isinstance(result, UploadResult)
+        assert result.success is True
+        assert "merged" in result.message.lower()
+        assert result.data["new_files_count"] == 2
+        assert result.data["skipped_duplicates"] == 0
+
+    @patch('config.db_config.with_db_connection')
+    @patch('src.upload_file.with_db_cursor')
+    def test_merge_skips_duplicate_paths(self, mock_with_db_cursor, mock_with_db_connection):
+        """Test that files with existing paths are skipped."""
+        zip_path = self.create_test_zip(files={
+            "existing.py": "old content",
+            "new_file.py": "new content"
+        })
+        
+        # Mock cursor for project existence check and existing paths check
+        mock_cursor_check = Mock()
+        mock_context_check = MagicMock()
+        mock_context_check.__enter__.return_value = mock_cursor_check
+        mock_with_db_cursor.return_value = mock_context_check
+        
+        # First call: project check (returns project)
+        mock_cursor_check.fetchone.return_value = (1, "test.zip", {"files": ["existing.py"]})
+        # Second call: existing paths check (returns one existing path)
+        mock_cursor_check.fetchall.return_value = [("existing.py",)]
+        
+        # Mock connection for file insertion
+        mock_conn = MagicMock()
+        mock_cursor_insert = MagicMock()
+        mock_with_db_connection.return_value.__enter__.return_value = (mock_conn, mock_cursor_insert)
+        
+        result = merge_zip_to_project(1, zip_path, user_name="test_user")
+        
+        assert isinstance(result, UploadResult)
+        assert result.success is True
+        assert result.data["new_files_count"] == 1
+        assert result.data["skipped_duplicates"] == 1
+        assert "existing.py" in result.data["skipped_files"]
 
 
 if __name__ == "__main__":

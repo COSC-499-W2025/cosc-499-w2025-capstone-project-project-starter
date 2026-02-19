@@ -1,44 +1,22 @@
 import os
 from collections import Counter
+import json
+import zipfile
+
 from analysis.analysis_router import AnalysisRouter
 from analysis.local_analyzer import LocalAnalyzer
 from config.db_config import with_db_cursor
-import json
-
+from common.logger import setup_logger
 
 class ProjectAnalyzer:
-    """
-    Main class that orchestrates project analysis based on user permissions.
-    Implements the complete workflow for Issue #10.
-    """
-    
     def __init__(self, user_id='default_user', interactive=True):
-        """
-        Initialize the project analyzer.
-        
-        Args:
-            user_id (str): User identifier
-            interactive (bool): If True, can prompt for user input (CLI mode).
-                               If False, skip interactive prompts (API mode).
-        """
         self.user_id = user_id
         self.interactive = interactive
         self.router = AnalysisRouter(user_name=user_id)
         self.local_analyzer = LocalAnalyzer()
+        self.logger = setup_logger(f"{__name__}.{user_id}")
     
     def analyze_uploaded_project(self, uploaded_file_id):
-        """
-        Analyze a project that has been uploaded to the database.
-        This is the main entry point for analyzing projects.
-        
-        Issue #10: Provides feedback regardless of external service permission.
-        
-        Args:
-            uploaded_file_id (int): The ID of the uploaded file in the database
-            
-        Returns:
-            dict: Complete analysis results
-        """
         # Get the project information from database
         project_info = self._get_project_info(uploaded_file_id)
         if not project_info:
@@ -48,16 +26,13 @@ class ProjectAnalyzer:
             }
         
         project_path = project_info['filepath']
-        
-        # Check if the file still exists
         if not os.path.exists(project_path):
+            error_msg = f'Project file not found: {project_path}'
+            self.logger.error(error_msg)
             return {
                 'success': False,
-                'error': f'Project file not found: {project_path}'
+                'error': error_msg
             }
-        
-        # Request external service permission if needed (Issue #10)
-        # Only prompt in interactive mode (CLI). Skip for API calls.
         if self.interactive:
             from external_services.external_service_prompt import request_external_service_permission
             request_external_service_permission(self.user_id, 'LLM', force=False)
@@ -67,22 +42,22 @@ class ProjectAnalyzer:
         # Route the analysis based on user permissions
         strategy = self.router.get_analysis_strategy('project')
         
-        print(f"\n{'='*70}")
-        print(f"Analyzing Project: {project_info['filename']}")
-        print(f"Analysis Strategy: {strategy.upper()}")
-        print(f"{'='*70}\n")
+        self.logger.info("-" * 70)
+        self.logger.info(f"Analyzing Project: {project_info['filename']}")
+        self.logger.info(f"Analysis Strategy: {strategy.upper()}")
+        self.logger.info("-" * 70)
         
         if strategy == 'enhanced':
             # User has granted permission for external services
-            print("Using enhanced analysis (local + external services)")
-            print("Note: External service integration not yet implemented")
-            print("Falling back to local analysis for now...\n")
+            self.logger.info("Using enhanced analysis (local + external services)")
+            self.logger.info("Note: External service integration not yet implemented")
+            self.logger.info("Falling back to local analysis for now...")
             # For now, fall back to local analysis
             # TODO: Implement external service integration in future PRs
             analysis_results = self._perform_local_analysis(project_path, project_info)
         else:
             # User declined or has not granted permission - use local only
-            print("Using local analysis only (your data stays completely private)\n")
+            self.logger.info("Using local analysis only (your data stays completely private)")
             analysis_results = self._perform_local_analysis(project_path, project_info)
         
         # Add metadata
@@ -96,27 +71,16 @@ class ProjectAnalyzer:
         return analysis_results
     
     def _perform_local_analysis(self, project_path, project_info):
-        """
-        Perform local analysis on the project.
-        Sub-issue #39: Uses API-independent local analysis methods.
-        
-        Args:
-            project_path (str): Path to the project file/directory
-            project_info (dict): Basic project information from database
-            
-        Returns:
-            dict: Local analysis results
-        """
         # Get file contents from database
         file_contents = self._get_file_contents(project_info['id'])
         
         if not file_contents:
-            print("Warning: No file contents found in database")
+            self.logger.warning("No file contents found in database")
             return {
                 'error': 'No file contents available for analysis'
             }
         
-        print(f"Analyzing {len(file_contents)} files from project...")
+        self.logger.info(f"Analyzing {len(file_contents)} files from project...")
         
         # Prepare analysis results
         analysis = {
@@ -134,7 +98,6 @@ class ProjectAnalyzer:
             'contribution_metrics': self._calculate_contribution_metrics(file_contents)
         }
         try:
-            import zipfile
             if zipfile.is_zipfile(project_path):
                 from analysis.zip_project_analyzer import analyze_zip_project
                 zip_report = analyze_zip_project(project_path)
@@ -154,7 +117,7 @@ class ProjectAnalyzer:
             if deep_analysis:
                 analysis['deep_analysis'] = deep_analysis
         except Exception as e:
-            print(f"Warning: Deep analysis failed: {e}")
+            self.logger.warning(f"Deep analysis failed: {e}")
             analysis['deep_analysis'] = {}
         return analysis
     
@@ -180,7 +143,7 @@ class ProjectAnalyzer:
                     }
                 return None
         except Exception as e:
-            print(f"Error retrieving project info: {e}")
+            self.logger.error(f"Error retrieving project info: {e}")
             return None
     
     def _get_file_contents(self, uploaded_file_id):
@@ -212,7 +175,7 @@ class ProjectAnalyzer:
                 
                 return files
         except Exception as e:
-            print(f"Error retrieving file contents: {e}")
+            self.logger.error(f"Error retrieving file contents: {e}")
             return []
     
     def _analyze_languages_from_files(self, file_contents):
@@ -374,28 +337,33 @@ class ProjectAnalyzer:
                 
                 return True
         except Exception as e:
-            print(f"Error storing analysis results: {e}")
+            self.logger.error(f"Error storing analysis results: {e}")
             return False
     
     def display_analysis_results(self, analysis_results):
         if not analysis_results.get('success', False):
-            print(f"\nAnalysis failed: {analysis_results.get('error', 'Unknown error')}\n")
+            self.logger.error(f"Analysis failed: {analysis_results.get('error', 'Unknown error')}")
             return
+            
         proj = analysis_results.get('project_info', {})
-        print("\n" + "="*70)
-        print(f"ANALYSIS: {proj.get('filename', 'Unknown')}")
-        print("="*70)
+        self.logger.info("-" * 70)
+        self.logger.info(f"ANALYSIS: {proj.get('filename', 'Unknown')}")
+        self.logger.info("-" * 70)
+        
         langs = analysis_results.get('languages', {})
         stats = analysis_results.get('file_statistics', {})
-        print(f"\nOverview:")
-        print(f"  Language: {langs.get('primary_language', 'Unknown')}")
-        print(f"  Files: {stats.get('total_files', 0)} ({stats.get('total_size_mb', 0)} MB)")
+        self.logger.info(f"Overview:")
+        self.logger.info(f"  Language: {langs.get('primary_language', 'Unknown')}")
+        self.logger.info(f"  Files: {stats.get('total_files', 0)} ({stats.get('total_size_mb', 0)} MB)")
+        
         frameworks = analysis_results.get('frameworks', [])
         if frameworks:
-            print(f"  Frameworks: {', '.join(frameworks[:5])}")
+            self.logger.info(f"  Frameworks: {', '.join(frameworks[:5])}")
+            
         skills = analysis_results.get('skills', [])
         if skills:
-            print(f"  Skills: {', '.join(skills[:8])}")
+            self.logger.info(f"  Skills: {', '.join(skills[:8])}")
+            
         structure = analysis_results.get('project_structure', {})
         if structure.get('has_tests') or structure.get('has_docs'):
             features = []
@@ -403,17 +371,18 @@ class ProjectAnalyzer:
                 features.append("Tests")
             if structure.get('has_docs'):
                 features.append("Docs")
-            print(f"  Features: {', '.join(features)}")
+            self.logger.info(f"  Features: {', '.join(features)}")
+            
         if 'deep_analysis' in analysis_results and analysis_results['deep_analysis']:
             deep = analysis_results['deep_analysis']
             quality = deep.get('code_quality_summary', {})
             if quality.get('average_quality_score', 0) > 0:
-                print(f"  Code Quality: {quality.get('average_quality_score', 0):.1f}/100")
+                self.logger.info(f"  Code Quality: {quality.get('average_quality_score', 0):.1f}/100")
             oop = deep.get('oop_principles_summary', {})
             oop_count = sum(oop.get(k, {}).get('count', 0) for k in ['abstraction', 'encapsulation', 'polymorphism', 'inheritance'])
             if oop_count > 0:
-                print(f"  OOP Principles: {oop_count} instance(s) detected")
-        print("="*70 + "\n")
+                self.logger.info(f"  OOP Principles: {oop_count} instance(s) detected")
+        self.logger.info("-" * 70)
 
 
 def analyze_project_by_id(project_id, user_id='default_user'):
