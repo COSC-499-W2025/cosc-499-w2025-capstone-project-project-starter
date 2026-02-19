@@ -40,6 +40,9 @@ def initialize_database_tables():
         ResumeManager.init_resume_table()
         print("  ✓ generated_resumes table initialized")
         
+        ResumeManager.init_portfolio_customizations_table()
+        print("  ✓ portfolio_customizations table initialized")
+        
         ConsentStorage.initialize_consent_table()
         print("  ✓ user_consent table initialized")
         
