@@ -11,7 +11,7 @@ from parsing.file_contents_manager import (
 )
 from pathlib import Path
 
-UPLOAD_FOLDER = Path(os.getenv("UPLOAD_FOLDER", "uploads"))
+UPLOAD_FOLDER = Path(os.getenv("UPLOAD_FOLDER", "data/uploads"))
 
 def sanitize_filename(filename: str) -> str:
     """

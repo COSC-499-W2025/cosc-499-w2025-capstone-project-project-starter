@@ -50,11 +50,28 @@ class ProjectAnalyzer:
         project_path = project_info['filepath']
         
         # Check if the file still exists
+        # Handle both relative paths and potential location variations
         if not os.path.exists(project_path):
-            return {
-                'success': False,
-                'error': f'Project file not found: {project_path}'
-            }
+            # Try alternative locations for backward compatibility
+            alternative_paths = [
+                project_path,
+                os.path.join('data', project_path),  # Try data/uploads/ prefix
+                os.path.abspath(project_path)
+            ]
+            
+            found_path = None
+            for alt_path in alternative_paths:
+                if os.path.exists(alt_path):
+                    found_path = alt_path
+                    break
+            
+            if found_path:
+                project_path = found_path
+            else:
+                return {
+                    'success': False,
+                    'error': f'Project file not found: {project_path}'
+                }
         
         # Request external service permission if needed (Issue #10)
         # Only prompt in interactive mode (CLI). Skip for API calls.
