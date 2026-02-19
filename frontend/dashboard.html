@@ -239,6 +239,12 @@
             border-radius: 3px;
             margin-left: 8px;
         }
+        .modal-project-info {
+            margin-bottom: 20px;
+            padding: 10px;
+            background: var(--bg-card);
+            border-radius: 6px;
+        }
         @keyframes fadeIn {
             from { opacity: 0; }
             to { opacity: 1; }
@@ -274,7 +280,7 @@
                 <h3>Customize Portfolio Project</h3>
                 <button class="modal-close" onclick="closeCustomizeModal()">&times;</button>
             </div>
-            <div id="modalProjectInfo" style="margin-bottom: 20px; padding: 10px; background: var(--bg-card); border-radius: 6px;">
+            <div class="modal-project-info">
                 <strong id="modalProjectName"></strong>
             </div>
             <form id="customizeForm" onsubmit="saveCustomization(event)">
@@ -1485,6 +1491,22 @@
         // Portfolio Customization Functions
         let customizedProjectIds = [];
         let currentCustomizingProjectId = null;
+        
+        // Cache DOM elements for modal
+        let modalElements = null;
+        
+        function getModalElements() {
+            if (!modalElements) {
+                modalElements = {
+                    modal: document.getElementById('customizeModal'),
+                    projectName: document.getElementById('modalProjectName'),
+                    title: document.getElementById('customTitle'),
+                    description: document.getElementById('customDescription'),
+                    role: document.getElementById('customRole')
+                };
+            }
+            return modalElements;
+        }
 
         async function loadCustomizedProjects() {
             const container = document.getElementById('customizeProjectsList');
@@ -1528,35 +1550,32 @@
 
         async function openCustomizeModal(projectId, projectName) {
             currentCustomizingProjectId = projectId;
-            const modal = document.getElementById('customizeModal');
-            const modalProjectName = document.getElementById('modalProjectName');
+            const elements = getModalElements();
             
-            modalProjectName.textContent = projectName;
+            elements.projectName.textContent = projectName;
             
             // Clear form
-            document.getElementById('customTitle').value = '';
-            document.getElementById('customDescription').value = '';
-            document.getElementById('customRole').value = '';
+            elements.title.value = '';
+            elements.description.value = '';
+            elements.role.value = '';
             
             // Load existing customization if any
             try {
                 const data = await apiCall(`/api/portfolio/${currentUser.user_name}/custom-data/${projectId}`);
                 if (data.success) {
-                    document.getElementById('customTitle').value = data.custom_title || '';
-                    document.getElementById('customDescription').value = data.custom_description || '';
-                    document.getElementById('customRole').value = data.custom_role || '';
+                    elements.title.value = data.custom_title || '';
+                    elements.description.value = data.custom_description || '';
+                    elements.role.value = data.custom_role || '';
                 }
             } catch (e) {
                 // No existing customization, keep form empty
-                console.log('No existing customization');
             }
             
-            modal.classList.add('show');
+            elements.modal.classList.add('show');
         }
 
         function closeCustomizeModal() {
-            const modal = document.getElementById('customizeModal');
-            modal.classList.remove('show');
+            getModalElements().modal.classList.remove('show');
             currentCustomizingProjectId = null;
         }
 
@@ -1568,9 +1587,10 @@
                 return;
             }
             
-            const customTitle = document.getElementById('customTitle').value.trim();
-            const customDescription = document.getElementById('customDescription').value.trim();
-            const customRole = document.getElementById('customRole').value.trim();
+            const elements = getModalElements();
+            const customTitle = elements.title.value.trim();
+            const customDescription = elements.description.value.trim();
+            const customRole = elements.role.value.trim();
             
             try {
                 const data = await apiCall(`/api/portfolio/${currentUser.user_name}/custom-data`, {
@@ -1624,8 +1644,7 @@
 
         // Close modal when clicking outside
         window.addEventListener('click', function(event) {
-            const modal = document.getElementById('customizeModal');
-            if (event.target === modal) {
+            if (event.target === getModalElements().modal) {
                 closeCustomizeModal();
             }
         });
