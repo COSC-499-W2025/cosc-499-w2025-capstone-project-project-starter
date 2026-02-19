@@ -29,27 +29,19 @@ def initialize_database_tables():
         
         # Initialize tables in order (user_informations must be first due to foreign keys)
         init_user_informations_table()
-        print("  ✓ user_informations table initialized")
         
         init_uploaded_files_table()  # This also initializes file_contents table
-        print("  ✓ uploaded_files and file_contents tables initialized")
         
         init_ranking_storage_table()
-        print("  ✓ project_rankings table initialized")
         
         ResumeManager.init_resume_table()
-        print("  ✓ generated_resumes table initialized")
         
         ConsentStorage.initialize_consent_table()
-        print("  ✓ user_consent table initialized")
         
         CollaborativeStorage.init_table()
-        print("  ✓ user_preferences table initialized")
         
         ServiceConfig.initialize_table()
-        print("  ✓ external_service_permissions table initialized")
         
-        print("All database tables initialized successfully!")
         return True
         
     except Exception as e:
