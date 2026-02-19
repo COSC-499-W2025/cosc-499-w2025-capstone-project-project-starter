@@ -159,14 +159,17 @@ class ProjectAnalyzer:
         return analysis
     
     def _get_project_info(self, uploaded_file_id):
-        """Get basic project information from database."""
+        """
+        Get basic project information from database.
+        Data Isolation: Only returns project if it belongs to the current user.
+        """
         try:
             with with_db_cursor() as cursor:
                 cursor.execute("""
                     SELECT id, filename, filepath, status, created_at
                     FROM uploaded_files
-                    WHERE id = %s
-                """, (uploaded_file_id,))
+                    WHERE id = %s AND user_name = %s
+                """, (uploaded_file_id, self.user_id))
                 
                 result = cursor.fetchone()
                 

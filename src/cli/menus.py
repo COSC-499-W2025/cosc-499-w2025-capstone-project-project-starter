@@ -29,6 +29,12 @@ def analyze_project_menu():
     Handle the project analysis menu.
     This is the main menu for Issue #10: Analysis if User Declines Outside Sources.
     """
+    # Get current user for data isolation
+    current_user = AuthManager.get_current_username()
+    if not current_user:
+        print_error("Error: No user is currently logged in.")
+        return
+    
     selected_project = select_project_interactive("Project Analysis (with Local Fallback)")
     
     if not selected_project:
@@ -40,7 +46,7 @@ def analyze_project_menu():
     print("Analysis Mode: PRIVACY MODE (local fallback if external services declined)")
     
     # Perform analysis (respects user's external service permission)
-    analyze_project_by_id(selected_project['id'])
+    analyze_project_by_id(selected_project['id'], user_id=current_user)
     
     # Ask if user wants to continue
     continue_choice = safe_input("\nPress Enter to continue or 'q' to quit: ", default = "").strip()
