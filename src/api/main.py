@@ -11,6 +11,7 @@ import os
 from api.routes import consent
 from api.routes import resume_portfolio
 from api.routes import settings
+from api.middleware.request_context import RequestContextMiddleware
 
 
 def initialize_database_tables():
@@ -75,6 +76,9 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# Request context middleware for logging and tracing
+app.add_middleware(RequestContextMiddleware)
+
 # Include routers
 app.include_router(health.router, prefix="/api", tags=["health"])
 app.include_router(project.router, prefix="/api", tags=["projects"])
@@ -134,10 +138,13 @@ async def dashboard():
 @app.exception_handler(HTTPException)
 async def http_exception_handler(request: Request, exc: HTTPException):
     error_type, message, data = _normalize_detail(exc.detail)
+    request_id = getattr(getattr(request, "state", None), "request_id", None)
+    
     payload = {
         "success": False,
         "error_type": error_type,
         "message": message,
+        "request_id": request_id,
     }
     if data is not None:
         payload["data"] = data
@@ -147,13 +154,15 @@ async def http_exception_handler(request: Request, exc: HTTPException):
 
 @app.exception_handler(Exception)
 async def unhandled_exception_handler(request: Request, exc: Exception):
-    # Don't leak internal exception details to clients
+    request_id = getattr(getattr(request, "state", None), "request_id", None)
+
     return JSONResponse(
         status_code=500,
         content={
             "success": False,
             "error_type": "INTERNAL_ERROR",
             "message": "Internal server error",
+            "request_id": request_id,
         },
     )
 
