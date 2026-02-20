@@ -178,3 +178,71 @@ def delete_analysis(engine: Engine, analysis_id: str) -> Dict:
             raise KeyError("analysis_not_found")
         conn.execute(text("DELETE FROM analyses WHERE id = :id"), {"id": analysis_id})
     return {"analysis_id": analysis_id, "deleted": True}
+
+
+def delete_project_and_gc(engine: Engine, project_id: str) -> Dict:
+    """
+    Deletes a project (and cascades all dependent rows), then garbage-collects
+    any now-unreferenced file blobs that belonged to the project's snapshots
+    or showcase thumbnail.
+    """
+    project_id = str(project_id)
+
+    blob_paths: List[str] = []
+    blob_deleted_rows: List[BlobDeleteResult] = []
+    candidate_shas: List[str] = []
+
+    with engine.begin() as conn:
+        exists = conn.execute(text("SELECT 1 FROM projects WHERE id = :pid"), {"pid": project_id}).scalar()
+        if not exists:
+            raise KeyError("project_not_found")
+
+        snapshot_shas = [
+            str(x)
+            for x in conn.execute(
+                text(
+                    """
+                    SELECT DISTINCT sf.file_sha256
+                    FROM snapshot_files sf
+                    JOIN snapshots s ON s.id = sf.snapshot_id
+                    WHERE s.project_id = :pid
+                    """
+                ),
+                {"pid": project_id},
+            ).scalars().all()
+        ]
+
+        thumbnail_shas = [
+            str(x)
+            for x in conn.execute(
+                text(
+                    """
+                    SELECT DISTINCT thumbnail_blob_sha256
+                    FROM portfolio_showcases
+                    WHERE project_id = :pid
+                      AND thumbnail_blob_sha256 IS NOT NULL
+                    """
+                ),
+                {"pid": project_id},
+            ).scalars().all()
+        ]
+
+        candidate_shas = list(dict.fromkeys(snapshot_shas + thumbnail_shas))
+
+        conn.execute(text("DELETE FROM projects WHERE id = :pid"), {"pid": project_id})
+
+        blob_deleted_rows = _gc_unreferenced_blobs(conn, candidate_shas)
+        blob_paths = [r.stored_path for r in blob_deleted_rows]
+
+    fs_deleted = _delete_paths_best_effort(blob_paths)
+
+    return {
+        "project_id": project_id,
+        "deleted": True,
+        "gc": {
+            "candidate_shas": int(len(candidate_shas)),
+            "blobs_deleted": len(blob_deleted_rows),
+            "files_deleted_from_disk": int(fs_deleted),
+            "deleted_sha256": [r.deleted_sha256 for r in blob_deleted_rows],
+        },
+    }

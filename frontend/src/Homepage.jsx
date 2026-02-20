@@ -46,6 +46,7 @@ function Homepage() {
   const [contributors, setContributors] = useState([]);
   const [file, setFile] = useState(null);
   const [uploadProjectName, setUploadProjectName] = useState('');
+  const [deletingProjectId, setDeletingProjectId] = useState(null);
 
   const isAuthenticated = Boolean(token && currentUser);
 
@@ -284,6 +285,29 @@ function Homepage() {
       setDashboardError(error.message || 'Resume generation failed.');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const deleteProject = async (project) => {
+    if (!token) return;
+
+    const confirmed = window.confirm(
+      `Delete project "${project.name}"? This will permanently remove it from your account.`
+    );
+    if (!confirmed) return;
+
+    setDeletingProjectId(project.id);
+    setDashboardError('');
+    setFlashMessage('');
+
+    try {
+      await projectApi.deleteProject(token, project.id);
+      setFlashMessage('Project deleted successfully.');
+      await fetchProjects();
+    } catch (error) {
+      setDashboardError(error.message || 'Project deletion failed.');
+    } finally {
+      setDeletingProjectId(null);
     }
   };
 
@@ -540,6 +564,14 @@ function Homepage() {
                         </button>
                         <button className="secondary-btn" type="button" onClick={() => generateResume(project.id)}>
                           Generate Resume
+                        </button>
+                        <button
+                          className="secondary-btn"
+                          type="button"
+                          onClick={() => deleteProject(project)}
+                          disabled={deletingProjectId === project.id}
+                        >
+                          {deletingProjectId === project.id ? 'Deleting...' : 'Delete Project'}
                         </button>
                       </div>
                     </article>

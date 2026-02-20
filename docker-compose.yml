@@ -73,6 +73,7 @@ services:
       ARTIFACT_MINER_BLOBSTORE: /blobstore
       OLLAMA_HOST: http://ollama:11434
       OLLAMA_MODEL: mistral
+      OLLAMA_TIMEOUT_SECS: "300"
     volumes:
       - blobstore:/blobstore
     depends_on:

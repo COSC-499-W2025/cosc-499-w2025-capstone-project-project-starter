@@ -57,6 +57,7 @@ export const authApi = {
 
 export const projectApi = {
   listProjects: (token) => apiRequest('/projects', { token }),
+  deleteProject: (token, projectId) => apiRequest(`/projects/${projectId}`, { method: 'DELETE', token }),
   uploadProject: (token, { file, projectName, snapshotLabel }) => {
     const formData = new FormData();
     formData.append('file', file);

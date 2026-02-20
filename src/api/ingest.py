@@ -286,7 +286,8 @@ def ingest_zip_to_db(
                 ).scalar_one()
                 snap_id = str(snap_id)
 
-                # Always queue local analyses; queue external only if consent already granted.
+                                # Queue parser/git always. If external consent is granted, queue external first;
+                                # local_ml is only queued later if external analysis fails.
                 if external_allowed_at_ingest:
                     conn.execute(
                         text(
@@ -294,7 +295,6 @@ def ingest_zip_to_db(
                             INSERT INTO analyses (snapshot_id, analysis_type, status)
                             VALUES
                               (:sid, 'parser', 'pending'),
-                              (:sid, 'local_ml', 'pending'),
                               (:sid, 'git_metrics', 'pending'),
                               (:sid, 'external_llm', 'pending')
                             """

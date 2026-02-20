@@ -58,6 +58,7 @@ from src.db.deletion import (
     delete_portfolio_showcase_and_gc,
     delete_resume_item,
     delete_analysis,
+    delete_project_and_gc,
 )
 
 
@@ -1415,6 +1416,28 @@ def update_project(project_id: str, payload: ProjectUpdateIn):
         "user_role": updated.get("user_role"),
         "evidence_json": updated.get("evidence_json") or {},
     }
+
+
+@app.delete("/projects/{project_id}")
+def delete_project(
+    project_id: str,
+    credentials: Optional[HTTPAuthorizationCredentials] = Depends(auth_bearer),
+):
+    auth = _resolve_auth_context(credentials, required=True)
+    assert auth is not None
+
+    engine = get_engine()
+    with engine.connect() as conn:
+        owner_user_id = resolve_project_owner_user_id(conn, project_id)
+        if not owner_user_id:
+            raise HTTPException(status_code=404, detail="Project not found")
+        if str(owner_user_id) != auth["user_id"]:
+            raise HTTPException(status_code=403, detail="Project does not belong to the authenticated user")
+
+    try:
+        return delete_project_and_gc(engine, project_id)
+    except KeyError:
+        raise HTTPException(status_code=404, detail="Project not found")
 
 @app.get("/portfolio/{portfolio_id}/top-projects")
 def top_projects(
