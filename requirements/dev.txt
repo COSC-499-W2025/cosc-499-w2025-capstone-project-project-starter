@@ -1,4 +1,4 @@
 -r api.txt
 -r worker.txt
-pytest==8.4.2
-httpx==0.27.2
+pytest==8.3.5
+httpx==0.28.1
