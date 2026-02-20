@@ -2202,11 +2202,40 @@ def list_portfolio_skills_chronological(
       - Read completed local_ml analyses for snapshots in the portfolio.
       - From output_json.skills[*].first_seen_ts (preferred), produce skill events with:
           (skill, first_seen_ts, project_id, snapshot_id, analysis_id, max_prob, hits)
-      - If first_seen_ts is missing, fall back to snapshot.ingested_at.
-    This aligns with the existing local_ml output schema. :contentReference[oaicite:2]{index=2}
+      - If output_json.skills is missing, fall back to analysis_skills rows.
+      - If no reliable timestamp is available, keep first_seen_ts as null.
     """
     engine = get_engine()
     auth = _resolve_auth_context(credentials, required=False)
+
+    def _to_iso_ts(value: Any) -> Optional[str]:
+        if value is None:
+            return None
+        if hasattr(value, "isoformat"):
+            try:
+                return str(value.isoformat())
+            except Exception:
+                return None
+        s = str(value).strip()
+        return s or None
+
+    def _first_example_ts(skill_row: Dict[str, Any]) -> Optional[str]:
+        examples = skill_row.get("examples")
+        if not isinstance(examples, list):
+            evidence = skill_row.get("evidence_json")
+            if isinstance(evidence, dict):
+                examples = evidence.get("examples")
+        if not isinstance(examples, list):
+            return None
+
+        ts_vals: List[str] = []
+        for ex in examples:
+            if not isinstance(ex, dict):
+                continue
+            ts = _to_iso_ts(ex.get("ts"))
+            if ts:
+                ts_vals.append(ts)
+        return min(ts_vals) if ts_vals else None
 
     with engine.connect() as conn:
         if auth:
@@ -2246,25 +2275,60 @@ def list_portfolio_skills_chronological(
             {"pid": portfolio_id},
         ).mappings().all()
 
+        analysis_skill_rows: Dict[str, List[Dict[str, Any]]] = {}
+        analysis_ids = [str(r["analysis_id"]) for r in rows if r.get("analysis_id")]
+        if analysis_ids:
+            skill_rows = conn.execute(
+                text(
+                    """
+                    SELECT
+                      a_s.analysis_id,
+                      s.skill_name AS skill,
+                      a_s.confidence,
+                      a_s.evidence_json
+                    FROM analysis_skills a_s
+                    JOIN skills s ON s.id = a_s.skill_id
+                    WHERE a_s.analysis_id IN :analysis_ids
+                    ORDER BY a_s.confidence DESC NULLS LAST, s.skill_name ASC
+                    """
+                ).bindparams(bindparam("analysis_ids", expanding=True)),
+                {"analysis_ids": analysis_ids},
+            ).mappings().all()
+            for srow in skill_rows:
+                aid = str(srow.get("analysis_id"))
+                analysis_skill_rows.setdefault(aid, []).append(dict(srow))
+
     events = []
     for r in rows:
         out = r.get("output_json") or {}
         skills = out.get("skills") if isinstance(out, dict) else None
-        if not isinstance(skills, list):
-            continue
+        if not isinstance(skills, list) or not skills:
+            skills = analysis_skill_rows.get(str(r.get("analysis_id")), [])
 
         for srow in skills:
             if not isinstance(srow, dict):
                 continue
-            skill = srow.get("skill")
+            skill = srow.get("skill") or srow.get("skill_name")
             if not skill:
                 continue
 
-            ts = srow.get("first_seen_ts") or None
-            # Fall back if model did not emit first_seen_ts.
+            ts = _to_iso_ts(srow.get("first_seen_ts"))
             if not ts:
-                fallback = r.get("ingested_at") or r.get("completed_at")
-                ts = fallback.isoformat() if fallback is not None else None
+                ts = _first_example_ts(srow)
+
+            evidence = srow.get("evidence_json")
+            if not isinstance(evidence, dict):
+                evidence = {}
+
+            hits = srow.get("hits")
+            if hits is None:
+                hits = evidence.get("hits")
+
+            max_prob = srow.get("max_prob")
+            if max_prob is None:
+                max_prob = srow.get("confidence")
+            if max_prob is None:
+                max_prob = evidence.get("max_prob")
 
             events.append(
                 {
@@ -2274,8 +2338,8 @@ def list_portfolio_skills_chronological(
                     "project_name": r.get("project_name"),
                     "snapshot_id": str(r.get("snapshot_id")),
                     "analysis_id": str(r.get("analysis_id")),
-                    "max_prob": srow.get("max_prob"),
-                    "hits": srow.get("hits"),
+                    "max_prob": max_prob,
+                    "hits": hits,
                 }
             )
 

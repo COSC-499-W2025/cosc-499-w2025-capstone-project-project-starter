@@ -8,7 +8,7 @@ import zipfile
 import shutil
 from dataclasses import dataclass
 from typing import Dict, List, Optional, Tuple
-from datetime import datetime
+from datetime import datetime, timezone
 
 from sqlalchemy import text
 from sqlalchemy.engine import Engine
@@ -350,9 +350,9 @@ def ingest_zip_to_db(
                     try:
                         dt = getattr(info, "date_time", None)
                         if dt:
-                            # stored as naive; DB column is timestamptz, Postgres will interpret per server tz.
-                            # acceptable for milestone scope.
-                            dt = datetime(*dt)  # type: ignore[name-defined]
+                            # ZIP metadata does not carry timezone information.
+                            # Normalize to UTC so chronology remains stable across environments.
+                            dt = datetime(*dt, tzinfo=timezone.utc)  # type: ignore[name-defined]
                     except Exception:
                         dt = None
 
@@ -369,7 +369,7 @@ def ingest_zip_to_db(
                             "sid": snap_id,
                             "rel": rel_in_project,
                             "sha": sha,
-                            "ts": None,
+                            "ts": dt,
                             "mode": None,
                             "sz": int(len(data)),
                         },
