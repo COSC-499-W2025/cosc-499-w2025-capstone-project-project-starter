@@ -2,11 +2,18 @@
 
 import os
 from datetime import datetime
+import ctypes
 
 from docx import Document
 from docx.shared import Pt
 from file_parser import OUTPUT_DIR
+from db import update_full_scan, list_full_scans, get_full_scan_by_id
+from print_utils import _center_text, is_noise
+from permission_manager import get_yes_no
 
+
+RESUME_DIR = os.path.join(OUTPUT_DIR, "resumes")
+os.makedirs(RESUME_DIR, exist_ok=True)
 
 # -------------------------------------------------------------------------
 # SHARED HELPERS
@@ -35,6 +42,81 @@ def _save_doc(doc, path):
         except Exception as e:
             print(f"Error saving document: {e}")
             return None
+
+
+def _input_with_prefill(prompt, text):
+    """
+    Prompts for input with a default value pre-filled.
+    Works on Windows (via ctypes) and Unix (via readline).
+    """
+    if not text:
+        return input(prompt)
+
+    if os.name == 'nt':
+        try:
+            # Windows implementation using WriteConsoleInputW
+            class KEY_EVENT_RECORD(ctypes.Structure):
+                _fields_ = [
+                    ("bKeyDown", ctypes.c_int),
+                    ("wRepeatCount", ctypes.c_ushort),
+                    ("wVirtualKeyCode", ctypes.c_ushort),
+                    ("wVirtualScanCode", ctypes.c_ushort),
+                    ("uChar", ctypes.c_wchar),
+                    ("dwControlKeyState", ctypes.c_ulong)
+                ]
+            
+            class INPUT_RECORD_Event(ctypes.Union):
+                _fields_ = [("KeyEvent", KEY_EVENT_RECORD)]
+            
+            class INPUT_RECORD(ctypes.Structure):
+                _fields_ = [
+                    ("EventType", ctypes.c_ushort),
+                    ("Event", INPUT_RECORD_Event)
+                ]
+
+            STD_INPUT_HANDLE = -10
+            hConsoleInput = ctypes.windll.kernel32.GetStdHandle(STD_INPUT_HANDLE)
+            
+            n = len(text)
+            records = (INPUT_RECORD * n)()
+            
+            for i, char in enumerate(text):
+                records[i].EventType = 0x0001 # KEY_EVENT
+                records[i].Event.KeyEvent.bKeyDown = 1
+                records[i].Event.KeyEvent.wRepeatCount = 1
+                records[i].Event.KeyEvent.wVirtualKeyCode = 0
+                records[i].Event.KeyEvent.wVirtualScanCode = 0
+                records[i].Event.KeyEvent.uChar = char
+                records[i].Event.KeyEvent.dwControlKeyState = 0
+
+            written = ctypes.c_ulong(0)
+            ctypes.windll.kernel32.WriteConsoleInputW(
+                hConsoleInput,
+                ctypes.byref(records),
+                n,
+                ctypes.byref(written)
+            )
+        except Exception:
+            pass
+    else:
+        try:
+            import readline
+            def hook():
+                readline.insert_text(text)
+                readline.redisplay()
+            readline.set_startup_hook(hook)
+        except ImportError:
+            pass
+
+    try:
+        return input(prompt)
+    finally:
+        if os.name != 'nt':
+            try:
+                import readline
+                readline.set_startup_hook()
+            except ImportError:
+                pass
 
 
 # -------------------------------------------------------------------------
@@ -98,11 +180,7 @@ def generate_resume(
         project_summaries, key=lambda p: p.get("score", 0), reverse=True
     )
 
-    suffix = ""
-    if scan_timestamp:
-        suffix = "_" + scan_timestamp.replace(":", "-").replace(" ", "_")
-
-    docx_path = os.path.join(OUTPUT_DIR, f"portfolio_resume{suffix}.docx")
+    docx_path = os.path.join(RESUME_DIR, "portfolio_resume.docx")
 
     doc = Document()
 
@@ -237,19 +315,19 @@ def generate_contributor_portfolio(
         return None
 
     safe_name = "".join(c for c in contributor_name if c.isalnum() or c in (' ', '_', '-')).strip()
-    suffix = ""
-    if scan_timestamp:
-        suffix = "_" + scan_timestamp.replace(":", "-").replace(" ", "_")
-        
-    docx_path = os.path.join(OUTPUT_DIR, f"Resume_{safe_name}{suffix}.docx")
+    docx_path = os.path.join(RESUME_DIR, f"Resume_{safe_name}.docx")
     
     doc = Document()
     
     # Header
-    display_name = contributor_name
-    if "@" in contributor_name:
-        display_name = contributor_name.split("@")[0]
-    display_name = display_name.replace(".", " ").replace("_", " ").title()
+    custom_name = profile_data.get("custom_name")
+    if custom_name:
+        display_name = custom_name
+    else:
+        display_name = contributor_name
+        if "@" in contributor_name:
+            display_name = contributor_name.split("@")[0]
+        display_name = display_name.replace(".", " ").replace("_", " ").title()
     
     title = doc.add_heading(display_name, level=0)
     title.runs[0].font.size = Pt(24)
@@ -262,20 +340,26 @@ def generate_contributor_portfolio(
     projects_ref = profile_data.get("projects", [])
     
     # Determine a professional title based on skills
-    role = "Software Contributor"
-    dev_keywords = {"Development", "Programming", "Engineering"}
-    if any(any(k in s for k in dev_keywords) for s in skills):
-        role = "Software Developer"
+    role = profile_data.get("custom_title")
+    if not role:
+        role = "Software Contributor"
+        dev_keywords = {"Development", "Programming", "Engineering"}
+        if any(any(k in s for k in dev_keywords) for s in skills):
+            role = "Software Developer"
 
-    summary_text = f"{role} with a track record of contributions across {len(projects_ref)} project(s)."
+    custom_summary = profile_data.get("custom_summary")
+    if custom_summary:
+        summary_text = custom_summary
+    else:
+        summary_text = f"{role} with a track record of contributions across {len(projects_ref)} project(s)."
 
-    if skills:
-        # List top 3 skills naturally
-        top_skills = skills[:3]
-        summary_text += f" Proficient in {', '.join(top_skills)}"
-        if len(skills) > 3:
-            summary_text += f", along with expertise in {len(skills)-3} other technologies"
-        summary_text += "."
+        if skills:
+            # List top 3 skills naturally
+            top_skills = skills[:3]
+            summary_text += f" Proficient in {', '.join(top_skills)}"
+            if len(skills) > 3:
+                summary_text += f", along with expertise in {len(skills)-3} other technologies"
+            summary_text += "."
         
     doc.add_paragraph(summary_text)
     doc.add_paragraph()
@@ -315,7 +399,9 @@ def generate_contributor_portfolio(
              user_stats["files_worked"] = len(p_ref.get("files_list"))
 
         project_context = all_projects_map.get(p_name, {})
-        user_projects.append((p_name, user_stats, project_context))
+        custom_desc = p_ref.get("custom_description")
+        custom_skills = p_ref.get("custom_skills")
+        user_projects.append((p_name, user_stats, project_context, custom_desc, custom_skills))
 
     # Sort by impact
     user_projects.sort(key=lambda x: x[1]["score"], reverse=True)
@@ -333,7 +419,7 @@ def generate_contributor_portfolio(
     if not user_projects:
         doc.add_paragraph("No project contributions found.")
     else:
-        for p_name, u_stats, p_context in user_projects:
+        for p_name, u_stats, p_context, custom_desc, custom_skills in user_projects:
             # Filter negligible
             if u_stats["pct"] < 0.1 and u_stats["files_worked"] == 0 and u_stats["commit_count"] == 0:
                 continue
@@ -352,12 +438,18 @@ def generate_contributor_portfolio(
                 p_head.add_run(date_str).font.size = Pt(11)
             
             # Description
-            desc = _build_personal_project_description(p_name, p_context, u_stats)
+            if custom_desc:
+                desc = custom_desc
+            else:
+                desc = _build_personal_project_description(p_name, p_context, u_stats)
             doc.add_paragraph(desc, style="List Bullet")
             
             # Skills for this project
-            pcs = p_context.get("per_contributor_skills", {})
-            my_skills = pcs.get(contributor_name, [])
+            if custom_skills is not None:
+                my_skills = custom_skills
+            else:
+                pcs = p_context.get("per_contributor_skills", {})
+                my_skills = pcs.get(contributor_name, [])
             if my_skills:
                 s_p = doc.add_paragraph(style="List Bullet")
                 s_p.add_run("Skills: ").bold = True
@@ -366,3 +458,317 @@ def generate_contributor_portfolio(
             doc.add_paragraph()
 
     return _save_doc(doc, docx_path)
+
+
+def edit_contributor_descriptions(target_scan=None):
+    """
+    Allows the user to edit the description of a project for a specific contributor.
+    """
+    if target_scan:
+        scan = target_scan
+        summary_id = target_scan["summary_id"]
+        data = target_scan["scan_data"]
+    else:
+        scans = list_full_scans()
+        if not scans:
+            print(_center_text("No scans found."))
+            return
+
+        print()
+        print(_center_text("Select a scan to edit:"))
+        for i, s in enumerate(scans, start=1):
+            print(_center_text(f"{i}. Scan {s['summary_id']} - {s['timestamp']}"))
+
+        choice = input(_center_text("Enter number (0 to cancel): ")).strip()
+        if not choice.isdigit() or int(choice) == 0:
+            return
+
+        idx = int(choice) - 1
+        if idx < 0 or idx >= len(scans):
+            print(_center_text("Invalid selection."))
+            return
+
+        summary_id = scans[idx]["summary_id"]
+        scan = get_full_scan_by_id(summary_id)
+        if not scan:
+            print(_center_text("Error loading scan data."))
+            return
+        data = scan["scan_data"]
+
+    profiles = data.get("contributor_profiles", {})
+    project_summaries = data.get("project_summaries", [])
+    project_map = {p["project"]: p for p in project_summaries}
+
+    contributors = sorted([c for c in profiles.keys() if not is_noise(c)])
+
+    if not contributors:
+        print(_center_text("No contributors found."))
+        return
+
+    while True:
+        print()
+        print(_center_text("Select contributor to edit:"))
+        for i, c in enumerate(contributors, 1):
+            print(_center_text(f"{i}. {c}"))
+
+        sel = input(_center_text("Enter number (0 to back): ")).strip()
+        if not sel.isdigit():
+            continue
+        
+        c_idx = int(sel) - 1
+        if c_idx == -1:
+            break
+        if c_idx < 0 or c_idx >= len(contributors):
+            continue
+
+        user = contributors[c_idx]
+        profile = profiles[user]
+        user_projects = profile.get("projects", [])
+        skills = profile.get("skills", [])
+
+        while True:
+            print()
+            print(_center_text(f"--- Editing {user} ---"))
+            
+            menu_opts = [
+                "1. Edit Name",
+                "2. Edit Professional Title",
+                "3. Edit Professional Summary",
+                "4. Edit Project Details (Desc/Skills)",
+                "5. Regenerate Resume",
+                "6. Reset All Changes",
+                "0. Back to Contributor List"
+            ]
+            max_len = max(len(o) for o in menu_opts)
+            for opt in menu_opts:
+                print(_center_text(opt.ljust(max_len)))
+
+            choice = input(_center_text("Choose option: ")).strip()
+
+            if choice == "0":
+                break
+
+            if choice == "1":
+                # Calculate default name
+                default_name = user
+                if "@" in user:
+                    default_name = user.split("@")[0]
+                default_name = default_name.replace(".", " ").replace("_", " ").title()
+
+                curr = profile.get("custom_name", default_name)
+                print(_center_text("Edit Name (type 'RESET' to restore default):"))
+                val = _input_with_prefill("> ", curr).strip()
+
+                if val == "RESET":
+                    if "custom_name" in profile:
+                        del profile["custom_name"]
+                        update_full_scan(summary_id, data)
+                        print(_center_text("Reset to default."))
+                    else:
+                        print(_center_text("Already default."))
+                elif val:
+                    profile["custom_name"] = val
+                    update_full_scan(summary_id, data)
+                    print(_center_text("Saved."))
+                else:
+                    print(_center_text("No change."))
+
+            elif choice == "2":
+                # Calculate default title
+                default_title = "Software Contributor"
+                dev_keywords = {"Development", "Programming", "Engineering"}
+                if any(any(k in s for k in dev_keywords) for s in skills):
+                    default_title = "Software Developer"
+
+                curr = profile.get("custom_title", default_title)
+                print(_center_text("Edit Title (type 'RESET' to restore default):"))
+                val = _input_with_prefill("> ", curr).strip()
+
+                if val == "RESET":
+                    if "custom_title" in profile:
+                        del profile["custom_title"]
+                        update_full_scan(summary_id, data)
+                        print(_center_text("Reset to default."))
+                    else:
+                        print(_center_text("Already default."))
+                elif val:
+                    profile["custom_title"] = val
+                    update_full_scan(summary_id, data)
+                    print(_center_text("Saved."))
+                else:
+                    print(_center_text("No change."))
+
+            elif choice == "3":
+                # Calculate default summary
+                effective_title = profile.get("custom_title")
+                if not effective_title:
+                    effective_title = "Software Contributor"
+                    dev_keywords = {"Development", "Programming", "Engineering"}
+                    if any(any(k in s for k in dev_keywords) for s in skills):
+                        effective_title = "Software Developer"
+
+                default_summary = f"{effective_title} with a track record of contributions across {len(user_projects)} project(s)."
+                if skills:
+                    top_skills = skills[:3]
+                    default_summary += f" Proficient in {', '.join(top_skills)}"
+                    if len(skills) > 3:
+                        default_summary += f", along with expertise in {len(skills)-3} other technologies"
+                    default_summary += "."
+
+                curr = profile.get("custom_summary", default_summary)
+                print(_center_text("Edit Summary (type 'RESET' to restore default):"))
+                val = _input_with_prefill("> ", curr).strip()
+
+                if val == "RESET":
+                    if "custom_summary" in profile:
+                        del profile["custom_summary"]
+                        update_full_scan(summary_id, data)
+                        print(_center_text("Reset to default."))
+                    else:
+                        print(_center_text("Already default."))
+                elif val:
+                    profile["custom_summary"] = val
+                    update_full_scan(summary_id, data)
+                    print(_center_text("Saved."))
+                else:
+                    print(_center_text("No change."))
+
+            elif choice == "4":
+                if not user_projects:
+                    print(_center_text("No projects for this user."))
+                    continue
+
+                while True:
+                    print()
+                    print(_center_text(f"Projects for {user}:"))
+                    for i, p in enumerate(user_projects, 1):
+                        has_custom = " *" if p.get("custom_description") else ""
+                        print(_center_text(f"{i}. {p.get('name', 'Unknown')}{has_custom}"))
+
+                    p_sel = input(_center_text("Select project (0 to back): ")).strip()
+                    if not p_sel.isdigit():
+                        continue
+                    
+                    p_idx = int(p_sel) - 1
+                    if p_idx == -1:
+                        break
+                    if p_idx < 0 or p_idx >= len(user_projects):
+                        continue
+
+                    target_p = user_projects[p_idx]
+                    p_name = target_p.get("name")
+
+                    p_context = project_map.get(p_name, {})
+
+                    while True:
+                        print()
+                        print(_center_text(f"--- Editing Project: {p_name} ---"))
+                        
+                        sub_opts = [
+                            "1. Edit Description",
+                            "2. Edit Skills",
+                            "0. Back to Project List"
+                        ]
+                        max_sub = max(len(o) for o in sub_opts)
+                        for opt in sub_opts:
+                            print(_center_text(opt.ljust(max_sub)))
+
+                        sub_choice = input(_center_text("Choose option: ")).strip()
+
+                        if sub_choice == "0":
+                            break
+
+                        if sub_choice == "1":
+                            # Reconstruct stats for preview
+                            user_stats = {
+                                "user_code_files": target_p.get("user_code_files", 0),
+                                "user_test_files": target_p.get("user_test_files", 0),
+                                "user_doc_files": target_p.get("user_doc_files", 0),
+                                "user_design_files": target_p.get("user_design_files", 0),
+                                "pct": target_p.get("pct", 0.0),
+                                "score": target_p.get("score", 0.0),
+                                "files_worked": target_p.get("files_worked", 0),
+                                "commit_count": target_p.get("commit_count", 0)
+                            }
+                            if user_stats["files_worked"] == 0 and target_p.get("files_list"):
+                                user_stats["files_worked"] = len(target_p.get("files_list"))
+
+                            default_desc = _build_personal_project_description(p_name, p_context, user_stats)
+                            current_custom = target_p.get("custom_description")
+
+                            print("\n" + "="*60)
+                            print(f"Project: {p_name}")
+                            print(f"Default Generated: {default_desc}")
+                            if current_custom:
+                                print(f"Current Custom:    {current_custom}")
+                            print("="*60)
+
+                            print(_center_text("Edit description (type 'RESET' to restore default):"))
+                            prefill = current_custom if current_custom else default_desc
+                            new_desc = _input_with_prefill("> ", prefill).strip()
+
+                            if new_desc == "RESET":
+                                if "custom_description" in target_p:
+                                    del target_p["custom_description"]
+                                    print(_center_text("Reset to default."))
+                                    update_full_scan(summary_id, data)
+                            elif new_desc:
+                                target_p["custom_description"] = new_desc
+                                print(_center_text("Saved custom description."))
+                                update_full_scan(summary_id, data)
+                            else:
+                                print(_center_text("No change."))
+
+                        elif sub_choice == "2":
+                            pcs = p_context.get("per_contributor_skills", {})
+                            default_skills = pcs.get(user, [])
+                            default_skills_str = ", ".join(default_skills)
+
+                            current_custom = target_p.get("custom_skills")
+                            current_str = ", ".join(current_custom) if current_custom is not None else default_skills_str
+
+                            print(_center_text("Edit Skills (comma-separated, type 'RESET' to restore default):"))
+                            val = _input_with_prefill("> ", current_str).strip()
+
+                            if val == "RESET":
+                                if "custom_skills" in target_p:
+                                    del target_p["custom_skills"]
+                                    update_full_scan(summary_id, data)
+                                    print(_center_text("Reset to default."))
+                                else:
+                                    print(_center_text("Already default."))
+                            else:
+                                # Parse list
+                                new_skills = [s.strip() for s in val.split(",") if s.strip()]
+                                target_p["custom_skills"] = new_skills
+                                update_full_scan(summary_id, data)
+                                print(_center_text("Saved."))
+
+            elif choice == "5":
+                out = generate_contributor_portfolio(
+                    user,
+                    profile,
+                    project_map,
+                    scan_timestamp=scan["timestamp"],
+                    sort_mode="date"
+                )
+                if out:
+                    print(_center_text(f"Saved resume to:\n{out}"))
+                input(_center_text("Press Enter to continue..."))
+
+            elif choice == "6":
+                if get_yes_no(f"Are you sure you want to discard ALL manual edits for {user}?"):
+                    # Clear profile-level fields
+                    # Remove any key starting with 'custom_' to ensure complete reset
+                    for k in list(profile.keys()):
+                        if k.startswith("custom_"):
+                            profile.pop(k, None)
+                    
+                    # Clear project-level fields
+                    for p in user_projects:
+                        for k in list(p.keys()):
+                            if k.startswith("custom_"):
+                                p.pop(k, None)
+                    
+                    update_full_scan(summary_id, data)
+                    print(_center_text("All custom fields cleared. Reverted to defaults."))

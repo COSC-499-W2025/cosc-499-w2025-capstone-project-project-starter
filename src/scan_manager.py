@@ -5,7 +5,7 @@ from datetime import datetime
 from db import delete_full_scan_by_id, get_full_scan_by_id, list_full_scans, update_full_scan
 from file_parser import get_input_file_path
 from permission_manager import get_yes_no
-from resume_generator import generate_resume, generate_contributor_portfolio
+from resume_generator import generate_resume, generate_contributor_portfolio, edit_contributor_descriptions
 from portfolio_generator import create_portfolios
 from services.scan_service import analyze_scan, merge_scans
 
@@ -50,8 +50,8 @@ def scan_manager():
             [
                 ("0", "Return to home screen"),
                 ("1", "View stored project analyses"),
-                ("2", "Generate Resume/Portfolio"),
-                ("3", "Update an existing scan"),
+                ("2", "Update an existing scan"),
+                ("3", "Generate Resume/Portfolio"),
                 ("4", "Delete stored scans"),
             ],
             prompt="Choose an option (0–4): ",
@@ -60,9 +60,9 @@ def scan_manager():
         if choice == "1":
             view_full_scan_details()
         elif choice == "2":
-            generate_portfolio_menu()
-        elif choice == "3":
             update_scan_workflow()
+        elif choice == "3":
+            generate_portfolio_menu()
         elif choice == "4":
             delete_full_scan()
         elif choice == "0":
@@ -269,11 +269,12 @@ def generate_markdown_portfolio(data, user, timestamp):
 
     if target_portfolio:
         from file_parser import OUTPUT_DIR
-        os.makedirs(OUTPUT_DIR, exist_ok=True)
+        resume_dir = os.path.join(OUTPUT_DIR, "resumes")
+        os.makedirs(resume_dir, exist_ok=True)
         
         safe_name = "".join(c for c in user if c.isalnum() or c in (' ', '_', '-')).strip().replace(' ', '_')
         filename = f"Portfolio_{safe_name}.md"
-        out_path = os.path.join(OUTPUT_DIR, filename)
+        out_path = os.path.join(resume_dir, filename)
         
         with open(out_path, "w", encoding="utf-8") as f:
             f.write(target_portfolio.to_markdown())
@@ -321,71 +322,84 @@ def generate_portfolio_menu():
     scan = get_full_scan_by_id(scans[idx]["summary_id"])
     data = scan["scan_data"]
 
-    _print_header("GENERATION OPTIONS", width=48, sep="-")
-    print(_center_text("1) Full Project Resume (Summary of all projects)"))
-    print(_center_text("2) Individual Contributor Resume (Word)"))
-    print(_center_text("3) Individual Contributor Portfolio (Markdown)"))
+    while True:
+        _print_header("GENERATION OPTIONS", width=48, sep="-")
+        print(_center_text("1) Full Project Resume"))
+        print(_center_text("2) Contributor Resume (Word)"))
+        print(_center_text("3) Contributor Portfolio (Markdown)"))
+        print(_center_text("4) Edit Resume"))
+        print(_center_text("0) Back"))
 
-    choice = input(_center_text("Enter number (0 to cancel): ")).strip()
+        choice = input(_center_text("Enter number: ")).strip()
 
-    if choice == "1":
-        docx = generate_resume(
-            data.get("project_summaries", []),
-            data.get("projects_chronological", []),
-            data.get("skills_chronological", []),
-            scan_timestamp=scan["timestamp"],
-        )
-        if docx:
-            print(_center_text(f"Saved:\n{docx}"))
-        return
+        if choice == "0":
+            break
 
-    if choice not in ("2", "3"):
-        return
+        if choice == "1":
+            docx = generate_resume(
+                data.get("project_summaries", []),
+                data.get("projects_chronological", []),
+                data.get("skills_chronological", []),
+                scan_timestamp=scan["timestamp"],
+            )
+            if docx:
+                print(_center_text(f"Saved:\n{docx}"))
+            input(_center_text("Press Enter to continue..."))
+            continue
 
-    # --- Contributor Portfolio Logic ---
+        if choice == "4":
+            edit_contributor_descriptions(target_scan=scan)
+            continue
 
-    contributors = [
-        c for c in sorted(data.get("contributor_profiles", {}).keys())
-        if not is_noise(c)
-    ]
+        if choice not in ("2", "3"):
+            continue
 
-    if not contributors:
-        print(_center_text("No valid contributors found."))
-        return
+        # --- Contributor Portfolio Logic ---
 
-    print()
-    print(_center_text("Select contributor:"))
-    for i, c in enumerate(contributors, 1):
-        print(_center_text(f"{i}. {c}"))
+        contributors = [
+            c for c in sorted(data.get("contributor_profiles", {}).keys())
+            if not is_noise(c)
+        ]
 
-    sel = input(_center_text("Enter number: ")).strip()
-    if not sel.isdigit():
-        return
+        if not contributors:
+            print(_center_text("No valid contributors found."))
+            continue
 
-    idx = int(sel) - 1
-    if idx < 0 or idx >= len(contributors):
-        return
+        print()
+        print(_center_text("Select contributor:"))
+        for i, c in enumerate(contributors, 1):
+            print(_center_text(f"{i}. {c}"))
 
-    user = contributors[idx]
-    profile = data["contributor_profiles"][user]
-    
-    if choice == "3":
-        generate_markdown_portfolio(data, user, scan["timestamp"])
-    elif choice == "2":
-        # Default to chronological sorting
-        sort_mode = "date"
+        sel = input(_center_text("Enter number (0 to back): ")).strip()
+        if not sel.isdigit():
+            continue
 
-        project_map = {p["project"]: p for p in data.get("project_summaries", [])}
-        out = generate_contributor_portfolio(
-            user,
-            profile,
-            project_map,
-            scan_timestamp=None,
-            sort_mode=sort_mode
-        )
+        idx = int(sel) - 1
+        if idx < 0 or idx >= len(contributors):
+            continue
 
-        if out:
-            print(_center_text(f"Saved resume to:\n{out}"))
+        user = contributors[idx]
+        profile = data["contributor_profiles"][user]
+        
+        if choice == "3":
+            generate_markdown_portfolio(data, user, scan["timestamp"])
+        elif choice == "2":
+            # Default to chronological sorting
+            sort_mode = "date"
+
+            project_map = {p["project"]: p for p in data.get("project_summaries", [])}
+            out = generate_contributor_portfolio(
+                user,
+                profile,
+                project_map,
+                scan_timestamp=None,
+                sort_mode=sort_mode
+            )
+
+            if out:
+                print(_center_text(f"Saved resume to:\n{out}"))
+        
+        input(_center_text("Press Enter to continue..."))
 
 
 # --------------------------------------------------------
