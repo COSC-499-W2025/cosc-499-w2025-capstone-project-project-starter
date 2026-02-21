@@ -184,6 +184,8 @@ function Homepage() {
   const [uploadHistoryError, setUploadHistoryError] = useState('');
   const [deletingProjectId, setDeletingProjectId] = useState(null);
   const [snapshotAnalyses, setSnapshotAnalyses] = useState({});
+  const [projectRoleDraft, setProjectRoleDraft] = useState('');
+  const [savingProjectRole, setSavingProjectRole] = useState(false);
 
   const isAuthenticated = Boolean(token && currentUser);
 
@@ -205,6 +207,8 @@ function Homepage() {
     setUploadHistoryLoading(false);
     setUploadHistoryError('');
     setSnapshotAnalyses({});
+    setProjectRoleDraft('');
+    setSavingProjectRole(false);
     setView('projects');
   }, []);
 
@@ -588,6 +592,8 @@ function Homepage() {
     setProjectReport(null);
     setProjectSkills(null);
     setContributors([]);
+    setProjectRoleDraft(project?.user_role || '');
+    setSavingProjectRole(false);
     setLoading(true);
     setDashboardError('');
     try {
@@ -596,6 +602,7 @@ function Homepage() {
         projectApi.getProjectContributors(token, project.id),
       ]);
       setProjectReport(reportResponse);
+      setProjectRoleDraft(reportResponse?.project?.user_role || '');
       setContributors(contributorsResponse.contributors || []);
 
       const snapshotId = project.latest_snapshot?.id;
@@ -607,6 +614,52 @@ function Homepage() {
       setDashboardError(error.message || 'Unable to load project details.');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const saveProjectRole = async () => {
+    if (!token || !selectedProject) return;
+
+    const projectId = selectedProject.id;
+    const nextRole = projectRoleDraft.trim();
+    const currentRole = (projectReport?.project?.user_role || '').trim();
+
+    if (nextRole === currentRole) return;
+
+    setSavingProjectRole(true);
+    setDashboardError('');
+    setFlashMessage('');
+
+    try {
+      const response = await projectApi.updateProject(token, projectId, {
+        userRole: nextRole || null,
+      });
+      const persistedRole = response?.user_role || '';
+
+      setProjectRoleDraft(persistedRole);
+      setSelectedProject((previous) =>
+        previous ? { ...previous, user_role: persistedRole || null } : previous
+      );
+      setProjects((previous) =>
+        previous.map((project) =>
+          project.id === projectId ? { ...project, user_role: persistedRole || null } : project
+        )
+      );
+      setProjectReport((previous) => {
+        if (!previous) return previous;
+        return {
+          ...previous,
+          project: {
+            ...(previous.project || {}),
+            user_role: persistedRole || null,
+          },
+        };
+      });
+      setFlashMessage(persistedRole ? 'Project role saved.' : 'Project role cleared.');
+    } catch (error) {
+      setDashboardError(error.message || 'Unable to save project role.');
+    } finally {
+      setSavingProjectRole(false);
     }
   };
 
@@ -736,6 +789,9 @@ function Homepage() {
     if (!selectedProject) return null;
     return getSnapshotStatus(selectedProject.latest_snapshot?.id, snapshotAnalyses);
   }, [selectedProject, snapshotAnalyses]);
+
+  const savedProjectRole = (projectReport?.project?.user_role || '').trim();
+  const projectRoleChanged = projectRoleDraft.trim() !== savedProjectRole;
 
   const selectedUploadProject = useMemo(
     () => projects.find((project) => project.id === uploadTargetProjectId) || null,
@@ -1120,6 +1176,31 @@ function Homepage() {
                         {selectedProjectStatus.detail && <p className="muted">{selectedProjectStatus.detail}</p>}
                       </>
                     )}
+                  </div>
+
+                  <div className="stack-block">
+                    <h3>Key Role</h3>
+                    <label className="field">
+                      Your role in this project
+                      <textarea
+                        value={projectRoleDraft}
+                        maxLength={128}
+                        rows={3}
+                        placeholder="e.g. Technical Lead, Full-Stack Developer"
+                        onChange={(event) => setProjectRoleDraft(event.target.value)}
+                      />
+                    </label>
+                    <p className="muted">
+                      Saved role text is included in resume and portfolio generation for this project.
+                    </p>
+                    <button
+                      className="primary-btn"
+                      type="button"
+                      onClick={saveProjectRole}
+                      disabled={loading || savingProjectRole || !projectRoleChanged}
+                    >
+                      {savingProjectRole ? 'Saving role...' : 'Save Role'}
+                    </button>
                   </div>
 
                   {projectReport && (

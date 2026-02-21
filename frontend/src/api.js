@@ -68,6 +68,25 @@ export const authApi = {
 
 export const projectApi = {
   listProjects: (token) => apiRequest('/projects', { token }),
+  updateProject: (
+    token,
+    projectId,
+    { displayName, userRole, evidenceJson, evidence, metrics, feedback, evaluation } = {}
+  ) => {
+    const body = {};
+    if (displayName !== undefined) body.display_name = displayName;
+    if (userRole !== undefined) body.user_role = userRole;
+    if (evidenceJson !== undefined) body.evidence_json = evidenceJson;
+    if (evidence !== undefined) body.evidence = evidence;
+    if (metrics !== undefined) body.metrics = metrics;
+    if (feedback !== undefined) body.feedback = feedback;
+    if (evaluation !== undefined) body.evaluation = evaluation;
+    return apiRequest(`/projects/${projectId}`, {
+      method: 'PATCH',
+      token,
+      body,
+    });
+  },
   deleteProject: (token, projectId) => apiRequest(`/projects/${projectId}`, { method: 'DELETE', token }),
   uploadProject: (token, { file, projectName, snapshotLabel, analysisMode }) => {
     const formData = new FormData();
