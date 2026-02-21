@@ -53,6 +53,17 @@ export const authApi = {
     }),
   me: (token) => apiRequest('/auth/me', { token }),
   logout: (token) => apiRequest('/auth/logout', { method: 'POST', token }),
+  submitPrivacyConsent: (token, { userId, consentType, granted, version = 1 }) =>
+    apiRequest('/privacy-consent', {
+      method: 'POST',
+      token,
+      body: {
+        user_id: userId,
+        consent_type: consentType,
+        granted,
+        version,
+      },
+    }),
 };
 
 export const projectApi = {
