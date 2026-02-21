@@ -186,8 +186,31 @@
         let projects = [];
         let selectedProjectId = null;
 
+        // Dashboard State Persistence
+        const DASHBOARD_STATE_KEY = 'dashboard_state_v1';
+
+        function loadDashboardState() {
+            try {
+                const raw = localStorage.getItem(DASHBOARD_STATE_KEY);
+                return raw ? JSON.parse(raw) : null;
+            } catch {
+                return null;
+            }
+        }
+
+        function saveDashboardState(patch) {
+            const prev = loadDashboardState() || {};
+            const next = { ...prev, ...patch, updated_at: new Date().toISOString() };
+            localStorage.setItem(DASHBOARD_STATE_KEY, JSON.stringify(next));
+            return next;
+        }
+
+        function clearDashboardState() {
+            localStorage.removeItem(DASHBOARD_STATE_KEY);
+        }
+
         // Check auth on load
-        document.addEventListener('DOMContentLoaded', () => {
+        document.addEventListener('DOMContentLoaded', async () => {
             const storedUser = localStorage.getItem('user');
             if (!storedUser) {
                 window.location.href = 'index.html';
@@ -196,11 +219,30 @@
             try {
                 currentUser = JSON.parse(storedUser);
                 document.getElementById('username').textContent = currentUser.user_name;
-                loadProjects();
+
+                await loadProjects();
+
+                // restore view + selection
+                const state = loadDashboardState();
+                const view = state?.activeView || 'list';
+                selectedProjectId = state?.selectedProjectId || null;
+
+                showView(view, { preserveSelection: true });
             } catch (e) {
                 localStorage.removeItem('user');
                 window.location.href = 'index.html';
             }
+        });
+        
+        document.addEventListener('click', (e) => {
+            const item = e.target.closest('.project-item');
+            if (!item) return;
+
+            const projectId = item.dataset.projectId;
+            const containerId = item.dataset.containerId;
+            const onSelect = item.dataset.onSelect;
+
+            selectProject(e, Number(projectId), containerId, onSelect);
         });
 
         function showMessage(text, type) {
@@ -224,6 +266,36 @@
                 showMessage(e.message || 'Request failed', 'error');
                 throw e;
             }
+        }
+
+        // Multipurpose API request function that can handle JSON and FormData bodies, and provides consistent error handling
+        async function apiRequest(endpoint, { method = 'GET', body = null, headers = {} } = {}) {
+            const opts = { method, headers: { ...headers } };
+
+            const isFormData = body instanceof FormData;
+
+            if (body) {
+                opts.body = body;
+                if (!isFormData) {
+                    opts.headers['Content-Type'] = 'application/json';
+                }
+            }
+
+            const response = await fetch(`${API_BASE_URL}${endpoint}`, opts);
+
+            // try to parse JSON, but fallback to text if not possible
+            const contentType = response.headers.get('content-type') || '';
+            const payload = contentType.includes('application/json') ? await response.json() : await response.text();
+
+            if (!response.ok) {
+                const msg =
+                    (payload && typeof payload === 'object' && (payload.detail || payload.message)) ||
+                    (typeof payload === 'string' ? payload : 'Request failed');
+                showMessage(msg, 'error');
+                throw new Error(msg);
+            }
+
+            return payload;
         }
 
         async function loadProjectThumbnail(projectId, imgEl) {
@@ -303,7 +375,11 @@
                 return;
             }
             container.innerHTML = projects.map(p => 
-                `<div class="project-item" onclick="selectProject(${p.id}, '${containerId}', '${onSelect}')">
+                `<div class="project-item"
+                    onclick="selectProject(event, ${p.id}, '${containerId}', '${onSelect}')"
+                    data-project-id="${p.id}"
+                    data-container-id="${containerId}"
+                    data-on-select="${onSelect}">
                     <div class="project-row">
                         ${showThumbnails && p.has_thumbnail ? `<img class="project-thumbnail" data-project-id="${p.id}" alt="Thumbnail for ${p.filename}" />` : ''}
                         <div class="project-info">
@@ -324,16 +400,28 @@
             }
         }
 
-        function selectProject(id, containerId, callback) {
+        function selectProject(evt, id, containerId, callback) {
             selectedProjectId = id;
+            saveDashboardState({ selectedProjectId: id });
+
             document.querySelectorAll(`#${containerId} .project-item`).forEach(el => el.classList.remove('selected'));
-            event.target.closest('.project-item').classList.add('selected');
+
+            const item = evt?.target?.closest?.('.project-item');
+            if (item) item.classList.add('selected');
+
             if (window[callback]) window[callback](id);
         }
 
-        function showView(viewName) {
+        function showView(viewName, options = {}) {
+            const { preserveSelection = false } = options;
             const container = document.getElementById('viewContainer');
-            selectedProjectId = null;
+            
+            // If not preserving selection, clear selected project and update state
+            if (!preserveSelection) {
+                selectedProjectId = null;
+                saveDashboardState({ selectedProjectId: null });
+            }
+            saveDashboardState({ activeView: viewName });
             
             const views = {
                 'upload': `<div class="view-panel"><h3>Upload ZIP File</h3><input type="file" id="zipFile" accept=".zip" /><button class="btn" onclick="uploadFile()">Upload</button><div id="uploadResult"></div></div>`,
@@ -361,7 +449,8 @@
             if (viewName === 'list' || viewName === 'analyze' || 
                 viewName === 'cleanup' || viewName === 'thumbnail' || viewName === 'llm-summary' || viewName === 'merge') {
                 setTimeout(() => {
-                    const listId = viewName === 'list' ? 'projectsList' : 
+                    let listId = null;
+                    listId = viewName === 'list' ? 'projectsList' : 
                                   viewName === 'analyze' ? 'analyzeProjectsList' :
                                   viewName === 'cleanup' ? 'cleanupProjectsList' :
                                   viewName === 'thumbnail' ? 'thumbnailProjectsList' :
@@ -369,6 +458,21 @@
                     const showThumbs = viewName === 'list' || viewName === 'analyze' || viewName === 'thumbnail' || viewName === 'merge';
                     renderProjectsList(listId, 'onProjectSelect', showThumbs);
                 }, 100);
+
+                const state = loadDashboardState();
+                const restoreId = state?.selectedProjectId;
+                if (restoreId) {
+                    // restore selection based on saved project ID
+                    const containerEl = document.getElementById(listId);
+                    const items = containerEl?.querySelectorAll?.('.project-item') || [];
+                    items.forEach(el => el.classList.remove('selected'));
+
+                    // find the item with matching project ID in its onclick attribute
+                    const match = Array.from(items).find(el => (el.getAttribute('onclick') || '').includes(`, ${restoreId},`));
+                    if (match) match.classList.add('selected');
+
+                    selectedProjectId = restoreId;
+                }
             }
         }
 
@@ -383,11 +487,10 @@
             formData.append('file', fileInput.files[0]);
             resultDiv.innerHTML = 'Uploading...';
             try {
-                const response = await fetch(`${API_BASE_URL}/api/projects/upload?user_name=${currentUser.user_name}`, {
+                const data = await apiRequest(`/api/projects/upload?user_name=${currentUser.user_name}`, {
                     method: 'POST',
                     body: formData
                 });
-                const data = await response.json();
                 if (data.success) {
                     resultDiv.innerHTML = `Upload successful! Project ID: ${data.project_id}`;
                     showMessage('Upload successful!', 'success');
@@ -1255,11 +1358,10 @@
             formData.append('file', file);
             resultDiv.innerHTML = 'Uploading thumbnail...';
             try {
-                const response = await fetch(`${API_BASE_URL}/api/projects/${selectedProjectId}/thumbnail?user_name=${currentUser.user_name}`, {
+                const data = await apiRequest(`/api/projects/${selectedProjectId}/thumbnail?user_name=${currentUser.user_name}`, {
                     method: 'POST',
                     body: formData
                 });
-                const data = await response.json();
                 if (response.ok && data.success) {
                     resultDiv.innerHTML = 'Thumbnail uploaded successfully';
                     showMessage('Thumbnail uploaded', 'success');
@@ -1295,11 +1397,10 @@
             formData.append('file', file);
             resultDiv.innerHTML = '<div style="text-align: center; padding: 20px;"><div class="spinner"></div><p style="margin-top: 10px;">Merging files into project...</p></div>';
             try {
-                const response = await fetch(`${API_BASE_URL}/api/projects/${selectedProjectId}/merge?user_name=${currentUser.user_name}`, {
+                const data = await apiRequest(`/api/projects/${selectedProjectId}/merge?user_name=${currentUser.user_name}`, {
                     method: 'POST',
                     body: formData
                 });
-                const data = await response.json();
                 if (response.ok && data.success) {
                     const mergeData = data.data || {};
                     let resultHtml = `<div class="analysis-section">
@@ -1370,6 +1471,7 @@
             } catch (e) {
                 console.error('Logout error:', e);
             } finally {
+                clearDashboardState();
                 localStorage.removeItem('user');
                 window.location.href = 'index.html';
             }
