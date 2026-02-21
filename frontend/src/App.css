@@ -11,3 +11,22 @@ div {
   border-radius: 8px;
   box-shadow: 0 0 10px rgba(0,0,0,0.1);
 }
+
+.analysis-pill {
+  display: inline-block;
+  margin: 0.25rem 0;
+  padding: 0.25rem 0.7rem;
+  border-radius: 999px;
+  background: #e8ecf8;
+  color: #1f2a44;
+  font-weight: 600;
+}
+
+.analysis-pill-running {
+  background: #fff4db;
+  color: #8a4b00;
+}
+
+.muted {
+  color: #5f6470;
+}

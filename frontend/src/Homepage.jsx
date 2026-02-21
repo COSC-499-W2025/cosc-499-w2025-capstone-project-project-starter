@@ -2,6 +2,14 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { API_BASE_URL, authApi, projectApi } from './api';
 
 const TOKEN_STORAGE_KEY = 'artifactMiner.authToken';
+const ANALYSIS_POLL_INTERVAL_MS = 5000;
+const ACTIVE_ANALYSIS_STATUSES = new Set(['pending', 'running']);
+const ANALYSIS_TYPE_LABELS = {
+  parser: 'Parser',
+  git_metrics: 'Git Metrics',
+  local_ml: 'Local ML',
+  external_llm: 'Ollama',
+};
 
 function normalizeProjectName(filename) {
   return filename.replace(/\.zip$/i, '');
@@ -12,6 +20,121 @@ function formatDate(value) {
   const parsed = new Date(value);
   if (Number.isNaN(parsed.getTime())) return 'N/A';
   return parsed.toLocaleDateString();
+}
+
+function normalizeAnalysisStatus(status) {
+  return typeof status === 'string' ? status.toLowerCase() : 'pending';
+}
+
+function normalizeMetricCount(value) {
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : 0;
+}
+
+function summarizeSnapshotAnalyses(analyses) {
+  const rows = Array.isArray(analyses) ? analyses : [];
+
+  if (rows.length === 0) {
+    return {
+      badge: 'Analysis queued',
+      detail: 'Waiting for workers to pick up this snapshot.',
+      progress: null,
+      isRunning: true,
+    };
+  }
+
+  const normalized = rows.map((analysis) => ({
+    analysisType: analysis?.analysis_type || 'unknown',
+    status: normalizeAnalysisStatus(analysis?.status),
+  }));
+
+  const total = normalized.length;
+  const completeCount = normalized.filter((entry) => entry.status === 'complete').length;
+  const failed = normalized.filter((entry) => entry.status === 'failed');
+  const active = normalized.filter((entry) => ACTIVE_ANALYSIS_STATUSES.has(entry.status));
+  const external = normalized.find((entry) => entry.analysisType === 'external_llm');
+
+  if (failed.length > 0) {
+    const failedLabels = failed
+      .map((entry) => ANALYSIS_TYPE_LABELS[entry.analysisType] || entry.analysisType)
+      .join(', ');
+    return {
+      badge: external?.status === 'failed' ? 'Ollama analysis failed' : 'Analysis failed',
+      detail: `Failed jobs: ${failedLabels}`,
+      progress: `${completeCount}/${total} complete`,
+      isRunning: false,
+    };
+  }
+
+  if (external?.status === 'running') {
+    return {
+      badge: 'Ollama analysis running',
+      detail: 'External model generation is in progress and may take some time.',
+      progress: `${completeCount}/${total} complete`,
+      isRunning: true,
+    };
+  }
+
+  if (external?.status === 'pending') {
+    return {
+      badge: 'Ollama analysis queued',
+      detail: 'Waiting for the external model worker to start.',
+      progress: `${completeCount}/${total} complete`,
+      isRunning: true,
+    };
+  }
+
+  if (active.length > 0) {
+    const runningLabels = active
+      .map((entry) => ANALYSIS_TYPE_LABELS[entry.analysisType] || entry.analysisType)
+      .join(', ');
+    return {
+      badge: 'Analysis in progress',
+      detail: `Running: ${runningLabels}`,
+      progress: `${completeCount}/${total} complete`,
+      isRunning: true,
+    };
+  }
+
+  return {
+    badge: external ? 'Analysis complete (Ollama done)' : 'Analysis complete',
+    detail: 'All queued analyses finished.',
+    progress: `${completeCount}/${total} complete`,
+    isRunning: false,
+  };
+}
+
+function getSnapshotStatus(snapshotId, snapshotAnalyses) {
+  if (!snapshotId) {
+    return {
+      badge: 'No snapshot yet',
+      detail: 'Upload a ZIP to start analysis.',
+      progress: null,
+      isRunning: false,
+    };
+  }
+
+  const entry = snapshotAnalyses[snapshotId];
+
+  if (entry === undefined) {
+    return {
+      badge: 'Checking analysis status...',
+      detail: 'Fetching worker progress.',
+      progress: null,
+      isRunning: true,
+    };
+  }
+
+  if (entry === null) {
+    return {
+      badge: 'Analysis status unavailable',
+      detail: 'Could not fetch analysis status right now.',
+      progress: null,
+      isRunning: false,
+    };
+  }
+
+  return summarizeSnapshotAnalyses(entry);
 }
 
 function Homepage() {
@@ -47,6 +170,7 @@ function Homepage() {
   const [file, setFile] = useState(null);
   const [uploadProjectName, setUploadProjectName] = useState('');
   const [deletingProjectId, setDeletingProjectId] = useState(null);
+  const [snapshotAnalyses, setSnapshotAnalyses] = useState({});
 
   const isAuthenticated = Boolean(token && currentUser);
 
@@ -61,6 +185,7 @@ function Homepage() {
     setContributors([]);
     setFile(null);
     setUploadProjectName('');
+    setSnapshotAnalyses({});
     setView('projects');
   }, []);
 
@@ -156,6 +281,64 @@ function Homepage() {
     if (view === 'skills') fetchChronologicalSkills();
   }, [view, isAuthenticated, fetchTopProjects, fetchChronologicalSkills]);
 
+  useEffect(() => {
+    if (!token) {
+      setSnapshotAnalyses({});
+      return;
+    }
+
+    const snapshotIds = projects
+      .map((project) => project.latest_snapshot?.id)
+      .filter((snapshotId) => Boolean(snapshotId));
+
+    if (snapshotIds.length === 0) {
+      setSnapshotAnalyses({});
+      return;
+    }
+
+    let cancelled = false;
+    let timerId = null;
+
+    const refreshAnalyses = async () => {
+      const results = await Promise.allSettled(
+        snapshotIds.map((snapshotId) => projectApi.getSnapshotAnalyses(token, snapshotId))
+      );
+
+      if (cancelled) return;
+
+      let hasRunningAnalysis = false;
+      const next = {};
+
+      snapshotIds.forEach((snapshotId, index) => {
+        const result = results[index];
+        if (result.status === 'fulfilled') {
+          const analyses = Array.isArray(result.value?.analyses) ? result.value.analyses : [];
+          next[snapshotId] = analyses;
+          if (analyses.some((entry) => ACTIVE_ANALYSIS_STATUSES.has(normalizeAnalysisStatus(entry?.status)))) {
+            hasRunningAnalysis = true;
+          }
+        } else {
+          next[snapshotId] = null;
+        }
+      });
+
+      setSnapshotAnalyses(next);
+
+      if (hasRunningAnalysis && !cancelled) {
+        timerId = window.setTimeout(refreshAnalyses, ANALYSIS_POLL_INTERVAL_MS);
+      }
+    };
+
+    refreshAnalyses();
+
+    return () => {
+      cancelled = true;
+      if (timerId) {
+        window.clearTimeout(timerId);
+      }
+    };
+  }, [token, projects]);
+
   const handleAuthSuccess = useCallback(
     (response) => {
       localStorage.setItem(TOKEN_STORAGE_KEY, response.token);
@@ -245,7 +428,7 @@ function Homepage() {
       });
       setFile(null);
       setUploadProjectName('');
-      setFlashMessage('Project uploaded successfully.');
+      setFlashMessage('Project uploaded. Analysis has started and status will update in Your Projects.');
       await fetchProjects();
       setView('projects');
     } catch (error) {
@@ -406,6 +589,11 @@ function Homepage() {
     };
   }, [projectReport]);
 
+  const selectedProjectStatus = useMemo(() => {
+    if (!selectedProject) return null;
+    return getSnapshotStatus(selectedProject.latest_snapshot?.id, snapshotAnalyses);
+  }, [selectedProject, snapshotAnalyses]);
+
   if (sessionLoading) {
     return (
       <div className="screen-shell">
@@ -559,34 +747,51 @@ function Homepage() {
                 <p>No projects yet. Upload a ZIP to begin.</p>
               ) : (
                 <div className="project-grid">
-                  {projects.map((project) => (
-                    <article key={project.id} className="project-card">
-                      <h3>{project.name}</h3>
-                      <p>Type: {project.project_type || 'Unknown'}</p>
-                      <p>Commits: {project.metrics?.total_commits || 0}</p>
-                      <p>Your commits: {project.metrics?.user_commits || 0}</p>
-                      <p>Contributors: {project.metrics?.contributor_count || 0}</p>
-                      {project.metrics?.rank_score != null && (
-                        <p className="rank-pill">Rank score {project.metrics.rank_score.toFixed(2)}</p>
-                      )}
-                      <div className="card-actions">
-                        <button className="primary-btn" type="button" onClick={() => viewProjectDetails(project)}>
-                          View Details
-                        </button>
-                        <button className="secondary-btn" type="button" onClick={() => generateResume(project.id)}>
-                          Generate Resume
-                        </button>
-                        <button
-                          className="secondary-btn"
-                          type="button"
-                          onClick={() => deleteProject(project)}
-                          disabled={deletingProjectId === project.id}
-                        >
-                          {deletingProjectId === project.id ? 'Deleting...' : 'Delete Project'}
-                        </button>
-                      </div>
-                    </article>
-                  ))}
+                  {projects.map((project) => {
+                    const totalCommits = normalizeMetricCount(project.metrics?.total_commits);
+                    const userCommits = normalizeMetricCount(project.metrics?.user_commits);
+                    const contributorCount = normalizeMetricCount(project.metrics?.contributor_count);
+                    const showContributionStats = totalCommits > 0 || userCommits > 0 || contributorCount > 0;
+                    const analysisStatus = getSnapshotStatus(project.latest_snapshot?.id, snapshotAnalyses);
+
+                    return (
+                      <article key={project.id} className="project-card">
+                        <h3>{project.name}</h3>
+                        <p>Type: {project.project_type || 'Unknown'}</p>
+                        {showContributionStats && (
+                          <>
+                            <p>Commits: {totalCommits}</p>
+                            <p>Your commits: {userCommits}</p>
+                            <p>Contributors: {contributorCount}</p>
+                          </>
+                        )}
+                        <p className={analysisStatus.isRunning ? 'analysis-pill analysis-pill-running' : 'analysis-pill'}>
+                          {analysisStatus.badge}
+                        </p>
+                        {analysisStatus.progress && <p className="muted">{analysisStatus.progress}</p>}
+                        {analysisStatus.detail && <p className="muted">{analysisStatus.detail}</p>}
+                        {project.metrics?.rank_score != null && (
+                          <p className="rank-pill">Rank score {project.metrics.rank_score.toFixed(2)}</p>
+                        )}
+                        <div className="card-actions">
+                          <button className="primary-btn" type="button" onClick={() => viewProjectDetails(project)}>
+                            View Details
+                          </button>
+                          <button className="secondary-btn" type="button" onClick={() => generateResume(project.id)}>
+                            Generate Resume
+                          </button>
+                          <button
+                            className="secondary-btn"
+                            type="button"
+                            onClick={() => deleteProject(project)}
+                            disabled={deletingProjectId === project.id}
+                          >
+                            {deletingProjectId === project.id ? 'Deleting...' : 'Delete Project'}
+                          </button>
+                        </div>
+                      </article>
+                    );
+                  })}
                 </div>
               )}
             </section>
@@ -637,6 +842,23 @@ function Homepage() {
                 <p>Loading project details...</p>
               ) : (
                 <>
+                  <div className="stack-block">
+                    <h3>Analysis Status</h3>
+                    {selectedProjectStatus && (
+                      <>
+                        <p
+                          className={
+                            selectedProjectStatus.isRunning ? 'analysis-pill analysis-pill-running' : 'analysis-pill'
+                          }
+                        >
+                          {selectedProjectStatus.badge}
+                        </p>
+                        {selectedProjectStatus.progress && <p>{selectedProjectStatus.progress}</p>}
+                        {selectedProjectStatus.detail && <p className="muted">{selectedProjectStatus.detail}</p>}
+                      </>
+                    )}
+                  </div>
+
                   {projectReport && (
                     <div className="stack-block">
                       <h3>Summary</h3>

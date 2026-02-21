@@ -90,6 +90,7 @@ export const projectApi = {
   },
   getProjectReport: (token, projectId) => apiRequest(`/projects/${projectId}/report`, { token }),
   getProjectContributors: (token, projectId) => apiRequest(`/projects/${projectId}/contributors`, { token }),
+  getSnapshotAnalyses: (token, snapshotId) => apiRequest(`/snapshots/${snapshotId}/analyses`, { token }),
   getSnapshotSkills: (token, snapshotId, limit = 20) =>
     apiRequest(`/snapshots/${snapshotId}/skills?limit=${limit}`, { token }),
   getPortfolioTopProjects: (token, portfolioId, limit = 5) =>
