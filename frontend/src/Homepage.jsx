@@ -22,6 +22,13 @@ function formatDate(value) {
   return parsed.toLocaleDateString();
 }
 
+function formatDateTime(value) {
+  if (!value) return 'N/A';
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) return 'N/A';
+  return parsed.toLocaleString();
+}
+
 function normalizeAnalysisStatus(status) {
   return typeof status === 'string' ? status.toLowerCase() : 'pending';
 }
@@ -169,6 +176,12 @@ function Homepage() {
   const [contributors, setContributors] = useState([]);
   const [file, setFile] = useState(null);
   const [uploadProjectName, setUploadProjectName] = useState('');
+  const [uploadMode, setUploadMode] = useState('new');
+  const [uploadTargetProjectId, setUploadTargetProjectId] = useState('');
+  const [snapshotLabel, setSnapshotLabel] = useState('');
+  const [uploadTargetReport, setUploadTargetReport] = useState(null);
+  const [uploadHistoryLoading, setUploadHistoryLoading] = useState(false);
+  const [uploadHistoryError, setUploadHistoryError] = useState('');
   const [deletingProjectId, setDeletingProjectId] = useState(null);
   const [snapshotAnalyses, setSnapshotAnalyses] = useState({});
 
@@ -185,6 +198,12 @@ function Homepage() {
     setContributors([]);
     setFile(null);
     setUploadProjectName('');
+    setUploadMode('new');
+    setUploadTargetProjectId('');
+    setSnapshotLabel('');
+    setUploadTargetReport(null);
+    setUploadHistoryLoading(false);
+    setUploadHistoryError('');
     setSnapshotAnalyses({});
     setView('projects');
   }, []);
@@ -270,6 +289,14 @@ function Homepage() {
     }
   }, [token, portfolioId]);
 
+  const fetchUploadProjectHistory = useCallback(
+    async (projectId) => {
+      if (!token || !projectId) return null;
+      return projectApi.getProjectReport(token, projectId);
+    },
+    [token]
+  );
+
   useEffect(() => {
     if (!isAuthenticated) return;
     fetchProjects();
@@ -280,6 +307,61 @@ function Homepage() {
     if (view === 'top') fetchTopProjects();
     if (view === 'skills') fetchChronologicalSkills();
   }, [view, isAuthenticated, fetchTopProjects, fetchChronologicalSkills]);
+
+  useEffect(() => {
+    if (uploadMode !== 'incremental') return;
+    if (projects.length === 0) {
+      setUploadTargetProjectId('');
+      return;
+    }
+    if (!projects.some((project) => project.id === uploadTargetProjectId)) {
+      setUploadTargetProjectId(projects[0].id);
+    }
+  }, [uploadMode, projects, uploadTargetProjectId]);
+
+  useEffect(() => {
+    if (!token || view !== 'upload' || uploadMode !== 'incremental') {
+      setUploadHistoryLoading(false);
+      setUploadHistoryError('');
+      if (uploadMode !== 'incremental') {
+        setUploadTargetReport(null);
+      }
+      return;
+    }
+    if (!uploadTargetProjectId) {
+      setUploadTargetReport(null);
+      setUploadHistoryLoading(false);
+      return;
+    }
+
+    let cancelled = false;
+
+    const loadUploadHistory = async () => {
+      setUploadHistoryLoading(true);
+      setUploadHistoryError('');
+      try {
+        const report = await fetchUploadProjectHistory(uploadTargetProjectId);
+        if (!cancelled) {
+          setUploadTargetReport(report);
+        }
+      } catch (error) {
+        if (!cancelled) {
+          setUploadTargetReport(null);
+          setUploadHistoryError(error.message || 'Unable to load snapshot history.');
+        }
+      } finally {
+        if (!cancelled) {
+          setUploadHistoryLoading(false);
+        }
+      }
+    };
+
+    loadUploadHistory();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [token, view, uploadMode, uploadTargetProjectId, fetchUploadProjectHistory]);
 
   useEffect(() => {
     if (!token) {
@@ -407,6 +489,32 @@ function Homepage() {
 
   const handleUpload = async () => {
     if (!file) return;
+    if (uploadMode === 'incremental' && !uploadTargetProjectId) {
+      setDashboardError('Select an existing project for incremental upload.');
+      return;
+    }
+
+    const selectedUploadProject = projects.find((project) => project.id === uploadTargetProjectId) || null;
+    const normalizedUploadName = uploadProjectName.trim() || normalizeProjectName(file.name);
+    const targetProjectName = uploadMode === 'incremental' ? selectedUploadProject?.name || '' : normalizedUploadName;
+
+    if (!targetProjectName) {
+      setDashboardError('Provide a project name before uploading.');
+      return;
+    }
+
+    if (uploadMode === 'new') {
+      const duplicateProject = projects.find(
+        (project) => (project.name || '').trim().toLowerCase() === targetProjectName.trim().toLowerCase()
+      );
+      if (duplicateProject) {
+        setDashboardError(
+          `Project "${duplicateProject.name}" already exists. Switch to Incremental update to add another snapshot.`
+        );
+        return;
+      }
+    }
+
     setUploading(true);
     setDashboardError('');
     setFlashMessage('');
@@ -421,16 +529,51 @@ function Homepage() {
         granted: consentAccepted,
       });
 
-      await projectApi.uploadProject(token, {
+      const uploadResponse = await projectApi.uploadProject(token, {
         file,
-        projectName: uploadProjectName.trim() || normalizeProjectName(file.name),
+        projectName: targetProjectName,
+        snapshotLabel: snapshotLabel.trim() || undefined,
         analysisMode: consentAccepted ? 'both' : 'local',
       });
       setFile(null);
-      setUploadProjectName('');
-      setFlashMessage('Project uploaded. Analysis has started and status will update in Your Projects.');
+      if (uploadMode === 'new') {
+        setUploadProjectName('');
+      }
+      setSnapshotLabel('');
       await fetchProjects();
-      setView('projects');
+
+      const createdCount = Array.isArray(uploadResponse?.created) ? uploadResponse.created.length : 0;
+      const skippedCount = Array.isArray(uploadResponse?.skipped) ? uploadResponse.skipped.length : 0;
+
+      if (uploadMode === 'incremental') {
+        let refreshedReport = null;
+        try {
+          refreshedReport = await fetchUploadProjectHistory(uploadTargetProjectId);
+          setUploadTargetReport(refreshedReport);
+          setUploadHistoryError('');
+        } catch (historyError) {
+          setUploadHistoryError(historyError.message || 'Unable to refresh snapshot history.');
+        }
+
+        const snapshotTotal = Array.isArray(refreshedReport?.snapshots) ? refreshedReport.snapshots.length : null;
+        if (createdCount > 0) {
+          const snapshotSuffix =
+            snapshotTotal == null ? '' : ` ${snapshotTotal} snapshot${snapshotTotal === 1 ? '' : 's'} now recorded.`;
+          setFlashMessage(
+            `Incremental upload complete for "${targetProjectName}". Files were merged into the existing project.${snapshotSuffix}`
+          );
+        } else if (skippedCount > 0) {
+          setFlashMessage(
+            `No new snapshot was created for "${targetProjectName}" because this ZIP already exists in that project's history.`
+          );
+        } else {
+          setFlashMessage(`Upload finished for "${targetProjectName}".`);
+        }
+        setView('upload');
+      } else {
+        setFlashMessage('Project uploaded. Analysis has started and status will update in Your Projects.');
+        setView('projects');
+      }
     } catch (error) {
       setDashboardError(error.message || 'Upload failed.');
     } finally {
@@ -593,6 +736,25 @@ function Homepage() {
     if (!selectedProject) return null;
     return getSnapshotStatus(selectedProject.latest_snapshot?.id, snapshotAnalyses);
   }, [selectedProject, snapshotAnalyses]);
+
+  const selectedUploadProject = useMemo(
+    () => projects.find((project) => project.id === uploadTargetProjectId) || null,
+    [projects, uploadTargetProjectId]
+  );
+
+  const uploadSnapshotHistory = useMemo(() => {
+    const snapshots = Array.isArray(uploadTargetReport?.snapshots) ? uploadTargetReport.snapshots : [];
+    const getTimestamp = (value) => {
+      const parsed = new Date(value);
+      const timestamp = parsed.getTime();
+      return Number.isFinite(timestamp) ? timestamp : 0;
+    };
+
+    return snapshots
+      .map((entry) => entry?.snapshot)
+      .filter((snapshot) => Boolean(snapshot?.id))
+      .sort((left, right) => getTimestamp(right.ingested_at) - getTimestamp(left.ingested_at));
+  }, [uploadTargetReport]);
 
   if (sessionLoading) {
     return (
@@ -800,13 +962,109 @@ function Homepage() {
           {view === 'upload' && (
             <section className="panel">
               <h2>Upload Project ZIP</h2>
+              <p className="muted">Active portfolio: {portfolioId || 'default'}</p>
+              <div className="upload-mode-toggle">
+                <label className="mode-option">
+                  <input
+                    type="radio"
+                    name="uploadMode"
+                    value="new"
+                    checked={uploadMode === 'new'}
+                    onChange={() => setUploadMode('new')}
+                  />
+                  New project upload
+                </label>
+                <label className="mode-option">
+                  <input
+                    type="radio"
+                    name="uploadMode"
+                    value="incremental"
+                    checked={uploadMode === 'incremental'}
+                    onChange={() => setUploadMode('incremental')}
+                  />
+                  Incremental update for existing project
+                </label>
+              </div>
+
+              {uploadMode === 'new' ? (
+                <>
+                  <p className="muted">
+                    New project mode creates a separate project record. To add another snapshot to an existing project,
+                    choose Incremental update.
+                  </p>
+                  <label className="field">
+                    Project name override (optional)
+                    <input
+                      type="text"
+                      value={uploadProjectName}
+                      placeholder="Defaults to filename"
+                      onChange={(e) => setUploadProjectName(e.target.value)}
+                    />
+                  </label>
+                </>
+              ) : (
+                <>
+                  <p className="muted">
+                    Incremental uploads append a new snapshot and merge data into the selected project. Existing
+                    snapshots are preserved, and duplicate files are deduplicated by the backend.
+                  </p>
+                  {projects.length === 0 ? (
+                    <p>No existing projects available yet. Upload a new project first.</p>
+                  ) : (
+                    <>
+                      <label className="field">
+                        Project to update
+                        <select
+                          value={uploadTargetProjectId}
+                          onChange={(e) => setUploadTargetProjectId(e.target.value)}
+                        >
+                          <option value="" disabled>
+                            Select a project
+                          </option>
+                          {projects.map((project) => (
+                            <option key={project.id} value={project.id}>
+                              {project.name}
+                            </option>
+                          ))}
+                        </select>
+                      </label>
+                      {selectedUploadProject && (
+                        <p className="muted">ZIP contents will be added to: {selectedUploadProject.name}</p>
+                      )}
+                      <div className="stack-block">
+                        <h3>Snapshot history</h3>
+                        {uploadHistoryLoading ? (
+                          <p>Loading snapshot history...</p>
+                        ) : uploadHistoryError ? (
+                          <p className="muted">{uploadHistoryError}</p>
+                        ) : uploadSnapshotHistory.length === 0 ? (
+                          <p className="muted">No snapshots have been recorded for this project yet.</p>
+                        ) : (
+                          <ul className="simple-list">
+                            {uploadSnapshotHistory.map((snapshot, index) => (
+                              <li key={snapshot.id}>
+                                <span>{snapshot.snapshot_label || `Snapshot ${uploadSnapshotHistory.length - index}`}</span>
+                                <span className="muted">
+                                  Uploaded {formatDateTime(snapshot.ingested_at)} from{' '}
+                                  {snapshot.source_zip_name || 'Unnamed ZIP'}
+                                </span>
+                              </li>
+                            ))}
+                          </ul>
+                        )}
+                      </div>
+                    </>
+                  )}
+                </>
+              )}
+
               <label className="field">
-                Project name override (optional)
+                Snapshot label (optional)
                 <input
                   type="text"
-                  value={uploadProjectName}
-                  placeholder="Defaults to filename"
-                  onChange={(e) => setUploadProjectName(e.target.value)}
+                  value={snapshotLabel}
+                  placeholder={uploadMode === 'incremental' ? 'e.g. sprint-3 update' : 'e.g. initial import'}
+                  onChange={(e) => setSnapshotLabel(e.target.value)}
                 />
               </label>
               <label className="field">
@@ -817,15 +1075,20 @@ function Homepage() {
                   onChange={(e) => {
                     const selected = e.target.files?.[0] || null;
                     setFile(selected);
-                    if (selected && !uploadProjectName.trim()) {
+                    if (selected && uploadMode === 'new' && !uploadProjectName.trim()) {
                       setUploadProjectName(normalizeProjectName(selected.name));
                     }
                   }}
                 />
               </label>
               {file && <p className="muted">Selected file: {file.name}</p>}
-              <button className="primary-btn" type="button" disabled={!file || uploading} onClick={handleUpload}>
-                {uploading ? 'Uploading...' : 'Upload Project'}
+              <button
+                className="primary-btn"
+                type="button"
+                disabled={!file || uploading || (uploadMode === 'incremental' && !uploadTargetProjectId)}
+                onClick={handleUpload}
+              >
+                {uploading ? 'Uploading...' : uploadMode === 'incremental' ? 'Upload Incremental Snapshot' : 'Upload Project'}
               </button>
             </section>
           )}
