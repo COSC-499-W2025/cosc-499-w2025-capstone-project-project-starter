@@ -46,6 +46,7 @@ function Homepage() {
   const [contributors, setContributors] = useState([]);
   const [file, setFile] = useState(null);
   const [uploadProjectName, setUploadProjectName] = useState('');
+  const [uploadAnalysisMode, setUploadAnalysisMode] = useState('local');
   const [deletingProjectId, setDeletingProjectId] = useState(null);
 
   const isAuthenticated = Boolean(token && currentUser);
@@ -61,6 +62,7 @@ function Homepage() {
     setContributors([]);
     setFile(null);
     setUploadProjectName('');
+    setUploadAnalysisMode('local');
     setView('projects');
   }, []);
 
@@ -231,6 +233,7 @@ function Homepage() {
       await projectApi.uploadProject(token, {
         file,
         projectName: uploadProjectName.trim() || normalizeProjectName(file.name),
+        analysisMode: uploadAnalysisMode,
       });
       setFile(null);
       setUploadProjectName('');
@@ -584,6 +587,17 @@ function Homepage() {
           {view === 'upload' && (
             <section className="panel">
               <h2>Upload Project ZIP</h2>
+              <label className="field">
+                Analysis model
+                <select
+                  value={uploadAnalysisMode}
+                  onChange={(e) => setUploadAnalysisMode(e.target.value)}
+                  disabled={uploading}
+                >
+                  <option value="local">Local LM</option>
+                  <option value="external">External LM</option>
+                </select>
+              </label>
               <label className="field">
                 Project name override (optional)
                 <input

@@ -789,6 +789,67 @@ def _create_dummy_zip():
     s.seek(0)
     return s
 
+
+def test_upload_analysis_mode_local_overrides_external_default(client, engine):
+    r_data = client.post(
+        "/privacy-consent",
+        json={"consent_type": "data_access", "granted": True, "version": 1},
+    )
+    assert r_data.status_code == 200
+    user_id = r_data.json()["user_id"]
+
+    r_external = client.post(
+        "/privacy-consent",
+        json={"user_id": user_id, "consent_type": "external_services", "granted": True, "version": 1},
+    )
+    assert r_external.status_code == 200
+
+    zip_buf = _create_dummy_zip()
+    r_upload = client.post(
+        "/projects/upload",
+        files={"file": ("mode-local.zip", zip_buf, "application/zip")},
+        data={"user_id": user_id, "analysis_mode": "local"},
+    )
+    assert r_upload.status_code == 200
+    project_id = r_upload.json()["created"][0]["project_id"]
+
+    with engine.connect() as conn:
+        analysis_types = [
+            row[0]
+            for row in conn.execute(
+                text(
+                    """
+                    SELECT a.analysis_type
+                    FROM analyses a
+                    JOIN snapshots s ON s.id = a.snapshot_id
+                    WHERE s.project_id = :pid
+                    """
+                ),
+                {"pid": project_id},
+            ).all()
+        ]
+
+    assert "local_ml" in analysis_types
+    assert "external_llm" not in analysis_types
+
+
+def test_upload_analysis_mode_external_requires_external_consent(client):
+    r_data = client.post(
+        "/privacy-consent",
+        json={"consent_type": "data_access", "granted": True, "version": 1},
+    )
+    assert r_data.status_code == 200
+    user_id = r_data.json()["user_id"]
+
+    zip_buf = _create_dummy_zip()
+    r_upload = client.post(
+        "/projects/upload",
+        files={"file": ("mode-external.zip", zip_buf, "application/zip")},
+        data={"user_id": user_id, "analysis_mode": "external"},
+    )
+    assert r_upload.status_code == 403
+    assert "External analysis is not allowed" in r_upload.text
+
 def test_project_display_name_update_and_resume_integration(client, monkeypatch, tmp_path):
     """
     1. Upload a project (defaults to filename).

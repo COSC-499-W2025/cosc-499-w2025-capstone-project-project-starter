@@ -193,6 +193,7 @@ def ingest_zip_to_db(
     portfolio_id: Optional[str] = None,
     project_name: Optional[str] = None,
     snapshot_label: Optional[str] = None,
+    analysis_mode: str = "auto",
 ) -> IngestResult:
     zip_sha = _sha256_file(zip_path)
 
@@ -205,7 +206,15 @@ def ingest_zip_to_db(
         user_id2, portfolio_id2 = _ensure_user_and_portfolio(conn, user_id, portfolio_id)
         _require_data_access_consent(conn, user_id2)
 
+        normalized_analysis_mode = str(analysis_mode or "auto").strip().lower()
+        if normalized_analysis_mode not in {"auto", "local", "external"}:
+            raise ValueError("analysis_mode must be one of: auto, local, external")
+
         external_allowed_at_ingest = latest_consent_granted(conn, user_id2, "external_services") is True
+        use_external = external_allowed_at_ingest if normalized_analysis_mode == "auto" else normalized_analysis_mode == "external"
+
+        if use_external and not external_allowed_at_ingest:
+            raise PermissionError("External analysis is not allowed for this user")
 
         with zipfile.ZipFile(zip_path, "r") as zf:
             entries: List[Tuple[str, zipfile.ZipInfo]] = []
@@ -286,9 +295,9 @@ def ingest_zip_to_db(
                 ).scalar_one()
                 snap_id = str(snap_id)
 
-                                # Queue parser/git always. If external consent is granted, queue external first;
-                                # local_ml is only queued later if external analysis fails.
-                if external_allowed_at_ingest:
+                # Queue parser/git always. External mode queues external_llm first.
+                # Local mode queues local_ml.
+                if use_external:
                     conn.execute(
                         text(
                             """

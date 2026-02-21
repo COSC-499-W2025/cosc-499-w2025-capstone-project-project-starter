@@ -526,6 +526,7 @@ async def upload_project(
     portfolio_id: str | None = Form(default=None),
     project_name: str | None = Form(default=None),
     snapshot_label: str | None = Form(default=None),
+    analysis_mode: str = Form(default="auto"),
     credentials: Optional[HTTPAuthorizationCredentials] = Depends(auth_bearer),
 ):
     auth = _resolve_auth_context(credentials, required=False)
@@ -556,6 +557,7 @@ async def upload_project(
             portfolio_id=portfolio_id,
             project_name=project_name,
             snapshot_label=snapshot_label,
+            analysis_mode=analysis_mode,
         )
         return {
             "user_id": res.user_id,
@@ -563,6 +565,10 @@ async def upload_project(
             "created": res.created_projects,
             "skipped": res.skipped_projects,
         }
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except PermissionError as exc:
+        raise HTTPException(status_code=403, detail=str(exc)) from exc
     finally:
         try:
             os.unlink(tmp_zip)

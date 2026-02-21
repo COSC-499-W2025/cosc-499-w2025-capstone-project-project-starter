@@ -58,7 +58,7 @@ export const authApi = {
 export const projectApi = {
   listProjects: (token) => apiRequest('/projects', { token }),
   deleteProject: (token, projectId) => apiRequest(`/projects/${projectId}`, { method: 'DELETE', token }),
-  uploadProject: (token, { file, projectName, snapshotLabel }) => {
+  uploadProject: (token, { file, projectName, snapshotLabel, analysisMode }) => {
     const formData = new FormData();
     formData.append('file', file);
     if (projectName) {
@@ -66,6 +66,9 @@ export const projectApi = {
     }
     if (snapshotLabel) {
       formData.append('snapshot_label', snapshotLabel);
+    }
+    if (analysisMode) {
+      formData.append('analysis_mode', analysisMode);
     }
     return apiRequest('/projects/upload', {
       method: 'POST',
