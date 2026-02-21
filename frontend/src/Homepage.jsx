@@ -46,8 +46,6 @@ function Homepage() {
   const [contributors, setContributors] = useState([]);
   const [file, setFile] = useState(null);
   const [uploadProjectName, setUploadProjectName] = useState('');
-  const [uploadAnalysisMode, setUploadAnalysisMode] = useState('local');
-  const [externalConsentGranted, setExternalConsentGranted] = useState(false);
   const [deletingProjectId, setDeletingProjectId] = useState(null);
 
   const isAuthenticated = Boolean(token && currentUser);
@@ -63,8 +61,6 @@ function Homepage() {
     setContributors([]);
     setFile(null);
     setUploadProjectName('');
-    setUploadAnalysisMode('local');
-    setExternalConsentGranted(false);
     setView('projects');
   }, []);
 
@@ -232,28 +228,20 @@ function Homepage() {
     setDashboardError('');
     setFlashMessage('');
     try {
-      if (uploadAnalysisMode === 'external' && !externalConsentGranted) {
-        const consentAccepted = window.confirm(
-          'External analysis sends data to an external language model service. Do you consent to using external services for this upload?'
-        );
+      const consentAccepted = window.confirm(
+        'Privacy notice: external analysis sends project data to an external language model service. Click OK to consent (uses both local and external analysis), or Cancel to continue with local-only analysis.'
+      );
 
-        if (!consentAccepted) {
-          setDashboardError('External analysis requires consent. Upload cancelled.');
-          return;
-        }
-
-        await authApi.submitPrivacyConsent(token, {
-          userId: currentUser?.user_id,
-          consentType: 'external_services',
-          granted: true,
-        });
-        setExternalConsentGranted(true);
-      }
+      await authApi.submitPrivacyConsent(token, {
+        userId: currentUser?.user_id,
+        consentType: 'external_services',
+        granted: consentAccepted,
+      });
 
       await projectApi.uploadProject(token, {
         file,
         projectName: uploadProjectName.trim() || normalizeProjectName(file.name),
-        analysisMode: uploadAnalysisMode,
+        analysisMode: consentAccepted ? 'both' : 'local',
       });
       setFile(null);
       setUploadProjectName('');
@@ -607,17 +595,6 @@ function Homepage() {
           {view === 'upload' && (
             <section className="panel">
               <h2>Upload Project ZIP</h2>
-              <label className="field">
-                Analysis model
-                <select
-                  value={uploadAnalysisMode}
-                  onChange={(e) => setUploadAnalysisMode(e.target.value)}
-                  disabled={uploading}
-                >
-                  <option value="local">Local LM</option>
-                  <option value="external">External LM</option>
-                </select>
-              </label>
               <label className="field">
                 Project name override (optional)
                 <input

@@ -207,11 +207,16 @@ def ingest_zip_to_db(
         _require_data_access_consent(conn, user_id2)
 
         normalized_analysis_mode = str(analysis_mode or "auto").strip().lower()
-        if normalized_analysis_mode not in {"auto", "local", "external"}:
-            raise ValueError("analysis_mode must be one of: auto, local, external")
+        if normalized_analysis_mode not in {"auto", "local", "external", "both"}:
+            raise ValueError("analysis_mode must be one of: auto, local, external, both")
 
         external_allowed_at_ingest = latest_consent_granted(conn, user_id2, "external_services") is True
-        use_external = external_allowed_at_ingest if normalized_analysis_mode == "auto" else normalized_analysis_mode == "external"
+        use_external = (
+            external_allowed_at_ingest
+            if normalized_analysis_mode == "auto"
+            else normalized_analysis_mode in {"external", "both"}
+        )
+        use_local = normalized_analysis_mode in {"local", "both"}
 
         if use_external and not external_allowed_at_ingest:
             raise PermissionError("External analysis is not allowed for this user")
@@ -295,9 +300,22 @@ def ingest_zip_to_db(
                 ).scalar_one()
                 snap_id = str(snap_id)
 
-                # Queue parser/git always. External mode queues external_llm first.
-                # Local mode queues local_ml.
-                if use_external:
+                # Queue parser/git always, then selected analysis modes.
+                if use_external and use_local:
+                    conn.execute(
+                        text(
+                            """
+                            INSERT INTO analyses (snapshot_id, analysis_type, status)
+                            VALUES
+                              (:sid, 'parser', 'pending'),
+                              (:sid, 'local_ml', 'pending'),
+                              (:sid, 'git_metrics', 'pending'),
+                              (:sid, 'external_llm', 'pending')
+                            """
+                        ),
+                        {"sid": snap_id},
+                    )
+                elif use_external:
                     conn.execute(
                         text(
                             """
