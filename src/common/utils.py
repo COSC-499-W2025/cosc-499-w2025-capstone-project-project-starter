@@ -1,4 +1,4 @@
-from src.common.constants import COMMON_PROJECT_SUFFIXES
+from common.constants import COMMON_PROJECT_SUFFIXES
 
 def clean_project_title(filename: str) -> str:
     """Standardizes repository filenames into professional project titles."""

@@ -1,6 +1,6 @@
 import os
 import zipfile
-from src.common.constants import ALLOWED_UPLOAD_EXTENSIONS
+from common.constants import ALLOWED_UPLOAD_EXTENSIONS
 
 class WrongFormatError(Exception):
     """Raised when uploaded file is not a valid ZIP file."""

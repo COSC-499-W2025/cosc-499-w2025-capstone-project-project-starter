@@ -1,7 +1,7 @@
 from typing import Dict, Any, List, Optional
 from datetime import datetime
-from src.common.schemas import ResumeItemResponse
-from src.common.utils import clean_project_title
+from common.schemas import ResumeItemResponse
+from common.utils import clean_project_title
 
 class ItemFormatter:
     @staticmethod
