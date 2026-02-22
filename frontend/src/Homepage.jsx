@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { API_BASE_URL, authApi, projectApi } from './api';
+import { API_BASE_URL, authApi, projectApi, userConfigApi } from './api';
 
 const TOKEN_STORAGE_KEY = 'artifactMiner.authToken';
 const ANALYSIS_POLL_INTERVAL_MS = 5000;
@@ -10,6 +10,18 @@ const ANALYSIS_TYPE_LABELS = {
   local_ml: 'Local ML',
   external_llm: 'Ollama',
 };
+const COMPARISON_ATTRIBUTE_OPTIONS = [
+  { value: 'meta', label: 'Project metadata' },
+  { value: 'duration', label: 'Project duration' },
+  { value: 'contributions', label: 'Contribution totals' },
+  { value: 'languages', label: 'Languages' },
+  { value: 'frameworks', label: 'Frameworks' },
+  { value: 'skills_top', label: 'Top skills' },
+  { value: 'skills_chronological', label: 'Chronological skills' },
+  { value: 'ranking', label: 'Ranking details' },
+  { value: 'activity_counts', label: 'Activity counts' },
+  { value: 'evidence', label: 'Evidence JSON' },
+];
 
 function normalizeProjectName(filename) {
   return filename.replace(/\.zip$/i, '');
@@ -36,6 +48,14 @@ function normalizeAnalysisStatus(status) {
 function normalizeMetricCount(value) {
   const parsed = Number(value);
   return Number.isFinite(parsed) ? parsed : 0;
+}
+
+function toCsvList(value) {
+  if (!value) return [];
+  return String(value)
+    .split(',')
+    .map((entry) => entry.trim())
+    .filter((entry) => Boolean(entry));
 }
 
 function summarizeSnapshotAnalyses(analyses) {
@@ -186,6 +206,22 @@ function Homepage() {
   const [snapshotAnalyses, setSnapshotAnalyses] = useState({});
   const [projectRoleDraft, setProjectRoleDraft] = useState('');
   const [savingProjectRole, setSavingProjectRole] = useState(false);
+  const [userConfig, setUserConfig] = useState(null);
+  const [configLoading, setConfigLoading] = useState(false);
+  const [configSaving, setConfigSaving] = useState(false);
+  const [rankingMode, setRankingMode] = useState('auto');
+  const [rankingAllowNoUserScore, setRankingAllowNoUserScore] = useState(false);
+  const [rankingUserWeight, setRankingUserWeight] = useState('1');
+  const [rankingOtherWeight, setRankingOtherWeight] = useState('0.1');
+  const [rankingContributorWeight, setRankingContributorWeight] = useState('0');
+  const [rankingManualRanks, setRankingManualRanks] = useState({});
+  const [chronologyProjectDates, setChronologyProjectDates] = useState({});
+  const [comparisonAttributes, setComparisonAttributes] = useState([]);
+  const [highlightSkillsInput, setHighlightSkillsInput] = useState('');
+  const [showcaseProjectIds, setShowcaseProjectIds] = useState([]);
+  const [compareSelectedProjectIds, setCompareSelectedProjectIds] = useState([]);
+  const [compareResults, setCompareResults] = useState(null);
+  const [compareLoading, setCompareLoading] = useState(false);
 
   const isAuthenticated = Boolean(token && currentUser);
 
@@ -209,6 +245,22 @@ function Homepage() {
     setSnapshotAnalyses({});
     setProjectRoleDraft('');
     setSavingProjectRole(false);
+    setUserConfig(null);
+    setConfigLoading(false);
+    setConfigSaving(false);
+    setRankingMode('auto');
+    setRankingAllowNoUserScore(false);
+    setRankingUserWeight('1');
+    setRankingOtherWeight('0.1');
+    setRankingContributorWeight('0');
+    setRankingManualRanks({});
+    setChronologyProjectDates({});
+    setComparisonAttributes([]);
+    setHighlightSkillsInput('');
+    setShowcaseProjectIds([]);
+    setCompareSelectedProjectIds([]);
+    setCompareResults(null);
+    setCompareLoading(false);
     setView('projects');
   }, []);
 
@@ -265,6 +317,69 @@ function Homepage() {
     }
   }, [token]);
 
+  const applyRepresentationConfig = useCallback((config) => {
+    const ranking = config?.ranking || {};
+    const rankingWeights = ranking?.weights || {};
+    const chronology = config?.chronology || {};
+    const comparison = config?.comparison || {};
+    const highlights = config?.highlights || {};
+    const showcase = config?.showcase || {};
+
+    setRankingMode(typeof ranking.mode === 'string' ? ranking.mode : 'auto');
+    setRankingAllowNoUserScore(Boolean(ranking.allow_no_user_score));
+    setRankingUserWeight(String(rankingWeights.user_commits ?? 1));
+    setRankingOtherWeight(String(rankingWeights.other_commits ?? 0.1));
+    setRankingContributorWeight(String(rankingWeights.contributor_count ?? 0));
+    setRankingManualRanks(
+      Object.entries(ranking.manual_ranks || {}).reduce((acc, [projectId, rank]) => {
+        const parsed = Number(rank);
+        if (Number.isFinite(parsed)) {
+          acc[projectId] = String(parsed);
+        }
+        return acc;
+      }, {})
+    );
+    setChronologyProjectDates(
+      Object.entries(chronology.project_dates || {}).reduce((acc, [projectId, value]) => {
+        const text = String(value || '').trim();
+        if (text) {
+          acc[projectId] = text;
+        }
+        return acc;
+      }, {})
+    );
+    setComparisonAttributes(
+      Array.isArray(comparison.attributes)
+        ? comparison.attributes.map((entry) => String(entry).trim()).filter((entry) => Boolean(entry))
+        : []
+    );
+    setHighlightSkillsInput(
+      Array.isArray(highlights.skills)
+        ? highlights.skills.map((entry) => String(entry).trim()).filter((entry) => Boolean(entry)).join(', ')
+        : ''
+    );
+    setShowcaseProjectIds(
+      Array.isArray(showcase.selected_project_ids)
+        ? showcase.selected_project_ids.map((entry) => String(entry).trim()).filter((entry) => Boolean(entry))
+        : []
+    );
+  }, []);
+
+  const fetchUserConfig = useCallback(async () => {
+    if (!token || !currentUser?.user_id) return;
+    setConfigLoading(true);
+    try {
+      const response = await userConfigApi.getConfig(token, currentUser.user_id);
+      const config = response?.config || {};
+      setUserConfig(config);
+      applyRepresentationConfig(config);
+    } catch (error) {
+      setDashboardError(error.message || 'Unable to load representation settings.');
+    } finally {
+      setConfigLoading(false);
+    }
+  }, [token, currentUser, applyRepresentationConfig]);
+
   const fetchTopProjects = useCallback(async () => {
     if (!token || !portfolioId) return;
     setLoading(true);
@@ -308,6 +423,11 @@ function Homepage() {
 
   useEffect(() => {
     if (!isAuthenticated) return;
+    fetchUserConfig();
+  }, [isAuthenticated, fetchUserConfig]);
+
+  useEffect(() => {
+    if (!isAuthenticated) return;
     if (view === 'top') fetchTopProjects();
     if (view === 'skills') fetchChronologicalSkills();
   }, [view, isAuthenticated, fetchTopProjects, fetchChronologicalSkills]);
@@ -322,6 +442,17 @@ function Homepage() {
       setUploadTargetProjectId(projects[0].id);
     }
   }, [uploadMode, projects, uploadTargetProjectId]);
+
+  useEffect(() => {
+    if (projects.length === 0) {
+      setCompareSelectedProjectIds([]);
+      setCompareResults(null);
+      return;
+    }
+
+    const projectIds = new Set(projects.map((project) => project.id));
+    setCompareSelectedProjectIds((current) => current.filter((projectId) => projectIds.has(projectId)));
+  }, [projects]);
 
   useEffect(() => {
     if (!token || view !== 'upload' || uploadMode !== 'incremental') {
@@ -678,6 +809,112 @@ function Homepage() {
     }
   };
 
+  const saveRepresentationPreferences = async () => {
+    if (!token || !currentUser?.user_id) return;
+
+    const projectIds = new Set(projects.map((project) => project.id));
+    const parsedManualRanks = Object.entries(rankingManualRanks).reduce((acc, [projectId, rankValue]) => {
+      if (!projectIds.has(projectId)) return acc;
+      const parsed = Number(rankValue);
+      if (Number.isFinite(parsed)) {
+        acc[projectId] = parsed;
+      }
+      return acc;
+    }, {});
+
+    const parsedProjectDates = Object.entries(chronologyProjectDates).reduce((acc, [projectId, dateValue]) => {
+      if (!projectIds.has(projectId)) return acc;
+      const normalized = String(dateValue || '').trim();
+      if (normalized) {
+        acc[projectId] = normalized;
+      }
+      return acc;
+    }, {});
+
+    const normalizedComparisonAttributes = comparisonAttributes
+      .map((entry) => String(entry).trim())
+      .filter((entry) => Boolean(entry));
+
+    const normalizedShowcase = showcaseProjectIds.filter((projectId) => projectIds.has(projectId));
+    const normalizedHighlights = toCsvList(highlightSkillsInput);
+    const parsedUserWeight = Number(rankingUserWeight);
+    const parsedOtherWeight = Number(rankingOtherWeight);
+    const parsedContributorWeight = Number(rankingContributorWeight);
+
+    const patch = {
+      ranking: {
+        mode: rankingMode,
+        allow_no_user_score: Boolean(rankingAllowNoUserScore),
+        weights: {
+          user_commits: Number.isFinite(parsedUserWeight) ? parsedUserWeight : 1,
+          other_commits: Number.isFinite(parsedOtherWeight) ? parsedOtherWeight : 0.1,
+          contributor_count: Number.isFinite(parsedContributorWeight) ? parsedContributorWeight : 0,
+        },
+        manual_ranks: parsedManualRanks,
+      },
+      chronology: {
+        project_dates: parsedProjectDates,
+      },
+      comparison: {
+        attributes: normalizedComparisonAttributes,
+      },
+      highlights: {
+        skills: normalizedHighlights,
+      },
+      showcase: {
+        selected_project_ids: normalizedShowcase,
+      },
+    };
+
+    setConfigSaving(true);
+    setDashboardError('');
+    setFlashMessage('');
+
+    try {
+      const response = await userConfigApi.patchConfig(token, currentUser.user_id, patch);
+      const config = response?.config || {};
+      setUserConfig(config);
+      applyRepresentationConfig(config);
+      setFlashMessage('Representation preferences saved. New generations will use these selections.');
+      await fetchProjects();
+      if (view === 'top') {
+        await fetchTopProjects();
+      }
+      if (view === 'skills') {
+        await fetchChronologicalSkills();
+      }
+    } catch (error) {
+      setDashboardError(error.message || 'Unable to save representation preferences.');
+    } finally {
+      setConfigSaving(false);
+    }
+  };
+
+  const runProjectComparison = async () => {
+    if (!token) return;
+    if (compareSelectedProjectIds.length === 0) {
+      setDashboardError('Select at least one project to compare.');
+      return;
+    }
+
+    setCompareLoading(true);
+    setDashboardError('');
+    setFlashMessage('');
+
+    try {
+      const response = await projectApi.compareProjects(token, {
+        projectIds: compareSelectedProjectIds,
+        attributes: [],
+      });
+      setCompareResults(response);
+      setFlashMessage('Comparison updated using your saved comparison attributes.');
+    } catch (error) {
+      setDashboardError(error.message || 'Unable to compare projects.');
+    } finally {
+      setCompareLoading(false);
+    }
+  };
+
   const deleteProject = async (project) => {
     if (!token) return;
 
@@ -704,6 +941,8 @@ function Homepage() {
   const navButtons = useMemo(
     () => [
       { id: 'projects', label: 'Projects' },
+      { id: 'preferences', label: 'Preferences' },
+      { id: 'compare', label: 'Compare' },
       { id: 'upload', label: 'Upload' },
       { id: 'skills', label: 'Skills Timeline' },
       { id: 'top', label: 'Top Projects' },
@@ -811,6 +1050,13 @@ function Homepage() {
       .filter((snapshot) => Boolean(snapshot?.id))
       .sort((left, right) => getTimestamp(right.ingested_at) - getTimestamp(left.ingested_at));
   }, [uploadTargetReport]);
+
+  const projectDateInputValue = useCallback((value) => {
+    if (!value) return '';
+    const asText = String(value).trim();
+    if (!asText) return '';
+    return asText.length >= 10 ? asText.slice(0, 10) : asText;
+  }, []);
 
   if (sessionLoading) {
     return (
@@ -976,6 +1222,7 @@ function Homepage() {
                       <article key={project.id} className="project-card">
                         <h3>{project.name}</h3>
                         <p>Type: {project.project_type || 'Unknown'}</p>
+                        <p>Added: {formatDate(project.created_at)}</p>
                         {showContributionStats && (
                           <>
                             <p>Commits: {totalCommits}</p>
@@ -1011,6 +1258,321 @@ function Homepage() {
                     );
                   })}
                 </div>
+              )}
+            </section>
+          )}
+
+          {view === 'preferences' && (
+            <section className="panel">
+              <h2>Preferences</h2>
+              <div className="stack-block">
+                <h3>Representation Preferences</h3>
+                <p className="muted">
+                  Configure ranking, chronology, comparison attributes, skill highlights, and showcase selection before
+                  generating or editing resume and portfolio artifacts.
+                </p>
+
+                {configLoading ? (
+                  <p>Loading representation preferences...</p>
+                ) : (
+                  <>
+                    <label className="field">
+                      Re-ranking mode
+                      <select value={rankingMode} onChange={(event) => setRankingMode(event.target.value)}>
+                        <option value="auto">Auto</option>
+                        <option value="weighted">Weighted</option>
+                        <option value="manual">Manual</option>
+                      </select>
+                    </label>
+
+                    {rankingMode === 'weighted' && (
+                      <div className="summary-grid">
+                        <label className="field">
+                          User commits weight
+                          <input
+                            type="number"
+                            step="0.1"
+                            value={rankingUserWeight}
+                            onChange={(event) => setRankingUserWeight(event.target.value)}
+                          />
+                        </label>
+                        <label className="field">
+                          Other commits weight
+                          <input
+                            type="number"
+                            step="0.1"
+                            value={rankingOtherWeight}
+                            onChange={(event) => setRankingOtherWeight(event.target.value)}
+                          />
+                        </label>
+                        <label className="field">
+                          Contributor count weight
+                          <input
+                            type="number"
+                            step="0.1"
+                            value={rankingContributorWeight}
+                            onChange={(event) => setRankingContributorWeight(event.target.value)}
+                          />
+                        </label>
+                      </div>
+                    )}
+
+                    <label className="mode-option">
+                      <input
+                        type="checkbox"
+                        checked={rankingAllowNoUserScore}
+                        onChange={(event) => setRankingAllowNoUserScore(event.target.checked)}
+                      />
+                      Include projects with zero user commits in ranking scores
+                    </label>
+
+                    <div className="stack-block">
+                      <h4>Manual ranking overrides</h4>
+                      {projects.length === 0 ? (
+                        <p className="muted">Upload projects to set manual rank values.</p>
+                      ) : (
+                        <div className="table-wrap">
+                          <table>
+                            <thead>
+                              <tr>
+                                <th>Project</th>
+                                <th>Manual rank (lower is better)</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {projects.map((project) => (
+                                <tr key={`manual-rank-${project.id}`}>
+                                  <td>{project.name}</td>
+                                  <td>
+                                    <input
+                                      type="number"
+                                      step="1"
+                                      min="1"
+                                      value={rankingManualRanks[project.id] || ''}
+                                      onChange={(event) => {
+                                        const nextValue = event.target.value;
+                                        setRankingManualRanks((current) => {
+                                          const next = { ...current };
+                                          if (!nextValue.trim()) {
+                                            delete next[project.id];
+                                          } else {
+                                            next[project.id] = nextValue;
+                                          }
+                                          return next;
+                                        });
+                                      }}
+                                    />
+                                  </td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="stack-block">
+                      <h4>Chronology corrections</h4>
+                      {projects.length === 0 ? (
+                        <p className="muted">Upload projects to set chronology corrections.</p>
+                      ) : (
+                        <div className="table-wrap">
+                          <table>
+                            <thead>
+                              <tr>
+                                <th>Project</th>
+                                <th>Corrected date</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {projects.map((project) => (
+                                <tr key={`project-date-${project.id}`}>
+                                  <td>{project.name}</td>
+                                  <td>
+                                    <input
+                                      type="date"
+                                      value={projectDateInputValue(chronologyProjectDates[project.id])}
+                                      onChange={(event) => {
+                                        const nextValue = event.target.value;
+                                        setChronologyProjectDates((current) => {
+                                          const next = { ...current };
+                                          if (!nextValue) {
+                                            delete next[project.id];
+                                          } else {
+                                            next[project.id] = nextValue;
+                                          }
+                                          return next;
+                                        });
+                                      }}
+                                    />
+                                  </td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="stack-block">
+                      <h4>Comparison attributes</h4>
+                      <div className="badge-row">
+                        {COMPARISON_ATTRIBUTE_OPTIONS.map((option) => {
+                          const selected = comparisonAttributes.includes(option.value);
+                          return (
+                            <label key={option.value} className="mode-option">
+                              <input
+                                type="checkbox"
+                                checked={selected}
+                                onChange={() => {
+                                  setComparisonAttributes((current) => {
+                                    if (current.includes(option.value)) {
+                                      return current.filter((entry) => entry !== option.value);
+                                    }
+                                    return [...current, option.value];
+                                  });
+                                }}
+                              />
+                              {option.label}
+                            </label>
+                          );
+                        })}
+                      </div>
+                    </div>
+
+                    <label className="field">
+                      Skills/highlights (comma-separated)
+                      <input
+                        type="text"
+                        value={highlightSkillsInput}
+                        placeholder="e.g. React, Python, PostgreSQL"
+                        onChange={(event) => setHighlightSkillsInput(event.target.value)}
+                      />
+                    </label>
+
+                    <div className="stack-block">
+                      <h4>Showcase projects</h4>
+                      {projects.length === 0 ? (
+                        <p className="muted">Upload projects to choose showcase selections.</p>
+                      ) : (
+                        <div className="badge-row">
+                          {projects.map((project) => {
+                            const selected = showcaseProjectIds.includes(project.id);
+                            return (
+                              <label key={`showcase-${project.id}`} className="mode-option">
+                                <input
+                                  type="checkbox"
+                                  checked={selected}
+                                  onChange={() => {
+                                    setShowcaseProjectIds((current) => {
+                                      if (current.includes(project.id)) {
+                                        return current.filter((entry) => entry !== project.id);
+                                      }
+                                      return [...current, project.id];
+                                    });
+                                  }}
+                                />
+                                {project.name}
+                              </label>
+                            );
+                          })}
+                        </div>
+                      )}
+                    </div>
+
+                    <button className="primary-btn" type="button" onClick={saveRepresentationPreferences} disabled={configSaving}>
+                      {configSaving ? 'Saving preferences...' : 'Save Representation Preferences'}
+                    </button>
+                    {userConfig && <p className="muted">Preferences are saved to your profile-level user configuration.</p>}
+                  </>
+                )}
+              </div>
+            </section>
+          )}
+
+          {view === 'compare' && (
+            <section className="panel">
+              <h2>Compare Projects</h2>
+              <p className="muted">
+                Choose projects and run compare. Returned fields follow your saved Comparison Attributes from
+                Preferences.
+              </p>
+
+              {projects.length === 0 ? (
+                <p>No projects available to compare yet.</p>
+              ) : (
+                <>
+                  <div className="stack-block">
+                    <h3>Select projects</h3>
+                    <div className="badge-row">
+                      {projects.map((project) => {
+                        const selected = compareSelectedProjectIds.includes(project.id);
+                        return (
+                          <label key={`compare-project-${project.id}`} className="mode-option">
+                            <input
+                              type="checkbox"
+                              checked={selected}
+                              onChange={() => {
+                                setCompareSelectedProjectIds((current) => {
+                                  if (current.includes(project.id)) {
+                                    return current.filter((entry) => entry !== project.id);
+                                  }
+                                  return [...current, project.id];
+                                });
+                              }}
+                            />
+                            {project.name}
+                          </label>
+                        );
+                      })}
+                    </div>
+                    <button
+                      className="primary-btn"
+                      type="button"
+                      onClick={runProjectComparison}
+                      disabled={compareLoading || compareSelectedProjectIds.length === 0}
+                    >
+                      {compareLoading ? 'Comparing...' : 'Run Compare'}
+                    </button>
+                  </div>
+
+                  {compareResults && (
+                    <div className="stack-block">
+                      <h3>Comparison Results</h3>
+                      <p className="muted">
+                        Attributes returned: {(compareResults.attributes || []).join(', ') || 'None'}
+                      </p>
+                      {(compareResults.projects || []).length === 0 ? (
+                        <p className="muted">No comparison rows returned.</p>
+                      ) : (
+                        (compareResults.projects || []).map((projectResult) => {
+                          const projectId = projectResult.project_id;
+                          const projectName =
+                            projects.find((project) => project.id === projectId)?.name ||
+                            projectResult.meta?.name ||
+                            projectId;
+                          const sections = Object.entries(projectResult).filter(([key]) => key !== 'project_id');
+
+                          return (
+                            <article key={`compare-result-${projectId}`} className="project-card">
+                              <h3>{projectName}</h3>
+                              {sections.length === 0 ? (
+                                <p className="muted">No selected attributes returned for this project.</p>
+                              ) : (
+                                sections.map(([key, value]) => (
+                                  <div key={`${projectId}-${key}`} className="stack-block">
+                                    <h4>{key}</h4>
+                                    <pre>{JSON.stringify(value, null, 2)}</pre>
+                                  </div>
+                                ))
+                              )}
+                            </article>
+                          );
+                        })
+                      )}
+                    </div>
+                  )}
+                </>
               )}
             </section>
           )}

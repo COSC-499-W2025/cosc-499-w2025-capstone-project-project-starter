@@ -125,6 +125,30 @@ export const projectApi = {
         prefer_external_bullets: true,
       },
     }),
+  compareProjects: (token, { projectIds = [], attributes = [] }) => {
+    const params = new URLSearchParams();
+    projectIds.forEach((projectId) => {
+      if (projectId) {
+        params.append('project_ids', projectId);
+      }
+    });
+    attributes.forEach((attribute) => {
+      if (attribute) {
+        params.append('attributes', attribute);
+      }
+    });
+    return apiRequest(`/projects/compare?${params.toString()}`, { token });
+  },
+};
+
+export const userConfigApi = {
+  getConfig: (token, userId) => apiRequest(`/users/${userId}/config`, { token }),
+  patchConfig: (token, userId, patch) =>
+    apiRequest(`/users/${userId}/config`, {
+      method: 'PATCH',
+      token,
+      body: patch,
+    }),
 };
 
 export { API_BASE_URL };
