@@ -3,9 +3,9 @@ import os
 import pytest
 from datetime import datetime
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'src')))
-from src.resume.item_formatter import ItemFormatter
-from src.common.schemas import ResumeItemResponse
-from src.common.utils import clean_project_title
+from resume.item_formatter import ItemFormatter
+from common.schemas import ResumeItemResponse
+from common.utils import clean_project_title
 
 @pytest.fixture
 def sample_project_data():
