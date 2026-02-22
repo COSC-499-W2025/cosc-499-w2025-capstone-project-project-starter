@@ -30,3 +30,61 @@ div {
 .muted {
   color: #5f6470;
 }
+
+.success-banner {
+  margin: 0.75rem 0;
+  padding: 0.6rem 0.8rem;
+  border-radius: 8px;
+  background: #e8f7ec;
+  color: #1b6b2a;
+}
+
+.error-banner {
+  margin: 0.75rem 0;
+  padding: 0.6rem 0.8rem;
+  border-radius: 8px;
+  background: #ffe9ed;
+  color: #8a1f2b;
+}
+
+.inline-error {
+  margin-top: 0.85rem;
+}
+
+.evidence-section {
+  margin-top: 1rem;
+  padding: 0.85rem;
+  border: 1px solid #dbe3f5;
+  border-radius: 10px;
+  background: #fafcff;
+}
+
+.evidence-row-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+}
+
+.evidence-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) auto;
+  gap: 0.5rem;
+  align-items: start;
+}
+
+.evidence-row-feedback {
+  grid-template-columns: minmax(0, 1fr) minmax(0, 2fr) auto;
+}
+
+.evidence-row input,
+.evidence-row textarea {
+  width: 100%;
+  box-sizing: border-box;
+}
+
+@media (max-width: 720px) {
+  .evidence-row,
+  .evidence-row-feedback {
+    grid-template-columns: 1fr;
+  }
+}

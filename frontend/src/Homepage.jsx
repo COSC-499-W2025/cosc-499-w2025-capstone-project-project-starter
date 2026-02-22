@@ -58,6 +58,186 @@ function toCsvList(value) {
     .filter((entry) => Boolean(entry));
 }
 
+function createDraftId() {
+  return `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
+}
+
+function formatEvidenceDraftValue(value) {
+  if (value === undefined) return '';
+  if (value === null) return 'null';
+  if (typeof value === 'string') return value;
+  if (typeof value === 'number' || typeof value === 'boolean') return String(value);
+  try {
+    return JSON.stringify(value);
+  } catch (error) {
+    return '';
+  }
+}
+
+function normalizeEvidenceSections(evidence) {
+  const source = evidence && typeof evidence === 'object' ? evidence : {};
+  const metrics =
+    source.metrics && typeof source.metrics === 'object' && !Array.isArray(source.metrics) ? source.metrics : {};
+  const feedback = Array.isArray(source.feedback) ? source.feedback : [];
+  const evaluation =
+    source.evaluation && typeof source.evaluation === 'object' && !Array.isArray(source.evaluation)
+      ? source.evaluation
+      : {};
+  return { metrics, feedback, evaluation };
+}
+
+function buildObjectEvidenceDraftRows(value) {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return [];
+  return Object.entries(value).map(([key, itemValue]) => ({
+    id: createDraftId(),
+    key: String(key),
+    value: formatEvidenceDraftValue(itemValue),
+  }));
+}
+
+function buildFeedbackDraftRows(value) {
+  if (!Array.isArray(value)) return [];
+  return value.map((item) => {
+    if (item && typeof item === 'object' && !Array.isArray(item)) {
+      let source = '';
+      if (typeof item.from === 'string') {
+        source = item.from;
+      } else if (typeof item.source === 'string') {
+        source = item.source;
+      }
+
+      if (typeof item.note === 'string') {
+        return {
+          id: createDraftId(),
+          source,
+          note: item.note,
+        };
+      }
+      if (typeof item.feedback === 'string') {
+        return {
+          id: createDraftId(),
+          source,
+          note: item.feedback,
+        };
+      }
+      if (typeof item.comment === 'string') {
+        return {
+          id: createDraftId(),
+          source,
+          note: item.comment,
+        };
+      }
+
+      return {
+        id: createDraftId(),
+        source: '',
+        note: formatEvidenceDraftValue(item),
+      };
+    }
+
+    return {
+      id: createDraftId(),
+      source: '',
+      note: formatEvidenceDraftValue(item),
+    };
+  });
+}
+
+function parseEvidenceValue(rawValue) {
+  const text = String(rawValue ?? '').trim();
+  if (!text) {
+    return { ok: false, error: 'Value is required.' };
+  }
+
+  if (/^-?\d+(\.\d+)?$/.test(text)) {
+    const parsedNumber = Number(text);
+    if (Number.isFinite(parsedNumber)) {
+      return { ok: true, value: parsedNumber };
+    }
+  }
+
+  const lowered = text.toLowerCase();
+  if (lowered === 'true') return { ok: true, value: true };
+  if (lowered === 'false') return { ok: true, value: false };
+  if (lowered === 'null') return { ok: true, value: null };
+
+  if (text.startsWith('{') || text.startsWith('[') || text.startsWith('"')) {
+    try {
+      return { ok: true, value: JSON.parse(text) };
+    } catch (error) {
+      return { ok: false, error: 'Invalid JSON value.' };
+    }
+  }
+
+  return { ok: true, value: text };
+}
+
+function buildObjectEvidencePayload(rows, sectionLabel) {
+  const payload = {};
+  const seenKeys = new Set();
+  const entries = Array.isArray(rows) ? rows : [];
+
+  for (let index = 0; index < entries.length; index += 1) {
+    const row = entries[index] || {};
+    const key = String(row.key || '').trim();
+    const rawValue = String(row.value || '').trim();
+
+    if (!key && !rawValue) {
+      continue;
+    }
+
+    if (!key) {
+      return { ok: false, error: `${sectionLabel}: row ${index + 1} is missing a key.` };
+    }
+
+    if (seenKeys.has(key)) {
+      return { ok: false, error: `${sectionLabel}: "${key}" is duplicated.` };
+    }
+
+    const parsed = parseEvidenceValue(rawValue);
+    if (!parsed.ok) {
+      return { ok: false, error: `${sectionLabel}: "${key}" has an invalid value.` };
+    }
+
+    seenKeys.add(key);
+    payload[key] = parsed.value;
+  }
+
+  return { ok: true, value: payload };
+}
+
+function buildFeedbackEvidencePayload(rows) {
+  const payload = [];
+  const entries = Array.isArray(rows) ? rows : [];
+
+  for (let index = 0; index < entries.length; index += 1) {
+    const row = entries[index] || {};
+    const source = String(row.source || '').trim();
+    const note = String(row.note || '').trim();
+
+    if (!source && !note) {
+      continue;
+    }
+
+    if (!note) {
+      return { ok: false, error: `Feedback: row ${index + 1} is missing feedback text.` };
+    }
+
+    if (source) {
+      payload.push({ from: source, note });
+      continue;
+    }
+
+    const parsed = parseEvidenceValue(note);
+    if (!parsed.ok) {
+      return { ok: false, error: `Feedback: row ${index + 1} has an invalid JSON value.` };
+    }
+    payload.push(parsed.value);
+  }
+
+  return { ok: true, value: payload };
+}
+
 function summarizeSnapshotAnalyses(analyses) {
   const rows = Array.isArray(analyses) ? analyses : [];
 
@@ -206,6 +386,11 @@ function Homepage() {
   const [snapshotAnalyses, setSnapshotAnalyses] = useState({});
   const [projectRoleDraft, setProjectRoleDraft] = useState('');
   const [savingProjectRole, setSavingProjectRole] = useState(false);
+  const [projectMetricsDraft, setProjectMetricsDraft] = useState([]);
+  const [projectFeedbackDraft, setProjectFeedbackDraft] = useState([]);
+  const [projectEvaluationDraft, setProjectEvaluationDraft] = useState([]);
+  const [projectEvidenceError, setProjectEvidenceError] = useState('');
+  const [savingProjectEvidence, setSavingProjectEvidence] = useState(false);
   const [userConfig, setUserConfig] = useState(null);
   const [configLoading, setConfigLoading] = useState(false);
   const [configSaving, setConfigSaving] = useState(false);
@@ -245,6 +430,11 @@ function Homepage() {
     setSnapshotAnalyses({});
     setProjectRoleDraft('');
     setSavingProjectRole(false);
+    setProjectMetricsDraft([]);
+    setProjectFeedbackDraft([]);
+    setProjectEvaluationDraft([]);
+    setProjectEvidenceError('');
+    setSavingProjectEvidence(false);
     setUserConfig(null);
     setConfigLoading(false);
     setConfigSaving(false);
@@ -272,6 +462,14 @@ function Homepage() {
     setFlashMessage('');
     clearDashboardState();
   }, [clearDashboardState]);
+
+  const hydrateEvidenceDrafts = useCallback((evidenceJson) => {
+    const normalized = normalizeEvidenceSections(evidenceJson);
+    setProjectMetricsDraft(buildObjectEvidenceDraftRows(normalized.metrics));
+    setProjectFeedbackDraft(buildFeedbackDraftRows(normalized.feedback));
+    setProjectEvaluationDraft(buildObjectEvidenceDraftRows(normalized.evaluation));
+    setProjectEvidenceError('');
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -725,6 +923,9 @@ function Homepage() {
     setContributors([]);
     setProjectRoleDraft(project?.user_role || '');
     setSavingProjectRole(false);
+    setProjectEvidenceError('');
+    setSavingProjectEvidence(false);
+    hydrateEvidenceDrafts(project?.evidence_json || {});
     setLoading(true);
     setDashboardError('');
     try {
@@ -734,6 +935,7 @@ function Homepage() {
       ]);
       setProjectReport(reportResponse);
       setProjectRoleDraft(reportResponse?.project?.user_role || '');
+      hydrateEvidenceDrafts(reportResponse?.project?.evidence_json || {});
       setContributors(contributorsResponse.contributors || []);
 
       const snapshotId = project.latest_snapshot?.id;
@@ -791,6 +993,112 @@ function Homepage() {
       setDashboardError(error.message || 'Unable to save project role.');
     } finally {
       setSavingProjectRole(false);
+    }
+  };
+
+  const addProjectMetricRow = () => {
+    setProjectEvidenceError('');
+    setProjectMetricsDraft((previous) => [...previous, { id: createDraftId(), key: '', value: '' }]);
+  };
+
+  const addProjectFeedbackRow = () => {
+    setProjectEvidenceError('');
+    setProjectFeedbackDraft((previous) => [...previous, { id: createDraftId(), source: '', note: '' }]);
+  };
+
+  const addProjectEvaluationRow = () => {
+    setProjectEvidenceError('');
+    setProjectEvaluationDraft((previous) => [...previous, { id: createDraftId(), key: '', value: '' }]);
+  };
+
+  const saveProjectEvidence = async () => {
+    if (!token || !selectedProject) return;
+
+    const metricsPayload = buildObjectEvidencePayload(projectMetricsDraft, 'Metrics');
+    if (!metricsPayload.ok) {
+      setProjectEvidenceError(metricsPayload.error);
+      return;
+    }
+
+    const feedbackPayload = buildFeedbackEvidencePayload(projectFeedbackDraft);
+    if (!feedbackPayload.ok) {
+      setProjectEvidenceError(feedbackPayload.error);
+      return;
+    }
+
+    const evaluationPayload = buildObjectEvidencePayload(projectEvaluationDraft, 'Evaluation');
+    if (!evaluationPayload.ok) {
+      setProjectEvidenceError(evaluationPayload.error);
+      return;
+    }
+
+    const projectId = selectedProject.id;
+
+    setSavingProjectEvidence(true);
+    setProjectEvidenceError('');
+    setDashboardError('');
+    setFlashMessage('');
+
+    try {
+      const response = await projectApi.updateProject(token, projectId, {
+        metrics: metricsPayload.value,
+        feedback: feedbackPayload.value,
+        evaluation: evaluationPayload.value,
+      });
+
+      const persistedEvidence = normalizeEvidenceSections(response?.evidence_json || {});
+
+      setSelectedProject((previous) =>
+        previous
+          ? {
+              ...previous,
+              evidence_json: {
+                metrics: persistedEvidence.metrics,
+                feedback: persistedEvidence.feedback,
+                evaluation: persistedEvidence.evaluation,
+              },
+            }
+          : previous
+      );
+      setProjects((previous) =>
+        previous.map((project) =>
+          project.id === projectId
+            ? {
+                ...project,
+                evidence_json: {
+                  metrics: persistedEvidence.metrics,
+                  feedback: persistedEvidence.feedback,
+                  evaluation: persistedEvidence.evaluation,
+                },
+              }
+            : project
+        )
+      );
+      setProjectReport((previous) => {
+        if (!previous) return previous;
+        return {
+          ...previous,
+          project: {
+            ...(previous.project || {}),
+            evidence_json: {
+              metrics: persistedEvidence.metrics,
+              feedback: persistedEvidence.feedback,
+              evaluation: persistedEvidence.evaluation,
+            },
+          },
+        };
+      });
+
+      hydrateEvidenceDrafts({
+        metrics: persistedEvidence.metrics,
+        feedback: persistedEvidence.feedback,
+        evaluation: persistedEvidence.evaluation,
+      });
+      setFlashMessage('Evidence of success saved.');
+    } catch (error) {
+      setProjectEvidenceError(error.message || 'Unable to save evidence of success.');
+    } finally {
+      setSavingProjectEvidence(false);
     }
   };
 
@@ -1762,6 +2070,193 @@ function Homepage() {
                       disabled={loading || savingProjectRole || !projectRoleChanged}
                     >
                       {savingProjectRole ? 'Saving role...' : 'Save Role'}
+                    </button>
+                  </div>
+
+                  <div className="stack-block">
+                    <h3>Evidence of Success</h3>
+                    <p className="muted">
+                      Add metrics, feedback, and evaluation notes for this project. Numeric values (for example
+                      <code> 42 </code>) and JSON values (for example <code>{'{"grade":"A"}'}</code>) are saved as
+                      structured evidence.
+                    </p>
+
+                    <div className="evidence-section">
+                      <div className="panel-title-row">
+                        <h4>Metrics</h4>
+                        <button className="secondary-btn" type="button" onClick={addProjectMetricRow}>
+                          Add Metric
+                        </button>
+                      </div>
+                      {projectMetricsDraft.length === 0 ? (
+                        <p className="muted">No metric entries added yet.</p>
+                      ) : (
+                        <div className="evidence-row-list">
+                          {projectMetricsDraft.map((entry) => (
+                            <div className="evidence-row" key={entry.id}>
+                              <input
+                                type="text"
+                                value={entry.key}
+                                placeholder="Metric name (e.g. downloads)"
+                                onChange={(event) => {
+                                  const nextValue = event.target.value;
+                                  setProjectEvidenceError('');
+                                  setProjectMetricsDraft((previous) =>
+                                    previous.map((row) => (row.id === entry.id ? { ...row, key: nextValue } : row))
+                                  );
+                                }}
+                              />
+                              <input
+                                type="text"
+                                value={entry.value}
+                                placeholder='Metric value (e.g. 1200 or "strong")'
+                                onChange={(event) => {
+                                  const nextValue = event.target.value;
+                                  setProjectEvidenceError('');
+                                  setProjectMetricsDraft((previous) =>
+                                    previous.map((row) => (row.id === entry.id ? { ...row, value: nextValue } : row))
+                                  );
+                                }}
+                              />
+                              <button
+                                className="secondary-btn"
+                                type="button"
+                                onClick={() => {
+                                  setProjectEvidenceError('');
+                                  setProjectMetricsDraft((previous) =>
+                                    previous.filter((row) => row.id !== entry.id)
+                                  );
+                                }}
+                              >
+                                Remove
+                              </button>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="evidence-section">
+                      <div className="panel-title-row">
+                        <h4>Feedback</h4>
+                        <button className="secondary-btn" type="button" onClick={addProjectFeedbackRow}>
+                          Add Feedback
+                        </button>
+                      </div>
+                      {projectFeedbackDraft.length === 0 ? (
+                        <p className="muted">No feedback entries added yet.</p>
+                      ) : (
+                        <div className="evidence-row-list">
+                          {projectFeedbackDraft.map((entry) => (
+                            <div className="evidence-row evidence-row-feedback" key={entry.id}>
+                              <input
+                                type="text"
+                                value={entry.source}
+                                placeholder="Source (optional)"
+                                onChange={(event) => {
+                                  const nextValue = event.target.value;
+                                  setProjectEvidenceError('');
+                                  setProjectFeedbackDraft((previous) =>
+                                    previous.map((row) =>
+                                      row.id === entry.id ? { ...row, source: nextValue } : row
+                                    )
+                                  );
+                                }}
+                              />
+                              <textarea
+                                rows={3}
+                                value={entry.note}
+                                placeholder="Feedback text"
+                                onChange={(event) => {
+                                  const nextValue = event.target.value;
+                                  setProjectEvidenceError('');
+                                  setProjectFeedbackDraft((previous) =>
+                                    previous.map((row) => (row.id === entry.id ? { ...row, note: nextValue } : row))
+                                  );
+                                }}
+                              />
+                              <button
+                                className="secondary-btn"
+                                type="button"
+                                onClick={() => {
+                                  setProjectEvidenceError('');
+                                  setProjectFeedbackDraft((previous) =>
+                                    previous.filter((row) => row.id !== entry.id)
+                                  );
+                                }}
+                              >
+                                Remove
+                              </button>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="evidence-section">
+                      <div className="panel-title-row">
+                        <h4>Evaluation Notes</h4>
+                        <button className="secondary-btn" type="button" onClick={addProjectEvaluationRow}>
+                          Add Note
+                        </button>
+                      </div>
+                      {projectEvaluationDraft.length === 0 ? (
+                        <p className="muted">No evaluation entries added yet.</p>
+                      ) : (
+                        <div className="evidence-row-list">
+                          {projectEvaluationDraft.map((entry) => (
+                            <div className="evidence-row" key={entry.id}>
+                              <input
+                                type="text"
+                                value={entry.key}
+                                placeholder="Label (e.g. overall)"
+                                onChange={(event) => {
+                                  const nextValue = event.target.value;
+                                  setProjectEvidenceError('');
+                                  setProjectEvaluationDraft((previous) =>
+                                    previous.map((row) => (row.id === entry.id ? { ...row, key: nextValue } : row))
+                                  );
+                                }}
+                              />
+                              <input
+                                type="text"
+                                value={entry.value}
+                                placeholder='Note value (e.g. "Excellent delivery")'
+                                onChange={(event) => {
+                                  const nextValue = event.target.value;
+                                  setProjectEvidenceError('');
+                                  setProjectEvaluationDraft((previous) =>
+                                    previous.map((row) => (row.id === entry.id ? { ...row, value: nextValue } : row))
+                                  );
+                                }}
+                              />
+                              <button
+                                className="secondary-btn"
+                                type="button"
+                                onClick={() => {
+                                  setProjectEvidenceError('');
+                                  setProjectEvaluationDraft((previous) =>
+                                    previous.filter((row) => row.id !== entry.id)
+                                  );
+                                }}
+                              >
+                                Remove
+                              </button>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+
+                    {projectEvidenceError && <p className="error-banner inline-error">{projectEvidenceError}</p>}
+
+                    <button
+                      className="primary-btn"
+                      type="button"
+                      onClick={saveProjectEvidence}
+                      disabled={loading || savingProjectEvidence}
+                    >
+                      {savingProjectEvidence ? 'Saving evidence...' : 'Save Evidence'}
                     </button>
                   </div>
 
