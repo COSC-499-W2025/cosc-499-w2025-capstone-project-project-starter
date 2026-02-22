@@ -1,12 +1,9 @@
 from typing import Dict, Any, List, Optional
 from datetime import datetime
 from src.common.schemas import ResumeItemResponse
+from src.common.utils import clean_project_title
 
 class ItemFormatter:
-    """
-    Differing from ResumeFormatter (which handles full document generation),
-    this class focuses on granular, object-level data transformation.
-    """
     @staticmethod
     def format_resume_item(project_data: Dict[str, Any], user_options: Optional[Dict[str, Any]] = None) -> ResumeItemResponse:
         """
@@ -32,7 +29,7 @@ class ItemFormatter:
         if user_options.get('custom_title'):
             clean_title = user_options['custom_title']
         else:
-            clean_title = ItemFormatter._clean_project_title(raw_name)
+            clean_title = clean_project_title(raw_name)
         
         # 3. Dates
         created_at = info.get('created_at')
@@ -67,24 +64,6 @@ class ItemFormatter:
             description_bullets=bullets,
             technologies=tech_stack[:10] # Cap at 10 for resume brevity
         )
-
-    @staticmethod
-    def _clean_project_title(filename: str) -> str:
-        """Cleans filenames into professional project titles."""
-        if not filename:
-            return "Unknown Project"
-        
-        name = filename
-        # Remove common extensions and suffixes
-        for suffix in ['.zip', '-main', '-master', '_main', '_master']:
-            if name.endswith(suffix):
-                name = name[:-len(suffix)]
-                
-        # Replace separators with spaces
-        name = name.replace('_', ' ').replace('-', ' ')
-        
-        # Title Case
-        return " ".join([w.capitalize() for w in name.split()])
 
     @staticmethod
     def _format_date(date_val: Any) -> str:

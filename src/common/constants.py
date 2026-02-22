@@ -1,7 +1,3 @@
-"""
-Shared constants for language, document/design extensions, and project type indicators.
-"""
-
 # Programming language extensions
 LANGUAGE_EXTENSIONS = {
     # Web Technologies
@@ -64,5 +60,7 @@ DESIGN_EXTENSIONS = {
     '.sketch': 'Sketch',
     '.fig': 'Figma',
 }
+ALLOWED_UPLOAD_EXTENSIONS = [".zip"]
 
-
+# Common project name suffixes to strip out during formatting
+COMMON_PROJECT_SUFFIXES = ['.zip', '-main', '-master', '_main', '_master']
