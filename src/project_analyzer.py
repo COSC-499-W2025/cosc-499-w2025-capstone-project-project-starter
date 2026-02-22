@@ -26,13 +26,33 @@ class ProjectAnalyzer:
             }
         
         project_path = project_info['filepath']
+        
+        # Check if the file still exists
+        # Handle both relative paths and potential location variations
         if not os.path.exists(project_path):
-            error_msg = f'Project file not found: {project_path}'
-            self.logger.error(error_msg)
-            return {
-                'success': False,
-                'error': error_msg
-            }
+            # Try alternative locations for backward compatibility
+            alternative_paths = [
+                project_path,
+                os.path.join('data', project_path),  # Try data/uploads/ prefix
+                os.path.abspath(project_path)
+            ]
+            
+            found_path = None
+            for alt_path in alternative_paths:
+                if os.path.exists(alt_path):
+                    found_path = alt_path
+                    break
+            
+            if found_path:
+                project_path = found_path
+            else:
+                return {
+                    'success': False,
+                    'error': f'Project file not found: {project_path}'
+                }
+        
+        # Request external service permission if needed (Issue #10)
+        # Only prompt in interactive mode (CLI). Skip for API calls.
         if self.interactive:
             from external_services.external_service_prompt import request_external_service_permission
             request_external_service_permission(self.user_id, 'LLM', force=False)
@@ -122,14 +142,17 @@ class ProjectAnalyzer:
         return analysis
     
     def _get_project_info(self, uploaded_file_id):
-        """Get basic project information from database."""
+        """
+        Get basic project information from database.
+        Data Isolation: Only returns project if it belongs to the current user.
+        """
         try:
             with with_db_cursor() as cursor:
                 cursor.execute("""
                     SELECT id, filename, filepath, status, created_at
                     FROM uploaded_files
-                    WHERE id = %s
-                """, (uploaded_file_id,))
+                    WHERE id = %s AND user_name = %s
+                """, (uploaded_file_id, self.user_id))
                 
                 result = cursor.fetchone()
                 

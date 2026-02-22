@@ -14,16 +14,17 @@ import cli.menus as menus  # noqa: E402
 
 @patch("cli.menus.select_project_interactive", return_value={"id": 7, "filename": "demo.zip"})
 @patch("cli.menus.analyze_project_by_id")
+@patch("cli.menus.AuthManager.get_current_username", return_value="test_user")
 @patch("builtins.input", return_value="q")
 @patch("sys.stdout", new_callable=StringIO)
-def test_analyze_project_menu_runs_analysis(mock_stdout, mock_input, mock_analyze, mock_select):
+def test_analyze_project_menu_runs_analysis(mock_stdout, mock_input, mock_auth, mock_analyze, mock_select):
     """Ensure analyze_project_menu prompts and triggers analysis when a project is chosen."""
     menus.analyze_project_menu()
 
     output = mock_stdout.getvalue()
     assert "Analyzing: demo.zip" in output
     assert "PRIVACY MODE" in output
-    mock_analyze.assert_called_once_with(7)
+    mock_analyze.assert_called_once_with(7, user_id="test_user")
     mock_select.assert_called_once()
 
 
