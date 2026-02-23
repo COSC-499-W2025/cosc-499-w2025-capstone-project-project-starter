@@ -139,6 +139,18 @@ export const projectApi = {
     });
     return apiRequest(`/projects/compare?${params.toString()}`, { token });
   },
+  getProjectImage: (token, projectId) => apiRequest(`/projects/${projectId}/image`, { token }),
+  uploadProjectImage: (token, projectId, file) => {
+    const formData = new FormData();
+    formData.append('file', file);
+    return apiRequest(`/projects/${projectId}/image`, {
+      method: 'PUT',
+      token,
+      body: formData,
+      isForm: true,
+    });
+  },
+  deleteProjectImage: (token, projectId) => apiRequest(`/projects/${projectId}/image`, { method: 'DELETE', token }),
 };
 
 export const userConfigApi = {

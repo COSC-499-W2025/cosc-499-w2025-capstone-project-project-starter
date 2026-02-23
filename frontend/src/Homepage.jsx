@@ -62,6 +62,11 @@ function createDraftId() {
   return `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
 }
 
+function formatProjectImageDataUrl(mimeType, dataBase64) {
+  if (!dataBase64) return '';
+  return `data:${mimeType || 'image/png'};base64,${dataBase64}`;
+}
+
 function formatEvidenceDraftValue(value) {
   if (value === undefined) return '';
   if (value === null) return 'null';
@@ -407,6 +412,10 @@ function Homepage() {
   const [compareSelectedProjectIds, setCompareSelectedProjectIds] = useState([]);
   const [compareResults, setCompareResults] = useState(null);
   const [compareLoading, setCompareLoading] = useState(false);
+  const [projectThumbnails, setProjectThumbnails] = useState({});
+  const [thumbnailUploadFile, setThumbnailUploadFile] = useState(null);
+  const [thumbnailActionProjectId, setThumbnailActionProjectId] = useState(null);
+  const [thumbnailActionError, setThumbnailActionError] = useState('');
 
   const isAuthenticated = Boolean(token && currentUser);
 
@@ -451,6 +460,10 @@ function Homepage() {
     setCompareSelectedProjectIds([]);
     setCompareResults(null);
     setCompareLoading(false);
+    setProjectThumbnails({});
+    setThumbnailUploadFile(null);
+    setThumbnailActionProjectId(null);
+    setThumbnailActionError('');
     setView('projects');
   }, []);
 
@@ -754,6 +767,98 @@ function Homepage() {
     };
   }, [token, projects]);
 
+  useEffect(() => {
+    if (!token) {
+      setProjectThumbnails({});
+      return;
+    }
+
+    if (projects.length === 0) {
+      setProjectThumbnails({});
+      return;
+    }
+
+    let cancelled = false;
+    const projectIds = new Set(projects.map((project) => project.id));
+
+    setProjectThumbnails((previous) => {
+      const next = {};
+      projects.forEach((project) => {
+        next[project.id] = {
+          ...(previous[project.id] || {}),
+          loading: true,
+          error: '',
+        };
+      });
+      return next;
+    });
+
+    const loadThumbnails = async () => {
+      const results = await Promise.allSettled(
+        projects.map((project) => projectApi.getProjectImage(token, project.id))
+      );
+
+      if (cancelled) return;
+
+      setProjectThumbnails((previous) => {
+        const next = {};
+
+        projects.forEach((project, index) => {
+          const result = results[index];
+          if (result.status === 'fulfilled') {
+            const payload = result.value || {};
+            next[project.id] = {
+              loading: false,
+              hasImage: Boolean(payload.data_base64),
+              imageUrl: formatProjectImageDataUrl(payload.mime_type, payload.data_base64),
+              mimeType: payload.mime_type || 'image/png',
+              thumbnailBlobSha256: payload.thumbnail_blob_sha256 || null,
+              error: '',
+            };
+            return;
+          }
+
+          const reason = result.reason;
+          if (reason?.status === 404) {
+            next[project.id] = {
+              loading: false,
+              hasImage: false,
+              imageUrl: '',
+              mimeType: '',
+              thumbnailBlobSha256: null,
+              error: '',
+            };
+            return;
+          }
+
+          next[project.id] = {
+            loading: false,
+            hasImage: false,
+            imageUrl: '',
+            mimeType: '',
+            thumbnailBlobSha256: null,
+            error: reason?.message || 'Unable to load thumbnail.',
+          };
+        });
+
+        Object.entries(previous).forEach(([projectId, value]) => {
+          if (!projectIds.has(projectId)) return;
+          if (!next[projectId]) {
+            next[projectId] = value;
+          }
+        });
+
+        return next;
+      });
+    };
+
+    loadThumbnails();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [token, projects]);
+
   const handleAuthSuccess = useCallback(
     (response) => {
       localStorage.setItem(TOKEN_STORAGE_KEY, response.token);
@@ -922,6 +1027,9 @@ function Homepage() {
     setProjectSkills(null);
     setContributors([]);
     setProjectRoleDraft(project?.user_role || '');
+    setThumbnailUploadFile(null);
+    setThumbnailActionError('');
+    setThumbnailActionProjectId(null);
     setSavingProjectRole(false);
     setProjectEvidenceError('');
     setSavingProjectEvidence(false);
@@ -1246,6 +1354,113 @@ function Homepage() {
     }
   };
 
+  const refreshProjectThumbnail = useCallback(
+    async (projectId) => {
+      if (!token || !projectId) return;
+
+      setProjectThumbnails((previous) => ({
+        ...previous,
+        [projectId]: {
+          ...(previous[projectId] || {}),
+          loading: true,
+          error: '',
+        },
+      }));
+
+      try {
+        const payload = await projectApi.getProjectImage(token, projectId);
+        setProjectThumbnails((previous) => ({
+          ...previous,
+          [projectId]: {
+            loading: false,
+            hasImage: Boolean(payload?.data_base64),
+            imageUrl: formatProjectImageDataUrl(payload?.mime_type, payload?.data_base64),
+            mimeType: payload?.mime_type || 'image/png',
+            thumbnailBlobSha256: payload?.thumbnail_blob_sha256 || null,
+            error: '',
+          },
+        }));
+      } catch (error) {
+        if (error?.status === 404) {
+          setProjectThumbnails((previous) => ({
+            ...previous,
+            [projectId]: {
+              loading: false,
+              hasImage: false,
+              imageUrl: '',
+              mimeType: '',
+              thumbnailBlobSha256: null,
+              error: '',
+            },
+          }));
+          return;
+        }
+
+        setProjectThumbnails((previous) => ({
+          ...previous,
+          [projectId]: {
+            loading: false,
+            hasImage: false,
+            imageUrl: '',
+            mimeType: '',
+            thumbnailBlobSha256: null,
+            error: error?.message || 'Unable to load thumbnail.',
+          },
+        }));
+      }
+    },
+    [token]
+  );
+
+  const saveProjectThumbnail = async () => {
+    if (!token || !selectedProject) return;
+    if (!thumbnailUploadFile) {
+      setThumbnailActionError('Choose an image file before uploading.');
+      return;
+    }
+
+    const projectId = selectedProject.id;
+    setThumbnailActionProjectId(projectId);
+    setThumbnailActionError('');
+    setDashboardError('');
+    setFlashMessage('');
+
+    try {
+      await projectApi.uploadProjectImage(token, projectId, thumbnailUploadFile);
+      await refreshProjectThumbnail(projectId);
+      setThumbnailUploadFile(null);
+      setFlashMessage('Project thumbnail saved.');
+    } catch (error) {
+      setThumbnailActionError(error.message || 'Unable to save project thumbnail.');
+    } finally {
+      setThumbnailActionProjectId(null);
+    }
+  };
+
+  const removeProjectThumbnail = async () => {
+    if (!token || !selectedProject) return;
+    const projectId = selectedProject.id;
+
+    const confirmed = window.confirm('Remove this project thumbnail?');
+    if (!confirmed) return;
+
+    setThumbnailActionProjectId(projectId);
+    setThumbnailActionError('');
+    setDashboardError('');
+    setFlashMessage('');
+
+    try {
+      await projectApi.deleteProjectImage(token, projectId);
+      await refreshProjectThumbnail(projectId);
+      setThumbnailUploadFile(null);
+      setFlashMessage('Project thumbnail removed.');
+    } catch (error) {
+      setThumbnailActionError(error.message || 'Unable to remove project thumbnail.');
+    } finally {
+      setThumbnailActionProjectId(null);
+    }
+  };
+
   const navButtons = useMemo(
     () => [
       { id: 'projects', label: 'Projects' },
@@ -1336,6 +1551,11 @@ function Homepage() {
     if (!selectedProject) return null;
     return getSnapshotStatus(selectedProject.latest_snapshot?.id, snapshotAnalyses);
   }, [selectedProject, snapshotAnalyses]);
+
+  const selectedProjectThumbnail = useMemo(() => {
+    if (!selectedProject) return null;
+    return projectThumbnails[selectedProject.id] || null;
+  }, [selectedProject, projectThumbnails]);
 
   const savedProjectRole = (projectReport?.project?.user_role || '').trim();
   const projectRoleChanged = projectRoleDraft.trim() !== savedProjectRole;
@@ -1528,6 +1748,20 @@ function Homepage() {
 
                     return (
                       <article key={project.id} className="project-card">
+                        {projectThumbnails[project.id]?.loading ? (
+                          <p className="muted">Loading thumbnail...</p>
+                        ) : projectThumbnails[project.id]?.hasImage ? (
+                          <img
+                            className="project-thumbnail"
+                            src={projectThumbnails[project.id].imageUrl}
+                            alt={`${project.name} thumbnail`}
+                          />
+                        ) : (
+                          <div className="project-thumbnail project-thumbnail-placeholder">No thumbnail</div>
+                        )}
+                        {projectThumbnails[project.id]?.error && (
+                          <p className="muted">Thumbnail unavailable: {projectThumbnails[project.id].error}</p>
+                        )}
                         <h3>{project.name}</h3>
                         <p>Type: {project.project_type || 'Unknown'}</p>
                         <p>Added: {formatDate(project.created_at)}</p>
@@ -2046,6 +2280,57 @@ function Homepage() {
                         {selectedProjectStatus.detail && <p className="muted">{selectedProjectStatus.detail}</p>}
                       </>
                     )}
+                  </div>
+
+                  <div className="stack-block">
+                    <h3>Project Thumbnail</h3>
+                    {selectedProjectThumbnail?.loading ? (
+                      <p>Loading thumbnail...</p>
+                    ) : selectedProjectThumbnail?.hasImage ? (
+                      <img
+                        className="project-thumbnail project-thumbnail-detail"
+                        src={selectedProjectThumbnail.imageUrl}
+                        alt={`${selectedProject.name} thumbnail`}
+                      />
+                    ) : (
+                      <div className="project-thumbnail project-thumbnail-placeholder project-thumbnail-detail">
+                        No thumbnail uploaded yet.
+                      </div>
+                    )}
+                    {selectedProjectThumbnail?.error && (
+                      <p className="error-banner inline-error">{selectedProjectThumbnail.error}</p>
+                    )}
+                    <label className="field">
+                      Upload or replace thumbnail
+                      <input
+                        type="file"
+                        accept="image/*"
+                        onChange={(event) => {
+                          setThumbnailActionError('');
+                          setThumbnailUploadFile(event.target.files?.[0] || null);
+                        }}
+                      />
+                    </label>
+                    {thumbnailUploadFile && <p className="muted">Selected image: {thumbnailUploadFile.name}</p>}
+                    <div className="card-actions">
+                      <button
+                        className="primary-btn"
+                        type="button"
+                        onClick={saveProjectThumbnail}
+                        disabled={!thumbnailUploadFile || thumbnailActionProjectId === selectedProject.id}
+                      >
+                        {thumbnailActionProjectId === selectedProject.id ? 'Saving thumbnail...' : 'Save Thumbnail'}
+                      </button>
+                      <button
+                        className="secondary-btn"
+                        type="button"
+                        onClick={removeProjectThumbnail}
+                        disabled={!selectedProjectThumbnail?.hasImage || thumbnailActionProjectId === selectedProject.id}
+                      >
+                        {thumbnailActionProjectId === selectedProject.id ? 'Removing thumbnail...' : 'Remove Thumbnail'}
+                      </button>
+                    </div>
+                    {thumbnailActionError && <p className="error-banner inline-error">{thumbnailActionError}</p>}
                   </div>
 
                   <div className="stack-block">
