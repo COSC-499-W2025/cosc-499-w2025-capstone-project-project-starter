@@ -1,10 +1,9 @@
 import json
 from typing import Dict, Any, Optional, List
-from src.common.schemas import PortfolioCardResponse, TechStack
-from src.resume.evidence_extractor import build_evidence
-from src.common.logger import setup_logger
-from src.common.constants import COMMON_PROJECT_SUFFIXES
-from src.common.utils import clean_project_title
+from common.schemas import PortfolioCardResponse, TechStack
+from resume.evidence_extractor import build_evidence
+from common.logger import setup_logger
+from common.utils import clean_project_title
 logger = setup_logger(__name__)
 
 class PortfolioFormatter:
@@ -155,15 +154,6 @@ class PortfolioFormatter:
     
     @staticmethod
     def format_markdown(portfolio_data: Dict[str, Any]) -> Optional[str]:
-        """
-        Format portfolio as Markdown with humanized and analytical mix.
-        
-        Args:
-            portfolio_data: Portfolio data dictionary
-            
-        Returns:
-            Formatted Markdown string or None if error
-        """
         try:
             if not portfolio_data or not isinstance(portfolio_data, dict):
                 return "# ERROR\n\nInvalid portfolio data"
@@ -225,10 +215,7 @@ class PortfolioFormatter:
             lines.append("")
             
             for idx, project in enumerate(projects, 1):
-                clean_name = project.get('name', 'Unknown')
-                for suffix in COMMON_PROJECT_SUFFIXES:
-                    clean_name = clean_name.replace(suffix, '')
-                    
+                clean_name = clean_project_title(project.get('name', 'Unknown'))
                 lines.append(f"### {idx}. {clean_name}")
                 lines.append("")
                 
@@ -298,7 +285,7 @@ class PortfolioFormatter:
         else:
             logger.error(f"Unknown format type: {format_type}. Using text format.")
             return PortfolioFormatter.format_text(portfolio_data)
-            
+
     @staticmethod
     def format_project_card(project_data: Dict[str, Any], user_options: Optional[Dict[str, Any]] = None) -> PortfolioCardResponse:
         if user_options is None:
@@ -353,7 +340,6 @@ class PortfolioFormatter:
 
     @staticmethod
     def _map_technologies(data: Dict[str, Any]) -> List[TechStack]:
-        """Helper: Converts raw string lists into typed TechStack objects."""
         tech_list = []
         
         # Add Languages

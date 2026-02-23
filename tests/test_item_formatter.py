@@ -37,7 +37,6 @@ def test_format_resume_item_structure(sample_project_data):
     assert "Python" in result.technologies
 
 def test_name_cleaning():
-    """Test the title cleaning logic using the newly extracted utility."""
     assert clean_project_title("my-cool_project-main.zip") == "My Cool Project"
     assert clean_project_title("simple_app") == "Simple App"
 

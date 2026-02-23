@@ -6,17 +6,6 @@ from common.utils import clean_project_title
 class ItemFormatter:
     @staticmethod
     def format_resume_item(project_data: Dict[str, Any], user_options: Optional[Dict[str, Any]] = None) -> ResumeItemResponse:
-        """
-        Transforms raw project summary data into a ResumeItemResponse.
-        Applies user customizations (title, role, bullets) if provided.
-        
-        Args:
-            project_data (dict): Raw dictionary from ProjectSummarizer.
-            user_options (dict, optional): Custom overrides from User Preferences.
-            
-        Returns:
-            ResumeItemResponse: Validated Pydantic model.
-        """
         if user_options is None:
             user_options = {}
 
