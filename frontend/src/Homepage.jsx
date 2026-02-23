@@ -412,6 +412,10 @@ function Homepage() {
   const [compareSelectedProjectIds, setCompareSelectedProjectIds] = useState([]);
   const [compareResults, setCompareResults] = useState(null);
   const [compareLoading, setCompareLoading] = useState(false);
+  const [activeResumeId, setActiveResumeId] = useState(null);
+  const [resumeWording, setResumeWording] = useState({ summary_text: '', resume_bullets: [] });
+  const [savingResume, setSavingResume] = useState(false);
+  const [resumeSaveStatus, setResumeSaveStatus] = useState(''); // Renamed to avoid collision
   const [projectThumbnails, setProjectThumbnails] = useState({});
   const [thumbnailUploadFile, setThumbnailUploadFile] = useState(null);
   const [thumbnailActionProjectId, setThumbnailActionProjectId] = useState(null);
@@ -1020,6 +1024,9 @@ function Homepage() {
   };
 
   const viewProjectDetails = async (project) => {
+    setActiveResumeId(null);
+    setResumeWording({ summary_text: '', resume_bullets: [] });
+    setResumeSaveStatus('');
     if (!token) return;
     setSelectedProject(project);
     setView('report');
@@ -1051,10 +1058,73 @@ function Homepage() {
         const skillsResponse = await projectApi.getSnapshotSkills(token, snapshotId, 20);
         setProjectSkills(skillsResponse);
       }
+
+      // Load existing resume if one has been generated for this project
+      try {
+        const resumeResponse = await projectApi.getLatestResume(token, project.id);
+        if (resumeResponse.resume_id) {
+          setActiveResumeId(resumeResponse.resume_id);
+          setResumeWording({
+            summary_text: resumeResponse.content?.summary_text || '',
+            resume_bullets: resumeResponse.content?.resume_bullets || [],
+          });
+        }
+      } catch (resumeError) {
+        if (resumeError.status !== 404) {
+          console.error('Unexpected error fetching latest resume:', resumeError);
+        }
+      }
     } catch (error) {
       setDashboardError(error.message || 'Unable to load project details.');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleGenerateResume = async () => {
+    if (!selectedProject || !token) return;
+    setLoading(true);
+    try {
+      // 1. Call the generate endpoint
+      const response = await projectApi.generateResume(token, selectedProject.id);
+      
+      // 2. Capture the resume_id from the backend response
+      if (response.resume_id) {
+        setActiveResumeId(response.resume_id); 
+        setResumeWording({
+          summary_text: response.content?.summary_text || '',
+          resume_bullets: response.content?.resume_bullets || []
+        });
+        setResumeSaveStatus("Resume generated!");
+      }
+    } catch (err) {
+      console.error("Generation failed:", err);
+      setDashboardError("Generation failed: " + err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const saveResumeWording = async () => {
+    if (!activeResumeId || !token) {
+      setDashboardError("Cannot save: No active resume ID found.");
+      return;
+    }
+
+    setSavingResume(true);
+    setResumeSaveStatus(''); 
+    try {
+      // 3. Send the updated wording to the specific captured ID
+      await projectApi.updateResumeItems(token, activeResumeId, {
+        summary_text: resumeWording.summary_text,
+        resume_bullets: resumeWording.resume_bullets,
+      });
+      setResumeSaveStatus('Saved successfully!');
+    } catch (error) {
+      console.error("Save failed:", error);
+      setDashboardError('Save failed: ' + error.message);
+    } finally {
+      setSavingResume(false);
     }
   };
 
@@ -2613,6 +2683,73 @@ function Homepage() {
                       </div>
                     </div>
                   )}
+
+                  <div className="stack-block">
+                    <h3>Resume Editing</h3>
+                    {!activeResumeId ? (
+                      <>
+                        <p className="muted">No resume generated yet. Generate one from the projects list, or:</p>
+                        <button
+                          className="primary-btn"
+                          type="button"
+                          disabled={loading}
+                          onClick={handleGenerateResume}
+                        >
+                          {loading ? 'Generating...' : 'Generate Resume'}
+                        </button>
+                      </>
+                    ) : (
+                      <>
+                        <label className="field">
+                          Summary
+                          <textarea
+                            rows={4}
+                            value={resumeWording.summary_text}
+                            onChange={(e) => setResumeWording((prev) => ({ ...prev, summary_text: e.target.value }))}
+                          />
+                        </label>
+
+                        {resumeWording.resume_bullets.length > 0 && (
+                          <>
+                            <h4>Bullet Points</h4>
+                            {resumeWording.resume_bullets.map((bullet, index) => (
+                              <label className="field" key={index}>
+                                Bullet {index + 1}
+                                <textarea
+                                  rows={2}
+                                  value={bullet}
+                                  onChange={(e) => {
+                                    const updated = [...resumeWording.resume_bullets];
+                                    updated[index] = e.target.value;
+                                    setResumeWording((prev) => ({ ...prev, resume_bullets: updated }));
+                                  }}
+                                />
+                              </label>
+                            ))}
+                          </>
+                        )}
+
+                        <button
+                          className="primary-btn"
+                          type="button"
+                          onClick={saveResumeWording}
+                          disabled={savingResume}
+                        >
+                          {savingResume ? 'Saving...' : 'Save Resume Edits'}
+                        </button>
+
+                        <button
+                          className="secondary-btn"
+                          type="button"
+                          onClick={() => window.open(`${API_BASE_URL}/resume/${activeResumeId}/pdf`, '_blank', 'noopener,noreferrer')}
+                        >
+                          Download Resume PDF
+                        </button>
+
+                        {resumeSaveStatus && <p className="muted">{resumeSaveStatus}</p>}
+                      </>
+                    )}
+                  </div>
                 </>
               )}
             </section>
