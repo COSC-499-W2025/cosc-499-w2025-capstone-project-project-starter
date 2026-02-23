@@ -139,6 +139,14 @@ class ProjectAnalyzer:
         except Exception as e:
             self.logger.warning(f"Deep analysis failed: {e}")
             analysis['deep_analysis'] = {}
+        try:
+            analysis['document_subjects'] = self.local_analyzer.extract_document_subjects_from_files(file_contents)
+        except Exception as e:
+            self.logger.warning(f"Document subject extraction failed: {e}")
+            analysis['document_subjects'] = {
+                "enabled": False,
+                "error": str(e)
+            }
         return analysis
     
     def _get_project_info(self, uploaded_file_id):

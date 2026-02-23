@@ -1,5 +1,7 @@
 import os
 import re
+import io
+from collections import Counter
 from pathlib import Path
 from typing import Dict, List, Optional
 from datetime import datetime
@@ -17,6 +19,8 @@ class LocalAnalyzer:
     LANGUAGE_EXTENSIONS = LANGUAGE_EXTENSIONS
     DOCUMENT_EXTENSIONS = DOCUMENT_EXTENSIONS
     DESIGN_EXTENSIONS = DESIGN_EXTENSIONS
+    OCR_IMAGE_EXTENSIONS = {'.png', '.jpg', '.jpeg', '.gif', '.bmp', '.tiff', '.tif', '.webp'}
+    PDF_EXTENSIONS = {'.pdf'}
     
     # Framework detection patterns (in file content or names)
     FRAMEWORK_PATTERNS = {
@@ -36,6 +40,7 @@ class LocalAnalyzer:
     def __init__(self):
         """Initialize the local analyzer."""
         self.deep_analyzer = DeepCodeAnalyzer()
+        self._easyocr_reader = None
     
     def analyze_project(self, project_path: str) -> Dict:
         """
@@ -384,3 +389,125 @@ class LocalAnalyzer:
             except Exception:
                 continue
         return self.deep_analyzer.aggregate_analysis(file_analyses) if file_analyses else {}
+
+    def extract_document_subjects_from_files(self, file_contents: List[Dict], max_files: int = 50, max_text_chars: int = 20000) -> Dict:
+        """
+        Extract subject matter hints from PDFs and images using text extraction/OCR.
+        Returns lightweight signals for local analysis only.
+        """
+        extracted_texts = []
+        files_scanned = 0
+        pdfs_scanned = 0
+        images_scanned = 0
+
+        for file_info in file_contents:
+            if files_scanned >= max_files:
+                break
+            ext = (file_info.get('file_extension') or '').lower()
+            content = file_info.get('file_content')
+
+            if not content:
+                continue
+
+            if ext in self.PDF_EXTENSIONS:
+                text = self._extract_text_from_pdf_bytes(content)
+                if text:
+                    extracted_texts.append(text)
+                    files_scanned += 1
+                    pdfs_scanned += 1
+                continue
+
+            if ext in self.OCR_IMAGE_EXTENSIONS:
+                text = self._extract_text_from_image_bytes(content)
+                if text:
+                    extracted_texts.append(text)
+                    files_scanned += 1
+                    images_scanned += 1
+
+        combined = "\n".join(extracted_texts)
+        if len(combined) > max_text_chars:
+            combined = combined[:max_text_chars]
+
+        top_terms = self._extract_top_terms(combined)
+
+        return {
+            "enabled": True,
+            "files_scanned": files_scanned,
+            "pdfs_scanned": pdfs_scanned,
+            "images_scanned": images_scanned,
+            "extracted_text_chars": len(combined),
+            "top_terms": top_terms,
+            "sample_snippet": combined[:400] if combined else ""
+        }
+
+    def _normalize_binary(self, content) -> Optional[bytes]:
+        if content is None:
+            return None
+        if isinstance(content, bytes):
+            return content
+        if isinstance(content, memoryview):
+            return content.tobytes()
+        return None
+
+    def _extract_text_from_pdf_bytes(self, content) -> str:
+        data = self._normalize_binary(content)
+        if not data:
+            return ""
+        try:
+            from pypdf import PdfReader
+        except Exception:
+            return ""
+        try:
+            reader = PdfReader(io.BytesIO(data))
+            chunks = []
+            for page in reader.pages:
+                page_text = page.extract_text() or ""
+                if page_text:
+                    chunks.append(page_text)
+            return "\n".join(chunks)
+        except Exception:
+            return ""
+
+    def _get_easyocr_reader(self):
+        if self._easyocr_reader is not None:
+            return self._easyocr_reader
+        try:
+            import easyocr
+        except Exception:
+            return None
+        try:
+            self._easyocr_reader = easyocr.Reader(['en'], gpu=False)
+            return self._easyocr_reader
+        except Exception:
+            return None
+
+    def _extract_text_from_image_bytes(self, content) -> str:
+        data = self._normalize_binary(content)
+        if not data:
+            return ""
+        reader = self._get_easyocr_reader()
+        if reader is None:
+            return ""
+        try:
+            from PIL import Image
+            import numpy as np
+            image = Image.open(io.BytesIO(data)).convert("RGB")
+            arr = np.array(image)
+            results = reader.readtext(arr, detail=0, paragraph=True)
+            return "\n".join(results) if results else ""
+        except Exception:
+            return ""
+
+    def _extract_top_terms(self, text: str, max_terms: int = 10) -> List[str]:
+        if not text:
+            return []
+        tokens = re.findall(r"[a-zA-Z]{3,}", text.lower())
+        stopwords = {
+            "the", "and", "for", "with", "that", "this", "from", "are", "was", "were",
+            "into", "onto", "your", "you", "our", "their", "them", "have", "has", "had",
+            "will", "shall", "can", "could", "should", "would", "about", "over", "under",
+            "not", "but", "all", "any", "may", "also", "use", "using", "used"
+        }
+        filtered = [t for t in tokens if t not in stopwords]
+        counts = Counter(filtered)
+        return [term for term, _ in counts.most_common(max_terms)]
