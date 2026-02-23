@@ -2,7 +2,7 @@ import sqlite3
 import json
 import os
 from datetime import datetime
-from typing import Any, Mapping
+from typing import Any, Mapping, Optional
 
 # Default DB file name
 DEFAULT_DB_FILENAME = "skillscope.db"
@@ -100,13 +100,13 @@ def save_full_scan(
     analysis_mode: str,
     user_consent: bool,
     db_path: str = DB_NAME
-) -> None:
+) -> Optional[int]:
     """
     Save a full scan, including summaries, resume bullets, skills over time, and chronological projects.
     The complex nested structure is serialized into a single JSON blob.
     """
     if not analysis_results or "project_summaries" not in analysis_results:
-        return
+        return None
 
     # Serialize datetime fields in projects
     def _serialize_project(p): 
@@ -157,6 +157,7 @@ def save_full_scan(
                 [(summary_id, h) for h in hashes]
             )
         conn.commit()
+        return summary_id
 
 def update_full_scan(summary_id, merged_data, db_path=DB_NAME):
     """

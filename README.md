@@ -29,7 +29,7 @@ These users can utilize the system to:
 
 Programming Language: Python
 
-Future Additions: REST API and front-end (Term 2)
+Interface Modes: CLI (existing) and FastAPI backend endpoints (current milestone work)
 
 Output Format (Milestone 1): Text-based (CSV, JSON, or plain text)
 
@@ -285,5 +285,4 @@ Be sure to keep your docs and README.md up-to-date.
 
 
 <img width="1380" height="761" alt="arch" src="https://github.com/user-attachments/assets/c7413025-ea89-48c3-b1a4-22cf30c396cd" />
-
 
