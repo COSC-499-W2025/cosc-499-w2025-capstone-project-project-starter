@@ -8,7 +8,7 @@ import zipfile
 import shutil
 from dataclasses import dataclass
 from typing import Dict, List, Optional, Tuple
-from datetime import datetime
+from datetime import datetime, timezone
 
 from sqlalchemy import text
 from sqlalchemy.engine import Engine
@@ -193,6 +193,7 @@ def ingest_zip_to_db(
     portfolio_id: Optional[str] = None,
     project_name: Optional[str] = None,
     snapshot_label: Optional[str] = None,
+    analysis_mode: str = "auto",
 ) -> IngestResult:
     zip_sha = _sha256_file(zip_path)
 
@@ -205,7 +206,20 @@ def ingest_zip_to_db(
         user_id2, portfolio_id2 = _ensure_user_and_portfolio(conn, user_id, portfolio_id)
         _require_data_access_consent(conn, user_id2)
 
+        normalized_analysis_mode = str(analysis_mode or "auto").strip().lower()
+        if normalized_analysis_mode not in {"auto", "local", "external", "both"}:
+            raise ValueError("analysis_mode must be one of: auto, local, external, both")
+
         external_allowed_at_ingest = latest_consent_granted(conn, user_id2, "external_services") is True
+        use_external = (
+            external_allowed_at_ingest
+            if normalized_analysis_mode == "auto"
+            else normalized_analysis_mode in {"external", "both"}
+        )
+        use_local = normalized_analysis_mode in {"local", "both"}
+
+        if use_external and not external_allowed_at_ingest:
+            raise PermissionError("External analysis is not allowed for this user")
 
         with zipfile.ZipFile(zip_path, "r") as zf:
             entries: List[Tuple[str, zipfile.ZipInfo]] = []
@@ -286,8 +300,8 @@ def ingest_zip_to_db(
                 ).scalar_one()
                 snap_id = str(snap_id)
 
-                # Always queue local analyses; queue external only if consent already granted.
-                if external_allowed_at_ingest:
+                # Queue parser/git always, then selected analysis modes.
+                if use_external and use_local:
                     conn.execute(
                         text(
                             """
@@ -295,6 +309,19 @@ def ingest_zip_to_db(
                             VALUES
                               (:sid, 'parser', 'pending'),
                               (:sid, 'local_ml', 'pending'),
+                              (:sid, 'git_metrics', 'pending'),
+                              (:sid, 'external_llm', 'pending')
+                            """
+                        ),
+                        {"sid": snap_id},
+                    )
+                elif use_external:
+                    conn.execute(
+                        text(
+                            """
+                            INSERT INTO analyses (snapshot_id, analysis_type, status)
+                            VALUES
+                              (:sid, 'parser', 'pending'),
                               (:sid, 'git_metrics', 'pending'),
                               (:sid, 'external_llm', 'pending')
                             """
@@ -350,9 +377,9 @@ def ingest_zip_to_db(
                     try:
                         dt = getattr(info, "date_time", None)
                         if dt:
-                            # stored as naive; DB column is timestamptz, Postgres will interpret per server tz.
-                            # acceptable for milestone scope.
-                            dt = datetime(*dt)  # type: ignore[name-defined]
+                            # ZIP metadata does not carry timezone information.
+                            # Normalize to UTC so chronology remains stable across environments.
+                            dt = datetime(*dt, tzinfo=timezone.utc)  # type: ignore[name-defined]
                     except Exception:
                         dt = None
 
@@ -369,7 +396,7 @@ def ingest_zip_to_db(
                             "sid": snap_id,
                             "rel": rel_in_project,
                             "sha": sha,
-                            "ts": None,
+                            "ts": dt,
                             "mode": None,
                             "sz": int(len(data)),
                         },

@@ -35,6 +35,58 @@ async function apiRequest(path, { method = 'GET', token, body, headers = {}, isF
   return payload;
 }
 
+function blobToBase64(blob) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => {
+      const result = String(reader.result || '');
+      const commaIndex = result.indexOf(',');
+      resolve(commaIndex >= 0 ? result.slice(commaIndex + 1) : '');
+    };
+    reader.onerror = () => reject(new Error('Unable to read image response.'));
+    reader.readAsDataURL(blob);
+  });
+}
+
+async function getProjectImageCompat(token, projectId) {
+  try {
+    return await apiRequest(`/projects/${projectId}/image`, { token });
+  } catch (error) {
+    if (error?.status !== 405) {
+      throw error;
+    }
+
+    const headers = {};
+    if (token) {
+      headers.Authorization = `Bearer ${token}`;
+    }
+
+    const response = await fetch(`${API_BASE_URL}/projects/${projectId}/image/raw`, {
+      method: 'GET',
+      headers,
+    });
+
+    if (!response.ok) {
+      const payload = await parseResponse(response);
+      const message = (payload && payload.detail) || `Request failed with status ${response.status}`;
+      const fallbackError = new Error(typeof message === 'string' ? message : 'Request failed');
+      fallbackError.status = response.status;
+      fallbackError.payload = payload;
+      throw fallbackError;
+    }
+
+    const blob = await response.blob();
+    const dataBase64 = await blobToBase64(blob);
+
+    return {
+      project_id: projectId,
+      thumbnail_blob_sha256: null,
+      mime_type: blob.type || response.headers.get('content-type') || 'image/png',
+      data_base64: dataBase64,
+    };
+  }
+}
+
 export const authApi = {
   register: ({ email, password, displayName }) =>
     apiRequest('/auth/register', {
@@ -53,11 +105,42 @@ export const authApi = {
     }),
   me: (token) => apiRequest('/auth/me', { token }),
   logout: (token) => apiRequest('/auth/logout', { method: 'POST', token }),
+  submitPrivacyConsent: (token, { userId, consentType, granted, version = 1 }) =>
+    apiRequest('/privacy-consent', {
+      method: 'POST',
+      token,
+      body: {
+        user_id: userId,
+        consent_type: consentType,
+        granted,
+        version,
+      },
+    }),
 };
 
 export const projectApi = {
   listProjects: (token) => apiRequest('/projects', { token }),
-  uploadProject: (token, { file, projectName, snapshotLabel }) => {
+  updateProject: (
+    token,
+    projectId,
+    { displayName, userRole, evidenceJson, evidence, metrics, feedback, evaluation } = {}
+  ) => {
+    const body = {};
+    if (displayName !== undefined) body.display_name = displayName;
+    if (userRole !== undefined) body.user_role = userRole;
+    if (evidenceJson !== undefined) body.evidence_json = evidenceJson;
+    if (evidence !== undefined) body.evidence = evidence;
+    if (metrics !== undefined) body.metrics = metrics;
+    if (feedback !== undefined) body.feedback = feedback;
+    if (evaluation !== undefined) body.evaluation = evaluation;
+    return apiRequest(`/projects/${projectId}`, {
+      method: 'PATCH',
+      token,
+      body,
+    });
+  },
+  deleteProject: (token, projectId) => apiRequest(`/projects/${projectId}`, { method: 'DELETE', token }),
+  uploadProject: (token, { file, projectName, snapshotLabel, analysisMode }) => {
     const formData = new FormData();
     formData.append('file', file);
     if (projectName) {
@@ -65,6 +148,9 @@ export const projectApi = {
     }
     if (snapshotLabel) {
       formData.append('snapshot_label', snapshotLabel);
+    }
+    if (analysisMode) {
+      formData.append('analysis_mode', analysisMode);
     }
     return apiRequest('/projects/upload', {
       method: 'POST',
@@ -75,6 +161,7 @@ export const projectApi = {
   },
   getProjectReport: (token, projectId) => apiRequest(`/projects/${projectId}/report`, { token }),
   getProjectContributors: (token, projectId) => apiRequest(`/projects/${projectId}/contributors`, { token }),
+  getSnapshotAnalyses: (token, snapshotId) => apiRequest(`/snapshots/${snapshotId}/analyses`, { token }),
   getSnapshotSkills: (token, snapshotId, limit = 20) =>
     apiRequest(`/snapshots/${snapshotId}/skills?limit=${limit}`, { token }),
   getPortfolioTopProjects: (token, portfolioId, limit = 5) =>
@@ -89,6 +176,42 @@ export const projectApi = {
         project_id: projectId,
         prefer_external_bullets: true,
       },
+    }),
+  compareProjects: (token, { projectIds = [], attributes = [] }) => {
+    const params = new URLSearchParams();
+    projectIds.forEach((projectId) => {
+      if (projectId) {
+        params.append('project_ids', projectId);
+      }
+    });
+    attributes.forEach((attribute) => {
+      if (attribute) {
+        params.append('attributes', attribute);
+      }
+    });
+    return apiRequest(`/projects/compare?${params.toString()}`, { token });
+  },
+  getProjectImage: (token, projectId) => getProjectImageCompat(token, projectId),
+  uploadProjectImage: (token, projectId, file) => {
+    const formData = new FormData();
+    formData.append('file', file);
+    return apiRequest(`/projects/${projectId}/image`, {
+      method: 'PUT',
+      token,
+      body: formData,
+      isForm: true,
+    });
+  },
+  deleteProjectImage: (token, projectId) => apiRequest(`/projects/${projectId}/image`, { method: 'DELETE', token }),
+};
+
+export const userConfigApi = {
+  getConfig: (token, userId) => apiRequest(`/users/${userId}/config`, { token }),
+  patchConfig: (token, userId, patch) =>
+    apiRequest(`/users/${userId}/config`, {
+      method: 'PATCH',
+      token,
+      body: patch,
     }),
 };
 

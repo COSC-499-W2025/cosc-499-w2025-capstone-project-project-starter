@@ -163,14 +163,18 @@ def _local_resume_bullets(
             focus_skill = str(s)
             break
     if not focus_skill:
-        focus_skill = (top_skills or [None])[0]
+        for s in (top_skills or []):
+            candidate = str(s).strip()
+            if candidate:
+                focus_skill = candidate
+                break
     if focus_skill:
         if has_git_activity:
             b3 = f"Demonstrated proficiency in {focus_skill} through measurable repository activity and structured project outputs."
         else:
             b3 = f"Demonstrated proficiency in {focus_skill} through structured project outputs and iterative development."
     else:
-        b3 = "None"
+        b3 = "Translated technical work into clear, resume-ready outcomes aligned with project goals."
 
     return [_truncate(b1, 180), _truncate(b2, 180), _truncate(b3, 180)]
 
