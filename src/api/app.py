@@ -64,6 +64,38 @@ from src.db.deletion import (
 
 app = FastAPI(title="Artifact Miner API", version="0.1.0")
 
+PROJECT_IMAGE_SUBDIR = "project_images"
+
+
+def _project_image_root() -> str:
+    return os.getenv("ARTIFACT_MINER_BLOBSTORE", "blobstore")
+
+
+def _project_image_path(sha256: str, ext: str) -> str:
+    root = _project_image_root()
+    safe_ext = (ext or ".png").lower()
+    target_dir = os.path.join(root, PROJECT_IMAGE_SUBDIR)
+    os.makedirs(target_dir, exist_ok=True)
+    return os.path.join(target_dir, f"{sha256}{safe_ext}")
+
+
+def _resolve_project_image_path(stored_path: Optional[str]) -> Optional[str]:
+    if not stored_path:
+        return None
+
+    if os.path.exists(stored_path):
+        return stored_path
+
+    filename = os.path.basename(stored_path)
+    if not filename:
+        return None
+
+    migrated_path = os.path.join(_project_image_root(), PROJECT_IMAGE_SUBDIR, filename)
+    if os.path.exists(migrated_path):
+        return migrated_path
+
+    return None
+
 default_origins = [
     "http://localhost:3000",
     "http://127.0.0.1:3000",
@@ -1304,6 +1336,7 @@ def get_project_by_id(project_id: str):
                   pr.collaboration_type,
                   pr.user_role,
                   pr.created_at,
+                  pr.evidence_json,
                   COALESCE(t.total_commits, 0) AS total_commits,
                   COALESCE(ut.user_commits, 0) AS user_commits,
                   COALESCE(t.contributor_count, 0) AS contributor_count,
@@ -1324,6 +1357,10 @@ def get_project_by_id(project_id: str):
 
         # Convert to dict and format metrics as seen in list_projects
         res = dict(row)
+
+        # Pop and rename for api response
+        res["evidence"] = res.pop("evidence_json") or {}
+
         res["metrics"] = {
             "total_commits": int(res.pop("total_commits")),
             "user_commits": int(res.pop("user_commits")) or None,
@@ -2466,18 +2503,11 @@ async def set_project_image(
     # 3. Hash
     sha256 = hashlib.sha256(data).hexdigest()
 
-    # 4. Ensure upload directory exists
-    UPLOAD_DIR = "uploads/project_images"
-    os.makedirs(UPLOAD_DIR, exist_ok=True)
-
-    # 5) Infer mime + build safe stored path
+    # 4) Infer mime + build persistent stored path
     _, ext = os.path.splitext(file.filename or "")
     ext = ext.lower() or ".png"
 
-    stored_path = os.path.join(
-        UPLOAD_DIR,
-        f"{sha256}{ext}",
-    )
+    stored_path = _project_image_path(sha256, ext)
     stored_path = stored_path[:1024]  # DB safety
 
     # 6) Upsert file_blobs
@@ -2488,7 +2518,6 @@ async def set_project_image(
     )
 
     if blob is None:
-        # Write file to disk once
         with open(stored_path, "wb") as f:
             f.write(data)
 
@@ -2499,6 +2528,17 @@ async def set_project_image(
             stored_path=stored_path,
         )
         db.add(blob)
+    else:
+        resolved_existing = _resolve_project_image_path(blob.stored_path)
+        if not resolved_existing:
+            with open(stored_path, "wb") as f:
+                f.write(data)
+            blob.stored_path = stored_path
+        elif resolved_existing != blob.stored_path:
+            blob.stored_path = resolved_existing
+
+        blob.mime_type = file.content_type or blob.mime_type
+        blob.size_bytes = len(data)
 
     # 7) Create/update portfolio showcase
     showcase = (
@@ -2523,6 +2563,76 @@ async def set_project_image(
         "project_id": str(project_id),
         "thumbnail_blob_sha256": sha256,
         "stored_path": stored_path,
+    }
+
+
+def _load_project_image_row(project_id: str) -> Dict[str, Any]:
+    engine = get_engine()
+    with engine.connect() as conn:
+        row = conn.execute(
+            text(
+                """
+                SELECT ps.thumbnail_blob_sha256, fb.mime_type, fb.stored_path
+                FROM portfolio_showcases ps
+                JOIN file_blobs fb ON fb.sha256 = ps.thumbnail_blob_sha256
+                WHERE ps.project_id = :pid
+                  AND ps.thumbnail_blob_sha256 IS NOT NULL
+                LIMIT 1
+                """
+            ),
+            {"pid": project_id},
+        ).mappings().first()
+
+    if not row:
+        raise HTTPException(status_code=404, detail="Project image not found")
+
+    stored_path = _resolve_project_image_path(row.get("stored_path"))
+    if not stored_path:
+        raise HTTPException(status_code=404, detail="Project image file not found")
+
+    out = dict(row)
+    out["stored_path"] = stored_path
+    return out
+
+
+@app.get("/projects/{project_id}/image/raw")
+def get_project_image_raw(project_id: str):
+    row = _load_project_image_row(project_id)
+
+    with open(row["stored_path"], "rb") as handle:
+        file_bytes = handle.read()
+
+    if not file_bytes:
+        raise HTTPException(status_code=404, detail="Project image file is empty")
+
+    return Response(content=file_bytes, media_type=row.get("mime_type") or "image/png")
+
+
+@app.get("/projects/{project_id}/image/meta")
+def get_project_image_meta(project_id: str):
+    row = _load_project_image_row(project_id)
+    return {
+        "project_id": project_id,
+        "thumbnail_blob_sha256": row.get("thumbnail_blob_sha256"),
+        "mime_type": row.get("mime_type") or "image/png",
+    }
+
+
+@app.get("/projects/{project_id}/image")
+def get_project_image(project_id: str):
+    row = _load_project_image_row(project_id)
+
+    with open(row["stored_path"], "rb") as handle:
+        file_bytes = handle.read()
+
+    if not file_bytes:
+        raise HTTPException(status_code=404, detail="Project image file is empty")
+
+    return {
+        "project_id": project_id,
+        "thumbnail_blob_sha256": row.get("thumbnail_blob_sha256"),
+        "mime_type": row.get("mime_type") or "image/png",
+        "data_base64": base64.b64encode(file_bytes).decode("ascii"),
     }
 
 

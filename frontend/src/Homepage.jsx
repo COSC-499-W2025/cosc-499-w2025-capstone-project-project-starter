@@ -58,6 +58,191 @@ function toCsvList(value) {
     .filter((entry) => Boolean(entry));
 }
 
+function createDraftId() {
+  return `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
+}
+
+function formatProjectImageDataUrl(mimeType, dataBase64) {
+  if (!dataBase64) return '';
+  return `data:${mimeType || 'image/png'};base64,${dataBase64}`;
+}
+
+function formatEvidenceDraftValue(value) {
+  if (value === undefined) return '';
+  if (value === null) return 'null';
+  if (typeof value === 'string') return value;
+  if (typeof value === 'number' || typeof value === 'boolean') return String(value);
+  try {
+    return JSON.stringify(value);
+  } catch (error) {
+    return '';
+  }
+}
+
+function normalizeEvidenceSections(evidence) {
+  const source = evidence && typeof evidence === 'object' ? evidence : {};
+  const metrics =
+    source.metrics && typeof source.metrics === 'object' && !Array.isArray(source.metrics) ? source.metrics : {};
+  const feedback = Array.isArray(source.feedback) ? source.feedback : [];
+  const evaluation =
+    source.evaluation && typeof source.evaluation === 'object' && !Array.isArray(source.evaluation)
+      ? source.evaluation
+      : {};
+  return { metrics, feedback, evaluation };
+}
+
+function buildObjectEvidenceDraftRows(value) {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return [];
+  return Object.entries(value).map(([key, itemValue]) => ({
+    id: createDraftId(),
+    key: String(key),
+    value: formatEvidenceDraftValue(itemValue),
+  }));
+}
+
+function buildFeedbackDraftRows(value) {
+  if (!Array.isArray(value)) return [];
+  return value.map((item) => {
+    if (item && typeof item === 'object' && !Array.isArray(item)) {
+      let source = '';
+      if (typeof item.from === 'string') {
+        source = item.from;
+      } else if (typeof item.source === 'string') {
+        source = item.source;
+      }
+
+      if (typeof item.note === 'string') {
+        return {
+          id: createDraftId(),
+          source,
+          note: item.note,
+        };
+      }
+      if (typeof item.feedback === 'string') {
+        return {
+          id: createDraftId(),
+          source,
+          note: item.feedback,
+        };
+      }
+      if (typeof item.comment === 'string') {
+        return {
+          id: createDraftId(),
+          source,
+          note: item.comment,
+        };
+      }
+
+      return {
+        id: createDraftId(),
+        source: '',
+        note: formatEvidenceDraftValue(item),
+      };
+    }
+
+    return {
+      id: createDraftId(),
+      source: '',
+      note: formatEvidenceDraftValue(item),
+    };
+  });
+}
+
+function parseEvidenceValue(rawValue) {
+  const text = String(rawValue ?? '').trim();
+  if (!text) {
+    return { ok: false, error: 'Value is required.' };
+  }
+
+  if (/^-?\d+(\.\d+)?$/.test(text)) {
+    const parsedNumber = Number(text);
+    if (Number.isFinite(parsedNumber)) {
+      return { ok: true, value: parsedNumber };
+    }
+  }
+
+  const lowered = text.toLowerCase();
+  if (lowered === 'true') return { ok: true, value: true };
+  if (lowered === 'false') return { ok: true, value: false };
+  if (lowered === 'null') return { ok: true, value: null };
+
+  if (text.startsWith('{') || text.startsWith('[') || text.startsWith('"')) {
+    try {
+      return { ok: true, value: JSON.parse(text) };
+    } catch (error) {
+      return { ok: false, error: 'Invalid JSON value.' };
+    }
+  }
+
+  return { ok: true, value: text };
+}
+
+function buildObjectEvidencePayload(rows, sectionLabel) {
+  const payload = {};
+  const seenKeys = new Set();
+  const entries = Array.isArray(rows) ? rows : [];
+
+  for (let index = 0; index < entries.length; index += 1) {
+    const row = entries[index] || {};
+    const key = String(row.key || '').trim();
+    const rawValue = String(row.value || '').trim();
+
+    if (!key && !rawValue) {
+      continue;
+    }
+
+    if (!key) {
+      return { ok: false, error: `${sectionLabel}: row ${index + 1} is missing a key.` };
+    }
+
+    if (seenKeys.has(key)) {
+      return { ok: false, error: `${sectionLabel}: "${key}" is duplicated.` };
+    }
+
+    const parsed = parseEvidenceValue(rawValue);
+    if (!parsed.ok) {
+      return { ok: false, error: `${sectionLabel}: "${key}" has an invalid value.` };
+    }
+
+    seenKeys.add(key);
+    payload[key] = parsed.value;
+  }
+
+  return { ok: true, value: payload };
+}
+
+function buildFeedbackEvidencePayload(rows) {
+  const payload = [];
+  const entries = Array.isArray(rows) ? rows : [];
+
+  for (let index = 0; index < entries.length; index += 1) {
+    const row = entries[index] || {};
+    const source = String(row.source || '').trim();
+    const note = String(row.note || '').trim();
+
+    if (!source && !note) {
+      continue;
+    }
+
+    if (!note) {
+      return { ok: false, error: `Feedback: row ${index + 1} is missing feedback text.` };
+    }
+
+    if (source) {
+      payload.push({ from: source, note });
+      continue;
+    }
+
+    const parsed = parseEvidenceValue(note);
+    if (!parsed.ok) {
+      return { ok: false, error: `Feedback: row ${index + 1} has an invalid JSON value.` };
+    }
+    payload.push(parsed.value);
+  }
+
+  return { ok: true, value: payload };
+}
+
 function summarizeSnapshotAnalyses(analyses) {
   const rows = Array.isArray(analyses) ? analyses : [];
 
@@ -206,6 +391,11 @@ function Homepage() {
   const [snapshotAnalyses, setSnapshotAnalyses] = useState({});
   const [projectRoleDraft, setProjectRoleDraft] = useState('');
   const [savingProjectRole, setSavingProjectRole] = useState(false);
+  const [projectMetricsDraft, setProjectMetricsDraft] = useState([]);
+  const [projectFeedbackDraft, setProjectFeedbackDraft] = useState([]);
+  const [projectEvaluationDraft, setProjectEvaluationDraft] = useState([]);
+  const [projectEvidenceError, setProjectEvidenceError] = useState('');
+  const [savingProjectEvidence, setSavingProjectEvidence] = useState(false);
   const [userConfig, setUserConfig] = useState(null);
   const [configLoading, setConfigLoading] = useState(false);
   const [configSaving, setConfigSaving] = useState(false);
@@ -226,6 +416,10 @@ function Homepage() {
   const [resumeWording, setResumeWording] = useState({ summary_text: '', resume_bullets: [] });
   const [savingResume, setSavingResume] = useState(false);
   const [resumeSaveStatus, setResumeSaveStatus] = useState(''); // Renamed to avoid collision
+  const [projectThumbnails, setProjectThumbnails] = useState({});
+  const [thumbnailUploadFile, setThumbnailUploadFile] = useState(null);
+  const [thumbnailActionProjectId, setThumbnailActionProjectId] = useState(null);
+  const [thumbnailActionError, setThumbnailActionError] = useState('');
 
   const isAuthenticated = Boolean(token && currentUser);
 
@@ -249,6 +443,11 @@ function Homepage() {
     setSnapshotAnalyses({});
     setProjectRoleDraft('');
     setSavingProjectRole(false);
+    setProjectMetricsDraft([]);
+    setProjectFeedbackDraft([]);
+    setProjectEvaluationDraft([]);
+    setProjectEvidenceError('');
+    setSavingProjectEvidence(false);
     setUserConfig(null);
     setConfigLoading(false);
     setConfigSaving(false);
@@ -265,6 +464,10 @@ function Homepage() {
     setCompareSelectedProjectIds([]);
     setCompareResults(null);
     setCompareLoading(false);
+    setProjectThumbnails({});
+    setThumbnailUploadFile(null);
+    setThumbnailActionProjectId(null);
+    setThumbnailActionError('');
     setView('projects');
   }, []);
 
@@ -276,6 +479,14 @@ function Homepage() {
     setFlashMessage('');
     clearDashboardState();
   }, [clearDashboardState]);
+
+  const hydrateEvidenceDrafts = useCallback((evidenceJson) => {
+    const normalized = normalizeEvidenceSections(evidenceJson);
+    setProjectMetricsDraft(buildObjectEvidenceDraftRows(normalized.metrics));
+    setProjectFeedbackDraft(buildFeedbackDraftRows(normalized.feedback));
+    setProjectEvaluationDraft(buildObjectEvidenceDraftRows(normalized.evaluation));
+    setProjectEvidenceError('');
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -560,6 +771,98 @@ function Homepage() {
     };
   }, [token, projects]);
 
+  useEffect(() => {
+    if (!token) {
+      setProjectThumbnails({});
+      return;
+    }
+
+    if (projects.length === 0) {
+      setProjectThumbnails({});
+      return;
+    }
+
+    let cancelled = false;
+    const projectIds = new Set(projects.map((project) => project.id));
+
+    setProjectThumbnails((previous) => {
+      const next = {};
+      projects.forEach((project) => {
+        next[project.id] = {
+          ...(previous[project.id] || {}),
+          loading: true,
+          error: '',
+        };
+      });
+      return next;
+    });
+
+    const loadThumbnails = async () => {
+      const results = await Promise.allSettled(
+        projects.map((project) => projectApi.getProjectImage(token, project.id))
+      );
+
+      if (cancelled) return;
+
+      setProjectThumbnails((previous) => {
+        const next = {};
+
+        projects.forEach((project, index) => {
+          const result = results[index];
+          if (result.status === 'fulfilled') {
+            const payload = result.value || {};
+            next[project.id] = {
+              loading: false,
+              hasImage: Boolean(payload.data_base64),
+              imageUrl: formatProjectImageDataUrl(payload.mime_type, payload.data_base64),
+              mimeType: payload.mime_type || 'image/png',
+              thumbnailBlobSha256: payload.thumbnail_blob_sha256 || null,
+              error: '',
+            };
+            return;
+          }
+
+          const reason = result.reason;
+          if (reason?.status === 404) {
+            next[project.id] = {
+              loading: false,
+              hasImage: false,
+              imageUrl: '',
+              mimeType: '',
+              thumbnailBlobSha256: null,
+              error: '',
+            };
+            return;
+          }
+
+          next[project.id] = {
+            loading: false,
+            hasImage: false,
+            imageUrl: '',
+            mimeType: '',
+            thumbnailBlobSha256: null,
+            error: reason?.message || 'Unable to load thumbnail.',
+          };
+        });
+
+        Object.entries(previous).forEach(([projectId, value]) => {
+          if (!projectIds.has(projectId)) return;
+          if (!next[projectId]) {
+            next[projectId] = value;
+          }
+        });
+
+        return next;
+      });
+    };
+
+    loadThumbnails();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [token, projects]);
+
   const handleAuthSuccess = useCallback(
     (response) => {
       localStorage.setItem(TOKEN_STORAGE_KEY, response.token);
@@ -731,7 +1034,13 @@ function Homepage() {
     setProjectSkills(null);
     setContributors([]);
     setProjectRoleDraft(project?.user_role || '');
+    setThumbnailUploadFile(null);
+    setThumbnailActionError('');
+    setThumbnailActionProjectId(null);
     setSavingProjectRole(false);
+    setProjectEvidenceError('');
+    setSavingProjectEvidence(false);
+    hydrateEvidenceDrafts(project?.evidence_json || {});
     setLoading(true);
     setDashboardError('');
     try {
@@ -741,6 +1050,7 @@ function Homepage() {
       ]);
       setProjectReport(reportResponse);
       setProjectRoleDraft(reportResponse?.project?.user_role || '');
+      hydrateEvidenceDrafts(reportResponse?.project?.evidence_json || {});
       setContributors(contributorsResponse.contributors || []);
 
       const snapshotId = project.latest_snapshot?.id;
@@ -861,6 +1171,112 @@ function Homepage() {
       setDashboardError(error.message || 'Unable to save project role.');
     } finally {
       setSavingProjectRole(false);
+    }
+  };
+
+  const addProjectMetricRow = () => {
+    setProjectEvidenceError('');
+    setProjectMetricsDraft((previous) => [...previous, { id: createDraftId(), key: '', value: '' }]);
+  };
+
+  const addProjectFeedbackRow = () => {
+    setProjectEvidenceError('');
+    setProjectFeedbackDraft((previous) => [...previous, { id: createDraftId(), source: '', note: '' }]);
+  };
+
+  const addProjectEvaluationRow = () => {
+    setProjectEvidenceError('');
+    setProjectEvaluationDraft((previous) => [...previous, { id: createDraftId(), key: '', value: '' }]);
+  };
+
+  const saveProjectEvidence = async () => {
+    if (!token || !selectedProject) return;
+
+    const metricsPayload = buildObjectEvidencePayload(projectMetricsDraft, 'Metrics');
+    if (!metricsPayload.ok) {
+      setProjectEvidenceError(metricsPayload.error);
+      return;
+    }
+
+    const feedbackPayload = buildFeedbackEvidencePayload(projectFeedbackDraft);
+    if (!feedbackPayload.ok) {
+      setProjectEvidenceError(feedbackPayload.error);
+      return;
+    }
+
+    const evaluationPayload = buildObjectEvidencePayload(projectEvaluationDraft, 'Evaluation');
+    if (!evaluationPayload.ok) {
+      setProjectEvidenceError(evaluationPayload.error);
+      return;
+    }
+
+    const projectId = selectedProject.id;
+
+    setSavingProjectEvidence(true);
+    setProjectEvidenceError('');
+    setDashboardError('');
+    setFlashMessage('');
+
+    try {
+      const response = await projectApi.updateProject(token, projectId, {
+        metrics: metricsPayload.value,
+        feedback: feedbackPayload.value,
+        evaluation: evaluationPayload.value,
+      });
+
+      const persistedEvidence = normalizeEvidenceSections(response?.evidence_json || {});
+
+      setSelectedProject((previous) =>
+        previous
+          ? {
+              ...previous,
+              evidence_json: {
+                metrics: persistedEvidence.metrics,
+                feedback: persistedEvidence.feedback,
+                evaluation: persistedEvidence.evaluation,
+              },
+            }
+          : previous
+      );
+      setProjects((previous) =>
+        previous.map((project) =>
+          project.id === projectId
+            ? {
+                ...project,
+                evidence_json: {
+                  metrics: persistedEvidence.metrics,
+                  feedback: persistedEvidence.feedback,
+                  evaluation: persistedEvidence.evaluation,
+                },
+              }
+            : project
+        )
+      );
+      setProjectReport((previous) => {
+        if (!previous) return previous;
+        return {
+          ...previous,
+          project: {
+            ...(previous.project || {}),
+            evidence_json: {
+              metrics: persistedEvidence.metrics,
+              feedback: persistedEvidence.feedback,
+              evaluation: persistedEvidence.evaluation,
+            },
+          },
+        };
+      });
+
+      hydrateEvidenceDrafts({
+        metrics: persistedEvidence.metrics,
+        feedback: persistedEvidence.feedback,
+        evaluation: persistedEvidence.evaluation,
+      });
+      setFlashMessage('Evidence of success saved.');
+    } catch (error) {
+      setProjectEvidenceError(error.message || 'Unable to save evidence of success.');
+    } finally {
+      setSavingProjectEvidence(false);
     }
   };
 
@@ -1008,6 +1424,113 @@ function Homepage() {
     }
   };
 
+  const refreshProjectThumbnail = useCallback(
+    async (projectId) => {
+      if (!token || !projectId) return;
+
+      setProjectThumbnails((previous) => ({
+        ...previous,
+        [projectId]: {
+          ...(previous[projectId] || {}),
+          loading: true,
+          error: '',
+        },
+      }));
+
+      try {
+        const payload = await projectApi.getProjectImage(token, projectId);
+        setProjectThumbnails((previous) => ({
+          ...previous,
+          [projectId]: {
+            loading: false,
+            hasImage: Boolean(payload?.data_base64),
+            imageUrl: formatProjectImageDataUrl(payload?.mime_type, payload?.data_base64),
+            mimeType: payload?.mime_type || 'image/png',
+            thumbnailBlobSha256: payload?.thumbnail_blob_sha256 || null,
+            error: '',
+          },
+        }));
+      } catch (error) {
+        if (error?.status === 404) {
+          setProjectThumbnails((previous) => ({
+            ...previous,
+            [projectId]: {
+              loading: false,
+              hasImage: false,
+              imageUrl: '',
+              mimeType: '',
+              thumbnailBlobSha256: null,
+              error: '',
+            },
+          }));
+          return;
+        }
+
+        setProjectThumbnails((previous) => ({
+          ...previous,
+          [projectId]: {
+            loading: false,
+            hasImage: false,
+            imageUrl: '',
+            mimeType: '',
+            thumbnailBlobSha256: null,
+            error: error?.message || 'Unable to load thumbnail.',
+          },
+        }));
+      }
+    },
+    [token]
+  );
+
+  const saveProjectThumbnail = async () => {
+    if (!token || !selectedProject) return;
+    if (!thumbnailUploadFile) {
+      setThumbnailActionError('Choose an image file before uploading.');
+      return;
+    }
+
+    const projectId = selectedProject.id;
+    setThumbnailActionProjectId(projectId);
+    setThumbnailActionError('');
+    setDashboardError('');
+    setFlashMessage('');
+
+    try {
+      await projectApi.uploadProjectImage(token, projectId, thumbnailUploadFile);
+      await refreshProjectThumbnail(projectId);
+      setThumbnailUploadFile(null);
+      setFlashMessage('Project thumbnail saved.');
+    } catch (error) {
+      setThumbnailActionError(error.message || 'Unable to save project thumbnail.');
+    } finally {
+      setThumbnailActionProjectId(null);
+    }
+  };
+
+  const removeProjectThumbnail = async () => {
+    if (!token || !selectedProject) return;
+    const projectId = selectedProject.id;
+
+    const confirmed = window.confirm('Remove this project thumbnail?');
+    if (!confirmed) return;
+
+    setThumbnailActionProjectId(projectId);
+    setThumbnailActionError('');
+    setDashboardError('');
+    setFlashMessage('');
+
+    try {
+      await projectApi.deleteProjectImage(token, projectId);
+      await refreshProjectThumbnail(projectId);
+      setThumbnailUploadFile(null);
+      setFlashMessage('Project thumbnail removed.');
+    } catch (error) {
+      setThumbnailActionError(error.message || 'Unable to remove project thumbnail.');
+    } finally {
+      setThumbnailActionProjectId(null);
+    }
+  };
+
   const navButtons = useMemo(
     () => [
       { id: 'projects', label: 'Projects' },
@@ -1098,6 +1621,11 @@ function Homepage() {
     if (!selectedProject) return null;
     return getSnapshotStatus(selectedProject.latest_snapshot?.id, snapshotAnalyses);
   }, [selectedProject, snapshotAnalyses]);
+
+  const selectedProjectThumbnail = useMemo(() => {
+    if (!selectedProject) return null;
+    return projectThumbnails[selectedProject.id] || null;
+  }, [selectedProject, projectThumbnails]);
 
   const savedProjectRole = (projectReport?.project?.user_role || '').trim();
   const projectRoleChanged = projectRoleDraft.trim() !== savedProjectRole;
@@ -1290,6 +1818,20 @@ function Homepage() {
 
                     return (
                       <article key={project.id} className="project-card">
+                        {projectThumbnails[project.id]?.loading ? (
+                          <p className="muted">Loading thumbnail...</p>
+                        ) : projectThumbnails[project.id]?.hasImage ? (
+                          <img
+                            className="project-thumbnail"
+                            src={projectThumbnails[project.id].imageUrl}
+                            alt={`${project.name} thumbnail`}
+                          />
+                        ) : (
+                          <div className="project-thumbnail project-thumbnail-placeholder">No thumbnail</div>
+                        )}
+                        {projectThumbnails[project.id]?.error && (
+                          <p className="muted">Thumbnail unavailable: {projectThumbnails[project.id].error}</p>
+                        )}
                         <h3>{project.name}</h3>
                         <p>Type: {project.project_type || 'Unknown'}</p>
                         <p>Added: {formatDate(project.created_at)}</p>
@@ -1811,6 +2353,57 @@ function Homepage() {
                   </div>
 
                   <div className="stack-block">
+                    <h3>Project Thumbnail</h3>
+                    {selectedProjectThumbnail?.loading ? (
+                      <p>Loading thumbnail...</p>
+                    ) : selectedProjectThumbnail?.hasImage ? (
+                      <img
+                        className="project-thumbnail project-thumbnail-detail"
+                        src={selectedProjectThumbnail.imageUrl}
+                        alt={`${selectedProject.name} thumbnail`}
+                      />
+                    ) : (
+                      <div className="project-thumbnail project-thumbnail-placeholder project-thumbnail-detail">
+                        No thumbnail uploaded yet.
+                      </div>
+                    )}
+                    {selectedProjectThumbnail?.error && (
+                      <p className="error-banner inline-error">{selectedProjectThumbnail.error}</p>
+                    )}
+                    <label className="field">
+                      Upload or replace thumbnail
+                      <input
+                        type="file"
+                        accept="image/*"
+                        onChange={(event) => {
+                          setThumbnailActionError('');
+                          setThumbnailUploadFile(event.target.files?.[0] || null);
+                        }}
+                      />
+                    </label>
+                    {thumbnailUploadFile && <p className="muted">Selected image: {thumbnailUploadFile.name}</p>}
+                    <div className="card-actions">
+                      <button
+                        className="primary-btn"
+                        type="button"
+                        onClick={saveProjectThumbnail}
+                        disabled={!thumbnailUploadFile || thumbnailActionProjectId === selectedProject.id}
+                      >
+                        {thumbnailActionProjectId === selectedProject.id ? 'Saving thumbnail...' : 'Save Thumbnail'}
+                      </button>
+                      <button
+                        className="secondary-btn"
+                        type="button"
+                        onClick={removeProjectThumbnail}
+                        disabled={!selectedProjectThumbnail?.hasImage || thumbnailActionProjectId === selectedProject.id}
+                      >
+                        {thumbnailActionProjectId === selectedProject.id ? 'Removing thumbnail...' : 'Remove Thumbnail'}
+                      </button>
+                    </div>
+                    {thumbnailActionError && <p className="error-banner inline-error">{thumbnailActionError}</p>}
+                  </div>
+
+                  <div className="stack-block">
                     <h3>Key Role</h3>
                     <label className="field">
                       Your role in this project
@@ -1832,6 +2425,193 @@ function Homepage() {
                       disabled={loading || savingProjectRole || !projectRoleChanged}
                     >
                       {savingProjectRole ? 'Saving role...' : 'Save Role'}
+                    </button>
+                  </div>
+
+                  <div className="stack-block">
+                    <h3>Evidence of Success</h3>
+                    <p className="muted">
+                      Add metrics, feedback, and evaluation notes for this project. Numeric values (for example
+                      <code> 42 </code>) and JSON values (for example <code>{'{"grade":"A"}'}</code>) are saved as
+                      structured evidence.
+                    </p>
+
+                    <div className="evidence-section">
+                      <div className="panel-title-row">
+                        <h4>Metrics</h4>
+                        <button className="secondary-btn" type="button" onClick={addProjectMetricRow}>
+                          Add Metric
+                        </button>
+                      </div>
+                      {projectMetricsDraft.length === 0 ? (
+                        <p className="muted">No metric entries added yet.</p>
+                      ) : (
+                        <div className="evidence-row-list">
+                          {projectMetricsDraft.map((entry) => (
+                            <div className="evidence-row" key={entry.id}>
+                              <input
+                                type="text"
+                                value={entry.key}
+                                placeholder="Metric name (e.g. downloads)"
+                                onChange={(event) => {
+                                  const nextValue = event.target.value;
+                                  setProjectEvidenceError('');
+                                  setProjectMetricsDraft((previous) =>
+                                    previous.map((row) => (row.id === entry.id ? { ...row, key: nextValue } : row))
+                                  );
+                                }}
+                              />
+                              <input
+                                type="text"
+                                value={entry.value}
+                                placeholder='Metric value (e.g. 1200 or "strong")'
+                                onChange={(event) => {
+                                  const nextValue = event.target.value;
+                                  setProjectEvidenceError('');
+                                  setProjectMetricsDraft((previous) =>
+                                    previous.map((row) => (row.id === entry.id ? { ...row, value: nextValue } : row))
+                                  );
+                                }}
+                              />
+                              <button
+                                className="secondary-btn"
+                                type="button"
+                                onClick={() => {
+                                  setProjectEvidenceError('');
+                                  setProjectMetricsDraft((previous) =>
+                                    previous.filter((row) => row.id !== entry.id)
+                                  );
+                                }}
+                              >
+                                Remove
+                              </button>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="evidence-section">
+                      <div className="panel-title-row">
+                        <h4>Feedback</h4>
+                        <button className="secondary-btn" type="button" onClick={addProjectFeedbackRow}>
+                          Add Feedback
+                        </button>
+                      </div>
+                      {projectFeedbackDraft.length === 0 ? (
+                        <p className="muted">No feedback entries added yet.</p>
+                      ) : (
+                        <div className="evidence-row-list">
+                          {projectFeedbackDraft.map((entry) => (
+                            <div className="evidence-row evidence-row-feedback" key={entry.id}>
+                              <input
+                                type="text"
+                                value={entry.source}
+                                placeholder="Source (optional)"
+                                onChange={(event) => {
+                                  const nextValue = event.target.value;
+                                  setProjectEvidenceError('');
+                                  setProjectFeedbackDraft((previous) =>
+                                    previous.map((row) =>
+                                      row.id === entry.id ? { ...row, source: nextValue } : row
+                                    )
+                                  );
+                                }}
+                              />
+                              <textarea
+                                rows={3}
+                                value={entry.note}
+                                placeholder="Feedback text"
+                                onChange={(event) => {
+                                  const nextValue = event.target.value;
+                                  setProjectEvidenceError('');
+                                  setProjectFeedbackDraft((previous) =>
+                                    previous.map((row) => (row.id === entry.id ? { ...row, note: nextValue } : row))
+                                  );
+                                }}
+                              />
+                              <button
+                                className="secondary-btn"
+                                type="button"
+                                onClick={() => {
+                                  setProjectEvidenceError('');
+                                  setProjectFeedbackDraft((previous) =>
+                                    previous.filter((row) => row.id !== entry.id)
+                                  );
+                                }}
+                              >
+                                Remove
+                              </button>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="evidence-section">
+                      <div className="panel-title-row">
+                        <h4>Evaluation Notes</h4>
+                        <button className="secondary-btn" type="button" onClick={addProjectEvaluationRow}>
+                          Add Note
+                        </button>
+                      </div>
+                      {projectEvaluationDraft.length === 0 ? (
+                        <p className="muted">No evaluation entries added yet.</p>
+                      ) : (
+                        <div className="evidence-row-list">
+                          {projectEvaluationDraft.map((entry) => (
+                            <div className="evidence-row" key={entry.id}>
+                              <input
+                                type="text"
+                                value={entry.key}
+                                placeholder="Label (e.g. overall)"
+                                onChange={(event) => {
+                                  const nextValue = event.target.value;
+                                  setProjectEvidenceError('');
+                                  setProjectEvaluationDraft((previous) =>
+                                    previous.map((row) => (row.id === entry.id ? { ...row, key: nextValue } : row))
+                                  );
+                                }}
+                              />
+                              <input
+                                type="text"
+                                value={entry.value}
+                                placeholder='Note value (e.g. "Excellent delivery")'
+                                onChange={(event) => {
+                                  const nextValue = event.target.value;
+                                  setProjectEvidenceError('');
+                                  setProjectEvaluationDraft((previous) =>
+                                    previous.map((row) => (row.id === entry.id ? { ...row, value: nextValue } : row))
+                                  );
+                                }}
+                              />
+                              <button
+                                className="secondary-btn"
+                                type="button"
+                                onClick={() => {
+                                  setProjectEvidenceError('');
+                                  setProjectEvaluationDraft((previous) =>
+                                    previous.filter((row) => row.id !== entry.id)
+                                  );
+                                }}
+                              >
+                                Remove
+                              </button>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+
+                    {projectEvidenceError && <p className="error-banner inline-error">{projectEvidenceError}</p>}
+
+                    <button
+                      className="primary-btn"
+                      type="button"
+                      onClick={saveProjectEvidence}
+                      disabled={loading || savingProjectEvidence}
+                    >
+                      {savingProjectEvidence ? 'Saving evidence...' : 'Save Evidence'}
                     </button>
                   </div>
 

@@ -35,6 +35,58 @@ async function apiRequest(path, { method = 'GET', token, body, headers = {}, isF
   return payload;
 }
 
+function blobToBase64(blob) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => {
+      const result = String(reader.result || '');
+      const commaIndex = result.indexOf(',');
+      resolve(commaIndex >= 0 ? result.slice(commaIndex + 1) : '');
+    };
+    reader.onerror = () => reject(new Error('Unable to read image response.'));
+    reader.readAsDataURL(blob);
+  });
+}
+
+async function getProjectImageCompat(token, projectId) {
+  try {
+    return await apiRequest(`/projects/${projectId}/image`, { token });
+  } catch (error) {
+    if (error?.status !== 405) {
+      throw error;
+    }
+
+    const headers = {};
+    if (token) {
+      headers.Authorization = `Bearer ${token}`;
+    }
+
+    const response = await fetch(`${API_BASE_URL}/projects/${projectId}/image/raw`, {
+      method: 'GET',
+      headers,
+    });
+
+    if (!response.ok) {
+      const payload = await parseResponse(response);
+      const message = (payload && payload.detail) || `Request failed with status ${response.status}`;
+      const fallbackError = new Error(typeof message === 'string' ? message : 'Request failed');
+      fallbackError.status = response.status;
+      fallbackError.payload = payload;
+      throw fallbackError;
+    }
+
+    const blob = await response.blob();
+    const dataBase64 = await blobToBase64(blob);
+
+    return {
+      project_id: projectId,
+      thumbnail_blob_sha256: null,
+      mime_type: blob.type || response.headers.get('content-type') || 'image/png',
+      data_base64: dataBase64,
+    };
+  }
+}
+
 export const authApi = {
   register: ({ email, password, displayName }) =>
     apiRequest('/auth/register', {
@@ -147,6 +199,18 @@ export const projectApi = {
     });
     return apiRequest(`/projects/compare?${params.toString()}`, { token });
   },
+  getProjectImage: (token, projectId) => getProjectImageCompat(token, projectId),
+  uploadProjectImage: (token, projectId, file) => {
+    const formData = new FormData();
+    formData.append('file', file);
+    return apiRequest(`/projects/${projectId}/image`, {
+      method: 'PUT',
+      token,
+      body: formData,
+      isForm: true,
+    });
+  },
+  deleteProjectImage: (token, projectId) => apiRequest(`/projects/${projectId}/image`, { method: 'DELETE', token }),
 };
 
 export const userConfigApi = {
