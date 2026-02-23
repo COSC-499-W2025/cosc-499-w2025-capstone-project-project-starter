@@ -523,6 +523,22 @@
                 });
                 html += '</div></div>';
             }
+
+            // Document Subject Terms (PDF/Image OCR)
+            const docSubjects = analysis.document_subjects || null;
+            if (docSubjects && docSubjects.top_terms && docSubjects.top_terms.length > 0) {
+                html += '<div class="analysis-section">';
+                html += '<h4> - Document Subject Terms</h4>';
+                html += `<div class="analysis-item"><span class="analysis-label">Files Scanned:</span><span class="analysis-value">${docSubjects.files_scanned || 0} (PDFs: ${docSubjects.pdfs_scanned || 0}, Images: ${docSubjects.images_scanned || 0})</span></div>`;
+                if (docSubjects.sample_snippet) {
+                    html += `<div class="analysis-item"><span class="analysis-label">Sample Extract:</span><span class="analysis-value">${docSubjects.sample_snippet}</span></div>`;
+                }
+                html += '<div class="analysis-item">';
+                docSubjects.top_terms.forEach(term => {
+                    html += `<span class="badge badge-info">${term}</span>`;
+                });
+                html += '</div></div>';
+            }
             
             // Project Structure
             const structure = analysis.project_structure || {};
