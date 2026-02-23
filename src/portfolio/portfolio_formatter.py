@@ -1,14 +1,9 @@
-"""
-Portfolio Formatter Module
-
-Formats portfolio data into human-readable output formats AND structured API responses.
-"""
-
 import json
 from typing import Dict, Any, Optional, List
-from src.common.schemas import PortfolioCardResponse, TechStack
-from src.resume.evidence_extractor import build_evidence
-from src.common.logger import setup_logger
+from common.schemas import PortfolioCardResponse, TechStack
+from resume.evidence_extractor import build_evidence
+from common.logger import setup_logger
+from common.utils import clean_project_title
 logger = setup_logger(__name__)
 
 class PortfolioFormatter:
@@ -159,15 +154,6 @@ class PortfolioFormatter:
     
     @staticmethod
     def format_markdown(portfolio_data: Dict[str, Any]) -> Optional[str]:
-        """
-        Format portfolio as Markdown with humanized and analytical mix.
-        
-        Args:
-            portfolio_data: Portfolio data dictionary
-            
-        Returns:
-            Formatted Markdown string or None if error
-        """
         try:
             if not portfolio_data or not isinstance(portfolio_data, dict):
                 return "# ERROR\n\nInvalid portfolio data"
@@ -229,7 +215,7 @@ class PortfolioFormatter:
             lines.append("")
             
             for idx, project in enumerate(projects, 1):
-                clean_name = project.get('name', 'Unknown').replace('.zip', '').replace('-master', '').replace('-main', '')
+                clean_name = clean_project_title(project.get('name', 'Unknown'))
                 lines.append(f"### {idx}. {clean_name}")
                 lines.append("")
                 
@@ -290,16 +276,6 @@ class PortfolioFormatter:
     
     @staticmethod
     def get_formatted_portfolio(portfolio_data: Dict[str, Any], format_type: str = 'text') -> Optional[str]:
-        """
-        Get portfolio in specified format.
-        
-        Args:
-            portfolio_data: Portfolio data dictionary
-            format_type: Format type ('text', 'markdown')
-            
-        Returns:
-            Formatted portfolio string or None if error
-        """
         format_type = format_type.lower().strip()
         
         if format_type == 'markdown':
@@ -309,19 +285,9 @@ class PortfolioFormatter:
         else:
             logger.error(f"Unknown format type: {format_type}. Using text format.")
             return PortfolioFormatter.format_text(portfolio_data)
+
     @staticmethod
     def format_project_card(project_data: Dict[str, Any], user_options: Optional[Dict[str, Any]] = None) -> PortfolioCardResponse:
-        """
-        Transforms raw project analysis data into a rich Portfolio Showcase Card.
-        Fulfills Milestone 2 Requirement: 'Display textual information about a project as a portfolio showcase'
-        
-        Args:
-            project_data (dict): Single project dictionary from ProjectAnalyzer.
-            user_options (dict, optional): User overrides for title, description, or role.
-            
-        Returns:
-            PortfolioCardResponse: Pydantic model for API response.
-        """
         if user_options is None:
             user_options = {}
 
@@ -334,7 +300,7 @@ class PortfolioFormatter:
         if user_options.get('custom_title'):
             clean_title = user_options['custom_title']
         else:
-            clean_title = PortfolioFormatter._clean_title_helper(raw_name)
+            clean_title = clean_project_title(raw_name)
         
         # 2. Descriptions (Elevator Pitch vs Full)
         stats = project_data.get('file_statistics', {})
@@ -355,18 +321,9 @@ class PortfolioFormatter:
                 f"and optimizing performance across the {total_loc} line codebase."
             )
 
-        # 3. Tech Stack Mapping
         technologies = PortfolioFormatter._map_technologies(project_data)
-
-        # 4. Success Metrics (Refactored to use Shared Logic from Evan's module)
-        # This calls src.resume.evidence_extractor.build_evidence
         metrics = build_evidence(project_data)
-
-        # 5. Collaborators
-        # Check if 'collaboration_analysis' exists (from identify_contributors.py)
         collaborators = project_data.get('collaboration_analysis', {}).get('contributors', [])
-
-        # User Override: Role
         my_role = user_options.get('custom_role', "Lead Developer")
 
         return PortfolioCardResponse(
@@ -382,17 +339,7 @@ class PortfolioFormatter:
         )
 
     @staticmethod
-    def _clean_title_helper(filename: str) -> str:
-        """Helper: Standardizes repository names into titles."""
-        name = filename
-        for suffix in ['.zip', '-main', '-master', '_main']:
-            if name.endswith(suffix):
-                name = name[:-len(suffix)]
-        return name.replace('_', ' ').replace('-', ' ').title()
-
-    @staticmethod
     def _map_technologies(data: Dict[str, Any]) -> List[TechStack]:
-        """Helper: Converts raw string lists into typed TechStack objects."""
         tech_list = []
         
         # Add Languages

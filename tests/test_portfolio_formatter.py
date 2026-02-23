@@ -4,13 +4,9 @@ import pytest
 from datetime import datetime
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'src')))
 from portfolio.portfolio_formatter import PortfolioFormatter
-from src.common.schemas import PortfolioCardResponse, TechStack
+from common.schemas import PortfolioCardResponse, TechStack
 
 class TestPortfolioFormatter:
-    """Test suite for PortfolioFormatter functionality"""
-    
-    # setup_method DELETED (Handled by conftest.py)
-
     def test_format_project_card(self, mock_project_data):
         """Test formatting a complete project data dictionary."""
         # Uses shared data automatically
