@@ -347,6 +347,15 @@ async def get_projects(
             detail=f"Error retrieving projects: {str(e)}"
         )
 
+@router.get("/projects/rankings")
+async def get_rankings():
+    """Get stored rankings."""
+    try:
+        rankings = get_stored_rankings()
+        return {"success": True, "rankings": rankings}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error retrieving rankings: {str(e)}")
+
 
 @router.get("/projects/{project_id}")
 async def get_project_by_id_endpoint(
@@ -579,16 +588,6 @@ async def rank_top3(user_name: Optional[str] = Query(None)):
         return {"success": True, "top3": ranked[:3]}
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error ranking top 3: {str(e)}")
-
-
-@router.get("/projects/rankings")
-async def get_rankings():
-    """Get stored rankings."""
-    try:
-        rankings = get_stored_rankings()
-        return {"success": True, "rankings": rankings}
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error retrieving rankings: {str(e)}")
 
 
 @router.post("/projects/rank-gemini")
