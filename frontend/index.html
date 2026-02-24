@@ -412,7 +412,7 @@
 
             <!-- Login Form -->
             <form id="loginForm" class="login-form">
-                <div id="messageBox" class="message"></div>
+                <div id="messageBox" class="message" role="status" aria-live="polite" aria-atomic="true"></div>
                 
                 <div class="form-group">
                     <label for="username">Username</label>
@@ -422,6 +422,8 @@
                         name="username" 
                         placeholder="Enter your username"
                         autocomplete="username"
+                        autocapitalize="none"
+                        spellcheck="false"
                         required
                     >
                 </div>
@@ -457,7 +459,7 @@
 
             <!-- Registration Form -->
             <form id="registerForm" class="register-form">
-                <div id="registerMessageBox" class="message"></div>
+                <div id="registerMessageBox" class="message" role="status" aria-live="polite" aria-atomic="true"></div>
                 
                 <div class="form-group">
                     <label for="regUsername">Username</label>
@@ -467,6 +469,8 @@
                         name="username" 
                         placeholder="Choose a username"
                         autocomplete="username"
+                        autocapitalize="none"
+                        spellcheck="false"
                         required
                     >
                 </div>
@@ -550,6 +554,18 @@
     <script>
         const API_BASE_URL = window.location.origin;
         
+        async function postJson(path, payload) {
+            const response = await fetch(`${API_BASE_URL}${path}`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(payload),
+            });
+
+            // Safe JSON parse
+            const data = await response.json().catch(() => ({}));
+            return { ok: response.ok, status: response.status, data };
+        }
+
         // DOM Elements - Login
         const loginForm = document.getElementById('loginForm');
         const welcomeView = document.getElementById('welcomeView');
@@ -671,17 +687,10 @@
             clearMessage();
 
             try {
-                const response = await fetch(`${API_BASE_URL}/api/auth/login`, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    },
-                    body: JSON.stringify({ username, password }),
-                });
+                const res = await postJson("/api/auth/login", { username, password });
+                const data = res.data;
 
-                const data = await response.json();
-
-                if (data.success && data.user) {
+                if (res.ok && data.success && data.user) {
                     // Store user info in localStorage
                     localStorage.setItem('user', JSON.stringify(data.user));
                     // Redirect to dashboard
@@ -709,21 +718,14 @@
             try {
                 const user = JSON.parse(storedUser);
                 
-                const response = await fetch(`${API_BASE_URL}/api/auth/logout`, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    },
-                    body: JSON.stringify({ username: user.user_name }),
-                });
-
-                const data = await response.json();
+                const res = await postJson("/api/auth/logout", { username: user.user_name });
+                const data = res.data;
                 
                 // Clear localStorage regardless of server response
                 localStorage.removeItem('user');
                 showLoginForm();
                 
-                if (data.success) {
+                if (res.ok && data.success) {
                     showMessage('You have been logged out successfully.', 'success');
                 }
             } catch (error) {
@@ -827,17 +829,10 @@
             clearRegisterMessage();
 
             try {
-                const response = await fetch(`${API_BASE_URL}/api/auth/register`, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    },
-                    body: JSON.stringify({ username, password }),
-                });
+                const res = await postJson("/api/auth/register", { username, password });
+                const data = res.data;
 
-                const data = await response.json();
-
-                if (data.success) {
+                if (res.ok && data.success) {
                     // Show success message and switch to login form
                     showLoginForm();
                     showMessage('Account created successfully! Please sign in.', 'success');
