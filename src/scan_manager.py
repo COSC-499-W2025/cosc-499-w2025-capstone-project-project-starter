@@ -6,7 +6,7 @@ from db import delete_full_scan_by_id, get_full_scan_by_id, list_full_scans, upd
 from file_parser import get_input_file_path
 from permission_manager import get_yes_no
 from resume_generator import generate_resume, generate_contributor_portfolio, edit_contributor_descriptions
-from portfolio_generator import create_portfolios
+from portfolio_generator import manage_portfolio_showcase, generate_and_save_portfolio
 from services.scan_service import analyze_scan, merge_scans
 
 from print_utils import (
@@ -262,29 +262,6 @@ def delete_full_scan():
         print(_center_text("Deletion canceled."))
 
 
-def generate_markdown_portfolio(data, user, timestamp):
-    """Generates a Markdown portfolio for a specific user."""
-    portfolios = create_portfolios(data)
-    target_portfolio = next((p for p in portfolios if p.user_name == user), None)
-
-    if target_portfolio:
-        from file_parser import OUTPUT_DIR
-        resume_dir = os.path.join(OUTPUT_DIR, "resumes")
-        os.makedirs(resume_dir, exist_ok=True)
-        
-        safe_name = "".join(c for c in user if c.isalnum() or c in (' ', '_', '-')).strip().replace(' ', '_')
-        filename = f"Portfolio_{safe_name}.md"
-        out_path = os.path.join(resume_dir, filename)
-        
-        with open(out_path, "w", encoding="utf-8") as f:
-            f.write(target_portfolio.to_markdown())
-            
-        print(_center_text(f"Saved portfolio to:\n{out_path}"))
-    else:
-        print(_center_text("Error: Could not generate portfolio for selected user."))
-
-
-# --------------------------------------------------------
 # PORTFOLIO GENERATION
 # --------------------------------------------------------
 
@@ -328,6 +305,7 @@ def generate_portfolio_menu():
         print(_center_text("2) Contributor Resume (Word)"))
         print(_center_text("3) Contributor Portfolio (Markdown)"))
         print(_center_text("4) Edit Resume"))
+        print(_center_text("5) Edit Portfolio"))
         print(_center_text("0) Back"))
 
         choice = input(_center_text("Enter number: ")).strip()
@@ -349,6 +327,10 @@ def generate_portfolio_menu():
 
         if choice == "4":
             edit_contributor_descriptions(target_scan=scan)
+            continue
+
+        if choice == "5":
+            manage_portfolio_showcase(target_scan=scan)
             continue
 
         if choice not in ("2", "3"):
@@ -382,7 +364,11 @@ def generate_portfolio_menu():
         profile = data["contributor_profiles"][user]
         
         if choice == "3":
-            generate_markdown_portfolio(data, user, scan["timestamp"])
+            out = generate_and_save_portfolio(data, user, use_custom_fields=False)
+            if out:
+                print(_center_text(f"Saved portfolio to:\n{out}"))
+            else:
+                print(_center_text("Error: Could not generate portfolio for selected user."))
         elif choice == "2":
             # Default to chronological sorting
             sort_mode = "date"
