@@ -182,6 +182,7 @@
 
     <script>
         const API_BASE_URL = window.location.origin;
+        const API_BASE = API_BASE_URL;
         let currentUser = null;
         let projects = [];
         let selectedProjectId = null;
@@ -255,17 +256,48 @@
 
         async function apiCall(endpoint, options = {}) {
             try {
-                const response = await fetch(`${API_BASE_URL}${endpoint}`, {
-                    headers: { 'Content-Type': 'application/json', ...options.headers },
-                    ...options
-                });
-                const data = await response.json();
-                if (!response.ok) throw new Error(data.detail || 'Request failed');
-                return data;
+                const response = await fetch(`${API_BASE_URL}${endpoint}`, options);
+                const data = await response.json().catch(() => ({}));
+
+                if (!response.ok) {
+                const msg = data.detail || data.message || `Request failed (${response.status})`;
+                return { ok: false, error: msg, status: response.status, data };
+                }
+                return { ok: true, data, status: response.status };
             } catch (e) {
-                showMessage(e.message || 'Request failed', 'error');
-                throw e;
+                return { ok: false, error: e.message || "Network error", status: 0, data: null };
             }
+        }
+
+        function renderResult(container, html) {
+            container.innerHTML = html;
+        }
+
+        function renderError(container, message) {
+            const safe = escapeHtml(message);
+            if (container) {
+                // Do not overwrite complex HTML and prepend a message block instead.
+                container.insertAdjacentHTML('afterbegin', `<div class="message error">${safe}</div>`);
+            }
+            showMessage(safe, "error");
+        }
+
+        function renderSuccess(container, message) {
+            const safe = escapeHtml(message);
+            if (container) {
+                // Do not overwrite complex HTML and prepend a message block instead.
+                container.insertAdjacentHTML('afterbegin', `<div class="message success">${safe}</div>`);
+            }
+            showMessage(safe, "success");
+        }
+
+        function escapeHtml(str) {
+            return String(str)
+                .replaceAll("&", "&amp;")
+                .replaceAll("<", "&lt;")
+                .replaceAll(">", "&gt;")
+                .replaceAll('"', "&quot;")
+                .replaceAll("'", "&#039;");
         }
 
         // Multipurpose API request function that can handle JSON and FormData bodies, and provides consistent error handling
@@ -300,7 +332,9 @@
 
         async function loadProjectThumbnail(projectId, imgEl) {
             try {
-                const data = await apiCall(`/api/projects/${projectId}/thumbnail?user_name=${currentUser.user_name}`);
+                const res = await apiCall(`/api/projects/${projectId}/thumbnail?user_name=${currentUser.user_name}`);
+                if (!res.ok) { showMessage(res.error, "error"); return; }
+                const data = res.data;
                 if (data.success && data.has_thumbnail && data.thumbnail_data) {
                     imgEl.src = data.thumbnail_data;
                 } else {
@@ -313,7 +347,9 @@
 
         async function loadProjects() {
             try {
-                const data = await apiCall(`/api/projects?user_name=${currentUser.user_name}`);
+                const res = await apiCall(`/api/projects?user_name=${currentUser.user_name}`);
+                if (!res.ok) { showMessage(res.error, "error"); return; }
+                const data = res.data;
                 if (data.success) projects = data.projects || [];
             } catch (e) {
                 console.error('Failed to load projects:', e);
@@ -352,13 +388,15 @@
 
         async function submitPrivacyConsent(consentGiven) {
             try {
-                const data = await apiCall('/api/privacy-consent', {
+                const res = await apiCall('/api/privacy-consent', {
                     method: 'POST',
                     body: JSON.stringify({
                         consent_given: consentGiven,
                         user_id: currentUser.user_id || currentUser.user_name
                     })
                 });
+                if (!res.ok) { showMessage(res.error, "error"); return; }
+                const data = res.data;
                 if (data.success) {
                     showMessage(`Privacy consent ${consentGiven ? 'granted' : 'denied'}`, 'success');
                 }
@@ -492,16 +530,13 @@
                     body: formData
                 });
                 if (data.success) {
-                    resultDiv.innerHTML = `Upload successful! Project ID: ${data.project_id}`;
-                    showMessage('Upload successful!', 'success');
+                    renderSuccess(resultDiv, `Project "${data.filename}" uploaded successfully with ID ${data.project_id}.`);
                     loadProjects();
                 } else {
-                    resultDiv.innerHTML = data.message || 'Upload failed';
-                    showMessage('Upload failed', 'error');
+                    renderError(resultDiv, data.message || 'Upload failed');
                 }
             } catch (e) {
-                resultDiv.innerHTML = `Error: ${e.message}`;
-                showMessage('Upload error', 'error');
+                renderError(resultDiv, e.message);
             }
         }
 
@@ -881,17 +916,17 @@
             const resultDiv = document.getElementById('analyzeResult');
             resultDiv.innerHTML = 'Analyzing locally...';
             try {
-                const data = await apiCall(`/api/projects/${selectedProjectId}/analyze?user_name=${currentUser.user_name}`, { method: 'POST' });
+                const res = await apiCall(`/api/projects/${selectedProjectId}/analyze?user_name=${currentUser.user_name}`, { method: 'POST' });
+                if (!res.ok) { renderError(resultDiv, res.error || 'Local analysis failed'); return; }
+                const data = res.data;
                 if (data.success) {
                     resultDiv.innerHTML = formatAnalysisResults(data.analysis);
-                    showMessage('Local analysis complete', 'success');
+                    renderSuccess(resultDiv, 'Local analysis complete');
                 } else {
-                    resultDiv.innerHTML = `Error: ${data.error || 'Analysis failed'}`;
-                    showMessage('Analysis failed', 'error');
+                    renderError(resultDiv, data.error || 'Analysis failed');
                 }
             } catch (e) {
-                resultDiv.innerHTML = `Error: ${e.message}`;
-                showMessage('Analysis failed', 'error');
+                renderError(resultDiv, e.message || 'Analysis failed');
             }
         }
 
@@ -903,17 +938,16 @@
             const resultDiv = document.getElementById('analyzeResult');
             resultDiv.innerHTML = '<div style="text-align: center; padding: 20px;"><div class="spinner"></div><p style="margin-top: 10px;">Running AI-powered deep analysis with Gemini...</p><p class="text-muted">This may take 15-30 seconds</p></div>';
             try {
-                const data = await apiCall(`/api/projects/${selectedProjectId}/analyze-gemini?user_name=${currentUser.user_name}`, { method: 'POST' });
+                const res = await apiCall(`/api/projects/${selectedProjectId}/analyze-gemini?user_name=${currentUser.user_name}`, { method: 'POST' });
+                if (!res.ok) { renderError(resultDiv, res.error || 'Gemini analysis failed'); return; }
+                const data = res.data;
                 if (data.success) {
-                    resultDiv.innerHTML = formatGeminiAnalysis(data.analysis);
-                    showMessage('Gemini analysis complete', 'success');
+                    renderSuccess(resultDiv, 'Gemini analysis complete');
                 } else {
-                    resultDiv.innerHTML = `Error: ${data.error || 'Gemini analysis failed'}`;
-                    showMessage('Gemini analysis failed', 'error');
+                    renderError(resultDiv, data.error || 'Gemini analysis failed');
                 }
             } catch (e) {
-                resultDiv.innerHTML = `Error: ${e.message}`;
-                showMessage('Gemini analysis failed', 'error');
+                renderError(resultDiv, e.message || 'Gemini analysis failed');
             }
         }
 
@@ -1165,13 +1199,14 @@
             const resultDiv = document.getElementById('rankResult');
             resultDiv.innerHTML = 'Ranking...';
             try {
-                const data = await apiCall(`/api/projects/rank?user_name=${currentUser.user_name}`, { method: 'POST' });
+                const res = await apiCall(`/api/projects/rank?user_name=${currentUser.user_name}`, { method: 'POST' });
+                if (!res.ok) { renderError(resultDiv, res.error || 'Failed to rank projects'); return; }
+                const data = res.data;
                 if (data.success) {
-                    resultDiv.innerHTML = `Ranked ${data.count} projects\nTop: ${data.ranked_projects.map((p, i) => `${i+1}. ${p.filename} (${p.score})`).join('\n')}`;
-                    showMessage('Projects ranked', 'success');
+                    renderSuccess(resultDiv, `Ranked ${data.count} projects\nTop: ${data.ranked_projects.map((p, i) => `${i+1}. ${p.filename} (${p.score})`).join('\n')}`);
                 }
             } catch (e) {
-                resultDiv.innerHTML = `Error: ${e.message}`;
+                renderError(resultDiv, e.message || 'Ranking failed');
             }
         }
 
@@ -1179,13 +1214,14 @@
             const resultDiv = document.getElementById('rankTop3Result');
             resultDiv.innerHTML = 'Ranking and summarizing...';
             try {
-                const data = await apiCall(`/api/projects/rank-top3?user_name=${currentUser.user_name}`, { method: 'POST' });
+                const res = await apiCall(`/api/projects/rank-top3?user_name=${currentUser.user_name}`, { method: 'POST' });
+                if (!res.ok) { renderError(resultDiv, res.error || 'Failed to rank top 3 projects'); return; }
+                const data = res.data;
                 if (data.success) {
-                    resultDiv.innerHTML = `Top 3 Projects:\n${data.top3.map((p, i) => `${i+1}. ${p.filename} (Score: ${p.score})`).join('\n')}`;
-                    showMessage('Top 3 ranked and summarized', 'success');
+                    renderSuccess(resultDiv, `Top 3 Projects:\n${data.top3.map((p, i) => `${i+1}. ${p.filename} (Score: ${p.score})`).join('\n')}`);
                 }
             } catch (e) {
-                resultDiv.innerHTML = `Error: ${e.message}`;
+                renderError(resultDiv, e.message || 'Ranking failed');
             }
         }
 
@@ -1193,7 +1229,9 @@
             const resultDiv = document.getElementById('rankGeminiResult');
             resultDiv.innerHTML = 'Asking Gemini to rank your projects… this may take 15-30s.';
             try {
-                const data = await apiCall(`/api/projects/rank-gemini?user_name=${currentUser.user_name}`, { method: 'POST' });
+                const res = await apiCall(`/api/projects/rank-gemini?user_name=${currentUser.user_name}`, { method: 'POST' });
+                if (!res.ok) { renderError(resultDiv, res.error || 'Gemini ranking failed'); return; }
+                const data = res.data;
                 if (data.success) {
                     let html = data.rankings.map((r, i) =>
                         `<strong>${i+1}. ${r.filename}</strong> — Score: ${r.score}/100\n` +
@@ -1202,8 +1240,7 @@
                         (r.one_line_summary ? `   ${r.one_line_summary}\n` : '')
                     ).join('\n');
                     if (data.reasoning) html += `\nOverall: ${data.reasoning}`;
-                    resultDiv.innerHTML = html;
-                    showMessage('Gemini ranking complete', 'success');
+                    renderSuccess(resultDiv, 'Gemini ranking complete');
                 }
             } catch (e) {
                 resultDiv.innerHTML = `Error: ${e.message}`;
@@ -1214,28 +1251,32 @@
             const resultDiv = document.getElementById('rankingsList');
             resultDiv.innerHTML = 'Loading...';
             try {
-                const data = await apiCall('/api/projects/rankings');
+                const res = await apiCall('/api/projects/rankings');
+                if (!res.ok) { renderError(resultDiv, res.error || "Failed to load rankings"); return; }
+                const data = res.data;
                 if (data.success) {
                     resultDiv.innerHTML = data.rankings.length ? data.rankings.map(r => `${r.rank_position}. Project ${r.project_id} (Score: ${r.score})`).join('\n') : 'No rankings found';
                 }
             } catch (e) {
-                resultDiv.innerHTML = `Error: ${e.message}`;
+                renderError(resultDiv, `Error: ${e.message}`);
             }
         }
 
         async function cleanupInsights() {
             if (!selectedProjectId) {
-                showMessage('Please select a project', 'error');
+                renderError(document.getElementById('cleanupResult'), 'Please select a project');
                 return;
             }
             if (!confirm('Delete all insights for this project?')) return;
             const resultDiv = document.getElementById('cleanupResult');
             resultDiv.innerHTML = 'Cleaning up...';
             try {
-                const data = await apiCall(`/api/projects/${selectedProjectId}/insights`, { method: 'DELETE' });
+                const res = await apiCall(`/api/projects/${selectedProjectId}/insights`, { method: 'DELETE' });
+                if (!res.ok) { renderError(resultDiv, res.error || 'Failed to clean up insights'); return; }
+                const data = res.data;
                 if (data.success) {
                     resultDiv.innerHTML = `Deleted: ${data.deleted.metrics} metrics, ${data.deleted.files} files, ${data.deleted.projects} projects`;
-                    showMessage('Insights cleaned up', 'success');
+                    renderSuccess(resultDiv, 'Insights cleanup complete');
                     loadProjects();
                 }
             } catch (e) {
@@ -1247,7 +1288,9 @@
             const resultDiv = document.getElementById('skillsResult');
             resultDiv.innerHTML = 'Loading skills...';
             try {
-                const data = await apiCall(`/api/skills?user_name=${currentUser.user_name}`);
+                const res = await apiCall(`/api/skills?user_name=${currentUser.user_name}`);
+                if (!res.ok) { renderError(resultDiv, res.error || 'Failed to load skills'); return; }
+                const data = res.data;
                 if (data.success) {
                     const skills = data.skills || [];
                     const langs = data.languages || [];
@@ -1263,13 +1306,15 @@
             const resultDiv = document.getElementById('preferencesResult');
             resultDiv.innerHTML = 'Saving...';
             try {
-                const data = await apiCall('/api/preferences', {
+                const res = await apiCall('/api/preferences', {
                     method: 'POST',
                     body: JSON.stringify({ git_username: gitUsername || null })
                 });
+                if (!res.ok) { renderError(resultDiv, res.error || 'Failed to save preferences'); return; }
+                const data = res.data;
                 if (data.success) {
                     resultDiv.innerHTML = `Saved! Git username: ${data.git_username || 'None'}`;
-                    showMessage('Preferences saved', 'success');
+                    renderSuccess(resultDiv, 'Preferences saved');
                 }
             } catch (e) {
                 resultDiv.innerHTML = `Error: ${e.message}`;
@@ -1280,13 +1325,15 @@
             const resultDiv = document.getElementById('resumeGenResult');
             resultDiv.innerHTML = 'Generating resume...';
             try {
-                const data = await apiCall(`/api/resume/generate?user_name=${currentUser.user_name}`, {
+                const res = await apiCall(`/api/resume/generate?user_name=${currentUser.user_name}`, {
                     method: 'POST',
                     body: JSON.stringify({ top_projects_count: 5 })
                 });
+                if (!res.ok) { renderError(resultDiv, res.error || 'Failed to generate resume'); return; }
+                const data = res.data;
                 if (data.success) {
                     resultDiv.innerHTML = `Resume generated! Projects: ${data.resume.top_projects_displayed}, Skills: ${data.resume.all_skills?.length || 0}`;
-                    showMessage('Resume generated successfully', 'success');
+                    renderSuccess(resultDiv, 'Resume generated successfully');
                 }
             } catch (e) {
                 resultDiv.innerHTML = `Error: ${e.message}`;
@@ -1297,7 +1344,9 @@
             const resultDiv = document.getElementById('resumeViewResult');
             resultDiv.innerHTML = 'Loading resume...';
             try {
-                const data = await apiCall(`/api/resume/${currentUser.user_name}`);
+                const res = await apiCall(`/api/resume/${currentUser.user_name}`);
+                if (!res.ok) { renderError(resultDiv, res.error || 'Failed to load resume'); return; }
+                const data = res.data;
                 if (data.success) {
                     const r = data.resume.resume_data;
                     resultDiv.innerHTML = `Name: ${r.display_name}\nProjects: ${r.top_projects_displayed}/${r.total_projects_analyzed}\nSkills: ${r.all_skills?.length || 0}\nLanguages: ${r.languages?.join(', ') || 'None'}`;
@@ -1312,10 +1361,11 @@
             if (!confirm('Delete your resume?')) return;
             resultDiv.innerHTML = 'Deleting...';
             try {
-                const data = await apiCall(`/api/resume/${currentUser.user_name}`, { method: 'DELETE' });
+                const res = await apiCall(`/api/resume/${currentUser.user_name}`, { method: 'DELETE' });
+                if (!res.ok) { renderError(resultDiv, res.error || 'Failed to delete resume'); return; }
+                const data = res.data;
                 if (data.success) {
-                    resultDiv.innerHTML = 'Resume deleted';
-                    showMessage('Resume deleted', 'success');
+                    renderSuccess(resultDiv, 'Resume deleted');
                 }
             } catch (e) {
                 resultDiv.innerHTML = `Error: ${e.message}`;
@@ -1326,7 +1376,9 @@
             const resultDiv = document.getElementById('portfolioResult');
             resultDiv.innerHTML = 'Loading portfolio...';
             try {
-                const data = await apiCall(`/api/portfolio/${currentUser.user_name}`);
+                const res = await apiCall(`/api/portfolio/${currentUser.user_name}`);
+                if (!res.ok) { renderError(resultDiv, res.error || 'Failed to load portfolio'); return; }
+                const data = res.data;
                 if (data.success) {
                     const p = data.portfolio;
                     resultDiv.innerHTML = `Portfolio Summary\nProjects: ${p.summary?.total_projects || 0}\nTotal LOC: ${p.summary?.total_lines_of_code || 0}\nLanguages: ${p.summary?.unique_languages || 0}`;
@@ -1340,14 +1392,16 @@
             const resultDiv = document.getElementById('portfolioResult');
             resultDiv.innerHTML = 'Generating portfolio...';
             try {
-                const data = await apiCall(`/api/portfolio/generate?user_name=${currentUser.user_name}`, {
+                const res = await apiCall(`/api/portfolio/generate?user_name=${currentUser.user_name}`, {
                     method: 'POST',
                     body: JSON.stringify({ top_n: null })
                 });
+                if (!res.ok) { renderError(resultDiv, res.error || 'Failed to generate portfolio'); return; }
+                const data = res.data;
                 if (data.success) {
                     const p = data.portfolio;
                     resultDiv.innerHTML = `Portfolio Generated!\nProjects: ${p.summary?.total_projects || 0}\nTotal LOC: ${p.summary?.total_lines_of_code || 0}\nLanguages: ${p.summary?.unique_languages || 0}`;
-                    showMessage('Portfolio generated successfully', 'success');
+                    renderSuccess(resultDiv, 'Portfolio generated successfully');
                 }
             } catch (e) {
                 resultDiv.innerHTML = `Error: ${e.message}`;
@@ -1356,18 +1410,18 @@
 
         async function addThumbnail() {
             if (!selectedProjectId) {
-                showMessage('Please select a project', 'error');
+                renderError(document.getElementById('thumbnailResult'), 'Please select a project');
                 return;
             }
             const fileInput = document.getElementById('thumbnailFile');
             const resultDiv = document.getElementById('thumbnailResult');
             if (!fileInput?.files[0]) {
-                showMessage('Please select an image file', 'error');
+                renderError(resultDiv, 'Please select an image file');
                 return;
             }
             const file = fileInput.files[0];
             if (!file.type || !file.type.startsWith('image/')) {
-                showMessage('Thumbnail must be an image file', 'error');
+                renderError(resultDiv, 'Thumbnail must be an image file');
                 return;
             }
             const formData = new FormData();
@@ -1378,35 +1432,35 @@
                     method: 'POST',
                     body: formData
                 });
-                if (response.ok && data.success) {
+                if (data.success) {
                     resultDiv.innerHTML = 'Thumbnail uploaded successfully';
-                    showMessage('Thumbnail uploaded', 'success');
+                    renderSuccess(resultDiv, 'Thumbnail uploaded');
                     await loadProjects();
                     refreshProjectListsWithThumbnails();
                 } else {
                     resultDiv.innerHTML = data.detail || data.message || 'Thumbnail upload failed';
-                    showMessage('Thumbnail upload failed', 'error');
+                    renderError(resultDiv, 'Thumbnail upload failed');
                 }
             } catch (e) {
                 resultDiv.innerHTML = `Error: ${e.message}`;
-                showMessage('Thumbnail upload failed', 'error');
+                renderError(resultDiv, 'Thumbnail upload failed');
             }
         }
 
         async function mergeZipToProject() {
             if (!selectedProjectId) {
-                showMessage('Please select a project to merge into', 'error');
+                renderError(document.getElementById('mergeResult'), 'Please select a project to merge into');
                 return;
             }
             const fileInput = document.getElementById('mergeZipFile');
             const resultDiv = document.getElementById('mergeResult');
             if (!fileInput?.files[0]) {
-                showMessage('Please select a ZIP file to merge', 'error');
+                renderError(resultDiv, 'Please select a ZIP file to merge');
                 return;
             }
             const file = fileInput.files[0];
             if (!file.name.endsWith('.zip')) {
-                showMessage('Only ZIP files can be merged', 'error');
+                renderError(resultDiv, 'Only ZIP files can be merged');
                 return;
             }
             const formData = new FormData();
@@ -1417,7 +1471,7 @@
                     method: 'POST',
                     body: formData
                 });
-                if (response.ok && data.success) {
+                if (data.success) {
                     const mergeData = data.data || {};
                     let resultHtml = `<div class="analysis-section">
                         <h4>Merge Successful!</h4>
@@ -1443,37 +1497,39 @@
                     
                     resultHtml += `</div>`;
                     resultDiv.innerHTML = resultHtml;
-                    showMessage(`Merged ${mergeData.new_files_count || 0} new files`, 'success');
+                    renderSuccess(document.getElementById('mergeResult'), `Merged ${mergeData.new_files_count || 0} new files`);
                     await loadProjects();
                 } else {
                     resultDiv.innerHTML = `<div class="message error">${data.detail || data.message || 'Merge failed'}</div>`;
-                    showMessage('Merge failed', 'error');
+                    renderError(document.getElementById('mergeResult'), 'Merge failed');
                 }
             } catch (e) {
                 resultDiv.innerHTML = `<div class="message error">Error: ${e.message}</div>`;
-                showMessage('Merge failed', 'error');
+                renderError(document.getElementById('mergeResult'), 'Merge failed');
             }
         }
 
         async function runLLMSummary() {
             if (!selectedProjectId) {
-                showMessage('Please select a project', 'error');
+                renderError(document.getElementById('llmSummaryResult'), 'Please select a project');
                 return;
             }
             const resultDiv = document.getElementById('llmSummaryResult');
             resultDiv.innerHTML = '<div style="text-align: center; padding: 20px;">Generating AI summary...</div>';
             try {
-                const data = await apiCall(`/api/projects/${selectedProjectId}/quick-summary?user_name=${currentUser.user_name}`, { method: 'POST' });
+                const res = await apiCall(`/api/projects/${selectedProjectId}/quick-summary?user_name=${currentUser.user_name}`, { method: 'POST' });
+                if (!res.ok) { renderError(resultDiv, res.error || "Error generating summary"); return; }
+                const data = res.data;
                 if (data.success) {
                     resultDiv.innerHTML = `<div class="analysis-section"><h4>AI-Generated Summary for ${data.project_name}</h4><p style="font-style: italic; line-height: 1.6;">"${data.summary}"</p><p class="text-muted" style="margin-top: 10px; font-size: 0.9em;">Use this summary in your resume or portfolio!</p></div>`;
-                    showMessage('Summary generated', 'success');
+                    renderSuccess(resultDiv, 'Summary generated');
                 } else {
                     resultDiv.innerHTML = `Error: ${data.error || 'Summary generation failed'}`;
-                    showMessage('Summary generation failed', 'error');
+                    renderError(resultDiv, 'Summary generation failed');
                 }
             } catch (e) {
                 resultDiv.innerHTML = `Error: ${e.message}`;
-                showMessage('Summary generation failed', 'error');
+                renderError(resultDiv, 'Summary generation failed');
             }
         }
 
