@@ -1,0 +1,113 @@
+/* src/Dashboard.css */
+.dashboard-shell {
+    width: 100%;
+    min-height: 100vh;
+    background-color: #f8fafc;
+    display: flex;
+    flex-direction: column;
+}
+
+/* HEADER SECTION */
+.dashboard-header {
+    background: white;
+    padding: 1.5rem 5vw;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-bottom: 1px solid #e2e8f0;
+}
+
+.dashboard-header h1 {
+    font-size: 1.4rem;
+    font-weight: 800;
+    color: #0f172a;
+}
+
+.dashboard-nav {
+    background: white;
+    padding: 0 5vw;
+    display: flex;
+    gap: 2.5rem;
+    box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05);
+}
+
+.nav-btn {
+    padding: 1.2rem 0;
+    background: none;
+    border: none;
+    cursor: pointer;
+    font-weight: 700;
+    color: #64748b;
+    border-bottom: 3px solid transparent;
+    transition: all 0.2s;
+}
+
+.nav-btn.active {
+    color: #0f172a;
+    border-bottom-color: #0f172a;
+}
+
+/* MAIN DASHBOARD CONTENT */
+.dashboard-main {
+    padding: 3rem 5vw;
+    flex: 1;
+}
+
+/* PROJECT GRID */
+.project-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(400px, 1fr));
+    gap: 2rem;
+}
+
+.project-card {
+    background: white;
+    padding: 2.5rem;
+    border-radius: 20px;
+    border: 1px solid #e2e8f0;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.03);
+    transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.project-card:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 12px 24px rgba(0,0,0,0.06);
+}
+
+.project-card h3 {
+    font-size: 1.5rem;
+    margin-bottom: 1rem;
+    color: #0f172a;
+}
+
+.project-card p {
+    color: #64748b;
+    margin-bottom: 0.5rem;
+    font-size: 1rem;
+}
+
+/* DASHBOARD BUTTONS */
+.secondary-btn {
+    background: #f1f5f9;
+    color: #475569;
+    padding: 12px 20px;
+    border: none;
+    border-radius: 10px;
+    font-weight: 600;
+    cursor: pointer;
+    margin-right: 10px;
+}
+
+.ghost-btn {
+    padding: 10px 18px;
+    background: transparent;
+    color: #ef4444; /* Logout look */
+    border: 1px solid #fee2e2;
+    border-radius: 8px;
+    font-weight: 600;
+    cursor: pointer;
+}
+
+.ghost-btn:hover {
+    background: #fef2f2;
+}
