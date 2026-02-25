@@ -37,6 +37,9 @@ def initialize_database_tables():
         
         ResumeManager.init_resume_table()
         
+        ResumeManager.init_portfolio_customizations_table()
+        print("  ✓ portfolio_customizations table initialized")
+        
         ConsentStorage.initialize_consent_table()
         
         CollaborativeStorage.init_table()
