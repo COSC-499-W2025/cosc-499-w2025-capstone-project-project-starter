@@ -1631,3 +1631,68 @@ def test_pdf_without_thumbnail_no_image_marker():
 
     # Ensure no image stream is present
     assert b"/XObject" not in pdf_bytes, "Unexpected image embedded"
+
+def test_portfolio_showcase_upsert_logic(engine):
+    """
+    Verifies that inserting a showcase for a project that already has one
+    results in an UPDATE rather than a duplicate or a 500 error.
+    """
+    # create the necessary parent rows
+    user_id, portfolio_id, project_id, snapshot_id = _mk_graph(engine)
+
+    # define two versions of the same showcase
+    sha_initial = "a" * 64
+    sha_updated = "b" * 64
+    content_initial = json.dumps({"description": "Initial Version"})
+    content_updated = json.dumps({"description": "Updated Version"})
+
+    # ensure the file_blobs exist for foreign keys
+    with engine.begin() as conn:
+        for sha in [sha_initial, sha_updated]:
+            conn.execute(
+                text("INSERT INTO file_blobs (sha256, size_bytes, stored_path) VALUES (:s, 0, '/dev/null') ON CONFLICT DO NOTHING"),
+                {"s": sha}
+            )
+
+    # perform the first INSERT
+    upsert_query = text("""
+        INSERT INTO portfolio_showcases (project_id, thumbnail_blob_sha256, content_json)
+        VALUES (:pid, :sha, CAST(:cj AS jsonb))
+        ON CONFLICT (project_id) 
+        DO UPDATE SET 
+            thumbnail_blob_sha256 = EXCLUDED.thumbnail_blob_sha256,
+            content_json = EXCLUDED.content_json,
+            updated_at = NOW()
+    """)
+
+    # run ACT 1
+    with engine.begin() as conn:
+        conn.execute(upsert_query, {
+            "pid": project_id, 
+            "sha": sha_initial, 
+            "cj": content_initial
+        })
+
+    # run ACT 2 - the actual upsert
+    with engine.begin() as conn:
+        conn.execute(upsert_query, {
+            "pid": project_id, 
+            "sha": sha_updated, 
+            "cj": content_updated
+        })
+
+    # ASSERT: Verify only ONE row exists and it has the NEW data
+    with engine.connect() as conn:
+        rows = conn.execute(
+            text("SELECT thumbnail_blob_sha256, content_json FROM portfolio_showcases WHERE project_id = :pid"),
+            {"pid": project_id}
+        ).fetchall()
+
+        assert len(rows) == 1, "Duplicate row created! Migration 0003 or Upsert failed."
+        assert rows[0][0] == sha_updated, "Thumbnail was not updated."
+        
+        final_content = rows[0][1]
+        # Handle dict vs string return based on driver
+        if isinstance(final_content, str):
+            final_content = json.loads(final_content)
+        assert final_content["description"] == "Updated Version"

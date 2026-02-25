@@ -2541,20 +2541,27 @@ async def set_project_image(
         blob.size_bytes = len(data)
 
     # 7) Create/update portfolio showcase
+    # Use .first() instead of .one_or_none() to prevent crashing on existing duplicates
     showcase = (
         db.query(PortfolioShowcase)
         .filter(PortfolioShowcase.project_id == project_id)
-        .one_or_none()
+        .order_by(PortfolioShowcase.updated_at.desc()) # Pick the most recent one if duplicates exist
+        .first()
     )
 
     if showcase is None:
+        # If the user uploads an image BEFORE generating a portfolio, 
+        # we create the showcase record now.
         showcase = PortfolioShowcase(
             project_id=project_id,
             thumbnail_blob_sha256=sha256,
+            content_json={} # Ensure it has valid empty JSON
         )
         db.add(showcase)
     else:
+        # Update the existing record (AI content is preserved)
         showcase.thumbnail_blob_sha256 = sha256
+        showcase.updated_at = datetime.now(timezone.utc)
 
     # 8) Commit once
     db.commit()

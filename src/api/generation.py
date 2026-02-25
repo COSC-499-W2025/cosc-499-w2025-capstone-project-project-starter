@@ -425,16 +425,22 @@ def generate_portfolio_top_summaries(
             showcase_id = None
             if persist:
                 payload = json.dumps(artifact, default=str)
+                
+                # ATOMIC UPSERT: Handles the race condition safely
                 showcase_id = conn.execute(
                     text(
                         """
-                        INSERT INTO portfolio_showcases (project_id, thumbnail_blob_sha256, content_json)
-                        VALUES (:pid, NULL, CAST(:cj AS jsonb))
+                        INSERT INTO portfolio_showcases (project_id, thumbnail_blob_sha256, content_json, updated_at)
+                        VALUES (:pid, NULL, CAST(:cj AS jsonb), NOW())
+                        ON CONFLICT (project_id) DO UPDATE
+                        SET content_json = EXCLUDED.content_json,
+                            updated_at = EXCLUDED.updated_at
                         RETURNING id
                         """
                     ),
                     {"pid": pid, "cj": payload},
                 ).scalar_one()
+                
                 showcase_ids.append(str(showcase_id))
 
             top_projects.append(
