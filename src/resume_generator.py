@@ -37,7 +37,7 @@ def _save_doc(doc, path):
         except PermissionError:
             print(f"\n[!] Could not save to '{path}' because it is open.")
             print("Please close the file and press Enter to retry, or type 'cancel' to stop.")
-            if input("> ").strip().lower() == "cancel":
+            if input("Action: ").strip().lower() == "cancel":
                 return None
         except Exception as e:
             print(f"Error saving document: {e}")
@@ -536,7 +536,7 @@ def edit_contributor_descriptions(target_scan=None):
                 "3. Edit Professional Summary",
                 "4. Edit Project Details (Desc/Skills)",
                 "5. Regenerate Resume",
-                "6. Reset All Changes",
+                "6. Reset Resume Changes",
                 "0. Back to Contributor List"
             ]
             max_len = max(len(o) for o in menu_opts)
@@ -557,7 +557,7 @@ def edit_contributor_descriptions(target_scan=None):
 
                 curr = profile.get("custom_name", default_name)
                 print(_center_text("Edit Name (type 'RESET' to restore default):"))
-                val = _input_with_prefill("> ", curr).strip()
+                val = _input_with_prefill("Value: ", curr).strip()
 
                 if val == "RESET":
                     if "custom_name" in profile:
@@ -582,7 +582,7 @@ def edit_contributor_descriptions(target_scan=None):
 
                 curr = profile.get("custom_title", default_title)
                 print(_center_text("Edit Title (type 'RESET' to restore default):"))
-                val = _input_with_prefill("> ", curr).strip()
+                val = _input_with_prefill("Value: ", curr).strip()
 
                 if val == "RESET":
                     if "custom_title" in profile:
@@ -617,7 +617,7 @@ def edit_contributor_descriptions(target_scan=None):
 
                 curr = profile.get("custom_summary", default_summary)
                 print(_center_text("Edit Summary (type 'RESET' to restore default):"))
-                val = _input_with_prefill("> ", curr).strip()
+                val = _input_with_prefill("Value: ", curr).strip()
 
                 if val == "RESET":
                     if "custom_summary" in profile:
@@ -705,7 +705,7 @@ def edit_contributor_descriptions(target_scan=None):
 
                             print(_center_text("Edit description (type 'RESET' to restore default):"))
                             prefill = current_custom if current_custom else default_desc
-                            new_desc = _input_with_prefill("> ", prefill).strip()
+                            new_desc = _input_with_prefill("Value: ", prefill).strip()
 
                             if new_desc == "RESET":
                                 if "custom_description" in target_p:
@@ -728,7 +728,7 @@ def edit_contributor_descriptions(target_scan=None):
                             current_str = ", ".join(current_custom) if current_custom is not None else default_skills_str
 
                             print(_center_text("Edit Skills (comma-separated, type 'RESET' to restore default):"))
-                            val = _input_with_prefill("> ", current_str).strip()
+                            val = _input_with_prefill("Value: ", current_str).strip()
 
                             if val == "RESET":
                                 if "custom_skills" in target_p:
@@ -767,8 +767,9 @@ def edit_contributor_descriptions(target_scan=None):
                     # Clear project-level fields
                     for p in user_projects:
                         for k in list(p.keys()):
-                            if k.startswith("custom_"):
+                            if k.startswith("custom_") and k != "custom_portfolio_description":
                                 p.pop(k, None)
                     
                     update_full_scan(summary_id, data)
                     print(_center_text("All custom fields cleared. Reverted to defaults."))
+                    print(_center_text("Resume fields cleared."))
