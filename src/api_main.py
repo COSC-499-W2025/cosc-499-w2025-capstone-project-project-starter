@@ -22,12 +22,8 @@ from permission_manager import get_user_consent, get_analysis_mode, get_advanced
 from print_utils import (
     _center_text,
     _print_banner,
-    print_project_rankings,
-    print_repo_summary,
-    print_chronological_projects,
-    print_skills_timeline,
-    print_resume_summaries,
-    print_contributor_stats
+    print_full_scan_report,
+    print_scan_list
 )
 
 # Configuration constants
@@ -124,6 +120,21 @@ def run_new_scan_via_api():
     if not zip_path:
         return
 
+    # Check for duplicates via API
+    allow_duplicate = False
+    zip_hash = compute_file_hash(zip_path)
+    if zip_hash:
+        try:
+            resp = requests.get(f"{API_URL}/scans/check", params={"file_hash": zip_hash})
+            if resp.status_code == 200 and resp.json().get("exists"):
+                print()
+                print(_center_text("Warning: This project has already been scanned."))
+                if not get_yes_no("Do you want to scan it again?"):
+                    return
+                allow_duplicate = True
+        except Exception:
+            pass
+
     # 3. Consent
     # Check if consent is already granted via API (from initialization)
     consent = False
@@ -153,47 +164,19 @@ def run_new_scan_via_api():
                 'analysis_mode': mode,
                 'consent': str(consent).lower(),
                 'persist': 'true',
+                'allow_duplicate': str(allow_duplicate).lower(),
                 'advanced_options': json.dumps(advanced_options)
             }
             resp = requests.post(f"{API_URL}/projects/upload", files=files, data=data)
             
         if resp.status_code in (200, 201):
             result = resp.json()
+
             print(_center_text("Scan Complete!"))
-            if result.get("duplicate"):
-                print(_center_text("Note: This was a duplicate scan."))
-            
             # Display summary using the returned JSON data
             scan_data = result.get("results", {})
             if scan_data:
-                # 1. Print Repository Metadata for each project (if available)
-                project_summaries = scan_data.get("project_summaries", [])
-                for p in project_summaries:
-                    if p.get("project"):
-                        repo_name = p.get("repo_name") or p.get("project")
-                        # Wrap strings in list because print_repo_summary expects iterables to join
-                        authors_arg = [p.get("authors")] if p.get("authors") else []
-                        contribs_arg = [p.get("contributors")] if p.get("contributors") else []
-                        
-                        print_repo_summary(
-                            p.get("project"),
-                            repo_name,
-                            p.get("repo_root", ""),
-                            authors_arg,
-                            contribs_arg,
-                            p.get("branch_count", 0),
-                            p.get("has_merges", "Unknown"),
-                            p.get("project_type", "Unknown"),
-                            p.get("repo_duration_days", 0),
-                            p.get("commit_frequency", "Unknown")
-                        )
-
-                # 2. Print the rest of the reports
-                print_project_rankings(scan_data.get("project_summaries", []))
-                print_chronological_projects(scan_data.get("projects_chronological", []))
-                print_skills_timeline(scan_data.get("skills_chronological", []))
-                print_resume_summaries(scan_data.get("resume_summaries", []))
-                print_contributor_stats(scan_data.get("project_summaries", []))
+                print_full_scan_report(scan_data)
         else:
             print(_center_text(f"API Error: {resp.status_code} - {resp.text}"))
 
@@ -224,8 +207,7 @@ def view_full_scan_details_via_api():
 
     print()
     print(_center_text("Select a scan to view:"))
-    for i, s in enumerate(scans, 1):
-        print(_center_text(f"{i}. Scan {s['summary_id']} - {s['timestamp']} ({s['analysis_mode']})"))
+    print_scan_list(scans)
 
     choice = input(_center_text("Enter number (0 to cancel): ")).strip()
     if not choice.isdigit() or int(choice) == 0:
@@ -254,32 +236,7 @@ def view_full_scan_details_via_api():
         print(f"Mode: {scan_wrapper.get('analysis_mode')}")
         print("=" * 28)
 
-        # Print Repository Metadata for each project
-        project_summaries = data.get("project_summaries", [])
-        for p in project_summaries:
-            if p.get("project"):
-                repo_name = p.get("repo_name") or p.get("project")
-                authors_arg = [p.get("authors")] if p.get("authors") else []
-                contribs_arg = [p.get("contributors")] if p.get("contributors") else []
-                
-                print_repo_summary(
-                    p.get("project"),
-                    repo_name,
-                    p.get("repo_root", ""),
-                    authors_arg,
-                    contribs_arg,
-                    p.get("branch_count", 0),
-                    p.get("has_merges", "Unknown"),
-                    p.get("project_type", "Unknown"),
-                    p.get("repo_duration_days", 0),
-                    p.get("commit_frequency", "Unknown")
-                )
-
-        print_project_rankings(data.get("project_summaries", []))
-        print_chronological_projects(data.get("projects_chronological", []))
-        print_skills_timeline(data.get("skills_chronological", []))
-        print_resume_summaries(data.get("resume_summaries", []))
-        print_contributor_stats(data.get("project_summaries", []))
+        print_full_scan_report(data)
 
         print(_center_text("\nEnd of scan view.\n"))
         input(_center_text("Press Enter to continue..."))
@@ -297,8 +254,7 @@ def delete_scan_via_api():
 
     print()
     print(_center_text("Select a scan to delete:"))
-    for i, s in enumerate(scans, 1):
-        print(_center_text(f"{i}. Scan {s['summary_id']} - {s['timestamp']}"))
+    print_scan_list(scans)
 
     choice = input(_center_text("Enter number (0 to cancel): ")).strip()
     if not choice.isdigit() or int(choice) == 0:
@@ -345,6 +301,8 @@ def scan_manager_via_api():
         elif sub_choice == "3": 
             print(_center_text("Generation not implemented in client yet."))
             input(_center_text("Press Enter..."))
+        elif sub_choice == "2": "update"#update_scan_via_api()
+        elif sub_choice == "3": "generate"#generate_artifacts_via_api()
         elif sub_choice == "4": delete_scan_via_api()
         elif sub_choice == "0": break
 
