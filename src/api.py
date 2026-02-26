@@ -618,6 +618,13 @@ def create_app() -> FastAPI:
             raise HTTPException(status_code=500, detail="failed to list scans")
         return {"scans": _json_safe(scans)}
 
+    @app.get("/scans/check")
+    def check_scan_exists(file_hash: str = Query(..., min_length=1)):
+        """
+        Checks if a scan with the given file hash already exists.
+        """
+        return {"exists": scan_exists(file_hash)}
+
     @app.get("/scans/{summary_id}")
     def get_scan(summary_id: int = Path(..., ge=1)):
         """
