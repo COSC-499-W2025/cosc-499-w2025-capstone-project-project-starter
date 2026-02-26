@@ -41,8 +41,9 @@ def scan_manager():
                 ("2", "Update an existing scan"),
                 ("3", "Generate Resume/Portfolio"),
                 ("4", "Delete stored scans"),
+                ("5", "Customize (ranking/chronology/skills/showcase)")
             ],
-            prompt="Choose an option (0–4): ",
+            prompt="Choose an option (0–5): ",
         )
 
         if choice == "1":
@@ -53,6 +54,8 @@ def scan_manager():
             generate_portfolio_menu()
         elif choice == "4":
             delete_full_scan()
+        elif choice == "5":
+            customize_scan_output()
         elif choice == "0":
             break
         else:
@@ -96,6 +99,7 @@ def view_full_scan_details():
         return
 
     data = scan["scan_data"]
+    _apply_customizations_to_project_summaries(data)
 
         # Extract specific sections from the JSON blob
 
@@ -113,6 +117,16 @@ def view_full_scan_details():
         # Print various sections of the report
 
     print_project_rankings(project_summaries)
+
+    projects_chronological = []
+    for p in project_summaries:
+    # first_modified / last_modified might be datetime or string 
+        first = str(p.get("first_modified", ""))[:10]
+        last = str(p.get("last_modified", ""))[:10]
+        projects_chronological.append({"name": p.get("project", "Unknown"), "first_used": first, "last_used": last})
+
+    projects_chronological.sort(key=lambda x: x["first_used"])
+
     print_chronological_projects(projects_chronological)
     print_skills_timeline(skills_chronological)
     print_resume_summaries(resume_summaries)
@@ -402,3 +416,182 @@ def _print_menu(title, options, prompt="Choose an option: "):
     for key, label in options:
         print(_center_text(f"{key}) {label}"))
     return input(_center_text(prompt)).strip()
+
+
+def _print_scan_list(scans):
+    for i, s in enumerate(scans, start=1):
+        ts = _format_timestamp(s['timestamp'])
+        print(
+            _center_text(
+                f"{i}. Scan {s['summary_id']} - {ts} ({s['analysis_mode']})"
+            )
+        )
+
+def _apply_customizations_to_project_summaries(data: dict) -> None:
+    """
+    Applies saved user choices (ranking, chronology corrections, highlighted skills,
+    showcase selection, comparison attributes) to the project_summaries list
+    b4 printing / generating.
+    """
+    custom = data.get("project_customizations") or {}
+    projects = data.get("project_summaries") or []
+
+    for p in projects:
+        pname = p.get("project")
+        if not pname:
+            continue
+        c = custom.get(pname) or {}
+
+        # 1) Re-ranking
+        if isinstance(c.get("ranking"), int):
+            p["_custom_rank"] = c["ranking"]
+
+        # 2) Chronology correction (override first/last)
+        chrono = c.get("chronology_correction")
+        if isinstance(chrono, dict):
+            if chrono.get("first_used"):
+                p["first_modified"] = chrono["first_used"]
+            if chrono.get("last_used"):
+                p["last_modified"] = chrono["last_used"]
+
+        # 3) Comparison attributes (just store on project)
+        if isinstance(c.get("comparison_attributes"), dict):
+            p["comparison_attributes"] = c["comparison_attributes"]
+
+        # 4) Skills to highlight
+        if isinstance(c.get("highlighted_skills"), list):
+            p["highlighted_skills"] = c["highlighted_skills"]
+
+        # 5) Selected for showcase
+        if isinstance(c.get("selected_for_showcase"), bool):
+            p["selected_for_showcase"] = c["selected_for_showcase"]
+
+    # Sort project_summaries: custom rank first, otherwise by score
+    def sort_key(p):
+        if isinstance(p.get("_custom_rank"), int):
+            return (0, -p["_custom_rank"])
+        return (1, -(p.get("score") or 0))
+
+    data["project_summaries"] = sorted(projects, key=sort_key)
+
+
+def customize_scan_output():
+    scans = list_full_scans()
+    if not scans:
+        print(_center_text("No scans found."))
+        return
+
+    print()
+    print(_center_text("Select a scan to customize:"))
+    _print_scan_list(scans)
+
+    choice = input(_center_text("Enter number (0 to cancel): ")).strip()
+    if not choice.isdigit() or int(choice) == 0:
+        return
+
+    idx = int(choice) - 1
+    if idx < 0 or idx >= len(scans):
+        print(_center_text("Invalid selection."))
+        return
+
+    scan = get_full_scan_by_id(scans[idx]["summary_id"])
+    if not scan:
+        print(_center_text("Could not load scan."))
+        return
+
+    summary_id = scan["summary_id"]
+    data = scan["scan_data"]
+    data.setdefault("project_customizations", {})
+    projects = data.get("project_summaries", []) or []
+
+    if not projects:
+        print(_center_text("No projects in this scan."))
+        return
+
+    while True:
+        _print_header("CUSTOMIZE OUTPUT", width=44, sep="=")
+        print(_center_text("1) Set project ranking (re-order)"))
+        print(_center_text("2) Correct chronology (first/last date)"))
+        print(_center_text("3) Set comparison attributes"))
+        print(_center_text("4) Pick skills to highlight"))
+        print(_center_text("5) Mark project for showcase"))
+        print(_center_text("0) Save + Exit"))
+
+        action = input(_center_text("Choose: ")).strip()
+        if action == "0":
+            break
+        if action not in {"1", "2", "3", "4", "5"}:
+            continue
+
+        print()
+        for i, p in enumerate(projects, 1):
+            print(_center_text(f"{i}. {p.get('project', f'Project {i}')}"))
+        psel = input(_center_text("Pick project number (0 to back): ")).strip()
+        if not psel.isdigit() or int(psel) == 0:
+            continue
+
+        pidx = int(psel) - 1
+        if pidx < 0 or pidx >= len(projects):
+            continue
+
+        proj = projects[pidx]
+        pname = proj.get("project", f"Project {pidx+1}")
+        pc = data["project_customizations"].setdefault(pname, {})
+
+        if action == "1":
+            r = input(_center_text("Ranking number (higher = higher priority): ")).strip()
+            if r.isdigit():
+                pc["ranking"] = int(r)
+
+        elif action == "2":
+            first = input(_center_text("First used (YYYY-MM-DD): ")).strip()
+            last = input(_center_text("Last used (YYYY-MM-DD): ")).strip()
+            pc.setdefault("chronology_correction", {})
+            if first:
+                pc["chronology_correction"]["first_used"] = first
+            if last:
+                pc["chronology_correction"]["last_used"] = last
+
+        elif action == "3":
+            raw = input(_center_text("Enter key=value (comma-separated): ")).strip()
+            attrs = {}
+            for part in raw.split(","):
+                part = part.strip()
+                if "=" in part:
+                    k, v = part.split("=", 1)
+                    k, v = k.strip(), v.strip()
+                    if k:
+                        attrs[k] = v
+            pc["comparison_attributes"] = attrs
+
+        elif action == "4":
+            skills = proj.get("skills") or []
+
+            # If skills is a string like "Python, SQL, ..."
+            if isinstance(skills, str):
+                skills = [s.strip() for s in skills.split(",") if s.strip()]
+
+            # If skills is something else unexpected, fallback
+            if not isinstance(skills, list):
+                skills = []
+            if not skills:
+                print(_center_text("No detected skills for this project."))
+                input(_center_text("Press Enter..."))
+                continue
+            print(_center_text("Detected skills:"))
+            for i, s in enumerate(skills, 1):
+                print(_center_text(f"{i}. {s}"))
+            raw = input(_center_text("Pick numbers (ex: 1 3 5): ")).strip()
+            picked = []
+            for tok in raw.split():
+                if tok.isdigit():
+                    si = int(tok) - 1
+                    if 0 <= si < len(skills):
+                        picked.append(skills[si])
+            pc["highlighted_skills"] = picked
+
+        elif action == "5":
+            pc["selected_for_showcase"] = get_yes_no("Select this project for showcase?")
+
+    update_full_scan(summary_id, data)
+    print(_center_text("Saved customization choices."))

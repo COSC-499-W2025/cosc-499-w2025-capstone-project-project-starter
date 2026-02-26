@@ -70,6 +70,7 @@ def print_project_rankings(project_summaries, file=None):
         _print_banner("RANKED PROJECTS")
 
     header = (
+        f"{'Rank':>4} {'Show':>5} "
         f"{'Project':<30} "
         f"{'Files':>6} {'Days':>6} {'Code':>6} {'Test':>6} "
         f"{'Doc':>6} {'Assets':>6} "
@@ -91,7 +92,12 @@ def print_project_rankings(project_summaries, file=None):
         if len(fw_str) > 40:
             fw_str = fw_str[:37] + "..."
 
+        rank_val = p.get("_custom_rank", "")
+        rank_val = "-" if rank_val is None else rank_val
+        show_val = "*" if p.get("selected_for_showcase") else ""  
+
         line = (
+            f"{str(rank_val):>4} {show_val:>5} "
             f"{(p.get('project', 'Unknown') or 'Unknown')[:30]:<30} "
             f"{p.get('total_files', 0):6} {p.get('duration_days', 0):6} {p.get('code_files', 0):6} "
             f"{p.get('test_files', 0):6} {p.get('doc_files', 0):6} {p.get('design_files', 0):6} "
@@ -99,6 +105,8 @@ def print_project_rankings(project_summaries, file=None):
             f"{p.get('is_collaborative', 'No'):>7} {p.get('score', 0):7.1f}"
         )
         _print_line(line, file=file)
+        if p.get("highlighted_skills"):
+            _print_line(f"      ↳ Highlighted skills: {', '.join(p['highlighted_skills'])}", file=file)
 
 
 def print_chronological_projects(projects_chronological, file=None):
