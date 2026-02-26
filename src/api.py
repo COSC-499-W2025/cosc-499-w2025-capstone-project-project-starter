@@ -592,15 +592,25 @@ def create_app() -> FastAPI:
 
     @app.get("/health")
     def health():
+        """
+        Simple health check endpoint to verify the API is running.
+        """
         return {"status": "ok"}
 
     # Legacy scan endpoints kept for compatibility
     @app.post("/scans")
     async def create_scan(request: Request):
+        """
+        Legacy endpoint for creating a scan.
+        Wraps the upload logic but returns a simplified response structure if needed.
+        """
         return await _handle_scan_upload(request, include_project_summary=False)
 
     @app.get("/scans")
     def get_scans():
+        """
+        Retrieves a list of all historical scans (metadata only).
+        """
         try:
             scans = list_full_scans()
         except Exception:
@@ -610,6 +620,9 @@ def create_app() -> FastAPI:
 
     @app.get("/scans/{summary_id}")
     def get_scan(summary_id: int = Path(..., ge=1)):
+        """
+        Retrieves the full detailed analysis results for a specific scan ID.
+        """
         try:
             scan = get_full_scan_by_id(summary_id)
         except Exception:
@@ -621,6 +634,9 @@ def create_app() -> FastAPI:
 
     @app.delete("/scans/{summary_id}")
     def delete_scan(summary_id: int = Path(..., ge=1)):
+        """
+        Permanently deletes a scan and its associated data from the database.
+        """
         try:
             deleted = delete_full_scan_by_id(summary_id)
         except Exception:
@@ -633,34 +649,56 @@ def create_app() -> FastAPI:
     # Milestone endpoints
     @app.post("/privacy-consent")
     def post_privacy_consent(payload: PrivacyConsentPayload):
+        """
+        Updates the user's privacy and data processing consent settings.
+        """
         saved = set_privacy_settings(_model_dump(payload))
         return {"privacy": _json_safe(saved)}
 
     @app.get("/privacy-consent")
     def get_privacy():
+        """
+        Retrieves the current privacy and consent settings.
+        """
         return {"privacy": _json_safe(get_privacy_settings())}
 
     @app.post("/projects/upload")
     async def upload_projects(request: Request):
+        """
+        Main entry point for scanning. Accepts a ZIP file or path.
+        Performs analysis and persists results. Supports incremental updates.
+        """
         return await _handle_scan_upload(request, include_project_summary=True)
 
     @app.get("/projects")
     def list_projects(scan_id: Optional[int] = Query(None, ge=1)):
+        """
+        Lists all individual projects found across all scans (or filtered by scan_id).
+        """
         projects = _iter_projects(scan_id=scan_id)
         return {"projects": _json_safe(sorted(projects, key=_project_sort_key))}
 
     @app.get("/projects/{project_id:path}")
     def get_project(project_id: str):
+        """
+        Retrieves details for a specific project, including any user customizations.
+        """
         return {"project": _json_safe(_get_project_by_id(project_id))}
 
     @app.post("/projects/{project_id:path}/edit")
     def edit_project(project_id: str, payload: ProjectEditPayload):
+        """
+        Updates project metadata (e.g., custom descriptions, showcase flags).
+        """
         _get_project_by_id(project_id)  # validate existence
         saved = upsert_project_customization(project_id, _model_dump_exclude_none(payload))
         return {"project_id": project_id, "customization": _json_safe(saved)}
 
     @app.get("/skills")
     def get_skills(scan_id: Optional[int] = Query(None, ge=1)):
+        """
+        Returns an aggregated list of skills and their frequency across projects.
+        """
         projects = _iter_projects(scan_id=scan_id)
         skills_count: Dict[str, int] = {}
         for project in projects:
@@ -674,6 +712,9 @@ def create_app() -> FastAPI:
 
     @app.post("/resume/generate")
     def generate_resume(payload: ResumeGeneratePayload):
+        """
+        Creates a new Resume artifact (JSON) based on selected projects.
+        """
         scan_id, selected_projects, ordered_ids = _select_projects_for_artifact(
             payload.scan_id,
             payload.project_ids,
@@ -692,6 +733,9 @@ def create_app() -> FastAPI:
 
     @app.get("/resume/{resume_id}")
     def get_resume(resume_id: int = Path(..., ge=1)):
+        """
+        Retrieves a stored Resume artifact.
+        """
         artifact = get_resume_artifact(resume_id)
         if not artifact:
             raise HTTPException(status_code=404, detail="resume not found")
@@ -699,6 +743,9 @@ def create_app() -> FastAPI:
 
     @app.post("/resume/{resume_id}/edit")
     def edit_resume(resume_id: int, payload: ResumeEditPayload):
+        """
+        Updates an existing Resume artifact (reorder projects, edit wording).
+        """
         artifact = get_resume_artifact(resume_id)
         if not artifact:
             raise HTTPException(status_code=404, detail="resume not found")
@@ -724,6 +771,9 @@ def create_app() -> FastAPI:
 
     @app.post("/portfolio/generate")
     def generate_portfolio(payload: PortfolioGeneratePayload):
+        """
+        Creates a new Portfolio artifact (JSON). Honors 'selected_for_showcase' flags.
+        """
         scan_id, selected_projects, ordered_ids = _select_projects_for_artifact(
             payload.scan_id,
             payload.project_ids,
@@ -749,6 +799,9 @@ def create_app() -> FastAPI:
 
     @app.get("/portfolio/{portfolio_id}")
     def get_portfolio(portfolio_id: int = Path(..., ge=1)):
+        """
+        Retrieves a stored Portfolio artifact.
+        """
         artifact = get_portfolio_artifact(portfolio_id)
         if not artifact:
             raise HTTPException(status_code=404, detail="portfolio not found")
@@ -756,6 +809,9 @@ def create_app() -> FastAPI:
 
     @app.post("/portfolio/{portfolio_id}/edit")
     def edit_portfolio(portfolio_id: int, payload: PortfolioEditPayload):
+        """
+        Updates an existing Portfolio artifact.
+        """
         artifact = get_portfolio_artifact(portfolio_id)
         if not artifact:
             raise HTTPException(status_code=404, detail="portfolio not found")
