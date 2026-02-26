@@ -245,6 +245,16 @@ def view_full_scan_details_via_api():
         input(_center_text("Press Enter..."))
 
 
+def update_scan_via_api():
+    print(_center_text("Update not implemented in client yet."))
+    input(_center_text("Press Enter..."))
+
+
+def generate_artifacts_via_api():
+    print(_center_text("Generation not implemented in client yet."))
+    input(_center_text("Press Enter..."))
+
+
 def delete_scan_via_api():
     """Lists scans and deletes selected one."""
     scans = _fetch_scans()
@@ -295,14 +305,8 @@ def scan_manager_via_api():
             prompt="Choose an option (0-4): "
         )
         if sub_choice == "1": view_full_scan_details_via_api()
-        elif sub_choice == "2": 
-            print(_center_text("Update not implemented in client yet."))
-            input(_center_text("Press Enter..."))
-        elif sub_choice == "3": 
-            print(_center_text("Generation not implemented in client yet."))
-            input(_center_text("Press Enter..."))
-        elif sub_choice == "2": "update"#update_scan_via_api()
-        elif sub_choice == "3": "generate"#generate_artifacts_via_api()
+        elif sub_choice == "2": update_scan_via_api()
+        elif sub_choice == "3": generate_artifacts_via_api()
         elif sub_choice == "4": delete_scan_via_api()
         elif sub_choice == "0": break
 
