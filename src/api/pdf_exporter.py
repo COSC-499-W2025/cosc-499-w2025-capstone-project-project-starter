@@ -465,7 +465,7 @@ def export_resume_item_pdf_bytes(resume_item: dict, filters: dict = None) -> byt
         if summary:
             elements.append(Paragraph("Summary", styles["Heading2"]))
             elements.append(Spacer(1, 6))
-            elements.append(Paragraph(summary, styles["Normal"]))
+            elements.append(Paragraph(summary.replace(". ", ".<br/>"), styles["Normal"]))
             elements.append(Spacer(1, 12))
 
     # Bullets section
@@ -549,7 +549,7 @@ def export_resume_item_pdf_bytes(resume_item: dict, filters: dict = None) -> byt
                 if key and val:
                     metric_bits.append(f"{key}: {val}")
             if metric_bits:
-                evidence_lines.append(f"Outcomes: {', '.join(metric_bits)}")
+                evidence_lines.append(f"Outcomes:<br/>{'<br/>'.join(metric_bits)}")
 
         if evidence.get("feedback"):
             evidence_lines.append("Feedback available")
