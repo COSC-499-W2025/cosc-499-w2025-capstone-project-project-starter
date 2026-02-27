@@ -598,7 +598,7 @@ async def upload_project(
 
     tmp_zip = save_upload_to_temp(upload_bytes)
     try:
-        blobstore_root = os.environ.get("ARTIFACT_MINER_BLOBSTORE", "/blobstore")
+        blobstore_root = os.environ.get("ARTIFACT_MINER_BLOBSTORE", "blobstore")
         res = ingest_zip_to_db(
             engine=get_engine(),
             zip_path=tmp_zip,
