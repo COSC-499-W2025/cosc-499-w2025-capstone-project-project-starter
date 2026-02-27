@@ -31,6 +31,18 @@ def is_noise(name: str) -> bool:
     n = (name or "").lower()
     return "bot" in n or "noreply" in n or "github-classroom" in n
 
+def _role_from_pct(pct: float) -> str:
+    """
+    Display-only role label based on contribution percent to a project.
+    """
+    if pct >= 50:
+        return "Lead contributor"
+    if pct >= 25:
+        return "Core contributor"
+    if pct >= 10:
+        return "Major contributor"
+    return "Contributor"
+
 
 def print_repo_summary(
     proj_name,
@@ -107,6 +119,11 @@ def print_project_rankings(project_summaries, file=None):
         _print_line(line, file=file)
         if p.get("highlighted_skills"):
             _print_line(f"      ↳ Highlighted skills: {', '.join(p['highlighted_skills'])}", file=file)
+
+        if p.get("comparison_attributes"):
+            attrs = p["comparison_attributes"]
+            attrs_str = ", ".join(f"{k}={v}" for k, v in attrs.items())
+            _print_line(f"      ↳ Comparison attributes: {attrs_str}", file=file)
 
 
 def print_chronological_projects(projects_chronological, file=None):
@@ -219,6 +236,9 @@ def print_contributor_stats(project_summaries, file=None):
         for proj, pct, adj, base in person_projects[:3]:
             _print_line(f"{proj[:32]:<32} {pct:5.1f}% {adj:14.1f} {base:10.1f}", file=file)
 
+        # key role under the contributor
+            role = _role_from_pct(pct)
+            _print_line(f"{'':<2}Role: {role}", file=file)
 
 def print_full_scan_report(scan_data):
     """
