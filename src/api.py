@@ -12,7 +12,7 @@ import tempfile
 from typing import Any, Dict, List, Optional, Tuple
 
 from fastapi import FastAPI, HTTPException, Path, Query, Request
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, FileResponse
 from pydantic import BaseModel, Field
 
 from api_store import (
@@ -35,6 +35,7 @@ from db import (
     scan_exists,
     update_full_scan,
 )
+from resume_generator import render_resume_artifact, _build_personal_project_description, _fmt_date
 
 logger = logging.getLogger(__name__)
 
@@ -64,10 +65,14 @@ class ProjectEditPayload(BaseModel):
     thumbnail: Optional[str] = None
     portfolio_showcase_text: Optional[str] = None
     resume_wording: Optional[str] = None
+    custom_portfolio_project_description: Optional[str] = None
+    custom_portfolio_description: Optional[str] = None
+    custom_portfolio_tech_stack: Optional[List[str]] = None
 
 
 class ResumeGeneratePayload(BaseModel):
     scan_id: Optional[int] = None
+    contributor_id: Optional[str] = None
     project_ids: List[str] = Field(default_factory=list)
     title: str = "Generated Resume"
     selected_project_ids: List[str] = Field(default_factory=list)
@@ -75,6 +80,9 @@ class ResumeGeneratePayload(BaseModel):
 
 
 class ResumeEditPayload(BaseModel):
+    user_name: Optional[str] = None
+    user_title: Optional[str] = None
+    user_summary: Optional[str] = None
     title: Optional[str] = None
     project_order: Optional[List[str]] = None
     selected_project_ids: Optional[List[str]] = None
@@ -84,6 +92,7 @@ class ResumeEditPayload(BaseModel):
 
 class PortfolioGeneratePayload(BaseModel):
     scan_id: Optional[int] = None
+    contributor_id: Optional[str] = None
     project_ids: List[str] = Field(default_factory=list)
     title: str = "Generated Portfolio"
     selected_project_ids: List[str] = Field(default_factory=list)
@@ -212,6 +221,9 @@ def _apply_project_customization(project_record: Dict[str, Any], customization: 
             "thumbnail",
             "portfolio_showcase_text",
             "resume_wording",
+            "custom_portfolio_project_description",
+            "custom_portfolio_description",
+            "custom_portfolio_tech_stack",
         ):
             if key in custom:
                 merged[key] = custom[key]
@@ -274,48 +286,92 @@ def _get_project_by_id(project_id: str) -> Dict[str, Any]:
     return _build_project_record(scan_id, idx, project)
 
 
-def _project_sort_key(project: Dict[str, Any]) -> Tuple[int, float, str]:
+def _project_sort_key(project: Dict[str, Any]) -> Tuple[int, Any, str]:
     custom_rank = project.get("ranking")
     if isinstance(custom_rank, int):
-        return (0, -float(custom_rank), project["project_id"])
-    score = project.get("score") or 0
-    return (1, -float(score), project["project_id"])
+        # Custom rank (Group 2). Higher rank (1) > Lower rank (2) via negation (-1 > -2)
+        return (2, -custom_rank, project["project_id"])
+    
+    # Default (Group 1). Sort by date descending (Newest first).
+    data = project.get("data", {})
+    last_mod = data.get("last_modified")
+    date_str = str(last_mod) if last_mod is not None else ""
+    return (1, date_str, project["project_id"])
 
 
-def _project_to_resume_item(project: Dict[str, Any]) -> Dict[str, Any]:
+def _project_to_resume_item(project: Dict[str, Any], user_stats: Optional[Dict[str, Any]] = None, contributor_id: Optional[str] = None) -> Dict[str, Any]:
     custom_text = project.get("resume_wording")
     project_name = project.get("project_name", "Unnamed Project")
     role = project.get("role")
     evidence = project.get("evidence_of_success")
-    skills = project.get("highlighted_skills") or project.get("skills") or []
+    
+    # Determine skills source
+    # 1. Custom overrides (highlighted_skills)
+    skills_raw = project.get("highlighted_skills")
+    # 2. Contributor-specific skills (if generating for a person)
+    if not skills_raw and contributor_id:
+        pcs = project.get("data", {}).get("per_contributor_skills", {})
+        skills_raw = pcs.get(contributor_id)
+    # 3. Fallback to project-wide skills
+    if not skills_raw:
+        skills_raw = project.get("skills") or []
+
+    if isinstance(skills_raw, str):
+        skills = [s.strip() for s in skills_raw.split(",") if s.strip()]
+    else:
+        skills = skills_raw
+
+    # Format dates
+    data = project.get("data", {})
+    start = data.get("first_modified")
+    end = data.get("last_modified")
+    date_str = ""
+    if start and end:
+        date_str = f" ({_fmt_date(start)} – {_fmt_date(end)})"
 
     if custom_text:
         text = custom_text
+    elif user_stats:
+        # Use rich description logic from resume_generator
+        project_context = {
+            "languages": data.get("languages", "Unknown"),
+            "skills": data.get("skills", "NA"),
+            "frameworks": data.get("frameworks", "None"),
+            "duration_days": data.get("duration_days", 0)
+        }
+        text = _build_personal_project_description(project_name, project_context, user_stats)
     else:
         parts = [f"Contributed to {project_name}"]
         if role:
             parts.append(f"as {role}")
         if skills:
-            parts.append(f"highlighting {', '.join(map(str, skills[:5]))}")
+            parts.append(f"highlighting {', '.join(skills[:5])}")
         if evidence:
             parts.append(f"with evidence of success: {evidence}")
         text = "; ".join(parts) + "."
+        
     return {
         "project_id": project["project_id"],
         "project_name": project_name,
         "text": text,
         "role": role,
         "evidence_of_success": evidence,
+        "date_str": date_str,
+        "skills": skills,
     }
 
 
 def _project_to_portfolio_item(project: Dict[str, Any]) -> Dict[str, Any]:
     project_name = project.get("project_name", "Unnamed Project")
     custom_text = project.get("portfolio_showcase_text")
+
+    # New granular fields
+    proj_desc = project.get("custom_portfolio_project_description")
+    role_desc = project.get("custom_portfolio_description")
+
     role = project.get("role")
     evidence = project.get("evidence_of_success")
     thumbnail = project.get("thumbnail")
-    skills = project.get("highlighted_skills") or project.get("skills") or []
 
     if custom_text:
         text = custom_text
@@ -323,11 +379,17 @@ def _project_to_portfolio_item(project: Dict[str, Any]) -> Dict[str, Any]:
         text_parts = [f"{project_name} showcase"]
         if role:
             text_parts.append(f"role: {role}")
+        skills = project.get("highlighted_skills") or project.get("skills") or []
         if skills:
             text_parts.append(f"skills: {', '.join(map(str, skills[:6]))}")
         if evidence:
             text_parts.append(f"evidence: {evidence}")
         text = " | ".join(text_parts)
+
+    # Determine tech stack (custom > highlighted > auto-detected)
+    tech_stack = project.get("custom_portfolio_tech_stack")
+    if not tech_stack:
+        tech_stack = project.get("highlighted_skills") or project.get("skills") or []
 
     return {
         "project_id": project["project_id"],
@@ -337,11 +399,14 @@ def _project_to_portfolio_item(project: Dict[str, Any]) -> Dict[str, Any]:
         "evidence_of_success": evidence,
         "thumbnail": thumbnail,
         "comparison_attributes": project.get("comparison_attributes", {}),
+        "project_description": proj_desc,
+        "role_description": role_desc,
+        "tech_stack": tech_stack,
     }
 
 
 def _ordered_project_ids(candidates: List[Dict[str, Any]], explicit_order: Optional[List[str]] = None) -> List[str]:
-    ids = [p["project_id"] for p in sorted(candidates, key=_project_sort_key)]
+    ids = [p["project_id"] for p in sorted(candidates, key=_project_sort_key, reverse=True)]
     if not explicit_order:
         return ids
     ordered: List[str] = []
@@ -590,6 +655,15 @@ def create_app() -> FastAPI:
     def _http_exception_handler(_request: Request, exc: HTTPException):
         return JSONResponse(status_code=exc.status_code, content={"error": exc.detail})
 
+    @app.get("/")
+    def root():
+        return {
+            "app": "Skill Scope API",
+            "version": "0.2.0",
+            "status": "ready",
+            "message": "Welcome to Skill Scope. Use /docs for API documentation."
+        }
+
     @app.get("/health")
     def health():
         """
@@ -683,7 +757,7 @@ def create_app() -> FastAPI:
         Lists all individual projects found across all scans (or filtered by scan_id).
         """
         projects = _iter_projects(scan_id=scan_id)
-        return {"projects": _json_safe(sorted(projects, key=_project_sort_key))}
+        return {"projects": _json_safe(sorted(projects, key=_project_sort_key, reverse=True))}
 
     @app.get("/projects/{project_id:path}")
     def get_project(project_id: str):
@@ -728,12 +802,74 @@ def create_app() -> FastAPI:
             payload.selected_project_ids or None,
             payload.project_order or None,
         )
-        items = [_project_to_resume_item(p) for p in selected_projects]
+
+        # Filter by contributor if specified
+        if payload.contributor_id:
+            filtered_projects = []
+            for p in selected_projects:
+                # Check if contributor has > 0 percentage in this project
+                pcts = p.get("data", {}).get("per_contributor_pct", {})
+                if pcts.get(payload.contributor_id, 0) > 0:
+                    filtered_projects.append(p)
+            selected_projects = filtered_projects
+
+        # Resolve user header info if contributor_id is provided
+        user_header = {}
+        user_project_stats = {}
+
+        if scan_id and payload.contributor_id:
+            scan = get_full_scan_by_id(scan_id)
+            if scan:
+                profiles = scan.get("scan_data", {}).get("contributor_profiles", {})
+                profile = profiles.get(payload.contributor_id)
+                if profile:
+                    # Use custom fields from profile if they exist, else defaults
+                    # 1. Name
+                    name = profile.get("custom_name") or payload.contributor_id
+                    if "@" in name and not profile.get("custom_name"):
+                        name = name.split("@")[0].replace(".", " ").title()
+                    user_header["user_name"] = name
+
+                    # 2. Title
+                    title = profile.get("custom_title")
+                    if not title:
+                        user_skills = profile.get("skills", [])
+                        title = "Software Contributor"
+                        dev_keywords = {"Development", "Programming", "Engineering"}
+                        if any(any(k in s for k in dev_keywords) for s in user_skills):
+                            title = "Software Developer"
+                    user_header["user_title"] = title
+
+                    # 3. Summary
+                    summary = profile.get("custom_summary")
+                    if not summary:
+                        proj_count = len(profile.get("projects", []))
+                        summary = f"{title} with a track record of contributions across {proj_count} project(s)."
+                        p_skills = profile.get("skills", [])
+                        if p_skills:
+                            summary += f" Proficient in {', '.join(p_skills[:3])}"
+                            if len(p_skills) > 3:
+                                summary += f", along with expertise in {len(p_skills)-3} other technologies"
+                            summary += "."
+                    user_header["user_summary"] = summary
+                    user_header["skills"] = profile.get("skills", [])
+
+                    # 4. Map project stats for rich descriptions
+                    for p_entry in profile.get("projects", []):
+                        if p_entry.get("name"):
+                            user_project_stats[p_entry["name"]] = p_entry
+
+        items = [_project_to_resume_item(p, user_project_stats.get(p.get("project_name")), payload.contributor_id) for p in selected_projects]
         artifact_data = {
             "kind": "resume",
             "items": items,
             "selected_project_ids": [p["project_id"] for p in selected_projects],
             "project_order": ordered_ids,
+            # Header fields
+            "user_name": user_header.get("user_name"),
+            "user_title": user_header.get("user_title"),
+            "user_summary": user_header.get("user_summary"),
+            "skills": user_header.get("skills", []),
         }
         saved = create_resume_artifact(artifact_data, scan_summary_id=scan_id, title=payload.title)
         return {"resume": _json_safe(saved)}
@@ -776,6 +912,33 @@ def create_app() -> FastAPI:
         saved = update_resume_artifact(resume_id, patch)
         return {"resume": _json_safe(saved)}
 
+    @app.get("/resume/{resume_id}/export")
+    def export_resume(resume_id: int = Path(..., ge=1)):
+        """
+        Generates and downloads a DOCX file for the specified resume artifact.
+        """
+        artifact = get_resume_artifact(resume_id)
+        if not artifact:
+            raise HTTPException(status_code=404, detail="resume not found")
+        
+        try:
+            # Sanitize title for filename
+            title = artifact.get("title", "resume")
+            safe_title = "".join(c for c in title if c.isalnum() or c in (' ', '_', '-')).strip().replace(' ', '_')
+            filename = f"{safe_title}.docx"
+            
+            # Use temp directory to avoid cluttering output folder
+            fd, path = tempfile.mkstemp(suffix=".docx")
+            os.close(fd)
+            
+            # Render the document
+            render_resume_artifact(artifact["data"], path)
+            
+            return FileResponse(path, filename=filename, media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document")
+        except Exception:
+            logger.exception("Failed to export resume")
+            raise HTTPException(status_code=500, detail="failed to generate document")
+
     @app.post("/portfolio/generate")
     def generate_portfolio(payload: PortfolioGeneratePayload):
         """
@@ -787,6 +950,16 @@ def create_app() -> FastAPI:
             payload.selected_project_ids or None,
             payload.project_order or None,
         )
+
+        # Filter by contributor if specified
+        if payload.contributor_id:
+            filtered_projects = []
+            for p in selected_projects:
+                pcts = p.get("data", {}).get("per_contributor_pct", {})
+                if pcts.get(payload.contributor_id, 0) > 0:
+                    filtered_projects.append(p)
+            selected_projects = filtered_projects
+
         # Default showcase selection honors project customization if explicit selection not provided.
         if not payload.selected_project_ids:
             showcase_filtered = [

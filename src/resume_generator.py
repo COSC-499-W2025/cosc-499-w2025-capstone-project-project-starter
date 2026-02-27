@@ -248,6 +248,81 @@ def generate_resume(
 # -------------------------------------------------------------------------
 
 
+def render_resume_artifact(artifact_data: dict, output_path: str) -> str:
+    """
+    Renders a DOCX file from a resume artifact dictionary.
+    This decouples the data structure from the file generation, allowing
+    both the CLI and API to use the same rendering logic.
+    """
+    doc = Document()
+    
+    # 1. Header Info
+    user_name = artifact_data.get("user_name") or "Resume"
+    user_title = artifact_data.get("user_title")
+    user_summary = artifact_data.get("user_summary")
+    created_date = artifact_data.get("created_date")
+    
+    # Title / Name
+    h1 = doc.add_heading(user_name, level=0)
+    h1.runs[0].font.size = Pt(24)
+    
+    if created_date:
+        doc.add_paragraph(f"Generated on {created_date}")
+    
+    if user_title:
+        p = doc.add_paragraph(user_title)
+        p.runs[0].italic = True
+        p.runs[0].font.size = Pt(14)
+    
+    doc.add_paragraph() # Spacer
+
+    # 2. Summary Section
+    if user_summary:
+        doc.add_heading("Professional Summary", level=1)
+        doc.add_paragraph(user_summary)
+        doc.add_paragraph()
+
+    # 3. Skills Section
+    skills = artifact_data.get("skills", [])
+    if skills:
+        doc.add_heading("Technical Skills", level=1)
+        p = doc.add_paragraph()
+        p.add_run("Languages & Technologies: ").bold = True
+        p.add_run(", ".join(skills))
+        doc.add_paragraph()
+
+    # 4. Projects Section
+    items = artifact_data.get("items", [])
+    if items:
+        doc.add_heading("Project Experience", level=1)
+        
+        for item in items:
+            project_name = item.get("project_name", "Unnamed Project")
+            text = item.get("text", "")
+            date_str = item.get("date_str", "")
+            
+            # Project Header
+            p_head = doc.add_heading(level=2)
+            p_head.add_run(project_name).bold = True
+            if date_str:
+                p_head.add_run(date_str).font.size = Pt(11)
+            
+            # Description
+            if text:
+                doc.add_paragraph(text, style="List Bullet")
+            
+            # Per-project skills (optional, if present in item)
+            project_skills = item.get("skills", [])
+            if project_skills:
+                s_p = doc.add_paragraph(style="List Bullet")
+                s_p.add_run("Skills: ").bold = True
+                s_p.add_run(", ".join(project_skills))
+            
+            doc.add_paragraph()
+
+    return _save_doc(doc, output_path)
+
+
 def _build_personal_project_description(project_name, project_context, user_stats):
     """
     Constructs a sentence describing the user's specific contribution to a project.
@@ -314,27 +389,14 @@ def generate_contributor_portfolio(
     if not profile_data:
         return None
 
+    # 1. Prepare Data Structure (The "Artifact")
     safe_name = "".join(c for c in contributor_name if c.isalnum() or c in (' ', '_', '-')).strip()
     docx_path = os.path.join(RESUME_DIR, f"Resume_{safe_name}.docx")
     
-    doc = Document()
-    
-    # Header
-    custom_name = profile_data.get("custom_name")
-    if custom_name:
-        display_name = custom_name
-    else:
-        display_name = contributor_name
-        if "@" in contributor_name:
-            display_name = contributor_name.split("@")[0]
-        display_name = display_name.replace(".", " ").replace("_", " ").title()
-    
-    title = doc.add_heading(display_name, level=0)
-    title.runs[0].font.size = Pt(24)
-    doc.add_paragraph(f"Generated on {datetime.now().strftime('%B %d, %Y')}")
-    
-    # Summary
-    doc.add_heading("Professional Summary", level=1)
+    artifact = {
+        "created_date": datetime.now().strftime('%B %d, %Y'),
+        "items": []
+    }
     
     skills = profile_data.get("skills", [])
     projects_ref = profile_data.get("projects", [])
@@ -346,6 +408,20 @@ def generate_contributor_portfolio(
         dev_keywords = {"Development", "Programming", "Engineering"}
         if any(any(k in s for k in dev_keywords) for s in skills):
             role = "Software Developer"
+
+    # Name
+    custom_name = profile_data.get("custom_name")
+    if custom_name:
+        display_name = custom_name
+    else:
+        display_name = contributor_name
+        if "@" in contributor_name:
+            display_name = contributor_name.split("@")[0]
+        display_name = display_name.replace(".", " ").replace("_", " ").title()
+    
+    artifact["user_name"] = display_name
+    artifact["user_title"] = role
+    artifact["skills"] = skills
 
     custom_summary = profile_data.get("custom_summary")
     if custom_summary:
@@ -361,21 +437,7 @@ def generate_contributor_portfolio(
                 summary_text += f", along with expertise in {len(skills)-3} other technologies"
             summary_text += "."
         
-    doc.add_paragraph(summary_text)
-    doc.add_paragraph()
-
-    # Skills
-    doc.add_heading("Technical Skills", level=1)
-    if skills:
-        p = doc.add_paragraph()
-        p.add_run("Languages & Technologies: ").bold = True
-        p.add_run(", ".join(skills))
-    else:
-        doc.add_paragraph("No specific skills detected.")
-    doc.add_paragraph()
-
-    # Experience
-    doc.add_heading("Project Experience", level=1)
+    artifact["user_summary"] = summary_text
     
     # Prepare projects
     user_projects = []
@@ -416,48 +478,40 @@ def generate_contributor_portfolio(
         # Functional (Impact Score - Best First)
         user_projects.sort(key=lambda x: x[1]["score"], reverse=True)
 
-    if not user_projects:
-        doc.add_paragraph("No project contributions found.")
-    else:
-        for p_name, u_stats, p_context, custom_desc, custom_skills in user_projects:
-            # Filter negligible
-            if u_stats["pct"] < 0.1 and u_stats["files_worked"] == 0 and u_stats["commit_count"] == 0:
-                continue
+    for p_name, u_stats, p_context, custom_desc, custom_skills in user_projects:
+        # Filter negligible
+        if u_stats["pct"] < 0.1 and u_stats["files_worked"] == 0 and u_stats["commit_count"] == 0:
+            continue
 
-            # Date
-            start = p_context.get("first_modified")
-            end = p_context.get("last_modified")
-            date_str = ""
-            if start and end:
-                date_str = f" ({_fmt_date(start)} – {_fmt_date(end)})"
+        # Date
+        start = p_context.get("first_modified")
+        end = p_context.get("last_modified")
+        date_str = ""
+        if start and end:
+            date_str = f" ({_fmt_date(start)} – {_fmt_date(end)})"
 
-            # Heading
-            p_head = doc.add_heading(level=2)
-            p_head.add_run(p_name).bold = True
-            if date_str:
-                p_head.add_run(date_str).font.size = Pt(11)
-            
-            # Description
-            if custom_desc:
-                desc = custom_desc
-            else:
-                desc = _build_personal_project_description(p_name, p_context, u_stats)
-            doc.add_paragraph(desc, style="List Bullet")
-            
-            # Skills for this project
-            if custom_skills is not None:
-                my_skills = custom_skills
-            else:
-                pcs = p_context.get("per_contributor_skills", {})
-                my_skills = pcs.get(contributor_name, [])
-            if my_skills:
-                s_p = doc.add_paragraph(style="List Bullet")
-                s_p.add_run("Skills: ").bold = True
-                s_p.add_run(", ".join(my_skills))
-            
-            doc.add_paragraph()
+        # Description
+        if custom_desc:
+            desc = custom_desc
+        else:
+            desc = _build_personal_project_description(p_name, p_context, u_stats)
+        
+        # Skills for this project
+        if custom_skills is not None:
+            my_skills = custom_skills
+        else:
+            pcs = p_context.get("per_contributor_skills", {})
+            my_skills = pcs.get(contributor_name, [])
 
-    return _save_doc(doc, docx_path)
+        artifact["items"].append({
+            "project_name": p_name,
+            "text": desc,
+            "date_str": date_str,
+            "skills": my_skills
+        })
+
+    # 2. Render Artifact
+    return render_resume_artifact(artifact, docx_path)
 
 
 def edit_contributor_descriptions(target_scan=None):

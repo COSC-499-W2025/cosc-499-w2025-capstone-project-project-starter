@@ -17,13 +17,14 @@ import json
 # Add the current directory to sys.path to allow importing local modules
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
-from file_parser import compute_file_hash
+from file_parser import compute_file_hash, OUTPUT_DIR
 from permission_manager import get_user_consent, get_analysis_mode, get_advanced_options, get_yes_no
 from print_utils import (
     _center_text,
     _print_banner,
     print_full_scan_report,
-    print_scan_list
+    print_scan_list,
+    is_noise
 )
 
 # Configuration constants
@@ -251,8 +252,125 @@ def update_scan_via_api():
 
 
 def generate_artifacts_via_api():
-    print(_center_text("Generation not implemented in client yet."))
-    input(_center_text("Press Enter..."))
+    """Generates Resume or Portfolio artifacts via API."""
+    scans = _fetch_scans()
+    if not scans:
+        print(_center_text("No scans found."))
+        return
+
+    print()
+    print(_center_text("Select a scan to generate from:"))
+    print_scan_list(scans)
+
+    choice = input(_center_text("Enter number (0 to cancel): ")).strip()
+    if not choice.isdigit() or int(choice) == 0:
+        return
+    
+    idx = int(choice) - 1
+    if idx < 0 or idx >= len(scans):
+        return
+
+    scan_id = scans[idx]["summary_id"]
+
+    # Fetch full scan details to get contributors
+    contributors = []
+    try:
+        resp = requests.get(f"{API_URL}/scans/{scan_id}")
+        if resp.status_code == 200:
+            data = resp.json().get("scan", {}).get("scan_data", {})
+            profiles = data.get("contributor_profiles", {})
+            contributors = sorted([c for c in profiles.keys() if not is_noise(c)])
+    except Exception:
+        pass
+
+    while True:
+        sub = _print_menu("GENERATION OPTIONS", [
+            ("1", "Full Project Resume"),
+            ("2", "Contributor Resume (Word)"),
+            ("3", "Contributor Portfolio (Markdown)"),
+            ("4", "Edit Resume"),
+            ("5", "Edit Portfolio"),
+            ("0", "Back")
+        ])
+        
+        if sub == "0":
+            break
+        
+        endpoint = ""
+        key = ""
+        payload = {"scan_id": scan_id}
+
+        if sub == "1":
+            endpoint = "/resume/generate"
+            key = "resume"
+        
+        elif sub in ("2", "3"):
+            if not contributors:
+                print(_center_text("No valid contributors found in this scan."))
+                input(_center_text("Press Enter..."))
+                continue
+            
+            print()
+            print(_center_text("Select contributor:"))
+            for i, c in enumerate(contributors, 1):
+                print(_center_text(f"{i}. {c}"))
+            
+            sel = input(_center_text("Enter number (0 to back): ")).strip()
+            if not sel.isdigit():
+                continue
+            c_idx = int(sel) - 1
+            if c_idx < 0 or c_idx >= len(contributors):
+                continue
+            
+            payload["contributor_id"] = contributors[c_idx]
+            
+            if sub == "2":
+                endpoint = "/resume/generate"
+                key = "resume"
+            else:
+                endpoint = "/portfolio/generate"
+                key = "portfolio"
+
+        elif sub in ("4", "5"):
+            print(_center_text("Editing via API client is not yet implemented."))
+            input(_center_text("Press Enter..."))
+            continue
+
+        if endpoint:
+            default_title = f"My {key.capitalize()}"
+            if "contributor_id" in payload:
+                default_title += f" - {payload['contributor_id']}"
+            
+            print(_center_text(f"Generating {key} as '{default_title}'..."))
+            payload["title"] = default_title
+
+            try:
+                resp = requests.post(f"{API_URL}{endpoint}", json=payload)
+                if resp.status_code == 200:
+                    data = resp.json().get(key, {})
+                    art_id = data.get(f"{key}_id")
+
+                    if key == "resume":
+                        try:
+                            export_resp = requests.get(f"{API_URL}/resume/{art_id}/export")
+                            if export_resp.status_code == 200:
+                                safe_title = "".join(c for c in payload["title"] if c.isalnum() or c in (' ', '_', '-')).strip().replace(' ', '_')
+                                filename = f"{safe_title}.docx"
+                                out_dir = os.path.join(OUTPUT_DIR, "resumes")
+                                os.makedirs(out_dir, exist_ok=True)
+                                out_path = os.path.join(out_dir, filename)
+                                with open(out_path, "wb") as f:
+                                    f.write(export_resp.content)
+                                print(_center_text(f"Saved to: {out_path}"))
+                            else:
+                                print(_center_text(f"Export failed: {export_resp.text}"))
+                        except Exception as ex:
+                            print(_center_text(f"Download error: {ex}"))
+                else:
+                    print(_center_text(f"Error: {resp.text}"))
+            except Exception as e:
+                print(_center_text(f"Request failed: {e}"))
+            input(_center_text("Press Enter..."))
 
 
 def delete_scan_via_api():
