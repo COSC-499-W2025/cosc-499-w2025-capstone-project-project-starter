@@ -1066,6 +1066,148 @@ def test_export_portfolio_pdf_invalid_data(tmp_path):
     assert result == str(pdf_file)
 
 
+def test_generate_resume_hybrid_bullets_and_density_metadata(client, engine):
+    user_id, portfolio_id, project_id, snapshot_id = _mk_graph(engine)
+
+    parser_out = {"top_languages": [{"language": "Python"}, {"language": "TypeScript"}]}
+    ml_out = {"skills": [{"skill": "FastAPI"}, {"skill": "React"}]}
+    ext_out = {
+        "result": {
+            "resume_bullets": [
+                "Led architecture decisions for a production backend.",
+                "Built APIs consumed by a multi-user interface.",
+                "Improved delivery speed with repeatable workflows.",
+            ]
+        }
+    }
+
+    with engine.begin() as conn:
+        conn.execute(
+            text("UPDATE projects SET user_role = :role, evidence_json = CAST(:evidence AS jsonb) WHERE id = :pid"),
+            {
+                "pid": project_id,
+                "role": "Technical Lead",
+                "evidence": json.dumps(
+                    {
+                        "metrics": {"latency_ms_p95": 87, "users_supported": 1200},
+                        "feedback": [{"from": "mentor", "note": "Strong ownership"}],
+                        "evaluation": {"overall": "exceeds_expectations"},
+                    }
+                ),
+            },
+        )
+        conn.execute(
+            text(
+                """
+                INSERT INTO analyses (id, snapshot_id, analysis_type, status, output_json, completed_at)
+                VALUES (:id, :sid, 'parser', 'complete', CAST(:out AS jsonb), NOW())
+                """
+            ),
+            {"id": _u(), "sid": snapshot_id, "out": json.dumps(parser_out)},
+        )
+        conn.execute(
+            text(
+                """
+                INSERT INTO analyses (id, snapshot_id, analysis_type, status, output_json, completed_at)
+                VALUES (:id, :sid, 'local_ml', 'complete', CAST(:out AS jsonb), NOW())
+                """
+            ),
+            {"id": _u(), "sid": snapshot_id, "out": json.dumps(ml_out)},
+        )
+        conn.execute(
+            text(
+                """
+                INSERT INTO analyses (id, snapshot_id, analysis_type, status, output_json, completed_at)
+                VALUES (:id, :sid, 'external_llm', 'complete', CAST(:out AS jsonb), NOW())
+                """
+            ),
+            {"id": _u(), "sid": snapshot_id, "out": json.dumps(ext_out)},
+        )
+
+    r = client.post(
+        "/resume/generate",
+        json={"project_id": project_id, "prefer_external_bullets": True},
+    )
+    assert r.status_code == 200
+    content = r.json()["content"]
+
+    assert content["content_density_version"] == "v2"
+    assert len(content["resume_bullets_external"]) == 3
+    assert len(content["resume_bullets_evidence"]) == 3
+    assert 3 <= len(content["resume_bullets"]) <= 6
+    assert content["project"]["user_role"] == "Technical Lead"
+    assert "evidence_json" in content["project"]
+
+
+def test_pdf_expanded_sections_default():
+    resume_item = {
+        "resume_id": "resume-expanded",
+        "content": {
+            "generated_at": "2026-01-01T00:00:00+00:00",
+            "latest_snapshot_id": "snapshot-123",
+            "project": {
+                "name": "Expanded Project",
+                "user_role": "Backend Engineer",
+                "collaboration_type": "collaborative",
+                "evidence_json": {
+                    "metrics": {"latency_ms_p95": 92},
+                    "feedback": "Great collaboration",
+                    "evaluation": {"overall": "strong"},
+                },
+            },
+            "summary_text": "Summary for expanded PDF layout.",
+            "resume_bullets": ["Bullet one", "Bullet two", "Bullet three"],
+            "metrics": {"total_commits": 50, "user_commits": 20, "contributor_count": 4},
+            "signals": {
+                "parser": {"top_languages": [{"language": "Python"}, {"language": "TypeScript"}]},
+                "local_ml": {"top_skills": [{"skill": "FastAPI"}, {"skill": "SQL"}]},
+            },
+        },
+    }
+
+    pdf_bytes = export_resume_item_pdf_bytes(resume_item)
+    page_text = PdfReader(io.BytesIO(pdf_bytes)).pages[0].extract_text()
+
+    assert "Project Profile" in page_text
+    assert "Summary" in page_text
+    assert "Resume Bullets" in page_text
+    assert "Metrics" in page_text
+    assert "Tech Stack" in page_text
+    assert "Evidence Highlights" in page_text
+
+
+def test_pdf_legacy_hide_all_hides_new_sections():
+    resume_item = {
+        "resume_id": "resume-legacy-hide-all",
+        "content": {
+            "generated_at": "2026-01-01T00:00:00+00:00",
+            "latest_snapshot_id": "snapshot-123",
+            "project": {
+                "name": "Legacy Hide All",
+                "user_role": "Engineer",
+                "collaboration_type": "individual",
+                "evidence_json": {"metrics": {"impact": 1}},
+            },
+            "summary_text": "Should be hidden.",
+            "resume_bullets": ["Hidden bullet"],
+            "metrics": {"total_commits": 10, "user_commits": 5, "contributor_count": 1},
+            "signals": {
+                "parser": {"top_languages": [{"language": "Python"}]},
+                "local_ml": {"top_skills": [{"skill": "FastAPI"}]},
+            },
+        },
+    }
+    filters = {"show_metadata": False, "show_summary": False, "show_bullets": False}
+
+    pdf_bytes = export_resume_item_pdf_bytes(resume_item, filters=filters)
+    page_text = PdfReader(io.BytesIO(pdf_bytes)).pages[0].extract_text()
+
+    assert "Project Profile" not in page_text
+    assert "Metrics" not in page_text
+    assert "Tech Stack" not in page_text
+    assert "Evidence Highlights" not in page_text
+
+
 def test_set_project_image_project_not_found(client):
     response = client.put(
         "/projects/aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa/image",
