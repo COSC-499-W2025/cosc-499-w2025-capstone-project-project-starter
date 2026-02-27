@@ -1334,7 +1334,7 @@ def test_pdf_metadata_and_bullet_toggles(client, monkeypatch, tmp_path):
     page_text = pdf_reader.pages[0].extract_text()
     
     # Count occurrences of the hyphen character used for bullets
-    bullet_count = page_text.count("-") 
+    bullet_count = page_text.count("- ")
     
     # Assertions: Verify one bullet, no metadata ID, and that the Summary header is still visible
     assert bullet_count == 1, f"Expected 1 bullet, but found {bullet_count}"

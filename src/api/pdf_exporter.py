@@ -349,7 +349,7 @@ def _normalize_resume_filters(filters: dict) -> dict:
     out = {
         "show_summary": _as_bool(raw.get("show_summary"), True),
         "show_bullets": _as_bool(raw.get("show_bullets"), True),
-        "max_bullets": _as_int(raw.get("max_bullets"), 6, 1, 20),
+        "max_bullets": _as_int(raw.get("max_bullets"), 6, 0, 20),
         "show_metadata": _as_bool(raw.get("show_metadata"), True),
         "show_project_profile": _as_bool(raw.get("show_project_profile"), True),
         "show_metrics": _as_bool(raw.get("show_metrics"), True),
@@ -426,7 +426,7 @@ def export_resume_item_pdf_bytes(resume_item: dict, filters: dict = None) -> byt
         if collab:
             profile_lines.append(f"Collaboration: {collab}")
         if latest_snapshot_id:
-            profile_lines.append(f"Latest snapshot: {latest_snapshot_id.replace('-', '')}")
+            profile_lines.append(f"Latest snapshot: {latest_snapshot_id}")
 
         if profile_lines:
             elements.append(Paragraph("Project Profile", styles["Heading2"]))

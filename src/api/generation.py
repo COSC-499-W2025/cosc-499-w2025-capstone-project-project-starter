@@ -713,7 +713,7 @@ def generate_resume_item(
             "thumbnail_blob": thumbnail_blob_json,
             "thumbnail_blob_sha256": thumbnail_blob_sha256,
             "signals": {
-                "parser": {"generated_at": parser_out.get("generated_at"), "top_languages": parser_out.get("top_languages"), "activity_counts": parser_out.get("activity_counts")},
+                "parser": {"generated_at": parser_out.get("generated_at"), "top_languages": parser_out.get("top_languages"), "activity_counts": parser_out.get("activity_counts"), "frameworks": frameworks},
                 "local_ml": {"generated_at": ml_out.get("generated_at"), "threshold": ml_out.get("threshold"), "top_skills": (ml_out.get("skills") or [])[:25]},
                 "git_metrics": {"generated_at": git_out.get("generated_at"), "git_repos_found": git_out.get("git_repos_found"), "repo_summaries": (git_out.get("repo_summaries") or [])[:5]},
             },
