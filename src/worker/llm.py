@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import logging
 import os
 import subprocess
 from dataclasses import dataclass
@@ -12,6 +13,8 @@ from sqlalchemy.engine import Engine
 
 # In pytest, do not invoke any external binaries.
 IS_TESTING = "PYTEST_CURRENT_TEST" in os.environ
+
+logger = logging.getLogger(__name__)
 
 
 def _utcnow_iso() -> str:
@@ -36,6 +39,7 @@ def ollama_available() -> bool:
         r = subprocess.run(["ollama", "--version"], capture_output=True, text=True, timeout=5)
         return r.returncode == 0
     except Exception:
+        logger.warning("Failed to check Ollama availability", exc_info=True)
         return False
 
 
@@ -162,12 +166,14 @@ def run_external_llm_analysis(engine: Engine, snapshot_id: str) -> Dict[str, Any
     Executes the external analysis via Ollama and returns a structured JSON payload.
     """
     prompt = build_external_prompt(engine, snapshot_id)
+    logger.debug("Built external LLM prompt for snapshot %s", snapshot_id)
     raw = run_ollama(prompt)
 
     # Best effort: parse JSON; if model returns non-JSON, store raw output.
     try:
         parsed = json.loads(raw)
         if isinstance(parsed, dict):
+            logger.info("External LLM returned structured JSON for snapshot %s", snapshot_id)
             return {
                 "snapshot_id": snapshot_id,
                 "generated_at": _utcnow_iso(),
@@ -176,7 +182,7 @@ def run_external_llm_analysis(engine: Engine, snapshot_id: str) -> Dict[str, Any
                 "result": parsed,
             }
     except Exception:
-        pass
+        logger.warning("External LLM returned non-JSON output for snapshot %s", snapshot_id, exc_info=True)
 
     return {
         "snapshot_id": snapshot_id,
