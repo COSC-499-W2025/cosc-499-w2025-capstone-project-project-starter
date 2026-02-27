@@ -1,5 +1,6 @@
 # to print stuff -moved from scan manager
 import shutil
+from datetime import datetime
 
 def _center_text(text: str) -> str:
     width = shutil.get_terminal_size(fallback=(80, 20)).columns
@@ -209,3 +210,57 @@ def print_contributor_stats(project_summaries, file=None):
 
         for proj, pct, adj, base in person_projects[:3]:
             _print_line(f"{proj[:32]:<32} {pct:5.1f}% {adj:14.1f} {base:10.1f}", file=file)
+
+
+def print_full_scan_report(scan_data):
+    """
+    Prints the full scan report including repo metadata and all summaries.
+    """
+    # 1. Print Repository Metadata for each project (if available)
+    project_summaries = scan_data.get("project_summaries", [])
+    for p in project_summaries:
+        if p.get("project"):
+            repo_name = p.get("repo_name") or p.get("project")
+            # Wrap strings in list because print_repo_summary expects iterables to join
+            authors_arg = [p.get("authors")] if p.get("authors") else []
+            contribs_arg = [p.get("contributors")] if p.get("contributors") else []
+            
+            print_repo_summary(
+                p.get("project"),
+                repo_name,
+                p.get("repo_root", ""),
+                authors_arg,
+                contribs_arg,
+                p.get("branch_count", 0),
+                p.get("has_merges", "Unknown"),
+                p.get("project_type", "Unknown"),
+                p.get("repo_duration_days", 0),
+                p.get("commit_frequency", "Unknown")
+            )
+
+    # 2. Print the rest of the reports
+    print_project_rankings(scan_data.get("project_summaries", []))
+    print_chronological_projects(scan_data.get("projects_chronological", []))
+    print_skills_timeline(scan_data.get("skills_chronological", []))
+    print_resume_summaries(scan_data.get("resume_summaries", []))
+    print_contributor_stats(scan_data.get("project_summaries", []))
+
+
+def format_timestamp(value):
+    """Formats ISO timestamp to readable string."""
+    if not value:
+        return value
+    try:
+        ts = value.replace("Z", "+00:00")
+        return datetime.fromisoformat(ts).strftime("%b %d, %Y %I:%M %p")
+    except (TypeError, ValueError):
+        return value
+
+
+def print_scan_list(scans):
+    """Prints a numbered list of scans."""
+    for i, s in enumerate(scans, start=1):
+        ts = format_timestamp(s['timestamp'])
+        print(
+            _center_text(f"{i}. Scan {s['summary_id']} - {ts} ({s['analysis_mode']})")
+        )

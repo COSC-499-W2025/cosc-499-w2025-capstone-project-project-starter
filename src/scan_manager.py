@@ -17,21 +17,9 @@ from print_utils import (
     print_resume_summaries,
     print_contributor_stats,
     is_noise,
+    print_scan_list,
+    format_timestamp
 )
-
-
-# --------------------------------------------------------
-# TIME FORMATTER
-# --------------------------------------------------------
-
-def _format_timestamp(value):
-    if not value:
-        return value
-    try:
-        ts = value.replace("Z", "+00:00")
-        return datetime.fromisoformat(ts).strftime("%b %d, %Y %I:%M %p")
-    except (TypeError, ValueError):
-        return value
 
 
 # --------------------------------------------------------
@@ -89,7 +77,7 @@ def view_full_scan_details():
     # 1. List available scans (lightweight metadata only)
     print()
     print(_center_text("Select a scan to view:"))
-    _print_scan_list(scans)
+    print_scan_list(scans)
 
     choice = input(_center_text("Enter number (0 to cancel): ")).strip()
     if not choice.isdigit() or int(choice) == 0:
@@ -118,7 +106,7 @@ def view_full_scan_details():
 
     # 3. Display the report sections using helper functions
     _print_header("FULL SCAN DETAILS")
-    print(f"Timestamp: {_format_timestamp(scan['timestamp'])}")
+    print(f"Timestamp: {format_timestamp(scan['timestamp'])}")
     print(f"Mode: {scan['analysis_mode']}")
     print("=" * 28)
 
@@ -143,7 +131,7 @@ def view_full_scan_details():
 
         try:
             with open(path, "w", encoding="utf-8") as f:
-                print(f"Scan Report — {_format_timestamp(scan['timestamp'])}", file=f)
+                print(f"Scan Report — {format_timestamp(scan['timestamp'])}", file=f)
                 print("=" * 60, file=f)
                 print_project_rankings(project_summaries, file=f)
                 print_chronological_projects(projects_chronological, file=f)
@@ -170,7 +158,7 @@ def update_scan_workflow():
         return
 
     print(_center_text("Select a scan to update:"))
-    _print_scan_list(scans)
+    print_scan_list(scans)
     
     choice = input(_center_text(f"Choose (1-{len(scans)} or 0 to cancel): ")).strip()
     if not choice.isdigit():
@@ -239,7 +227,7 @@ def delete_full_scan():
 
     print()
     print(_center_text("Select a scan to delete:"))
-    _print_scan_list(scans)
+    print_scan_list(scans)
 
     choice = input(_center_text("Enter number (0 to cancel): ")).strip()
     if not choice.isdigit() or int(choice) == 0:
@@ -283,7 +271,7 @@ def generate_portfolio_menu():
 
     print()
     print(_center_text("Select a scan to generate portfolio from:"))
-    _print_scan_list(scans)
+    print_scan_list(scans)
 
     choice = input(_center_text("Enter number (0 to cancel): ")).strip()
     if not choice.isdigit() or int(choice) == 0:
@@ -414,13 +402,3 @@ def _print_menu(title, options, prompt="Choose an option: "):
     for key, label in options:
         print(_center_text(f"{key}) {label}"))
     return input(_center_text(prompt)).strip()
-
-
-def _print_scan_list(scans):
-    for i, s in enumerate(scans, start=1):
-        ts = _format_timestamp(s['timestamp'])
-        print(
-            _center_text(
-                f"{i}. Scan {s['summary_id']} - {ts} ({s['analysis_mode']})"
-            )
-        )
