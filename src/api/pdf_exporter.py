@@ -491,8 +491,10 @@ def export_resume_item_pdf_bytes(resume_item: dict, filters: dict = None) -> byt
                 metric_lines.append(f"Your commits: {metrics.get('user_commits')}")
             if metrics.get("contributor_count") is not None:
                 metric_lines.append(f"Contributors: {metrics.get('contributor_count')}")
-        if metric_lines:
-            elements.append(Paragraph("Metrics", styles["Heading2"]))
+        if metric_lines and not (
+            str(metrics.get("total_commits") or "0") == "0" and str(metrics.get("contributor_count") or "0") == "0"
+        ):
+            elements.append(Paragraph("Git Metrics", styles["Heading2"]))
             elements.append(Spacer(1, 6))
             for line in metric_lines:
                 elements.append(Paragraph(line, styles["Normal"]))

@@ -1171,7 +1171,7 @@ def test_pdf_expanded_sections_default():
     assert "Project Profile" in page_text
     assert "Summary" in page_text
     assert "Resume Bullets" in page_text
-    assert "Metrics" in page_text
+    assert "Git Metrics" in page_text
     assert "Tech Stack" in page_text
     assert "Evidence Highlights" in page_text
 
