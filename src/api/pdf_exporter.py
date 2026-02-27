@@ -426,7 +426,7 @@ def export_resume_item_pdf_bytes(resume_item: dict, filters: dict = None) -> byt
         if collab:
             profile_lines.append(f"Collaboration: {collab}")
         if latest_snapshot_id:
-            profile_lines.append(f"Latest snapshot: {latest_snapshot_id}")
+            profile_lines.append(f"Latest snapshot: {latest_snapshot_id.replace('-', '')}")
 
         if profile_lines:
             elements.append(Paragraph("Project Profile", styles["Heading2"]))
