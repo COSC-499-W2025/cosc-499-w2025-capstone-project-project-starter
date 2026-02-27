@@ -6,6 +6,7 @@ from collections import Counter
 import hashlib
 import hmac
 import json
+import logging
 import os
 import re
 import secrets
@@ -65,6 +66,24 @@ from src.db.deletion import (
 app = FastAPI(title="Artifact Miner API", version="0.1.0")
 
 PROJECT_IMAGE_SUBDIR = "project_images"
+
+
+def _configure_logging() -> None:
+    level_name = str(os.getenv("ARTIFACT_MINER_LOG_LEVEL") or os.getenv("LOG_LEVEL") or "INFO").upper()
+    level = getattr(logging, level_name, logging.INFO)
+    root_logger = logging.getLogger()
+
+    if not root_logger.handlers:
+        logging.basicConfig(
+            level=level,
+            format="%(asctime)s %(levelname)s %(name)s %(message)s",
+        )
+    else:
+        root_logger.setLevel(level)
+
+
+_configure_logging()
+logger = logging.getLogger(__name__)
 
 
 def _project_image_root() -> str:
@@ -1718,13 +1737,13 @@ def download_resume_pdf(resume_id: str):
             """)
             result = conn.execute(query, {"rid": resume_id}).mappings().first()
 
-            print(f"DEBUG: Found config for resume {resume_id}: {result is not None}")
+            logger.debug("Found config for resume %s: %s", resume_id, result is not None)
             
             # Extract the filters if they exist, otherwise empty dict
             user_config = result["config_json"] if result else {}
             filters = user_config.get("resume_filters", {})
 
-            print(f"DEBUG: Filters being sent to exporter: {filters}")
+            logger.debug("Filters passed to PDF exporter for resume %s: %s", resume_id, filters)
 
     except KeyError:
         raise HTTPException(status_code=404, detail="Resume item not found")

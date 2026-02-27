@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import base64
+import logging
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional, Tuple
 
@@ -10,6 +11,8 @@ from sqlalchemy.engine import Engine
 
 from src.db.user_config import get_user_config
 from src.api.ranking import compute_rank_score, normalize_ranking_config, sort_projects
+
+logger = logging.getLogger(__name__)
 
 
 def _utcnow_iso() -> str:
@@ -614,8 +617,12 @@ def generate_resume_item(
                         "mime_type": thumb.get("mime_type"),
                     }
                     thumbnail_blob_sha256 = thumb.get("sha256")
-            except Exception as e:
-                print(f"⚠️ Failed to load thumbnail blob: {e}")
+            except Exception:
+                logger.warning(
+                    "Failed to load thumbnail blob for project %s",
+                    proj.get("id"),
+                    exc_info=True,
+                )
 
 
 
