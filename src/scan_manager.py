@@ -8,6 +8,8 @@ from permission_manager import get_yes_no
 from resume_generator import generate_resume, generate_contributor_portfolio, edit_contributor_descriptions
 from portfolio_generator import manage_portfolio_showcase, generate_and_save_portfolio
 from services.scan_service import analyze_scan, merge_scans
+from datetime import datetime
+
 
 from print_utils import (
     print_repo_summary,
@@ -41,8 +43,9 @@ def scan_manager():
                 ("2", "Update an existing scan"),
                 ("3", "Generate Resume/Portfolio"),
                 ("4", "Delete stored scans"),
+                ("5", "Customize (ranking/chronology/skills/showcase)")
             ],
-            prompt="Choose an option (0–4): ",
+            prompt="Choose an option (0–5): ",
         )
 
         if choice == "1":
@@ -53,6 +56,8 @@ def scan_manager():
             generate_portfolio_menu()
         elif choice == "4":
             delete_full_scan()
+        elif choice == "5":
+            customize_scan_output()
         elif choice == "0":
             break
         else:
@@ -96,6 +101,7 @@ def view_full_scan_details():
         return
 
     data = scan["scan_data"]
+    _apply_customizations_to_project_summaries(data)
 
         # Extract specific sections from the JSON blob
 
@@ -113,6 +119,16 @@ def view_full_scan_details():
         # Print various sections of the report
 
     print_project_rankings(project_summaries)
+
+    projects_chronological = []
+    for p in project_summaries:
+    # first_modified / last_modified might be datetime or string 
+        first = str(p.get("first_modified", ""))[:10]
+        last = str(p.get("last_modified", ""))[:10]
+        projects_chronological.append({"name": p.get("project", "Unknown"), "first_used": first, "last_used": last})
+
+    projects_chronological.sort(key=lambda x: x["first_used"])
+
     print_chronological_projects(projects_chronological)
     print_skills_timeline(skills_chronological)
     print_resume_summaries(resume_summaries)
@@ -286,6 +302,7 @@ def generate_portfolio_menu():
 
     scan = get_full_scan_by_id(scans[idx]["summary_id"])
     data = scan["scan_data"]
+    _apply_customizations_to_project_summaries(data)
 
     while True:
         _print_header("GENERATION OPTIONS", width=48, sep="-")
@@ -352,7 +369,7 @@ def generate_portfolio_menu():
         profile = data["contributor_profiles"][user]
         
         if choice == "3":
-            out = generate_and_save_portfolio(data, user, use_custom_fields=False)
+            out = generate_and_save_portfolio(data, user, use_custom_fields=True)
             if out:
                 print(_center_text(f"Saved portfolio to:\n{out}"))
             else:
@@ -402,3 +419,271 @@ def _print_menu(title, options, prompt="Choose an option: "):
     for key, label in options:
         print(_center_text(f"{key}) {label}"))
     return input(_center_text(prompt)).strip()
+
+
+def _print_scan_list(scans):
+    for i, s in enumerate(scans, start=1):
+        ts = format_timestamp(s['timestamp'])
+        print(
+            _center_text(
+                f"{i}. Scan {s['summary_id']} - {ts} ({s['analysis_mode']})"
+            )
+        )
+
+def _apply_customizations_to_project_summaries(data: dict) -> None:
+    """
+    Applies saved user choices (ranking, chronology corrections, highlighted skills,
+    showcase selection, comparison attributes) to the project_summaries list
+    b4 printing / generating.
+    """
+    custom = data.get("project_customizations") or {}
+    projects = data.get("project_summaries") or []
+
+    for p in projects:
+        pname = p.get("project")
+        if not pname:
+            continue
+        c = custom.get(pname) or {}
+
+        # 1) Re-ranking
+        if isinstance(c.get("ranking"), int):
+            p["_custom_rank"] = c["ranking"]
+
+        # 2) Chronology correction (override first/last)
+        chrono = c.get("chronology_correction")
+        if isinstance(chrono, dict):
+            if chrono.get("first_used"):
+                p["first_modified"] = chrono["first_used"]
+            if chrono.get("last_used"):
+                p["last_modified"] = chrono["last_used"]
+
+        # 3) Comparison attributes (just store on project)
+        if isinstance(c.get("comparison_attributes"), dict):
+            p["comparison_attributes"] = c["comparison_attributes"]
+
+        # 4) Skills to highlight
+        if isinstance(c.get("highlighted_skills"), list):
+            p["highlighted_skills"] = c["highlighted_skills"]
+
+        # 5) Selected for showcase
+        if isinstance(c.get("selected_for_showcase"), bool):
+            p["selected_for_showcase"] = c["selected_for_showcase"]
+
+# Also update the separate chronological list if it exists
+    chrono_list = data.get("projects_chronological") or []
+    if chrono_list:
+        by_name = {e.get("name") or e.get("project"): e for e in chrono_list if isinstance(e, dict)}
+        for p in projects:
+            name = p.get("project")
+            if not name or name not in by_name:
+                continue
+            entry = by_name[name]
+            if p.get("first_modified"):
+                entry["first_used"] = str(p["first_modified"])[:10]
+            if p.get("last_modified"):
+                entry["last_used"] = str(p["last_modified"])[:10]
+        data["projects_chronological"] = chrono_list
+
+    # Sort project_summaries: custom rank first, otherwise by score
+    def sort_key(p):
+        if isinstance(p.get("_custom_rank"), int):
+            return (0, p["_custom_rank"])
+        return (1, -(p.get("score") or 0))
+
+    data["project_summaries"] = sorted(projects, key=sort_key)
+
+
+def _is_valid_date_yyyy_mm_dd(value: str) -> bool:
+    try:
+        datetime.strptime(value, "%Y-%m-%d")
+        return True
+    except Exception:
+        return False
+
+
+def _prompt_date(label: str) -> str:
+    """Prompt until blank or valid YYYY-MM-DD."""
+    while True:
+        s = input(_center_text(f"{label} (YYYY-MM-DD, blank to skip): ")).strip()
+        if not s:
+            return ""
+        if _is_valid_date_yyyy_mm_dd(s):
+            return s
+        print(_center_text("Invalid date. Please use YYYY-MM-DD (example: 2026-02-25)."))
+
+def customize_scan_output():
+    scans = list_full_scans()
+    if not scans:
+        print(_center_text("No scans found."))
+        return
+
+    print()
+    print(_center_text("Select a scan to customize:"))
+    _print_scan_list(scans)
+
+    choice = input(_center_text("Enter number (0 to cancel): ")).strip()
+    if not choice.isdigit() or int(choice) == 0:
+        return
+
+    idx = int(choice) - 1
+    if idx < 0 or idx >= len(scans):
+        print(_center_text("Invalid selection."))
+        return
+
+    scan = get_full_scan_by_id(scans[idx]["summary_id"])
+    if not scan:
+        print(_center_text("Could not load scan."))
+        return
+
+    summary_id = scan["summary_id"]
+    data = scan["scan_data"]
+    data.setdefault("project_customizations", {})
+    projects = data.get("project_summaries", []) or []
+
+    if not projects:
+        print(_center_text("No projects in this scan."))
+        return
+
+    while True:
+        _print_header("EDIT STORED SCAN (CUSTOMIZE OUTPUT)", width=56, sep="=")
+        print(_center_text("Edits are saved to this scan and used in reports / portfolio generation."))
+        print(_center_text("1) Set project ranking (re-order)"))
+        print(_center_text("2) Correct chronology (first/last date)"))
+        print(_center_text("3) Set project tags/attributes (for comparison)"))
+        print(_center_text("4) Pick skills to highlight"))
+        print(_center_text("5) Mark project for showcase"))
+        print(_center_text("0) Save + Exit"))
+
+        action = input(_center_text("Choose: ")).strip()
+        if action == "0":
+            break
+        if action not in {"1", "2", "3", "4", "5"}:
+            continue
+
+        print()
+        for i, p in enumerate(projects, 1):
+            print(_center_text(f"{i}. {p.get('project', f'Project {i}')}"))
+        psel = input(_center_text("Pick project number (0 to back): ")).strip()
+        if not psel.isdigit() or int(psel) == 0:
+            continue
+
+        pidx = int(psel) - 1
+        if pidx < 0 or pidx >= len(projects):
+            continue
+
+        proj = projects[pidx]
+        pname = proj.get("project", f"Project {pidx+1}")
+        pc = data["project_customizations"].setdefault(pname, {})
+
+        if action == "1":
+    # Re-order projects against each other (1st, 2nd, 3rd...)
+            custom = data.get("project_customizations") or {}
+            names = [p.get("project", f"Project {i+1}") for i, p in enumerate(projects)]
+
+            ranked = []
+            for name in names:
+                r = (custom.get(name) or {}).get("ranking")
+                ranked.append((name, r))
+
+    # If any ranks exist, sort by them (smaller = higher priority)
+            if any(isinstance(r, int) for _, r in ranked):
+                ranked.sort(key=lambda x: (x[1] if isinstance(x[1], int) else 10**9))
+                ordered_names = [n for n, _ in ranked]
+            else:
+                ordered_names = names[:]
+
+            print()
+            print(_center_text("Current project order (1 = highest priority):"))
+            for i, n in enumerate(ordered_names, 1):
+                print(_center_text(f"{i}. {n}"))
+
+            move_raw = input(_center_text("Pick project to move (0 to back): ")).strip()
+            if not move_raw.isdigit() or int(move_raw) == 0:
+                continue
+            move_i = int(move_raw) - 1
+            if move_i < 0 or move_i >= len(ordered_names):
+                continue
+
+            pos_raw = input(_center_text(f"New position (1-{len(ordered_names)}): ")).strip()
+            if not pos_raw.isdigit():
+                continue
+            new_pos = int(pos_raw)
+            if new_pos < 1 or new_pos > len(ordered_names):
+                continue
+
+            picked_name = ordered_names.pop(move_i)
+            ordered_names.insert(new_pos - 1, picked_name)
+
+    # Save back as unique ranks for ALL projects
+            for i, n in enumerate(ordered_names, 1):
+                data["project_customizations"].setdefault(n, {})["ranking"] = i
+
+            print(_center_text("Saved new ranking order."))
+
+            print()
+            print(_center_text("Updated project order:"))
+            for i, n in enumerate(ordered_names, 1):
+                print(_center_text(f"{i}. {n}"))
+            input(_center_text("Press Enter to continue..."))
+
+        elif action == "2":
+            pc.setdefault("chronology_correction", {})
+            first = _prompt_date("First used")
+            last = _prompt_date("Last used")
+            if first:
+                pc["chronology_correction"]["first_used"] = first
+            if last:
+                pc["chronology_correction"]["last_used"] = last
+
+        elif action == "3":
+            print()
+            print(_center_text("Add short tags/attributes so the portfolio can show a quick comparison."))
+            print(_center_text("Use key=value pairs (role=backend, difficulty=high, focus=DB)."))
+
+            raw = input(_center_text(
+                "Enter tags as key=value (comma-separated). Example: audience=recruiter, focus=backend (blank clears): "
+            )).strip()
+
+            attrs = {}
+            for part in raw.split(","):
+                part = part.strip()
+                if "=" in part:
+                    k, v = part.split("=", 1)
+                    k, v = k.strip(), v.strip()
+                    if k:
+                        attrs[k] = v
+
+            pc["comparison_attributes"] = attrs if raw else {}
+
+        elif action == "4":
+            skills = proj.get("skills") or []
+
+            # If skills is a string like "Python, SQL, ..."
+            if isinstance(skills, str):
+                skills = [s.strip() for s in skills.split(",") if s.strip()]
+
+            # If skills is something else unexpected, fallback
+            if not isinstance(skills, list):
+                skills = []
+            if not skills:
+                print(_center_text("No detected skills for this project."))
+                input(_center_text("Press Enter..."))
+                continue
+            print(_center_text("Detected skills:"))
+            for i, s in enumerate(skills, 1):
+                print(_center_text(f"{i}. {s}"))
+            raw = input(_center_text("Pick numbers (ex: 1 3 5): ")).strip()
+            picked = []
+            for tok in raw.split():
+                if tok.isdigit():
+                    si = int(tok) - 1
+                    if 0 <= si < len(skills):
+                        picked.append(skills[si])
+            pc["highlighted_skills"] = picked
+            
+
+        elif action == "5":
+            pc["selected_for_showcase"] = get_yes_no("Select this project for showcase?")
+
+    update_full_scan(summary_id, data)
+    print(_center_text("Saved customization choices."))
