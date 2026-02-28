@@ -519,8 +519,19 @@
         function toggleSubmenu(submenuId, toggleId) {
             const submenu = document.getElementById(submenuId);
             const toggle = document.getElementById(toggleId);
-            const isOpen = submenu.classList.toggle('open');
-            toggle.classList.toggle('open', isOpen);
+            
+            // Check if the current menu is already open
+            const wasOpen = submenu.classList.contains('open');
+            
+            // Close all dropdown menus first
+            document.querySelectorAll('.submenu-grid.open').forEach(s => s.classList.remove('open'));
+            document.querySelectorAll('.menu-btn.caret.open').forEach(t => t.classList.remove('open'));
+            
+            // If it was closed before, open it now
+            if (!wasOpen) {
+                submenu.classList.add('open');
+                toggle.classList.add('open');
+            }
         }
 
         async function submitPrivacyConsent(consentGiven) {
