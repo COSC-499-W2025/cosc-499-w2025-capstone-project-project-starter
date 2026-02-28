@@ -68,6 +68,8 @@ def _derive_project_summary_text(
     *,
     project_name: str,
     collab_type: Optional[str],
+    user_role: Optional[str],
+    evidence_json: Optional[Dict[str, Any]],
     top_languages: List[str],
     frameworks: List[str],
     top_skills: List[str],
@@ -92,6 +94,10 @@ def _derive_project_summary_text(
     if skills:
         parts.append(f"Skills: {skills}.")
 
+    role = str(user_role or "").strip()
+    if role:
+        parts.append(f"Role: {role}.")
+
     # Only mention git-derived activity when it is non-zero.
     # A zip upload that is not a git repo will yield 0/0 aggregates; emitting
     # "0 commits" is unhelpful.
@@ -108,15 +114,34 @@ def _derive_project_summary_text(
         else:
             parts.append(f"Activity: {total_commits} commits; {contributor_count} contributor(s); {collab_type or 'unknown'}.")
 
+    evidence = evidence_json if isinstance(evidence_json, dict) else {}
+    metrics = evidence.get("metrics")
+    if isinstance(metrics, dict) and metrics:
+        metric_bits: List[str] = []
+        for k, v in list(metrics.items())[:2]:
+            key = str(k).strip()
+            val = str(v).strip()
+            if key and val:
+                metric_bits.append(f"{key}={val}")
+        if metric_bits:
+            parts.append(f"Outcomes: {', '.join(metric_bits)}.")
+
+    if evidence.get("feedback"):
+        parts.append("Feedback documented.")
+    if evidence.get("evaluation"):
+        parts.append("Evaluation documented.")
+
     if not parts:
         return _truncate(f"{project_name}: project summary unavailable (insufficient completed analyses).", 240)
 
-    return _truncate(f"{project_name}. " + " ".join(parts), 320)
+    return _truncate(f"{project_name}. " + " ".join(parts), 420)
 
 
 def _local_resume_bullets(
     *,
     project_name: str,
+    user_role: Optional[str],
+    evidence_json: Optional[Dict[str, Any]],
     top_languages: List[str],
     frameworks: List[str],
     top_skills: List[str],
@@ -132,7 +157,10 @@ def _local_resume_bullets(
 
     tech = _comma_list([x for x in [langs, frws] if x], 4)
 
-    b1 = f"Built and iterated on {project_name}"
+    if str(user_role or "").strip():
+        b1 = f"Delivered {project_name} as {str(user_role).strip()}"
+    else:
+        b1 = f"Built and iterated on {project_name}"
     if tech:
         b1 += f" using {tech}"
     if skills:
@@ -163,16 +191,59 @@ def _local_resume_bullets(
             focus_skill = str(s)
             break
     if not focus_skill:
-        focus_skill = (top_skills or [None])[0]
-    if focus_skill:
+        for s in (top_skills or []):
+            candidate = str(s).strip()
+            if candidate:
+                focus_skill = candidate
+                break
+    evidence = evidence_json if isinstance(evidence_json, dict) else {}
+    evidence_bits: List[str] = []
+    metrics = evidence.get("metrics")
+    if isinstance(metrics, dict):
+        for k, v in list(metrics.items())[:2]:
+            key = str(k).strip()
+            val = str(v).strip()
+            if key and val:
+                evidence_bits.append(f"{key}={val}")
+    if evidence.get("feedback"):
+        evidence_bits.append("feedback")
+    if evidence.get("evaluation"):
+        evidence_bits.append("evaluation")
+
+    if evidence_bits:
+        b3 = f"Documented impact with {', '.join(evidence_bits)}."
+    elif focus_skill:
         if has_git_activity:
             b3 = f"Demonstrated proficiency in {focus_skill} through measurable repository activity and structured project outputs."
         else:
             b3 = f"Demonstrated proficiency in {focus_skill} through structured project outputs and iterative development."
     else:
-        b3 = "None"
+        b3 = "Translated technical work into clear resume outcomes aligned with project goals."
 
     return [_truncate(b1, 180), _truncate(b2, 180), _truncate(b3, 180)]
+
+
+def _combine_resume_bullets(
+    external_bullets: Optional[List[str]],
+    evidence_bullets: List[str],
+    max_total: int = 6,
+) -> List[str]:
+    out: List[str] = []
+    seen = set()
+
+    for bullet in (external_bullets or []) + (evidence_bullets or []):
+        b = str(bullet or "").strip()
+        if not b:
+            continue
+        key = b.casefold()
+        if key in seen:
+            continue
+        seen.add(key)
+        out.append(_truncate(b, 180))
+        if len(out) >= max_total:
+            break
+
+    return out
 
 
 def _external_resume_bullets(external_llm_out: Dict[str, Any]) -> Optional[List[str]]:
@@ -379,6 +450,8 @@ def generate_portfolio_top_summaries(
             summary_text = _derive_project_summary_text(
                 project_name=p.get("name") or pid,
                 collab_type=p.get("collaboration_type"),
+                user_role=p.get("user_role"),
+                evidence_json={},
                 top_languages=top_languages,
                 frameworks=frameworks,
                 top_skills=top_skills,
@@ -391,6 +464,8 @@ def generate_portfolio_top_summaries(
             ext_out = _fetch_latest_completed_analysis_output(conn, sid, "external_llm") if sid else {}
             bullets = _external_resume_bullets(ext_out) or _local_resume_bullets(
                 project_name=p.get("name") or pid,
+                user_role=p.get("user_role"),
+                evidence_json={},
                 top_languages=top_languages,
                 frameworks=frameworks,
                 top_skills=top_skills,
@@ -421,16 +496,22 @@ def generate_portfolio_top_summaries(
             showcase_id = None
             if persist:
                 payload = json.dumps(artifact, default=str)
+                
+                # ATOMIC UPSERT: Handles the race condition safely
                 showcase_id = conn.execute(
                     text(
                         """
-                        INSERT INTO portfolio_showcases (project_id, thumbnail_blob_sha256, content_json)
-                        VALUES (:pid, NULL, CAST(:cj AS jsonb))
+                        INSERT INTO portfolio_showcases (project_id, thumbnail_blob_sha256, content_json, updated_at)
+                        VALUES (:pid, NULL, CAST(:cj AS jsonb), NOW())
+                        ON CONFLICT (project_id) DO UPDATE
+                        SET content_json = EXCLUDED.content_json,
+                            updated_at = EXCLUDED.updated_at
                         RETURNING id
                         """
                     ),
                     {"pid": pid, "cj": payload},
                 ).scalar_one()
+                
                 showcase_ids.append(str(showcase_id))
 
             top_projects.append(
@@ -465,7 +546,10 @@ def generate_resume_item(
 
     with engine.begin() as conn:
         proj = conn.execute(
-            text("SELECT id, COALESCE(display_name, name) as name, portfolio_id, collaboration_type, user_role FROM projects WHERE id = :pid"),
+            text(
+                "SELECT id, COALESCE(display_name, name) as name, portfolio_id, collaboration_type, user_role, evidence_json "
+                "FROM projects WHERE id = :pid"
+            ),
             {"pid": project_id},
         ).mappings().first()
         if not proj:
@@ -543,6 +627,8 @@ def generate_resume_item(
         summary_text = _derive_project_summary_text(
             project_name=str(proj.get("name") or project_id),
             collab_type=str(proj.get("collaboration_type") or ""),
+            user_role=str(proj.get("user_role") or ""),
+            evidence_json=proj.get("evidence_json") if isinstance(proj.get("evidence_json"), dict) else {},
             top_languages=top_languages,
             frameworks=frameworks,
             top_skills=top_skills,
@@ -551,32 +637,30 @@ def generate_resume_item(
             contributor_count=int(totals.get("contributor_count") or 0),
         )
 
-        bullets: List[str]
+        evidence_bullets = _local_resume_bullets(
+            project_name=str(proj.get("name") or project_id),
+            user_role=str(proj.get("user_role") or ""),
+            evidence_json=proj.get("evidence_json") if isinstance(proj.get("evidence_json"), dict) else {},
+            top_languages=top_languages,
+            frameworks=frameworks,
+            top_skills=top_skills,
+            user_commits=user_commits_out,
+            total_commits=int(totals.get("total_commits") or 0),
+            contributor_count=int(totals.get("contributor_count") or 0),
+            collab_type=str(proj.get("collaboration_type") or ""),
+            highlight_skills=highlight_skills,
+        )
+
+        external_bullets: List[str] = []
         if prefer_external_bullets and sid:
             ext_out = _fetch_latest_completed_analysis_output(conn, sid, "external_llm")
-            bullets = _external_resume_bullets(ext_out) or _local_resume_bullets(
-                project_name=str(proj.get("name") or project_id),
-                top_languages=top_languages,
-                frameworks=frameworks,
-                top_skills=top_skills,
-                user_commits=user_commits_out,
-                total_commits=int(totals.get("total_commits") or 0),
-                contributor_count=int(totals.get("contributor_count") or 0),
-                collab_type=str(proj.get("collaboration_type") or ""),
-                highlight_skills=highlight_skills,
-            )
-        else:
-            bullets = _local_resume_bullets(
-                project_name=str(proj.get("name") or project_id),
-                top_languages=top_languages,
-                frameworks=frameworks,
-                top_skills=top_skills,
-                user_commits=user_commits_out,
-                total_commits=int(totals.get("total_commits") or 0),
-                contributor_count=int(totals.get("contributor_count") or 0),
-                collab_type=str(proj.get("collaboration_type") or ""),
-                highlight_skills=highlight_skills,
-            )
+            external_bullets = _external_resume_bullets(ext_out) or []
+
+        bullets = _combine_resume_bullets(
+            external_bullets=external_bullets[:3],
+            evidence_bullets=evidence_bullets[:3],
+            max_total=6,
+        )
 
         # --- FIXED THUMBNAIL HANDLING ---
         thumb = conn.execute(
@@ -618,14 +702,18 @@ def generate_resume_item(
                 "name": proj.get("name"),
                 "collaboration_type": proj.get("collaboration_type"),
                 "user_role": proj.get("user_role"),
+                "evidence_json": proj.get("evidence_json") if isinstance(proj.get("evidence_json"), dict) else {},
             },
             "latest_snapshot_id": sid,
             "summary_text": summary_text,
             "resume_bullets": bullets,
+            "resume_bullets_external": external_bullets[:3],
+            "resume_bullets_evidence": evidence_bullets[:3],
+            "content_density_version": "v2",
             "thumbnail_blob": thumbnail_blob_json,
             "thumbnail_blob_sha256": thumbnail_blob_sha256,
             "signals": {
-                "parser": {"generated_at": parser_out.get("generated_at"), "top_languages": parser_out.get("top_languages"), "activity_counts": parser_out.get("activity_counts")},
+                "parser": {"generated_at": parser_out.get("generated_at"), "top_languages": parser_out.get("top_languages"), "activity_counts": parser_out.get("activity_counts"), "frameworks": frameworks},
                 "local_ml": {"generated_at": ml_out.get("generated_at"), "threshold": ml_out.get("threshold"), "top_skills": (ml_out.get("skills") or [])[:25]},
                 "git_metrics": {"generated_at": git_out.get("generated_at"), "git_repos_found": git_out.get("git_repos_found"), "repo_summaries": (git_out.get("repo_summaries") or [])[:5]},
             },

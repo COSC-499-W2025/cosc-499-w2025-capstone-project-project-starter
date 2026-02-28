@@ -65,6 +65,35 @@ def _fail(engine, analysis_id: str, err: str) -> None:
     _finish(engine, analysis_id, status="failed", output={"error": err})
 
 
+def _queue_local_ml_if_missing(engine, snapshot_id: str) -> None:
+    with engine.begin() as conn:
+        existing = conn.execute(
+            text(
+                """
+                SELECT id
+                FROM analyses
+                WHERE snapshot_id = :sid AND analysis_type = 'local_ml'
+                ORDER BY created_at DESC
+                LIMIT 1
+                """
+            ),
+            {"sid": str(snapshot_id)},
+        ).scalar()
+
+        if existing:
+            return
+
+        conn.execute(
+            text(
+                """
+                INSERT INTO analyses (snapshot_id, analysis_type, status)
+                VALUES (:sid, 'local_ml', 'pending')
+                """
+            ),
+            {"sid": str(snapshot_id)},
+        )
+
+
 def main():
     engine = get_engine()
     while True:
@@ -93,6 +122,8 @@ def main():
             else:
                 _fail(engine, analysis_id, f"unknown analysis_type: {analysis_type}")
         except Exception as e:
+            if analysis_type == "external_llm":
+                _queue_local_ml_if_missing(engine, snapshot_id)
             _fail(engine, analysis_id, f"{type(e).__name__}: {e}")
 
 

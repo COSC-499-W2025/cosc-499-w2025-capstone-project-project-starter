@@ -58,10 +58,43 @@ from src.db.deletion import (
     delete_portfolio_showcase_and_gc,
     delete_resume_item,
     delete_analysis,
+    delete_project_and_gc,
 )
 
 
 app = FastAPI(title="Artifact Miner API", version="0.1.0")
+
+PROJECT_IMAGE_SUBDIR = "project_images"
+
+
+def _project_image_root() -> str:
+    return os.getenv("ARTIFACT_MINER_BLOBSTORE", "blobstore")
+
+
+def _project_image_path(sha256: str, ext: str) -> str:
+    root = _project_image_root()
+    safe_ext = (ext or ".png").lower()
+    target_dir = os.path.join(root, PROJECT_IMAGE_SUBDIR)
+    os.makedirs(target_dir, exist_ok=True)
+    return os.path.join(target_dir, f"{sha256}{safe_ext}")
+
+
+def _resolve_project_image_path(stored_path: Optional[str]) -> Optional[str]:
+    if not stored_path:
+        return None
+
+    if os.path.exists(stored_path):
+        return stored_path
+
+    filename = os.path.basename(stored_path)
+    if not filename:
+        return None
+
+    migrated_path = os.path.join(_project_image_root(), PROJECT_IMAGE_SUBDIR, filename)
+    if os.path.exists(migrated_path):
+        return migrated_path
+
+    return None
 
 default_origins = [
     "http://localhost:3000",
@@ -525,6 +558,7 @@ async def upload_project(
     portfolio_id: str | None = Form(default=None),
     project_name: str | None = Form(default=None),
     snapshot_label: str | None = Form(default=None),
+    analysis_mode: str = Form(default="auto"),
     credentials: Optional[HTTPAuthorizationCredentials] = Depends(auth_bearer),
 ):
     auth = _resolve_auth_context(credentials, required=False)
@@ -545,7 +579,7 @@ async def upload_project(
 
     tmp_zip = save_upload_to_temp(upload_bytes)
     try:
-        blobstore_root = os.environ.get("ARTIFACT_MINER_BLOBSTORE", "/blobstore")
+        blobstore_root = os.environ.get("ARTIFACT_MINER_BLOBSTORE", "blobstore")
         res = ingest_zip_to_db(
             engine=get_engine(),
             zip_path=tmp_zip,
@@ -555,6 +589,7 @@ async def upload_project(
             portfolio_id=portfolio_id,
             project_name=project_name,
             snapshot_label=snapshot_label,
+            analysis_mode=analysis_mode,
         )
         return {
             "user_id": res.user_id,
@@ -562,6 +597,10 @@ async def upload_project(
             "created": res.created_projects,
             "skipped": res.skipped_projects,
         }
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except PermissionError as exc:
+        raise HTTPException(status_code=403, detail=str(exc)) from exc
     finally:
         try:
             os.unlink(tmp_zip)
@@ -1297,6 +1336,7 @@ def get_project_by_id(project_id: str):
                   pr.collaboration_type,
                   pr.user_role,
                   pr.created_at,
+                  pr.evidence_json,
                   COALESCE(t.total_commits, 0) AS total_commits,
                   COALESCE(ut.user_commits, 0) AS user_commits,
                   COALESCE(t.contributor_count, 0) AS contributor_count,
@@ -1317,6 +1357,10 @@ def get_project_by_id(project_id: str):
 
         # Convert to dict and format metrics as seen in list_projects
         res = dict(row)
+
+        # Pop and rename for api response
+        res["evidence"] = res.pop("evidence_json") or {}
+
         res["metrics"] = {
             "total_commits": int(res.pop("total_commits")),
             "user_commits": int(res.pop("user_commits")) or None,
@@ -1415,6 +1459,28 @@ def update_project(project_id: str, payload: ProjectUpdateIn):
         "user_role": updated.get("user_role"),
         "evidence_json": updated.get("evidence_json") or {},
     }
+
+
+@app.delete("/projects/{project_id}")
+def delete_project(
+    project_id: str,
+    credentials: Optional[HTTPAuthorizationCredentials] = Depends(auth_bearer),
+):
+    auth = _resolve_auth_context(credentials, required=True)
+    assert auth is not None
+
+    engine = get_engine()
+    with engine.connect() as conn:
+        owner_user_id = resolve_project_owner_user_id(conn, project_id)
+        if not owner_user_id:
+            raise HTTPException(status_code=404, detail="Project not found")
+        if str(owner_user_id) != auth["user_id"]:
+            raise HTTPException(status_code=403, detail="Project does not belong to the authenticated user")
+
+    try:
+        return delete_project_and_gc(engine, project_id)
+    except KeyError:
+        raise HTTPException(status_code=404, detail="Project not found")
 
 @app.get("/portfolio/{portfolio_id}/top-projects")
 def top_projects(
@@ -1559,6 +1625,39 @@ def generate_resume(payload: ResumeGenerateIn):
         return out
     except KeyError:
         raise HTTPException(status_code=404, detail="Project not found")
+
+@app.get("/projects/{project_id}/latest-resume")
+def get_latest_resume(project_id: str):
+    """
+    Returns the most recently generated resume for a project.
+    Returns 404 if no resume has been generated yet.
+    """
+    from sqlalchemy import text
+    import json
+
+    engine = get_engine()
+    with engine.connect() as conn:
+        row = conn.execute(
+            text("""
+                SELECT id, content_json
+                FROM resume_items
+                WHERE project_id = :project_id
+                ORDER BY created_at DESC
+                LIMIT 1
+            """),
+            {"project_id": project_id},
+        ).mappings().first()
+
+    if not row:
+        raise HTTPException(status_code=404, detail="No resume found for this project")
+
+    raw = row["content_json"]
+    content = json.loads(raw) if isinstance(raw, str) else raw
+
+    return {
+        "resume_id": row["id"],
+        "content": content,
+    }
 
 @app.post("/resume/{resume_id}/edit")
 def edit_resume(resume_id: str, body: ResumeEditRequest):
@@ -2202,11 +2301,40 @@ def list_portfolio_skills_chronological(
       - Read completed local_ml analyses for snapshots in the portfolio.
       - From output_json.skills[*].first_seen_ts (preferred), produce skill events with:
           (skill, first_seen_ts, project_id, snapshot_id, analysis_id, max_prob, hits)
-      - If first_seen_ts is missing, fall back to snapshot.ingested_at.
-    This aligns with the existing local_ml output schema. :contentReference[oaicite:2]{index=2}
+      - If output_json.skills is missing, fall back to analysis_skills rows.
+      - If no reliable timestamp is available, keep first_seen_ts as null.
     """
     engine = get_engine()
     auth = _resolve_auth_context(credentials, required=False)
+
+    def _to_iso_ts(value: Any) -> Optional[str]:
+        if value is None:
+            return None
+        if hasattr(value, "isoformat"):
+            try:
+                return str(value.isoformat())
+            except Exception:
+                return None
+        s = str(value).strip()
+        return s or None
+
+    def _first_example_ts(skill_row: Dict[str, Any]) -> Optional[str]:
+        examples = skill_row.get("examples")
+        if not isinstance(examples, list):
+            evidence = skill_row.get("evidence_json")
+            if isinstance(evidence, dict):
+                examples = evidence.get("examples")
+        if not isinstance(examples, list):
+            return None
+
+        ts_vals: List[str] = []
+        for ex in examples:
+            if not isinstance(ex, dict):
+                continue
+            ts = _to_iso_ts(ex.get("ts"))
+            if ts:
+                ts_vals.append(ts)
+        return min(ts_vals) if ts_vals else None
 
     with engine.connect() as conn:
         if auth:
@@ -2246,25 +2374,60 @@ def list_portfolio_skills_chronological(
             {"pid": portfolio_id},
         ).mappings().all()
 
+        analysis_skill_rows: Dict[str, List[Dict[str, Any]]] = {}
+        analysis_ids = [str(r["analysis_id"]) for r in rows if r.get("analysis_id")]
+        if analysis_ids:
+            skill_rows = conn.execute(
+                text(
+                    """
+                    SELECT
+                      a_s.analysis_id,
+                      s.skill_name AS skill,
+                      a_s.confidence,
+                      a_s.evidence_json
+                    FROM analysis_skills a_s
+                    JOIN skills s ON s.id = a_s.skill_id
+                    WHERE a_s.analysis_id IN :analysis_ids
+                    ORDER BY a_s.confidence DESC NULLS LAST, s.skill_name ASC
+                    """
+                ).bindparams(bindparam("analysis_ids", expanding=True)),
+                {"analysis_ids": analysis_ids},
+            ).mappings().all()
+            for srow in skill_rows:
+                aid = str(srow.get("analysis_id"))
+                analysis_skill_rows.setdefault(aid, []).append(dict(srow))
+
     events = []
     for r in rows:
         out = r.get("output_json") or {}
         skills = out.get("skills") if isinstance(out, dict) else None
-        if not isinstance(skills, list):
-            continue
+        if not isinstance(skills, list) or not skills:
+            skills = analysis_skill_rows.get(str(r.get("analysis_id")), [])
 
         for srow in skills:
             if not isinstance(srow, dict):
                 continue
-            skill = srow.get("skill")
+            skill = srow.get("skill") or srow.get("skill_name")
             if not skill:
                 continue
 
-            ts = srow.get("first_seen_ts") or None
-            # Fall back if model did not emit first_seen_ts.
+            ts = _to_iso_ts(srow.get("first_seen_ts"))
             if not ts:
-                fallback = r.get("ingested_at") or r.get("completed_at")
-                ts = fallback.isoformat() if fallback is not None else None
+                ts = _first_example_ts(srow)
+
+            evidence = srow.get("evidence_json")
+            if not isinstance(evidence, dict):
+                evidence = {}
+
+            hits = srow.get("hits")
+            if hits is None:
+                hits = evidence.get("hits")
+
+            max_prob = srow.get("max_prob")
+            if max_prob is None:
+                max_prob = srow.get("confidence")
+            if max_prob is None:
+                max_prob = evidence.get("max_prob")
 
             events.append(
                 {
@@ -2274,8 +2437,8 @@ def list_portfolio_skills_chronological(
                     "project_name": r.get("project_name"),
                     "snapshot_id": str(r.get("snapshot_id")),
                     "analysis_id": str(r.get("analysis_id")),
-                    "max_prob": srow.get("max_prob"),
-                    "hits": srow.get("hits"),
+                    "max_prob": max_prob,
+                    "hits": hits,
                 }
             )
 
@@ -2340,18 +2503,11 @@ async def set_project_image(
     # 3. Hash
     sha256 = hashlib.sha256(data).hexdigest()
 
-    # 4. Ensure upload directory exists
-    UPLOAD_DIR = "uploads/project_images"
-    os.makedirs(UPLOAD_DIR, exist_ok=True)
-
-    # 5) Infer mime + build safe stored path
+    # 4) Infer mime + build persistent stored path
     _, ext = os.path.splitext(file.filename or "")
     ext = ext.lower() or ".png"
 
-    stored_path = os.path.join(
-        UPLOAD_DIR,
-        f"{sha256}{ext}",
-    )
+    stored_path = _project_image_path(sha256, ext)
     stored_path = stored_path[:1024]  # DB safety
 
     # 6) Upsert file_blobs
@@ -2362,7 +2518,6 @@ async def set_project_image(
     )
 
     if blob is None:
-        # Write file to disk once
         with open(stored_path, "wb") as f:
             f.write(data)
 
@@ -2373,22 +2528,40 @@ async def set_project_image(
             stored_path=stored_path,
         )
         db.add(blob)
+    else:
+        resolved_existing = _resolve_project_image_path(blob.stored_path)
+        if not resolved_existing:
+            with open(stored_path, "wb") as f:
+                f.write(data)
+            blob.stored_path = stored_path
+        elif resolved_existing != blob.stored_path:
+            blob.stored_path = resolved_existing
+
+        blob.mime_type = file.content_type or blob.mime_type
+        blob.size_bytes = len(data)
 
     # 7) Create/update portfolio showcase
+    # Use .first() instead of .one_or_none() to prevent crashing on existing duplicates
     showcase = (
         db.query(PortfolioShowcase)
         .filter(PortfolioShowcase.project_id == project_id)
-        .one_or_none()
+        .order_by(PortfolioShowcase.updated_at.desc()) # Pick the most recent one if duplicates exist
+        .first()
     )
 
     if showcase is None:
+        # If the user uploads an image BEFORE generating a portfolio, 
+        # we create the showcase record now.
         showcase = PortfolioShowcase(
             project_id=project_id,
             thumbnail_blob_sha256=sha256,
+            content_json={} # Ensure it has valid empty JSON
         )
         db.add(showcase)
     else:
+        # Update the existing record (AI content is preserved)
         showcase.thumbnail_blob_sha256 = sha256
+        showcase.updated_at = datetime.now(timezone.utc)
 
     # 8) Commit once
     db.commit()
@@ -2397,6 +2570,76 @@ async def set_project_image(
         "project_id": str(project_id),
         "thumbnail_blob_sha256": sha256,
         "stored_path": stored_path,
+    }
+
+
+def _load_project_image_row(project_id: str) -> Dict[str, Any]:
+    engine = get_engine()
+    with engine.connect() as conn:
+        row = conn.execute(
+            text(
+                """
+                SELECT ps.thumbnail_blob_sha256, fb.mime_type, fb.stored_path
+                FROM portfolio_showcases ps
+                JOIN file_blobs fb ON fb.sha256 = ps.thumbnail_blob_sha256
+                WHERE ps.project_id = :pid
+                  AND ps.thumbnail_blob_sha256 IS NOT NULL
+                LIMIT 1
+                """
+            ),
+            {"pid": project_id},
+        ).mappings().first()
+
+    if not row:
+        raise HTTPException(status_code=404, detail="Project image not found")
+
+    stored_path = _resolve_project_image_path(row.get("stored_path"))
+    if not stored_path:
+        raise HTTPException(status_code=404, detail="Project image file not found")
+
+    out = dict(row)
+    out["stored_path"] = stored_path
+    return out
+
+
+@app.get("/projects/{project_id}/image/raw")
+def get_project_image_raw(project_id: str):
+    row = _load_project_image_row(project_id)
+
+    with open(row["stored_path"], "rb") as handle:
+        file_bytes = handle.read()
+
+    if not file_bytes:
+        raise HTTPException(status_code=404, detail="Project image file is empty")
+
+    return Response(content=file_bytes, media_type=row.get("mime_type") or "image/png")
+
+
+@app.get("/projects/{project_id}/image/meta")
+def get_project_image_meta(project_id: str):
+    row = _load_project_image_row(project_id)
+    return {
+        "project_id": project_id,
+        "thumbnail_blob_sha256": row.get("thumbnail_blob_sha256"),
+        "mime_type": row.get("mime_type") or "image/png",
+    }
+
+
+@app.get("/projects/{project_id}/image")
+def get_project_image(project_id: str):
+    row = _load_project_image_row(project_id)
+
+    with open(row["stored_path"], "rb") as handle:
+        file_bytes = handle.read()
+
+    if not file_bytes:
+        raise HTTPException(status_code=404, detail="Project image file is empty")
+
+    return {
+        "project_id": project_id,
+        "thumbnail_blob_sha256": row.get("thumbnail_blob_sha256"),
+        "mime_type": row.get("mime_type") or "image/png",
+        "data_base64": base64.b64encode(file_bytes).decode("ascii"),
     }
 
 

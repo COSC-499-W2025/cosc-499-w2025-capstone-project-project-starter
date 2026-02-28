@@ -46,6 +46,55 @@ def _safe_read_text(path: str, max_bytes: int = 200_000) -> str:
         return ""
 
 
+def _as_int(value: Any) -> Optional[int]:
+    if value is None:
+        return None
+    try:
+        return int(float(value))
+    except Exception:
+        return None
+
+
+def _extract_line_total(totals: Dict[str, Any] | None) -> Optional[int]:
+    if not isinstance(totals, dict):
+        return None
+    for key in ("total_lines", "totalLines", "lines", "line_count", "lineCount", "loc", "sloc", "nloc"):
+        parsed = _as_int(totals.get(key))
+        if parsed is not None:
+            return parsed
+    return None
+
+
+def _is_probably_binary(path: str) -> bool:
+    try:
+        with open(path, "rb") as f:
+            chunk = f.read(8192)
+        if not chunk:
+            return False
+        if b"\x00" in chunk:
+            return True
+        chunk.decode("utf-8")
+        return False
+    except Exception:
+        return True
+
+
+def _count_snapshot_total_lines(engine: Engine, snapshot_id: str) -> int:
+    files = fetch_snapshot_files(engine, snapshot_id)
+    total = 0
+    for f in files:
+        if _is_probably_binary(f.stored_path):
+            continue
+
+        try:
+            with open(f.stored_path, "r", encoding="utf-8", errors="replace") as fp:
+                for _ in fp:
+                    total += 1
+        except Exception:
+            continue
+    return int(total)
+
+
 def _detect_frameworks_from_manifests(engine: Engine, snapshot_id: str) -> Dict[str, Any]:
     """
     Lightweight, local-only heuristic framework detection.
@@ -362,6 +411,18 @@ def build_project_report(
         ml_out = (per_type.get("local_ml") or {}).get("output_json") or {}
         git_out = (per_type.get("git_metrics") or {}).get("output_json") or {}
 
+        if isinstance(parser_out, dict):
+            totals = parser_out.get("totals")
+            if not isinstance(totals, dict):
+                totals = {}
+                parser_out["totals"] = totals
+            parsed_line_total = _extract_line_total(totals)
+            if parsed_line_total is None or parsed_line_total <= 0:
+                computed_lines = _count_snapshot_total_lines(engine, sid)
+                if computed_lines > 0 or parsed_line_total is None:
+                    totals["total_lines"] = computed_lines
+                    totals["lines"] = computed_lines
+
         # Accumulate skill chronology from local_ml output_json.skills[*].first_seen_ts
         skills = ml_out.get("skills", [])
         if isinstance(skills, list):
@@ -495,6 +556,32 @@ def build_project_report(
         frameworks_info = _detect_frameworks_from_manifests(engine, latest_snapshot_id)
 
     # Assemble final report
+    latest_parser = None
+    if snapshot_reports:
+        latest_parser = ((snapshot_reports[-1].get("analyses") or {}).get("parser") or {})
+
+    latest_totals = (latest_parser or {}).get("totals") if isinstance(latest_parser, dict) else {}
+    summary_total_files = _as_int((latest_totals or {}).get("files"))
+    summary_total_lines = _extract_line_total(latest_totals or {})
+    summary_top_languages = (latest_parser or {}).get("top_languages") or []
+    summary_language_counts = (latest_parser or {}).get("language_counts") or {}
+
+    if summary_total_files is None and snapshot_reports:
+        latest_sid = snapshot_reports[-1]["snapshot"]["id"]
+        summary_total_files = len(fetch_snapshot_files(engine, latest_sid))
+
+    if (summary_total_lines is None or summary_total_lines <= 0) and snapshot_reports:
+        latest_sid = snapshot_reports[-1]["snapshot"]["id"]
+        computed_lines = _count_snapshot_total_lines(engine, latest_sid)
+        if computed_lines > 0 or summary_total_lines is None:
+            summary_total_lines = computed_lines
+
+    summary_language_count = None
+    if isinstance(summary_language_counts, dict) and summary_language_counts:
+        summary_language_count = len(summary_language_counts)
+    elif isinstance(summary_top_languages, list):
+        summary_language_count = len(summary_top_languages)
+
     report = {
         "project": {
             "id": str(project["id"]),
@@ -507,6 +594,12 @@ def build_project_report(
             "created_at": _iso(project.get("created_at")),
         },
         "snapshots": snapshot_reports,
+        "summary": {
+            "total_files": int(summary_total_files or 0),
+            "total_lines": int(summary_total_lines or 0),
+            "language_count": int(summary_language_count or 0),
+        },
+        "top_languages": summary_top_languages,
         "derived": {
             "project_duration": {
                 "start": start.isoformat() if start else None,
