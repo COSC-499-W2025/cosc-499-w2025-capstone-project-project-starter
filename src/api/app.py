@@ -48,6 +48,7 @@ from src.api.pdf_exporter import export_resume_item_pdf_bytes
 
 from src.api.generation import (
     generate_portfolio_top_summaries,
+    generate_project_showcase,
     generate_resume_item,
     list_portfolio_showcases,
     get_resume_item,
@@ -1737,6 +1738,18 @@ def generate_portfolio(payload: PortfolioGenerateIn):
         return out
     except KeyError:
         raise HTTPException(status_code=404, detail="Portfolio not found")
+
+@app.post("/projects/{project_id}/showcase/generate")
+def generate_project_showcase_endpoint(project_id: str):
+    """
+    Generates and persists a portfolio showcase for a single project.
+    Unlike /portfolio/generate, this only affects the one project.
+    """
+    engine = get_engine()
+    try:
+        return generate_project_showcase(engine=engine, project_id=project_id)
+    except KeyError:
+        raise HTTPException(status_code=404, detail="Project not found")
 
 @app.post("/portfolio/{showcase_id}/edit")
 def edit_portfolio_showcase(showcase_id: str, body: PortfolioEditRequest):

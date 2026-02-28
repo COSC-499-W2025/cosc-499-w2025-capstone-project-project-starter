@@ -203,6 +203,19 @@ export const projectApi = {
     });
   },
   deleteProjectImage: (token, projectId) => apiRequest(`/projects/${projectId}/image`, { method: 'DELETE', token }),
+  generateProjectShowcase: (token, projectId) =>
+    apiRequest(`/projects/${projectId}/showcase/generate`, {
+      method: 'POST',
+      token,
+    }),
+  listPortfolioShowcases: (token, portfolioId) =>
+    apiRequest(`/portfolio/${portfolioId}/generated`, { token }),
+  editPortfolioShowcase: (token, showcaseId, { title, summary_text }) =>
+    apiRequest(`/portfolio/${showcaseId}/edit`, {
+      method: 'POST',
+      token,
+      body: { title, summary_text },
+    }),
 };
 
 export const userConfigApi = {

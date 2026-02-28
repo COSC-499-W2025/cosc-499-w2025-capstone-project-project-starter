@@ -416,6 +416,11 @@ function Homepage() {
   const [thumbnailUploadFile, setThumbnailUploadFile] = useState(null);
   const [thumbnailActionProjectId, setThumbnailActionProjectId] = useState(null);
   const [thumbnailActionError, setThumbnailActionError] = useState('');
+  const [selectedShowcase, setSelectedShowcase] = useState(null);
+  const [showcaseDraft, setShowcaseDraft] = useState({ title: '', summary_text: '' });
+  const [showcaseSaving, setShowcaseSaving] = useState(false);
+  const [showcaseGenerating, setShowcaseGenerating] = useState(false);
+  const [showcaseError, setShowcaseError] = useState('');
 
   const isAuthenticated = Boolean(token && currentUser);
 
@@ -464,6 +469,11 @@ function Homepage() {
     setThumbnailUploadFile(null);
     setThumbnailActionProjectId(null);
     setThumbnailActionError('');
+    setSelectedShowcase(null);
+    setShowcaseDraft({ title: '', summary_text: '' });
+    setShowcaseSaving(false);
+    setShowcaseGenerating(false);
+    setShowcaseError('');
     setView('projects');
   }, []);
 
@@ -1019,6 +1029,23 @@ function Homepage() {
     }
   };
 
+  const fetchShowcaseForProject = async (projectId) => {
+    if (!token || !portfolioId) return;
+    setShowcaseError('');
+    try {
+      const data = await projectApi.listPortfolioShowcases(token, portfolioId);
+      const items = data.items || [];
+      const match = items.find((item) => item.project_id === projectId) || null;
+      setSelectedShowcase(match);
+      setShowcaseDraft({
+        title: match?.content?.title ?? '',
+        summary_text: match?.content?.summary_text ?? '',
+      });
+    } catch (error) {
+      setShowcaseError(error.message || 'Unable to load showcase.');
+    }
+  };
+
   const viewProjectDetails = async (project) => {
     if (!token) return;
     setSelectedProject(project);
@@ -1034,6 +1061,9 @@ function Homepage() {
     setProjectEvidenceError('');
     setSavingProjectEvidence(false);
     hydrateEvidenceDrafts(project?.evidence_json || {});
+    setSelectedShowcase(null);
+    setShowcaseDraft({ title: '', summary_text: '' });
+    setShowcaseError('');
     setLoading(true);
     setDashboardError('');
     try {
@@ -1051,10 +1081,54 @@ function Homepage() {
         const skillsResponse = await projectApi.getSnapshotSkills(token, snapshotId, 20);
         setProjectSkills(skillsResponse);
       }
+      fetchShowcaseForProject(project.id);
     } catch (error) {
       setDashboardError(error.message || 'Unable to load project details.');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const generateShowcase = async () => {
+    if (!token || !selectedProject) return;
+    setShowcaseGenerating(true);
+    setShowcaseError('');
+    try {
+      const result = await projectApi.generateProjectShowcase(token, selectedProject.id);
+      const newShowcase = {
+        id: result.showcase_id,
+        project_id: result.project_id,
+        project_name: result.project_name,
+        content: result.content,
+      };
+      setSelectedShowcase(newShowcase);
+      setShowcaseDraft({
+        title: result.content?.title ?? '',
+        summary_text: result.content?.summary_text ?? '',
+      });
+      setFlashMessage('Portfolio showcase generated.');
+    } catch (error) {
+      setShowcaseError(error.message || 'Failed to generate showcase.');
+    } finally {
+      setShowcaseGenerating(false);
+    }
+  };
+
+  const saveShowcase = async () => {
+    if (!token || !selectedShowcase) return;
+    setShowcaseSaving(true);
+    setShowcaseError('');
+    try {
+      const updated = await projectApi.editPortfolioShowcase(token, selectedShowcase.id, {
+        title: showcaseDraft.title,
+        summary_text: showcaseDraft.summary_text,
+      });
+      setSelectedShowcase((prev) => ({ ...prev, content: updated.content }));
+      setFlashMessage('Showcase wording saved.');
+    } catch (error) {
+      setShowcaseError(error.message || 'Failed to save showcase.');
+    } finally {
+      setShowcaseSaving(false);
     }
   };
 
@@ -1559,6 +1633,10 @@ function Homepage() {
 
   const savedProjectRole = (projectReport?.project?.user_role || '').trim();
   const projectRoleChanged = projectRoleDraft.trim() !== savedProjectRole;
+
+  const showcaseChanged =
+    showcaseDraft.title !== (selectedShowcase?.content?.title ?? '') ||
+    showcaseDraft.summary_text !== (selectedShowcase?.content?.summary_text ?? '');
 
   const selectedUploadProject = useMemo(
     () => projects.find((project) => project.id === uploadTargetProjectId) || null,
@@ -2356,6 +2434,65 @@ function Homepage() {
                     >
                       {savingProjectRole ? 'Saving role...' : 'Save Role'}
                     </button>
+                  </div>
+
+                  <div className="stack-block">
+                    <h3>Portfolio Showcase</h3>
+                    <p className="muted">
+                      The title and summary shown for this project in your portfolio. Generate to create AI-drafted
+                      wording, then edit and save your changes.
+                    </p>
+                    {showcaseError && <p className="error-banner inline-error">{showcaseError}</p>}
+                    {!selectedShowcase ? (
+                      <button
+                        className="secondary-btn"
+                        type="button"
+                        onClick={generateShowcase}
+                        disabled={showcaseGenerating}
+                      >
+                        {showcaseGenerating ? 'Generating...' : 'Generate Showcase Text'}
+                      </button>
+                    ) : (
+                      <>
+                        <label className="field">
+                          Title
+                          <input
+                            type="text"
+                            value={showcaseDraft.title}
+                            maxLength={200}
+                            placeholder="Showcase title"
+                            onChange={(e) => setShowcaseDraft((prev) => ({ ...prev, title: e.target.value }))}
+                          />
+                        </label>
+                        <label className="field">
+                          Summary
+                          <textarea
+                            value={showcaseDraft.summary_text}
+                            rows={5}
+                            placeholder="Portfolio showcase summary"
+                            onChange={(e) => setShowcaseDraft((prev) => ({ ...prev, summary_text: e.target.value }))}
+                          />
+                        </label>
+                        <div className="card-actions">
+                          <button
+                            className="primary-btn"
+                            type="button"
+                            onClick={saveShowcase}
+                            disabled={showcaseSaving || !showcaseChanged}
+                          >
+                            {showcaseSaving ? 'Saving...' : 'Save Showcase'}
+                          </button>
+                          <button
+                            className="secondary-btn"
+                            type="button"
+                            onClick={generateShowcase}
+                            disabled={showcaseGenerating}
+                          >
+                            {showcaseGenerating ? 'Regenerating...' : 'Regenerate'}
+                          </button>
+                        </div>
+                      </>
+                    )}
                   </div>
 
                   <div className="stack-block">

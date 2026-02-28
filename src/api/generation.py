@@ -459,6 +459,142 @@ def generate_portfolio_top_summaries(
     }
 
 
+def generate_project_showcase(
+    *,
+    engine: Engine,
+    project_id: str,
+) -> Dict[str, Any]:
+    generated_at = _utcnow_iso()
+
+    with engine.begin() as conn:
+        proj = conn.execute(
+            text("SELECT id, COALESCE(display_name, name) AS name, portfolio_id, collaboration_type FROM projects WHERE id = :pid"),
+            {"pid": project_id},
+        ).mappings().first()
+        if not proj:
+            raise KeyError("Project not found")
+
+        uid = conn.execute(
+            text("SELECT user_id FROM portfolios WHERE id = :pid"),
+            {"pid": str(proj["portfolio_id"])},
+        ).scalar()
+        user_cfg = get_user_config(conn, str(uid)) if uid else {}
+        highlight_skills = ((user_cfg or {}).get("highlights") or {}).get("skills") or []
+
+        sid = _fetch_latest_snapshot_id(conn, project_id)
+        parser_out = _fetch_latest_completed_analysis_output(conn, sid, "parser") if sid else {}
+        ml_out = _fetch_latest_completed_analysis_output(conn, sid, "local_ml") if sid else {}
+
+        top_languages = []
+        try:
+            top_languages = [str(x.get("language")) for x in (parser_out.get("top_languages") or []) if isinstance(x, dict) and x.get("language")]
+        except Exception:
+            top_languages = []
+
+        frameworks = []
+        try:
+            frameworks = [str(x) for x in (parser_out.get("frameworks") or []) if str(x).strip()]
+        except Exception:
+            frameworks = []
+
+        detected_skills = []
+        try:
+            detected_skills = [
+                str(x.get("skill"))
+                for x in (ml_out.get("skills") or [])
+                if isinstance(x, dict) and x.get("skill")
+            ]
+        except Exception:
+            detected_skills = []
+
+        top_skills = _merge_highlighted_skills(detected_skills, highlight_skills, limit=10)
+
+        totals = conn.execute(
+            text(
+                """
+                SELECT
+                  COALESCE(SUM(ce.commit_count), 0) AS total_commits,
+                  COUNT(DISTINCT ce.contributor_id) AS contributor_count
+                FROM contribution_events ce
+                JOIN snapshots s ON s.id = ce.snapshot_id
+                WHERE s.project_id = :pid
+                """
+            ),
+            {"pid": project_id},
+        ).mappings().first() or {"total_commits": 0, "contributor_count": 0}
+
+        user_commits = conn.execute(
+            text(
+                """
+                SELECT COALESCE(SUM(ce.commit_count), 0) AS user_commits
+                FROM contribution_events ce
+                JOIN snapshots s ON s.id = ce.snapshot_id
+                JOIN project_contributors pc
+                  ON pc.project_id = s.project_id
+                 AND pc.contributor_id = ce.contributor_id
+                 AND pc.is_user = TRUE
+                WHERE s.project_id = :pid
+                """
+            ),
+            {"pid": project_id},
+        ).scalar()
+        user_commits_val = int(user_commits or 0)
+        user_commits_out = user_commits_val if user_commits_val > 0 else None
+
+        summary_text = _derive_project_summary_text(
+            project_name=str(proj.get("name") or project_id),
+            collab_type=str(proj.get("collaboration_type") or ""),
+            top_languages=top_languages,
+            frameworks=frameworks,
+            top_skills=top_skills,
+            user_commits=user_commits_out,
+            total_commits=int(totals.get("total_commits") or 0),
+            contributor_count=int(totals.get("contributor_count") or 0),
+        )
+
+        artifact = {
+            "type": "portfolio_project_summary",
+            "generated_at": generated_at,
+            "project_id": project_id,
+            "project_name": proj.get("name"),
+            "summary_text": summary_text,
+            "latest_snapshot_id": sid,
+        }
+
+        payload = json.dumps(artifact, default=str)
+
+        existing_id = conn.execute(
+            text("SELECT id FROM portfolio_showcases WHERE project_id = :pid ORDER BY created_at ASC LIMIT 1"),
+            {"pid": project_id},
+        ).scalar()
+
+        if existing_id:
+            conn.execute(
+                text("UPDATE portfolio_showcases SET content_json = CAST(:cj AS jsonb), updated_at = NOW() WHERE id = :id"),
+                {"id": existing_id, "cj": payload},
+            )
+            showcase_id = existing_id
+        else:
+            showcase_id = conn.execute(
+                text(
+                    """
+                    INSERT INTO portfolio_showcases (project_id, thumbnail_blob_sha256, content_json)
+                    VALUES (:pid, NULL, CAST(:cj AS jsonb))
+                    RETURNING id
+                    """
+                ),
+                {"pid": project_id, "cj": payload},
+            ).scalar_one()
+
+    return {
+        "showcase_id": str(showcase_id),
+        "project_id": project_id,
+        "project_name": proj.get("name"),
+        "summary_text": summary_text,
+        "content": artifact,
+    }
+
+
 def generate_resume_item(
     *,
     engine: Engine,
