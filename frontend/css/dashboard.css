@@ -1,0 +1,328 @@
+/* ============================================
+   Dashboard Specific Styles
+   ============================================ */
+
+/* ============== Layout ============== */
+
+body {
+    padding: 20px;
+}
+
+/* ============== Header ============== */
+
+.header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 20px;
+    padding: 15px;
+    background: var(--bg-secondary);
+    border-radius: 8px;
+    border: 1px solid var(--border-color);
+}
+
+.header-left {
+    display: flex;
+    align-items: center;
+    gap: 15px;
+}
+
+/* ============== Menu System ============== */
+
+.menu-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 10px;
+    margin-bottom: 20px;
+}
+
+.menu-group {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    position: relative;
+}
+
+.menu-btn {
+    padding: 15px;
+    background: var(--bg-card);
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    color: var(--text-primary);
+    cursor: pointer;
+    text-align: left;
+    transition: all 0.2s;
+    font-size: 14px;
+}
+
+.menu-btn:hover {
+    background: var(--bg-secondary);
+    border-color: var(--accent-primary);
+}
+
+.menu-btn.caret::after {
+    content: "▾";
+    float: right;
+    color: var(--text-muted);
+}
+
+.menu-btn.caret.open::after {
+    content: "▴";
+}
+
+.submenu-grid {
+    display: none;
+    position: absolute;
+    top: calc(100% + 6px);
+    left: 0;
+    width: 100%;
+    z-index: 10;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 8px;
+    padding: 6px;
+    background: var(--bg-secondary);
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    box-shadow: 0 6px 18px rgba(0, 0, 0, 0.08);
+}
+
+.submenu-grid.open {
+    display: grid;
+}
+
+.submenu-btn {
+    padding: 12px;
+    font-size: 13px;
+}
+
+/* ============== View Panel ============== */
+
+.view-panel {
+    background: var(--bg-secondary);
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    padding: 20px;
+    margin-top: 20px;
+}
+
+.view-panel h3 {
+    margin-bottom: 15px;
+    color: var(--text-primary);
+}
+
+/* ============== Projects List ============== */
+
+.project-list {
+    max-height: 400px;
+    overflow-y: auto;
+    border: 1px solid var(--border-color);
+    border-radius: 6px;
+    padding: 10px;
+    margin: 10px 0;
+    background: var(--bg-card);
+}
+
+.project-item {
+    padding: 10px;
+    border-bottom: 1px solid var(--border-color);
+    cursor: pointer;
+    transition: background 0.2s;
+}
+
+.project-item:hover {
+    background: var(--bg-secondary);
+}
+
+.project-item.selected {
+    background: var(--bg-secondary);
+    border-left: 3px solid var(--accent-primary);
+}
+
+.project-row {
+    display: flex;
+    flex-direction: row;
+    gap: 12px;
+    align-items: center;
+}
+
+.project-info {
+    flex: 1;
+    min-width: 0;
+}
+
+.project-thumbnail {
+    width: 96px;
+    height: 96px;
+    object-fit: cover;
+    border-radius: 6px;
+    border: 1px solid var(--border-color);
+    background: var(--bg-secondary);
+}
+
+/* ============== Results & Analysis ============== */
+
+.result {
+    margin-top: 15px;
+    padding: 15px;
+    background: var(--bg-card);
+    border-radius: 6px;
+    white-space: pre-wrap;
+    border: 1px solid var(--border-color);
+}
+
+.analysis-section {
+    margin: 15px 0;
+    padding: 15px;
+    background: var(--bg-card);
+    border-radius: 6px;
+    border-left: 3px solid var(--accent-primary);
+}
+
+.analysis-section h4 {
+    color: var(--text-primary);
+    margin-bottom: 10px;
+    font-size: 1.1em;
+    font-weight: 600;
+}
+
+.analysis-item {
+    margin: 8px 0;
+    padding: 8px;
+    background: var(--bg-secondary);
+    border-radius: 4px;
+}
+
+.analysis-label {
+    color: var(--text-secondary);
+    font-weight: 600;
+}
+
+.analysis-value {
+    color: var(--text-primary);
+    margin-left: 10px;
+}
+
+.analysis-list {
+    list-style: none;
+    padding-left: 0;
+}
+
+.analysis-list li {
+    padding: 5px 0;
+    border-bottom: 1px solid var(--border-color);
+}
+
+.analysis-list li:last-child {
+    border-bottom: none;
+}
+
+.perf-note {
+    margin-left: 10px;
+    color: #16a34a;
+    font-size: 0.9em;
+    font-weight: 500;
+}
+
+/* ============== Modal Styles ============== */
+
+.modal {
+    display: none;
+    position: fixed;
+    z-index: 1000;
+    left: 0;
+    top: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.6);
+    backdrop-filter: blur(4px);
+    animation: fadeIn 0.2s ease;
+}
+
+.modal.show {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.modal-content {
+    background: var(--bg-secondary);
+    border: 1px solid var(--border-color);
+    border-radius: 12px;
+    padding: 25px;
+    max-width: 600px;
+    width: 90%;
+    max-height: 80vh;
+    overflow-y: auto;
+    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);
+    animation: slideIn 0.3s ease;
+}
+
+.modal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 20px;
+    padding-bottom: 15px;
+    border-bottom: 1px solid var(--border-color);
+}
+
+.modal-header h3 {
+    margin: 0;
+    color: var(--text-primary);
+}
+
+.modal-close {
+    background: none;
+    border: none;
+    font-size: 24px;
+    color: var(--text-muted);
+    cursor: pointer;
+    padding: 0;
+    width: 30px;
+    height: 30px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 4px;
+    transition: all 0.2s;
+}
+
+.modal-close:hover {
+    background: var(--bg-card);
+    color: var(--text-primary);
+}
+
+.modal-actions {
+    display: flex;
+    gap: 10px;
+    justify-content: flex-end;
+    margin-top: 25px;
+    padding-top: 20px;
+    border-top: 1px solid var(--border-color);
+}
+
+.modal-project-info {
+    margin-bottom: 20px;
+    padding: 10px;
+    background: var(--bg-card);
+    border-radius: 6px;
+}
+
+/* ============== Customization Buttons ============== */
+
+.btn-customize {
+    background: none;
+    border: 1px solid var(--border-color);
+    color: var(--accent-primary);
+    padding: 6px 12px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 12px;
+    transition: all 0.2s;
+    margin-left: 8px;
+}
+
+.btn-customize:hover {
+    background: var(--bg-secondary);
+    border-color: var(--accent-primary);
+}
