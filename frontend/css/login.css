@@ -2,6 +2,9 @@
    Login Page Specific Styles
    ============================================ */
 
+/* Import DM Sans font for login page */
+@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&display=swap');
+
 /* ============== Layout ============== */
 
 body {
@@ -31,16 +34,10 @@ body {
 
 /* ============== Theme Toggle (Login Page) ============== */
 
-.theme-toggle {
+.login-card .theme-toggle {
     position: absolute;
     top: 15px;
     right: 15px;
-    background: var(--bg-secondary);
-    padding: 8px;
-}
-
-.theme-toggle:hover {
-    background: var(--bg-primary);
 }
 
 /* ============== Logo Section ============== */
@@ -189,10 +186,6 @@ body {
     display: block;
 }
 
-.login-form.hidden {
-    display: none;
-}
-
 .welcome-icon {
     width: 64px;
     height: 64px;
@@ -286,26 +279,6 @@ body {
 
 .login-form.hidden {
     display: none;
-}
-
-.btn-secondary {
-    width: 100%;
-    padding: 14px 24px;
-    background: transparent;
-    border: 1px solid var(--border-color);
-    border-radius: 10px;
-    color: var(--text-secondary);
-    font-size: 15px;
-    font-weight: 500;
-    font-family: inherit;
-    cursor: pointer;
-    transition: all 0.2s ease;
-    margin-top: 12px;
-}
-
-.btn-secondary:hover {
-    border-color: var(--accent-primary);
-    color: var(--text-primary);
 }
 
 .password-requirements {
