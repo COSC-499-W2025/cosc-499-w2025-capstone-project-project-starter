@@ -1596,7 +1596,14 @@ def get_portfolio(
             raise HTTPException(status_code=404, detail="Portfolio not found")
         if auth and str(row["user_id"]) != auth["user_id"]:
             raise HTTPException(status_code=403, detail="Portfolio does not belong to the authenticated user")
-    return dict(row)
+
+    try:
+        showcases = list_portfolio_showcases(engine=engine, portfolio_id=portfolio_id, limit=50)
+        items = showcases.get("items", [])
+    except KeyError:
+        items = []
+
+    return {**dict(row), "items": items}
 
 class PortfolioGenerateIn(BaseModel):
     portfolio_id: str

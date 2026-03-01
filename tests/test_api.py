@@ -440,6 +440,44 @@ def test_get_portfolio_404_and_ok(client, engine):
     assert str(body["user_id"]) == user_id
     assert body["name"] == "default"
 
+def test_get_portfolio_includes_showcase_items(client, engine):
+    user_id, portfolio_id, project_id, _ = _mk_graph(engine)
+
+    # insert a showcase for the project
+    showcase_id = _u()
+    with engine.begin() as conn:
+        conn.execute(
+            text(
+                """
+                INSERT INTO portfolio_showcases (id, project_id, thumbnail_blob_sha256, content_json)
+                VALUES (:id, :pid, NULL, '{"title": "My Title", "summary_text": "A summary."}'::jsonb)
+                """
+            ),
+            {"id": showcase_id, "pid": project_id},
+        )
+
+    r = client.get(f"/portfolio/{portfolio_id}")
+    assert r.status_code == 200
+    body = r.json()
+
+    # metadata still present
+    assert str(body["id"]) == portfolio_id
+    assert str(body["user_id"]) == user_id
+
+    # showcase items now included
+    assert "items" in body
+    assert len(body["items"]) == 1
+    assert body["items"][0]["id"] == showcase_id
+    assert body["items"][0]["content"]["title"] == "My Title"
+    assert body["items"][0]["content"]["summary_text"] == "A summary."
+
+
+def test_get_portfolio_items_empty_when_no_showcases(client, engine):
+    _, portfolio_id, _, _ = _mk_graph(engine)
+
+    r = client.get(f"/portfolio/{portfolio_id}")
+    assert r.status_code == 200
+    assert r.json()["items"] == []
 
 def test_snapshot_analyses_list_order_and_fields(client, engine):
     _, _, _, snapshot_id = _mk_graph(engine)
