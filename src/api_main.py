@@ -368,6 +368,7 @@ def generate_artifacts_via_api():
                             print(_center_text(f"Download error: {ex}"))
                     
                     elif key == "portfolio":
+                        print(_center_text(f"Exporting portfolio '{payload['title']}'..."))
                         try:
                             export_resp = requests.get(f"{API_URL}/portfolio/{art_id}/export")
                             if export_resp.status_code == 200:

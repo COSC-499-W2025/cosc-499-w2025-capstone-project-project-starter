@@ -1141,6 +1141,7 @@ def create_app() -> FastAPI:
                     fd, path = tempfile.mkstemp(suffix=".md")
                     os.write(fd, content.encode("utf-8"))
                     os.close(fd)
+                    logger.info(f"Exported portfolio {portfolio_id} using shared generator")
                     return FileResponse(path, filename=filename, media_type="text/markdown")
                 except Exception as e:
                     logger.warning(f"Failed to use portfolio_generator: {e}")
