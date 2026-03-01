@@ -9,6 +9,7 @@ import json
 import logging
 import os
 import tempfile
+from collections import Counter
 from typing import Any, Dict, List, Optional, Tuple
 
 from fastapi import FastAPI, HTTPException, Path, Query, Request
@@ -36,6 +37,11 @@ from db import (
     update_full_scan,
 )
 from resume_generator import render_resume_artifact, _build_personal_project_description, _fmt_date
+
+try:
+    from portfolio_generator import generate_portfolio_markdown
+except ImportError:
+    generate_portfolio_markdown = None
 
 logger = logging.getLogger(__name__)
 
@@ -361,9 +367,10 @@ def _project_to_resume_item(project: Dict[str, Any], user_stats: Optional[Dict[s
     }
 
 
-def _project_to_portfolio_item(project: Dict[str, Any]) -> Dict[str, Any]:
+def _project_to_portfolio_item(project: Dict[str, Any], contributor_id: Optional[str] = None, user_stats: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
     project_name = project.get("project_name", "Unnamed Project")
     custom_text = project.get("portfolio_showcase_text")
+    data = project.get("data", {})
 
     # New granular fields
     proj_desc = project.get("custom_portfolio_project_description")
@@ -389,7 +396,57 @@ def _project_to_portfolio_item(project: Dict[str, Any]) -> Dict[str, Any]:
     # Determine tech stack (custom > highlighted > auto-detected)
     tech_stack = project.get("custom_portfolio_tech_stack")
     if not tech_stack:
-        tech_stack = project.get("highlighted_skills") or project.get("skills") or []
+        # Try to combine languages and frameworks for a richer stack
+        langs = data.get("languages", [])
+        fworks = data.get("frameworks", [])
+        if langs or fworks:
+            if isinstance(langs, str): langs = [langs]
+            if isinstance(fworks, str): fworks = [fworks]
+            combined = sorted(list(set(langs + fworks)))
+            tech_stack = [t for t in combined if t and str(t).upper() not in ("NA", "NONE", "UNKNOWN")]
+        else:
+            tech_stack = project.get("highlighted_skills") or project.get("skills") or []
+
+    # Contribution Stats
+    contribution_display = None
+    commits = data.get("commit_count")
+    lines_added = data.get("lines_added")
+    lines_removed = data.get("lines_removed")
+    file_breakdown = data.get("extension_counts")
+    
+    if contributor_id:
+        pcts = data.get("per_contributor_pct", {})
+        val = pcts.get(contributor_id)
+        if val is not None:
+            contribution_display = f"{val:.1f}% of codebase"
+        
+        # Use user_stats from contributor_profiles if available (Rich Data)
+        if user_stats:
+            commits = user_stats.get("commit_count", 0)
+            lines_added = user_stats.get("insertions", 0)
+            lines_removed = user_stats.get("deletions", 0)
+            
+            files_list = user_stats.get("files_list", [])
+            if files_list:
+                exts = [os.path.splitext(f)[1].lower() for f in files_list]
+                cnt = Counter(exts)
+                file_breakdown = dict(cnt)
+        else:
+            # Fallback to per_contributor_* keys in project summary
+            c_commits = data.get("per_contributor_commits", {}).get(contributor_id) or data.get("per_contributor_commit_counts", {}).get(contributor_id)
+            if c_commits is not None:
+                commits = c_commits
+                
+            pc_adds = data.get("per_contributor_additions", {}) or data.get("per_contributor_lines_added", {})
+            pc_dels = data.get("per_contributor_deletions", {}) or data.get("per_contributor_lines_removed", {})
+            if contributor_id in pc_adds:
+                lines_added = pc_adds[contributor_id]
+            if contributor_id in pc_dels:
+                lines_removed = pc_dels[contributor_id]
+                
+            pc_exts = data.get("per_contributor_extensions", {}) or data.get("per_contributor_file_breakdown", {})
+            if contributor_id in pc_exts:
+                file_breakdown = pc_exts[contributor_id]
 
     return {
         "project_id": project["project_id"],
@@ -402,6 +459,13 @@ def _project_to_portfolio_item(project: Dict[str, Any]) -> Dict[str, Any]:
         "project_description": proj_desc,
         "role_description": role_desc,
         "tech_stack": tech_stack,
+        "contribution_display": contribution_display,
+        "impact_score": data.get("score"),
+        "duration_days": data.get("duration_days"),
+        "commits": commits,
+        "lines_added": lines_added,
+        "lines_removed": lines_removed,
+        "file_breakdown": file_breakdown,
     }
 
 
@@ -967,12 +1031,38 @@ def create_app() -> FastAPI:
             ]
             if showcase_filtered:
                 selected_projects = showcase_filtered
-        items = [_project_to_portfolio_item(p) for p in selected_projects]
+        
+        # Resolve user stats from contributor_profiles
+        user_project_stats_map = {}
+        if scan_id and payload.contributor_id:
+            scan = get_full_scan_by_id(scan_id)
+            if scan:
+                profiles = scan.get("scan_data", {}).get("contributor_profiles", {})
+                profile = profiles.get(payload.contributor_id)
+                if profile:
+                    for p_entry in profile.get("projects", []):
+                        if p_entry.get("name"):
+                            user_project_stats_map[p_entry["name"]] = p_entry
+
+        items = [_project_to_portfolio_item(p, contributor_id=payload.contributor_id, user_stats=user_project_stats_map.get(p.get("project_name"))) for p in selected_projects]
+        
+        # Calculate Global Skills
+        all_skills = set()
+        for p in selected_projects:
+            s = p.get("skills", [])
+            if isinstance(s, str):
+                s = [x.strip() for x in s.split(",") if x.strip()]
+            if isinstance(s, list):
+                all_skills.update(s)
+        global_skills = sorted(list(all_skills))
+
         artifact_data = {
             "kind": "portfolio",
             "items": items,
             "selected_project_ids": [p["project_id"] for p in selected_projects],
             "project_order": ordered_ids,
+            "contributor_id": payload.contributor_id,
+            "global_skills": global_skills,
         }
         saved = create_portfolio_artifact(artifact_data, scan_summary_id=scan_id, title=payload.title)
         return {"portfolio": _json_safe(saved)}
@@ -1008,12 +1098,116 @@ def create_app() -> FastAPI:
             selected_projects = [_get_project_by_id(pid) for pid in selected_ids]
             ordered_ids = _ordered_project_ids(selected_projects, explicit_order=ordered_ids)
             project_map = {p["project_id"]: p for p in selected_projects}
-            patch["items"] = [_project_to_portfolio_item(project_map[pid]) for pid in ordered_ids if pid in project_map]
+            contributor_id = artifact["data"].get("contributor_id")
+            
+            # Fetch user stats to preserve data on edit
+            user_project_stats_map = {}
+            scan_id = artifact.get("scan_summary_id")
+            if scan_id and contributor_id:
+                scan = get_full_scan_by_id(scan_id)
+                if scan:
+                    profiles = scan.get("scan_data", {}).get("contributor_profiles", {})
+                    profile = profiles.get(contributor_id)
+                    if profile:
+                        for p_entry in profile.get("projects", []):
+                            if p_entry.get("name"):
+                                user_project_stats_map[p_entry["name"]] = p_entry
+
+            patch["items"] = [_project_to_portfolio_item(project_map[pid], contributor_id=contributor_id, user_stats=user_project_stats_map.get(project_map[pid].get("project_name"))) for pid in ordered_ids if pid in project_map]
             patch["selected_project_ids"] = selected_ids
             patch["project_order"] = ordered_ids
 
         saved = update_portfolio_artifact(portfolio_id, patch)
         return {"portfolio": _json_safe(saved)}
+
+    @app.get("/portfolio/{portfolio_id}/export")
+    def export_portfolio(portfolio_id: int = Path(..., ge=1)):
+        """
+        Generates and downloads a Markdown file for the specified portfolio artifact.
+        """
+        artifact = get_portfolio_artifact(portfolio_id)
+        if not artifact:
+            raise HTTPException(status_code=404, detail="portfolio not found")
+        
+        try:
+            title = artifact.get("title", "portfolio")
+            safe_title = "".join(c for c in title if c.isalnum() or c in (' ', '_', '-')).strip().replace(' ', '_')
+            filename = f"{safe_title}.md"
+            
+            # Try using the shared generator if available
+            if generate_portfolio_markdown:
+                try:
+                    content = generate_portfolio_markdown(artifact["data"])
+                    fd, path = tempfile.mkstemp(suffix=".md")
+                    os.write(fd, content.encode("utf-8"))
+                    os.close(fd)
+                    return FileResponse(path, filename=filename, media_type="text/markdown")
+                except Exception as e:
+                    logger.warning(f"Failed to use portfolio_generator: {e}")
+            
+            # Generate Markdown content
+            data = artifact["data"]
+            lines = [f"# {title}", ""]
+            
+            if data.get("global_skills"):
+                lines.append("## Global Skills")
+                lines.append(f"**{', '.join(data['global_skills'])}**")
+                lines.append("")
+
+            lines.append("## Project Showcase")
+            lines.append("")
+            
+            for item in data.get("items", []):
+                name = item.get("project_name", "Unknown Project")
+                lines.append(f"### {name}")
+                
+                if item.get("project_description"):
+                    lines.append(f"- **Description:** {item['project_description']}")
+                
+                if item.get("contribution_display"):
+                    lines.append(f"- **Role/Contribution:** {item['contribution_display']}")
+                elif item.get("role_description"):
+                    lines.append(f"- **Role/Contribution:** {item['role_description']}")
+                elif item.get("role"):
+                    lines.append(f"- **Role:** {item['role']}")
+                
+                tech = item.get("tech_stack")
+                if tech:
+                    val = ", ".join(str(t) for t in tech) if isinstance(tech, list) else str(tech)
+                    lines.append(f"- **Tech Stack:** {val}")
+                
+                if item.get("impact_score") is not None:
+                    lines.append(f"- **Impact Score:** {item['impact_score']}")
+                
+                if item.get("duration_days") is not None:
+                    lines.append(f"- **Duration:** {item['duration_days']} days")
+                
+                if item.get("commits") is not None:
+                    lines.append(f"- **Commits:** {item['commits']}")
+                
+                if item.get("lines_added") is not None or item.get("lines_removed") is not None:
+                    la = item.get("lines_added", 0)
+                    lr = item.get("lines_removed", 0)
+                    lines.append(f"- **Lines:** +{la} / -{lr}")
+                
+                if item.get("file_breakdown"):
+                    fb = item["file_breakdown"]
+                    parts = [f"{count} {ext}" for ext, count in sorted(fb.items(), key=lambda x: x[1], reverse=True)]
+                    lines.append(f"- **File Breakdown:** {', '.join(parts)}")
+
+                if item.get("evidence_of_success"):
+                    lines.append(f"- **Evidence:** {item['evidence_of_success']}")
+                
+                lines.append("")
+
+            fd, path = tempfile.mkstemp(suffix=".md")
+            os.write(fd, "\n".join(lines).encode("utf-8"))
+            os.close(fd)
+            
+            return FileResponse(path, filename=filename, media_type="text/markdown")
+        except Exception:
+            logger.exception("Failed to export portfolio")
+            raise HTTPException(status_code=500, detail="failed to generate document")
 
     return app
 

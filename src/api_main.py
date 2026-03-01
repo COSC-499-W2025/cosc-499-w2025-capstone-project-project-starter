@@ -366,6 +366,23 @@ def generate_artifacts_via_api():
                                 print(_center_text(f"Export failed: {export_resp.text}"))
                         except Exception as ex:
                             print(_center_text(f"Download error: {ex}"))
+                    
+                    elif key == "portfolio":
+                        try:
+                            export_resp = requests.get(f"{API_URL}/portfolio/{art_id}/export")
+                            if export_resp.status_code == 200:
+                                safe_title = "".join(c for c in payload["title"] if c.isalnum() or c in (' ', '_', '-')).strip().replace(' ', '_')
+                                filename = f"{safe_title}.md"
+                                out_dir = os.path.join(OUTPUT_DIR, "portfolios")
+                                os.makedirs(out_dir, exist_ok=True)
+                                out_path = os.path.join(out_dir, filename)
+                                with open(out_path, "wb") as f:
+                                    f.write(export_resp.content)
+                                print(_center_text(f"Saved to: {out_path}"))
+                            else:
+                                print(_center_text(f"Export failed: {export_resp.text}"))
+                        except Exception as ex:
+                            print(_center_text(f"Download error: {ex}"))
                 else:
                     print(_center_text(f"Error: {resp.text}"))
             except Exception as e:

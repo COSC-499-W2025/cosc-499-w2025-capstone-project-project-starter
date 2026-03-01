@@ -388,3 +388,40 @@ def manage_portfolio_showcase(target_scan=None):
                 else:
                     print(_center_text("Error generating portfolio."))
                 input(_center_text("Press Enter to continue..."))
+
+
+def generate_portfolio_markdown(artifact_data: Dict[str, Any]) -> str:
+    """
+    Generates Markdown content from an API portfolio artifact data structure.
+    This allows the API to use the same formatting logic as the local generator.
+    """
+    user_name = artifact_data.get("contributor_id", "User")
+    global_skills = artifact_data.get("global_skills", [])
+    
+    # Create a Portfolio object to reuse its to_markdown method
+    p_obj = Portfolio(user_name, global_skills)
+    
+    for item in artifact_data.get("items", []):
+        # Reconstruct file breakdown string if needed
+        fb_str = ""
+        fb = item.get("file_breakdown")
+        if isinstance(fb, dict):
+            parts = [f"{count} {ext}" for ext, count in sorted(fb.items(), key=lambda x: x[1], reverse=True)]
+            fb_str = ", ".join(parts)
+        elif isinstance(fb, str):
+            fb_str = fb
+            
+        p_obj.projects.append({
+            "Project Name": item.get("project_name", "Unknown"),
+            "Description": item.get("project_description"),
+            "Role/Contribution": item.get("contribution_display") or item.get("role_description"),
+            "Tech Stack Used": ", ".join(item.get("tech_stack", [])),
+            "Project Impact Score": item.get("impact_score", 0),
+            "Project Duration": f"{item.get('duration_days', 0)} days",
+            "Commits": item.get("commits", 0),
+            "Lines Added": item.get("lines_added", 0),
+            "Lines Removed": item.get("lines_removed", 0),
+            "File Breakdown": fb_str
+        })
+        
+    return p_obj.to_markdown()
