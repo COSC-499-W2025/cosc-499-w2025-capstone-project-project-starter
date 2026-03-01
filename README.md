@@ -18,8 +18,8 @@ For this milestone, the system can parse a zipped folder, identify project detai
 
 
 ## Diagrams
-- [Level 1 data flow diagram](/docs/data%20flow%20diagram/explanation.md)
-- [System architecture design](/docs/system%20architecture%20design/explanation.md)
+- [Data Flow Diagram](docs/data%20flow%20diagram/level1_DFD.svg)
+- [System architecture design](/docs/system%20architecture%20design/system_architecture_design.svg)
 
 
 ## Running with Docker (API + DB + analysis worker)
