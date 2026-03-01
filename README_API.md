@@ -308,3 +308,22 @@ curl -sS -X PATCH "$API/users/<USER_ID>/config" \
   -H "Content-Type: application/json" \
   -d '{"identity":{"match_names":["Your Name"]}}'
 ```
+
+Resume PDF display preferences (stored under `resume_filters`):
+
+```bash
+curl -sS -X PATCH "$API/users/<USER_ID>/config" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "resume_filters": {
+      "show_summary": true,
+      "show_bullets": true,
+      "max_bullets": 6,
+      "show_metadata": true,
+      "show_project_profile": true,
+      "show_metrics": true,
+      "show_tech_stack": true,
+      "show_evidence": true
+    }
+  }'
+```

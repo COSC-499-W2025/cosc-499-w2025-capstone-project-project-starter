@@ -330,8 +330,20 @@ def cmd_config_set_prefs(args: argparse.Namespace, st: DemoState) -> int:
     if args.show_metadata is not None:
         prefs["show_metadata"] = args.show_metadata
 
+    if args.show_project_profile is not None:
+        prefs["show_project_profile"] = args.show_project_profile
+    if args.show_metrics is not None:
+        prefs["show_metrics"] = args.show_metrics
+    if args.show_tech_stack is not None:
+        prefs["show_tech_stack"] = args.show_tech_stack
+    if args.show_evidence is not None:
+        prefs["show_evidence"] = args.show_evidence
+
     if not prefs:
-        _eprint("No preferences specified. Use --show-summary, --show-bullets, --show-metadata, etc.")
+        _eprint(
+            "No preferences specified. Use --show-summary, --show-bullets, --show-metadata, "
+            "--show-project-profile, --show-metrics, --show-tech-stack, or --show-evidence."
+        )
         return 2
 
     # We wrap it in a 'resume_filters' key so it doesn't clutter the top level of config_json
@@ -935,6 +947,10 @@ def build_parser() -> argparse.ArgumentParser:
     sp_prefs.add_argument("--show-metadata", type=_bool_flag, help="Toggle metadata (on/off)")
     sp_prefs.add_argument("--show-bullets", type=_bool_flag, help="Toggle resume bullets (on/off)")
     sp_prefs.add_argument("--max-bullets", type=int, help="Limit number of bullets shown")
+    sp_prefs.add_argument("--show-project-profile", type=_bool_flag, help="Toggle project profile section (on/off)")
+    sp_prefs.add_argument("--show-metrics", type=_bool_flag, help="Toggle metrics section (on/off)")
+    sp_prefs.add_argument("--show-tech-stack", type=_bool_flag, help="Toggle tech stack section (on/off)")
+    sp_prefs.add_argument("--show-evidence", type=_bool_flag, help="Toggle evidence section (on/off)")
     sp_prefs.set_defaults(_handler="config_set_prefs")
 
     sp = sub.add_parser("identity", help="Identity mapping utilities (user contribution linking)")

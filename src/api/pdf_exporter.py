@@ -322,6 +322,57 @@ def export_resume_item_pdf(resume_item: dict, filename: str = "resume_item.pdf")
     return filename
 
 
+def _as_bool(val, default: bool) -> bool:
+    if isinstance(val, bool):
+        return val
+    if isinstance(val, str):
+        s = val.strip().lower()
+        if s in {"1", "true", "yes", "y", "on"}:
+            return True
+        if s in {"0", "false", "no", "n", "off"}:
+            return False
+    if isinstance(val, (int, float)):
+        return bool(val)
+    return default
+
+
+def _as_int(val, default: int, lo: int, hi: int) -> int:
+    try:
+        n = int(val)
+    except Exception:
+        n = default
+    return max(lo, min(hi, n))
+
+
+def _normalize_resume_filters(filters: dict) -> dict:
+    raw = filters if isinstance(filters, dict) else {}
+    out = {
+        "show_summary": _as_bool(raw.get("show_summary"), True),
+        "show_bullets": _as_bool(raw.get("show_bullets"), True),
+        "max_bullets": _as_int(raw.get("max_bullets"), 6, 0, 20),
+        "show_metadata": _as_bool(raw.get("show_metadata"), True),
+        "show_project_profile": _as_bool(raw.get("show_project_profile"), True),
+        "show_metrics": _as_bool(raw.get("show_metrics"), True),
+        "show_tech_stack": _as_bool(raw.get("show_tech_stack"), True),
+        "show_evidence": _as_bool(raw.get("show_evidence"), True),
+    }
+
+    # Backward compatibility: existing "hide all" behavior with legacy keys.
+    new_keys = {"show_project_profile", "show_metrics", "show_tech_stack", "show_evidence"}
+    if (
+        not any(k in raw for k in new_keys)
+        and not out["show_summary"]
+        and not out["show_bullets"]
+        and not out["show_metadata"]
+    ):
+        out["show_project_profile"] = False
+        out["show_metrics"] = False
+        out["show_tech_stack"] = False
+        out["show_evidence"] = False
+
+    return out
+
+
 def export_resume_item_pdf_bytes(resume_item: dict, filters: dict = None) -> bytes:
     """
     Build a PDF in-memory for a single resume item, respecting user toggles.
@@ -330,14 +381,16 @@ def export_resume_item_pdf_bytes(resume_item: dict, filters: dict = None) -> byt
     if not isinstance(resume_item, dict):
         resume_item = {}
 
-    # 1. Setup default filter values
-    if filters is None:
-        filters = {}
-    
-    show_summary = filters.get("show_summary", True)
-    show_bullets = filters.get("show_bullets", True)
-    max_bullets = filters.get("max_bullets", 10)
-    show_metadata = filters.get("show_metadata", True)
+    opts = _normalize_resume_filters(filters)
+
+    show_summary = opts["show_summary"]
+    show_bullets = opts["show_bullets"]
+    max_bullets = opts["max_bullets"]
+    show_metadata = opts["show_metadata"]
+    show_project_profile = opts["show_project_profile"]
+    show_metrics = opts["show_metrics"]
+    show_tech_stack = opts["show_tech_stack"]
+    show_evidence = opts["show_evidence"]
 
     content = resume_item.get("content") or {}
     if not isinstance(content, dict):
@@ -362,13 +415,30 @@ def export_resume_item_pdf_bytes(resume_item: dict, filters: dict = None) -> byt
         elements.append(Paragraph(f"Generated at: {content.get('generated_at', '(unknown)')}", styles["Normal"]))
         elements.append(Spacer(1, 12))
 
+    if show_project_profile:
+        role = str(project.get("user_role") or "").strip()
+        collab = str(project.get("collaboration_type") or "").strip()
+        latest_snapshot_id = str(content.get("latest_snapshot_id") or "").strip()
+
+        profile_lines = []
+        if role:
+            profile_lines.append(f"Role: {role}")
+        if collab:
+            profile_lines.append(f"Collaboration: {collab}")
+        if latest_snapshot_id:
+            profile_lines.append(f"Latest snapshot: {latest_snapshot_id}")
+
+        if profile_lines:
+            elements.append(Paragraph("Project Profile", styles["Heading2"]))
+            elements.append(Spacer(1, 6))
+            for line in profile_lines:
+                elements.append(Paragraph(line, styles["Normal"]))
+            elements.append(Spacer(1, 12))
+
     # --- Embed thumbnail if available ---
     thumbnail_blob = content.get("thumbnail_blob")
     if thumbnail_blob:
         try:
-            import tempfile
-            import base64
-
             # If blob has base64 data (as in your artifact)
             file_bytes = base64.b64decode(thumbnail_blob.get("data_base64", ""))
             suffix = ".png"  # default
@@ -395,7 +465,7 @@ def export_resume_item_pdf_bytes(resume_item: dict, filters: dict = None) -> byt
         if summary:
             elements.append(Paragraph("Summary", styles["Heading2"]))
             elements.append(Spacer(1, 6))
-            elements.append(Paragraph(summary, styles["Normal"]))
+            elements.append(Paragraph(summary.replace(". ", ".<br/>"), styles["Normal"]))
             elements.append(Spacer(1, 12))
 
     # Bullets section
@@ -409,6 +479,89 @@ def export_resume_item_pdf_bytes(resume_item: dict, filters: dict = None) -> byt
                 if b:
                     elements.append(Paragraph(f"- {b}", styles["Normal"]))
                     elements.append(Spacer(1, 4))
+            elements.append(Spacer(1, 8))
+
+    if show_metrics:
+        metrics = content.get("metrics") if isinstance(content.get("metrics"), dict) else {}
+        metric_lines = []
+        if metrics:
+            if metrics.get("total_commits") is not None:
+                metric_lines.append(f"Total commits: {metrics.get('total_commits')}")
+            if metrics.get("user_commits") is not None:
+                metric_lines.append(f"Your commits: {metrics.get('user_commits')}")
+            if metrics.get("contributor_count") is not None:
+                metric_lines.append(f"Contributors: {metrics.get('contributor_count')}")
+        if metric_lines and not (
+            str(metrics.get("total_commits") or "0") == "0" and str(metrics.get("contributor_count") or "0") == "0"
+        ):
+            elements.append(Paragraph("Git Metrics", styles["Heading2"]))
+            elements.append(Spacer(1, 6))
+            for line in metric_lines:
+                elements.append(Paragraph(line, styles["Normal"]))
+            elements.append(Spacer(1, 12))
+
+    if show_tech_stack:
+        signals = content.get("signals") if isinstance(content.get("signals"), dict) else {}
+        parser_sig = signals.get("parser") if isinstance(signals.get("parser"), dict) else {}
+        ml_sig = signals.get("local_ml") if isinstance(signals.get("local_ml"), dict) else {}
+
+        lang_names = []
+        for row in (parser_sig.get("top_languages") or [])[:4]:
+            if isinstance(row, dict) and row.get("language"):
+                lang_names.append(str(row["language"]))
+
+        frameworks = []
+        for fw in (parser_sig.get("frameworks") or [])[:4]:
+            text_fw = str(fw).strip()
+            if text_fw:
+                frameworks.append(text_fw)
+
+        skill_names = []
+        for row in (ml_sig.get("top_skills") or [])[:6]:
+            if isinstance(row, dict) and row.get("skill"):
+                skill_names.append(str(row["skill"]))
+
+        tech_lines = []
+        if lang_names:
+            tech_lines.append(f"Languages: {', '.join(lang_names)}")
+        if frameworks:
+            tech_lines.append(f"Frameworks: {', '.join(frameworks)}")
+        if skill_names:
+            tech_lines.append(f"Top skills: {', '.join(skill_names)}")
+
+        if tech_lines:
+            elements.append(Paragraph("Tech Stack", styles["Heading2"]))
+            elements.append(Spacer(1, 6))
+            for line in tech_lines:
+                elements.append(Paragraph(line, styles["Normal"]))
+            elements.append(Spacer(1, 12))
+
+    if show_evidence:
+        evidence = project.get("evidence_json") if isinstance(project.get("evidence_json"), dict) else {}
+        evidence_lines = []
+
+        metrics = evidence.get("metrics")
+        if isinstance(metrics, dict) and metrics:
+            metric_bits = []
+            for k, v in list(metrics.items())[:3]:
+                key = str(k).strip()
+                val = str(v).strip()
+                if key and val:
+                    metric_bits.append(f"{key}: {val}")
+            if metric_bits:
+                evidence_lines.append(f"Outcomes:<br/>{'<br/>'.join(metric_bits)}")
+
+        if evidence.get("feedback"):
+            evidence_lines.append("Feedback available")
+        if evidence.get("evaluation"):
+            evidence_lines.append("Evaluation available")
+
+        if evidence_lines:
+            elements.append(Paragraph("Evidence Highlights", styles["Heading2"]))
+            elements.append(Spacer(1, 6))
+            for line in evidence_lines:
+                elements.append(Paragraph(line, styles["Normal"]))
+            elements.append(Spacer(1, 12))
 
     doc.build(elements)
     return buf.getvalue()

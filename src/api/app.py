@@ -580,7 +580,7 @@ async def upload_project(
 
     tmp_zip = save_upload_to_temp(upload_bytes)
     try:
-        blobstore_root = os.environ.get("ARTIFACT_MINER_BLOBSTORE", "/blobstore")
+        blobstore_root = os.environ.get("ARTIFACT_MINER_BLOBSTORE", "blobstore")
         res = ingest_zip_to_db(
             engine=get_engine(),
             zip_path=tmp_zip,
@@ -1627,6 +1627,39 @@ def generate_resume(payload: ResumeGenerateIn):
     except KeyError:
         raise HTTPException(status_code=404, detail="Project not found")
 
+@app.get("/projects/{project_id}/latest-resume")
+def get_latest_resume(project_id: str):
+    """
+    Returns the most recently generated resume for a project.
+    Returns 404 if no resume has been generated yet.
+    """
+    from sqlalchemy import text
+    import json
+
+    engine = get_engine()
+    with engine.connect() as conn:
+        row = conn.execute(
+            text("""
+                SELECT id, content_json
+                FROM resume_items
+                WHERE project_id = :project_id
+                ORDER BY created_at DESC
+                LIMIT 1
+            """),
+            {"project_id": project_id},
+        ).mappings().first()
+
+    if not row:
+        raise HTTPException(status_code=404, detail="No resume found for this project")
+
+    raw = row["content_json"]
+    content = json.loads(raw) if isinstance(raw, str) else raw
+
+    return {
+        "resume_id": row["id"],
+        "content": content,
+    }
+
 @app.post("/resume/{resume_id}/edit")
 def edit_resume(resume_id: str, body: ResumeEditRequest):
     from src.db.session import get_engine
@@ -2521,20 +2554,27 @@ async def set_project_image(
         blob.size_bytes = len(data)
 
     # 7) Create/update portfolio showcase
+    # Use .first() instead of .one_or_none() to prevent crashing on existing duplicates
     showcase = (
         db.query(PortfolioShowcase)
         .filter(PortfolioShowcase.project_id == project_id)
-        .one_or_none()
+        .order_by(PortfolioShowcase.updated_at.desc()) # Pick the most recent one if duplicates exist
+        .first()
     )
 
     if showcase is None:
+        # If the user uploads an image BEFORE generating a portfolio, 
+        # we create the showcase record now.
         showcase = PortfolioShowcase(
             project_id=project_id,
             thumbnail_blob_sha256=sha256,
+            content_json={} # Ensure it has valid empty JSON
         )
         db.add(showcase)
     else:
+        # Update the existing record (AI content is preserved)
         showcase.thumbnail_blob_sha256 = sha256
+        showcase.updated_at = datetime.now(timezone.utc)
 
     # 8) Commit once
     db.commit()

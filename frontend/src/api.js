@@ -177,6 +177,14 @@ export const projectApi = {
         prefer_external_bullets: true,
       },
     }),
+  getLatestResume: (token, projectId) =>
+    apiRequest(`/projects/${projectId}/latest-resume`, { token }),
+  updateResumeItems: (token, resumeId, { summary_text, resume_bullets }) =>
+    apiRequest(`/resume/${resumeId}/edit`, {
+      method: 'POST',
+      token,
+      body: { summary_text, resume_bullets },
+    }),
   compareProjects: (token, { projectIds = [], attributes = [] }) => {
     const params = new URLSearchParams();
     projectIds.forEach((projectId) => {
