@@ -1,5 +1,77 @@
 # Weekly Navigation (Term 2)
-- [Term 2 Week 5](#term-2-week-5--january-1218-2026)
+- [Term 2 Weeks 6 & 7 + Reading Week](#term-2-weeks-6--7--reading-week--february-9--march-1-2026)
+
+# Will Tilden Personal Logs  //  Term 2 Weeks 6 & 7 + Reading Week – February 9 – March 1, 2026
+
+### Connection to Previous Week
+- Last sprint I focused heavily on expanding test coverage across the app, bringing app.py from 74% to 86% coverage and adding tests to previously untested codeparser modules. This sprint I returned to the planned feature work I had deferred — specifically the portfolio showcase and resume wording edit UI features — and also picked up several bug fixes and infrastructure improvements that came up as the team pushed toward the Milestone 2 deadline.
+
+---
+
+### Coding Tasks
+
+- **PR #252 — GET /projects/{project_id} now returns evidence**: Fixed a data asymmetry bug where project evidence (metrics, feedback, etc.) was being persisted via PATCH but not returned in the GET response. Updated the SQL query to include the `evidence_json` column, mapped it to a clean `evidence` key in the API response with a null-safety fallback, and added an end-to-end integration test to verify the write-and-read round trip. Credit to Liam for finding this.
+  - PR: <https://github.com/COSC-499-W2025/capstone-project-team-15/pull/252>
+
+- **PR #253 — Thumbnail association fix**: Fixed a 500 error on project image uploads by enforcing a strict 1:1 relationship between projects and portfolio showcases. Changes included adding `unique=True` to project_id in base.py to block duplicates at the DB level, switching generation.py to an upsert pattern, cleaning up the image upload lookup in app.py, ensuring AI text updates no longer wipe manually uploaded thumbnails, adding a migration file, and adding a pytest test verifying the new upsert logic.
+  - PR: <https://github.com/COSC-499-W2025/capstone-project-team-15/pull/253>
+
+- **PR #268 — Resume wording edit UI**: Added the ability for users to edit resume content (summary and bullet points) after generation with edits persisted to the DB and reflected in the downloaded PDF. Previously the Generate button would immediately download a PDF with no way to edit. Changes include a new `GET /projects/{project_id}/latest-resume` endpoint, pre-population of the editing UI on project load, a new Resume Editing section in the project detail view, Save and Download buttons, and two new api.js methods (`getLatestResume`, `updateResumeItems`).
+  - PR: <https://github.com/COSC-499-W2025/capstone-project-team-15/pull/268>
+
+- **PR #274 — Portfolio Showcase Wording Edit in UI**: Completed the portfolio showcase text customization flow in the frontend. Users can now view generated portfolio showcase text for each project, edit the title and summary wording in-app, and save their changes through the existing portfolio edit endpoint. This was the main Milestone 2 feature I had planned for this sprint.
+  - PR: <https://github.com/COSC-499-W2025/capstone-project-team-15/pull/274>
+
+- **PR #275 — Milestone 2 Test ZIP Files**: Created and committed three zipped test data files to satisfy the Milestone 2 test data requirements: `snapshot_early.zip` and `snapshot_late.zip` (the same Task Manager project at two different points in time with real git history), and `multi_project.zip` (three subdirectory projects covering individual code, collaborative code, and individual text/doc project types, each with their own git history).
+  - PR: <https://github.com/COSC-499-W2025/capstone-project-team-15/pull/275>
+
+- **PR #277 — GET /portfolio/{portfolio_id} returns text**: Updated the `GET /portfolio/{portfolio_id}` endpoint to include showcase text content in its response, fulfilling M2 requirement #29 (Display textual information about a project as a portfolio showcase). Previously the endpoint only returned metadata (id, user_id, name, created_at). Now it also calls list_portfolio_showcases and attaches the items array to the response. Added two new tests covering the populated and empty states.
+  - PR: <https://github.com/COSC-499-W2025/capstone-project-team-15/pull/277>
+
+---
+
+### Testing & Debugging Tasks
+- Tested and debugged my own PRs (#252, #253, #268, #274, #275, #277) both manually and via the pytest suite before submitting.
+- Reviewed and tested teammate PRs (see below) — tested both manually and with pytest where applicable.
+- Helped teammates debug various errors that came up across PRs during the sprint, including merge conflict resolution and test database setup issues. The team was highly collegial in working through these together.
+
+---
+
+### Reviewing & Collaboration Tasks
+- Reviewed PR #245 — Authentication backend for React **(first reviewer)**: Backend auth foundation adding auth_accounts/auth_sessions tables, register/login/logout/me endpoints, password hashing, session token issuance, and scoped project/portfolio access.
+  - <https://github.com/COSC-499-W2025/capstone-project-team-15/pull/245>
+- Reviewed PR #246 — Authentication user interface **(first reviewer)**: Frontend auth layer adding login/register forms, session restore, logout, and switching the frontend API client to bearer-authenticated requests.
+  - <https://github.com/COSC-499-W2025/capstone-project-team-15/pull/246>
+- Reviewed PR #247 — User-facing project insight views **(second reviewer)**: Expanded dashboard with project detail/report display, contributor list, detected skills, portfolio top-project ranking, skills timeline, and resume generation trigger.
+  - <https://github.com/COSC-499-W2025/capstone-project-team-15/pull/247>
+- Reviewed PR #248 — UI Styling **(second reviewer)**: Full visual design pass across auth and dashboard views. This PR was ultimately closed without merging, but the review work was still valuable — the feedback I provided directly informed the final styling approach that made it into the codebase through the subsequent styling PRs.
+  - <https://github.com/COSC-499-W2025/capstone-project-team-15/pull/248>
+- Reviewed PR #269 — Initial UI Styling PR 2.5 - Auth and Dashboard Styling **(first reviewer)**: Styles for the Auth and Dashboard components, split out from the monolithic Homepage.jsx.
+  - <https://github.com/COSC-499-W2025/capstone-project-team-15/pull/269>
+- Reviewed PR #271 — Resume PDF expansion + generation enrichment + regression fixes **(second reviewer)**: Hybrid bullet generation, enriched resume content, expanded PDF sections, filter normalization, and regression fixes.
+  - <https://github.com/COSC-499-W2025/capstone-project-team-15/pull/271>
+- Reviewed PR #273 — Structured logging + print cleanup **(first reviewer)**: Proper structured logging across API and worker flows, removing ad-hoc print-style logs.
+  - <https://github.com/COSC-499-W2025/capstone-project-team-15/pull/273>
+
+---
+
+### Issues or Blockers
+- No major blockers this sprint. There were occasional errors across various PRs (merge conflicts from old branches, test database issues, minor regressions) but these were resolved quickly through good team communication and collaboration. The team was highly collegial in debugging these together and we've committed to faster turnaround on change requests going forward to avoid them piling up.
+
+---
+
+### Plan for Next Week
+- Add frontend end-to-end testing throughout the app.
+- Expand and improve the resume output to make it more professional and polished.
+- Search for bugs and missing functionality across the app and address anything found.
+
+---
+
+### Peer Evaluation Term 2 Weeks 6 & 7 + Reading Week
+![Alt text](imgs/will_tilden_t2_w6_w7.png)
+
+---
+
 
 ## Will Tilden Personal Logs  //  Term 2 Week 5 – January 26 – February 8, 2026
 
