@@ -544,8 +544,13 @@ def generate_project_showcase(
     generated_at = _utcnow_iso()
 
     with engine.begin() as conn:
+        # also fetch user_role and evidence_json from projects table
         proj = conn.execute(
-            text("SELECT id, COALESCE(display_name, name) AS name, portfolio_id, collaboration_type FROM projects WHERE id = :pid"),
+            text(
+                "SELECT id, COALESCE(display_name, name) AS name, portfolio_id, "
+                "collaboration_type, user_role, evidence_json "
+                "FROM projects WHERE id = :pid"
+            ),
             {"pid": project_id},
         ).mappings().first()
         if not proj:
@@ -618,9 +623,12 @@ def generate_project_showcase(
         user_commits_val = int(user_commits or 0)
         user_commits_out = user_commits_val if user_commits_val > 0 else None
 
+        # pass user_role and evidence_json into _derive_project_summary_text
         summary_text = _derive_project_summary_text(
             project_name=str(proj.get("name") or project_id),
             collab_type=str(proj.get("collaboration_type") or ""),
+            user_role=str(proj.get("user_role") or ""),
+            evidence_json=proj.get("evidence_json") if isinstance(proj.get("evidence_json"), dict) else {},
             top_languages=top_languages,
             frameworks=frameworks,
             top_skills=top_skills,
@@ -640,17 +648,29 @@ def generate_project_showcase(
 
         payload = json.dumps(artifact, default=str)
 
-        existing_id = conn.execute(
-            text("SELECT id FROM portfolio_showcases WHERE project_id = :pid ORDER BY created_at ASC LIMIT 1"),
+        # preserve user-saved title when regenerating
+        existing_row = conn.execute(
+            text(
+                "SELECT id, content_json FROM portfolio_showcases "
+                "WHERE project_id = :pid ORDER BY created_at ASC LIMIT 1"
+            ),
             {"pid": project_id},
-        ).scalar()
+        ).mappings().first()
 
-        if existing_id:
+        if existing_row:
+            existing_title = (existing_row.get("content_json") or {}).get("title")
+            if existing_title:
+                artifact["title"] = existing_title
+                payload = json.dumps(artifact, default=str)
+
             conn.execute(
-                text("UPDATE portfolio_showcases SET content_json = CAST(:cj AS jsonb), updated_at = NOW() WHERE id = :id"),
-                {"id": existing_id, "cj": payload},
+                text(
+                    "UPDATE portfolio_showcases SET content_json = CAST(:cj AS jsonb), "
+                    "updated_at = NOW() WHERE id = :id"
+                ),
+                {"id": existing_row["id"], "cj": payload},
             )
-            showcase_id = existing_id
+            showcase_id = existing_row["id"]
         else:
             showcase_id = conn.execute(
                 text(
