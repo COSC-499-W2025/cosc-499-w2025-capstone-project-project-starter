@@ -1152,6 +1152,8 @@ function Homepage() {
       setShowcaseError(error.message || 'Failed to save showcase.');
     } finally {
       setShowcaseSaving(false);
+    }
+  };
   const handleGenerateResume = async () => {
     if (!selectedProject || !token) return;
     setLoading(true);
