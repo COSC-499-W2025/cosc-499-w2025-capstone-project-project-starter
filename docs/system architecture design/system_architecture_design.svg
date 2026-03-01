@@ -1,4 +1,4 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="2000" height="1200" viewBox="0 0 2000 1200" role="img" aria-labelledby="title desc">
+<svg xmlns="http://www.w3.org/2000/svg" width="2000" height="1700" viewBox="0 0 2000 1700" role="img" aria-labelledby="title desc">
   <title id="title">Artifact Miner Hybrid Runtime and Deployment Architecture</title>
   <desc id="desc">Architecture diagram showing browser and CLI clients, Docker Compose containers for frontend, API, worker, migration job, optional Ollama service, and attached PostgreSQL/blobstore volumes with key data flows.</desc>
 
@@ -11,6 +11,10 @@
       .smallNodeLabel { font: 600 17px 'IBM Plex Sans', 'Segoe UI', Arial, sans-serif; fill: #0F172A; text-anchor: middle; dominant-baseline: middle; }
       .edgeLabel { font: 500 14px 'IBM Plex Sans', 'Segoe UI', Arial, sans-serif; fill: #0F172A; }
       .legendLabel { font: 500 15px 'IBM Plex Sans', 'Segoe UI', Arial, sans-serif; fill: #0F172A; }
+      .legendFlowId { font: 700 14px 'IBM Plex Sans', 'Segoe UI', Arial, sans-serif; fill: #0F172A; text-anchor: end; }
+      .flowLegendLabel { font: 500 13px 'IBM Plex Sans', 'Segoe UI', Arial, sans-serif; fill: #0F172A; }
+      .flowMarkerCircle { fill: #FFFFFF; stroke: #1E293B; stroke-width: 1.5; }
+      .flowMarkerText { font: 700 11px 'IBM Plex Sans', 'Segoe UI', Arial, sans-serif; fill: #1E293B; text-anchor: middle; dominant-baseline: middle; }
       .scopeNote { font: 500 14px 'IBM Plex Sans', 'Segoe UI', Arial, sans-serif; fill: #475569; }
       .boundary { fill: #F8FAFC; stroke: #0F172A; stroke-width: 2; }
       .client { fill: #FFF7ED; stroke: #9A3412; stroke-width: 2; }
@@ -38,7 +42,7 @@
     </symbol>
   </defs>
 
-  <rect class="bg" x="0" y="0" width="2000" height="1200"/>
+  <rect class="bg" x="0" y="0" width="2000" height="1700"/>
 
   <text class="titleText" x="60" y="58">Artifact Miner - Hybrid Runtime + Deployment Architecture</text>
   <text class="subtitleText" x="60" y="90">System boundaries, service responsibilities, and runtime data flow</text>
@@ -158,36 +162,56 @@
     <path id="A12" class="edge" d="M740 260 C590 210 420 210 290 250"/>
   </g>
 
-  <!-- Connector labels -->
-  <g id="connector-labels">
-    <text class="edgeLabel" x="315" y="286">HTTP :3000</text>
-    <text class="edgeLabel" x="688" y="292">REST/JSON :5001</text>
-    <text class="edgeLabel" x="380" y="430">REST/JSON</text>
-    <text class="edgeLabel" x="884" y="700">alembic upgrade head</text>
-    <text class="edgeLabel" x="986" y="650">SQLAlchemy read/write</text>
-    <text class="edgeLabel" x="1150" y="650">blob/image file IO</text>
-    <text class="edgeLabel" x="720" y="665">enqueue analyses (status=pending)</text>
-    <text class="edgeLabel" x="1160" y="700">claim jobs + persist outputs</text>
-    <text class="edgeLabel" x="1310" y="675">read snapshot file blobs</text>
-    <text class="edgeLabel" x="1478" y="623">load tokenizer/model/classifier</text>
-    <text class="edgeLabel" x="1680" y="384">ollama run (consent-gated)</text>
-    <text class="edgeLabel" x="460" y="208">dashboard JSON + PDF/image responses</text>
+  <!-- Connector origin markers -->
+  <g id="connector-origin-markers" aria-label="Numbered arrow origin markers">
+    <circle class="flowMarkerCircle" cx="274" cy="282" r="11"/><text class="flowMarkerText" x="274" y="282">1</text>
+    <circle class="flowMarkerCircle" cx="664" cy="286" r="11"/><text class="flowMarkerText" x="664" y="286">2</text>
+    <circle class="flowMarkerCircle" cx="274" cy="460" r="11"/><text class="flowMarkerText" x="274" y="460">3</text>
+    <circle class="flowMarkerCircle" cx="856" cy="666" r="11"/><text class="flowMarkerText" x="856" y="666">4</text>
+    <circle class="flowMarkerCircle" cx="966" cy="566" r="11"/><text class="flowMarkerText" x="966" y="566">5</text>
+    <circle class="flowMarkerCircle" cx="1106" cy="506" r="11"/><text class="flowMarkerText" x="1106" y="506">6</text>
+    <circle class="flowMarkerCircle" cx="816" cy="566" r="11"/><text class="flowMarkerText" x="816" y="566">7</text>
+    <circle class="flowMarkerCircle" cx="1406" cy="626" r="11"/><text class="flowMarkerText" x="1406" y="626">8</text>
+    <circle class="flowMarkerCircle" cx="1366" cy="626" r="11"/><text class="flowMarkerText" x="1366" y="626">9</text>
+    <circle class="flowMarkerCircle" cx="1436" cy="626" r="11"/><text class="flowMarkerText" x="1436" y="626">10</text>
+    <circle class="flowMarkerCircle" cx="1676" cy="416" r="11"/><text class="flowMarkerText" x="1676" y="416">11</text>
+    <circle class="flowMarkerCircle" cx="726" cy="246" r="11"/><text class="flowMarkerText" x="726" y="246">12</text>
   </g>
 
   <!-- Legend -->
-  <g id="legend" transform="translate(1450,940)">
-    <rect x="0" y="0" width="500" height="180" rx="12" ry="12" fill="#FFFFFF" stroke="#334155" stroke-width="2"/>
-    <text class="smallNodeLabel" x="250" y="28">Legend</text>
+  <g id="legend" transform="translate(60,1160)">
+    <rect x="0" y="0" width="1880" height="470" rx="14" ry="14" fill="#FFFFFF" stroke="#334155" stroke-width="2"/>
+    <text class="smallNodeLabel" x="940" y="34">Legend</text>
 
-    <path d="M30 62 H170" class="edge"/>
-    <text class="legendLabel" x="190" y="67">Synchronous / required flow</text>
+    <path d="M40 78 H180" class="edge"/>
+    <text class="legendLabel" x="200" y="83">Synchronous / required flow</text>
 
-    <path d="M30 102 H170" class="edgeDashed"/>
-    <text class="legendLabel" x="190" y="107">Asynchronous queue flow</text>
+    <path d="M40 114 H180" class="edgeDashed"/>
+    <text class="legendLabel" x="200" y="119">Asynchronous queue flow</text>
 
-    <path d="M30 142 H170" class="edgeDashed"/>
-    <text class="legendLabel" x="190" y="147">Optional or consent-gated flow</text>
+    <path d="M40 150 H180" class="edgeDashed"/>
+    <text class="legendLabel" x="200" y="155">Optional or consent-gated flow</text>
+
+    <circle class="flowMarkerCircle" cx="1200" cy="82" r="11"/>
+    <text class="flowMarkerText" x="1200" y="82">1</text>
+    <text class="legendLabel" x="1222" y="87">Number marks arrow start; match to the flow list below.</text>
+
+    <text class="legendLabel" x="40" y="198">Flow Data (mapped to numbered arrow starts)</text>
+
+    <text class="legendFlowId" x="66" y="236">1.</text><text class="flowLegendLabel" x="82" y="236">HTTP :3000</text>
+    <text class="legendFlowId" x="66" y="268">2.</text><text class="flowLegendLabel" x="82" y="268">REST/JSON :5001</text>
+    <text class="legendFlowId" x="66" y="300">3.</text><text class="flowLegendLabel" x="82" y="300">REST/JSON</text>
+    <text class="legendFlowId" x="66" y="332">4.</text><text class="flowLegendLabel" x="82" y="332">alembic upgrade head</text>
+    <text class="legendFlowId" x="66" y="364">5.</text><text class="flowLegendLabel" x="82" y="364">SQLAlchemy read/write</text>
+    <text class="legendFlowId" x="66" y="396">6.</text><text class="flowLegendLabel" x="82" y="396">blob/image file IO</text>
+
+    <text class="legendFlowId" x="980" y="236">7.</text><text class="flowLegendLabel" x="998" y="236">enqueue analyses (status=pending)</text>
+    <text class="legendFlowId" x="980" y="268">8.</text><text class="flowLegendLabel" x="998" y="268">claim jobs + persist outputs</text>
+    <text class="legendFlowId" x="980" y="300">9.</text><text class="flowLegendLabel" x="998" y="300">read snapshot file blobs</text>
+    <text class="legendFlowId" x="980" y="332">10.</text><text class="flowLegendLabel" x="998" y="332">load tokenizer/model/classifier</text>
+    <text class="legendFlowId" x="980" y="364">11.</text><text class="flowLegendLabel" x="998" y="364">ollama run (consent-gated)</text>
+    <text class="legendFlowId" x="980" y="396">12.</text><text class="flowLegendLabel" x="998" y="396">dashboard JSON + PDF/image responses</text>
   </g>
 
-  <text class="scopeNote" x="60" y="1145">As implemented in src/api, src/worker, docker-compose.yml (March 1, 2026 snapshot).</text>
+  <text class="scopeNote" x="60" y="1668">As implemented in src/api, src/worker, docker-compose.yml (March 1, 2026 snapshot).</text>
 </svg>
