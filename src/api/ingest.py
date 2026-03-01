@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import hashlib
+import logging
 import os
 import posixpath
 import tempfile
@@ -16,6 +17,8 @@ from sqlalchemy.engine import Engine
 from src.db.consents import latest_consent_granted
 from git import Repo, InvalidGitRepositoryError
 from collections import Counter
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass(frozen=True)
@@ -196,6 +199,12 @@ def ingest_zip_to_db(
     analysis_mode: str = "auto",
 ) -> IngestResult:
     zip_sha = _sha256_file(zip_path)
+    logger.info(
+        "Starting ZIP ingest for %s (analysis_mode=%s, project_name=%s)",
+        zip_filename,
+        analysis_mode,
+        project_name or "auto",
+    )
 
     os.makedirs(blobstore_root, exist_ok=True)
 
@@ -223,6 +232,7 @@ def ingest_zip_to_db(
 
         with zipfile.ZipFile(zip_path, "r") as zf:
             entries: List[Tuple[str, zipfile.ZipInfo]] = []
+            skipped_unsafe_entries = 0
             for info in zf.infolist():
                 if info.is_dir():
                     continue
@@ -230,8 +240,16 @@ def ingest_zip_to_db(
                     continue
                 safe = _safe_zip_relpath(info.filename)
                 if safe is None:
+                    skipped_unsafe_entries += 1
                     continue
                 entries.append((safe, info))
+
+            if skipped_unsafe_entries:
+                logger.warning(
+                    "Skipped %d unsafe ZIP entries while ingesting %s",
+                    skipped_unsafe_entries,
+                    zip_filename,
+                )
 
             project_to_files: Dict[str, List[Tuple[str, zipfile.ZipInfo]]] = {}
             if project_name:
@@ -406,9 +424,17 @@ def ingest_zip_to_db(
                     {"project_id": proj_id, "project_name": proj_display, "snapshot_id": snap_id, "zip_sha256": zip_sha}
                 )
 
-    return IngestResult(
+    result = IngestResult(
         user_id=str(user_id2),
         portfolio_id=str(portfolio_id2),
         created_projects=created_projects,
         skipped_projects=skipped_projects,
     )
+    logger.info(
+        "ZIP ingest complete for %s (portfolio_id=%s created_projects=%d skipped_projects=%d)",
+        zip_filename,
+        result.portfolio_id,
+        len(result.created_projects),
+        len(result.skipped_projects),
+    )
+    return result

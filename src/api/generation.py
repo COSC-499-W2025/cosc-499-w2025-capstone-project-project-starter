@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import base64
+import logging
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional, Tuple
 
@@ -10,6 +11,8 @@ from sqlalchemy.engine import Engine
 
 from src.db.user_config import get_user_config
 from src.api.ranking import compute_rank_score, normalize_ranking_config, sort_projects
+
+logger = logging.getLogger(__name__)
 
 
 def _utcnow_iso() -> str:
@@ -263,6 +266,7 @@ def _external_resume_bullets(external_llm_out: Dict[str, Any]) -> Optional[List[
             return None
         return [_truncate(clean[0], 180), _truncate(clean[1], 180), _truncate(clean[2], 180)]
     except Exception:
+        logger.warning("Failed to parse external resume bullets payload", exc_info=True)
         return None
 
 
@@ -392,6 +396,12 @@ def generate_portfolio_top_summaries(
     persist: bool,
 ) -> Dict[str, Any]:
     generated_at = _utcnow_iso()
+    logger.info(
+        "Generating portfolio top summaries for portfolio %s (limit=%d, persist=%s)",
+        portfolio_id,
+        int(limit),
+        bool(persist),
+    )
 
     with engine.begin() as conn:
         pf_ok = conn.execute(text("SELECT 1 FROM portfolios WHERE id = :pid"), {"pid": portfolio_id}).scalar()
@@ -526,7 +536,7 @@ def generate_portfolio_top_summaries(
                 }
             )
 
-    return {
+    result = {
         "portfolio_id": portfolio_id,
         "generated_at": generated_at,
         "limit": int(limit),
@@ -534,6 +544,13 @@ def generate_portfolio_top_summaries(
         "showcase_ids": showcase_ids,
         "top_projects": top_projects,
     }
+    logger.info(
+        "Generated portfolio summaries for portfolio %s (projects=%d persisted_showcases=%d)",
+        portfolio_id,
+        len(top_projects),
+        len(showcase_ids),
+    )
+    return result
 
 
 def generate_resume_item(
@@ -543,6 +560,11 @@ def generate_resume_item(
     prefer_external_bullets: bool,
 ) -> Dict[str, Any]:
     generated_at = _utcnow_iso()
+    logger.info(
+        "Generating resume item for project %s (prefer_external_bullets=%s)",
+        project_id,
+        bool(prefer_external_bullets),
+    )
 
     with engine.begin() as conn:
         proj = conn.execute(
@@ -688,8 +710,12 @@ def generate_resume_item(
                         "mime_type": thumb.get("mime_type"),
                     }
                     thumbnail_blob_sha256 = thumb.get("sha256")
-            except Exception as e:
-                print(f"⚠️ Failed to load thumbnail blob: {e}")
+            except Exception:
+                logger.warning(
+                    "Failed to load thumbnail blob for project %s",
+                    proj.get("id"),
+                    exc_info=True,
+                )
 
 
 
@@ -741,7 +767,9 @@ def generate_resume_item(
         artifact["thumbnail_blob_sha256"] = thumbnail_blob_sha256
 
 
-    return {"resume_id": str(rid), "content": artifact}
+    result = {"resume_id": str(rid), "content": artifact}
+    logger.info("Generated resume item %s for project %s", str(rid), project_id)
+    return result
 
 
 def list_portfolio_showcases(
@@ -750,6 +778,7 @@ def list_portfolio_showcases(
     portfolio_id: str,
     limit: int,
 ) -> Dict[str, Any]:
+    logger.debug("Listing portfolio showcases for portfolio %s (limit=%d)", portfolio_id, int(limit))
     with engine.connect() as conn:
         pf_ok = conn.execute(
             text("SELECT 1 FROM portfolios WHERE id = :pid"),
@@ -801,6 +830,7 @@ def get_resume_item(
     engine: Engine,
     resume_id: str,
 ) -> Dict[str, Any]:
+    logger.debug("Fetching resume item %s", resume_id)
     with engine.connect() as conn:
         row = conn.execute(
             text(

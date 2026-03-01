@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import logging
 import os
 import re
 from dataclasses import dataclass
@@ -14,6 +15,8 @@ from src.db.user_config import get_user_config
 from src.api.ranking import compute_rank_score, normalize_ranking_config
 
 from src.db.base import fetch_snapshot_files
+
+logger = logging.getLogger(__name__)
 
 
 def _iso(dt: Any) -> Optional[str]:
@@ -287,6 +290,12 @@ def build_project_report(
       - derived: skills chronology, contribution summary, duration, frameworks (best-effort)
     """
     ranking_cfg = normalize_ranking_config({})
+    logger.info(
+        "Building project report for project %s (raw=%s framework_detection=%s)",
+        project_id,
+        bool(include_raw_analyses),
+        bool(include_framework_detection),
+    )
 
     with engine.connect() as conn:
         project = conn.execute(
@@ -301,6 +310,7 @@ def build_project_report(
         ).mappings().first()
 
         if not project:
+            logger.warning("Project report requested for missing project %s", project_id)
             raise KeyError("Project not found")
 
         portfolio_user_id = conn.execute(
@@ -635,4 +645,10 @@ def build_project_report(
         },
     }
 
+    logger.info(
+        "Built project report for project %s (snapshots=%d top_skills=%d)",
+        project_id,
+        len(snapshot_reports),
+        len(skills_top),
+    )
     return report

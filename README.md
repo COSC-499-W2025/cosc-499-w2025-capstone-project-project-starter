@@ -10,7 +10,7 @@
 - Will Tilden - 61350294
 - Luis Wen Luo - 10665891
 
-## 📖 Overview
+## Overview
 
 This project focuses on analyzing digital work artifacts such as code and documents from a student or early professional’s computer. The goal is to help users understand the projects they've contributed to over the course of their degrees or professional careers, and build a resume by extracting useful insights like skills learned and contribution levels from a given directory.
 
