@@ -1,8 +1,10 @@
 import React, { useState } from 'react';
+import './App.css';
 import Auth from './Auth';
 import Dashboard from './Dashboard'; 
 
-const BASE_URL = 'http://localhost:5001'; 
+
+const BASE_URL = process.env.REACT_APP_API_URL; 
 
 // --- AUTH API ---
 const authApi = {
@@ -45,7 +47,7 @@ const projectApi = {
   uploadProject: async (token, { file, projectName }) => {
     const formData = new FormData();
     formData.append('file', file);
-    formData.append('name', projectName);
+    formData.append('project_name', projectName);
 
     const response = await fetch(`${BASE_URL}/projects/upload`, {
       method: 'POST',
@@ -71,14 +73,12 @@ const projectApi = {
   },
 
   getSnapshotSkills: async (token, snapshotId) => {
-    // Removed limit to get all skills for the snapshot
     const response = await fetch(`${BASE_URL}/snapshots/${snapshotId}/skills`, {
       headers: { 'Authorization': `Bearer ${token}` },
     });
     return response.json();
   },
 
-  // FIXED: Changed to 'portfolio' (singular) and removed default limit
   getPortfolioTopProjects: async (token, portfolioId) => {
     const response = await fetch(`${BASE_URL}/portfolio/${portfolioId}/top-projects`, {
       headers: { 'Authorization': `Bearer ${token}` },
@@ -87,7 +87,6 @@ const projectApi = {
     return response.json();
   },
 
-  // FIXED: Changed to 'portfolio/id/skills/chronological' and removed limit
   getPortfolioSkillTimeline: async (token, portfolioId) => {
     const response = await fetch(`${BASE_URL}/portfolio/${portfolioId}/skills/chronological`, {
       headers: { 'Authorization': `Bearer ${token}` },
@@ -97,9 +96,13 @@ const projectApi = {
   },
 
   generateResume: async (token, projectId) => {
-    const response = await fetch(`${BASE_URL}/projects/${projectId}/resume`, {
+    const response = await fetch(`${BASE_URL}/resume/generate`, {
       method: 'POST',
-      headers: { 'Authorization': `Bearer ${token}` },
+      headers: { 
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({ project_id: projectId })
     });
     if (!response.ok) throw new Error('Resume generation failed');
     return response.json();

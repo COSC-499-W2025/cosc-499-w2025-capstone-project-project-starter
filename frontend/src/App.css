@@ -1,5 +1,34 @@
-/* src/App.css */
-.app-container {
-  width: 100%;
-  height: 100%;
+/* Base Reset & Typography */
+* { box-sizing: border-box; }
+body {
+  margin: 0;
+  color: #16223a;
+  font-family: 'Inter', 'Segoe UI', Roboto, Arial, sans-serif;
+  background: radial-gradient(circle at top left, #f4f7ff 0%, #eef2ff 30%, #f7f9fc 100%);
+}
+h1, h2, h3, h4, p { margin: 0; }
+
+/* Shared Shell & Form Elements */
+.screen-shell { min-height: 100vh; padding: 1.25rem; }
+input, select, textarea, button { font: inherit; }
+input, select, textarea {
+  width: 100%; border: 1px solid #c8d6f7; border-radius: 10px;
+  background: #ffffff; color: #16223a; padding: 0.58rem 0.7rem;
+}
+input:focus, select:focus, textarea:focus {
+  outline: 2px solid #8db1ff; outline-offset: 1px; border-color: #7ea5ff;
+}
+
+/* Common Buttons & Utilities */
+.primary-btn, .secondary-btn, .ghost-btn {
+  border-radius: 10px; padding: 0.52rem 0.85rem; font-weight: 600;
+  cursor: pointer; transition: transform 0.15s ease;
+}
+.primary-btn { border: 1px solid #2e6cf4; background: #2e6cf4; color: #ffffff; }
+.muted { color: #5f6470; font-size: 0.92rem; }
+.eyebrow { text-transform: uppercase; font-size: 0.72rem; font-weight: 700; color: #5d6b86; }
+
+/* Global Media Queries */
+@media (max-width: 720px) {
+  .screen-shell { padding: 0.75rem; }
 }
