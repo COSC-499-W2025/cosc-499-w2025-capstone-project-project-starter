@@ -1,0 +1,182 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="2000" height="1200" viewBox="0 0 2000 1200" role="img" aria-labelledby="title desc">
+  <title id="title">Artifact Miner Level 1 Data Flow Diagram</title>
+  <desc id="desc">Level 1 data flow diagram for Artifact Miner showing user interactions, API processes, worker analysis pipeline, optional Ollama integration, and core data stores.</desc>
+
+  <defs>
+    <style>
+      .bg { fill: #F8FAFC; }
+      .titleText { font: 700 34px 'IBM Plex Sans', 'Segoe UI', Arial, sans-serif; fill: #0F172A; }
+      .subtitleText { font: 500 17px 'IBM Plex Sans', 'Segoe UI', Arial, sans-serif; fill: #334155; }
+      .nodeLabel { font: 600 21px 'IBM Plex Sans', 'Segoe UI', Arial, sans-serif; fill: #0F172A; text-anchor: middle; dominant-baseline: middle; }
+      .smallNodeLabel { font: 600 18px 'IBM Plex Sans', 'Segoe UI', Arial, sans-serif; fill: #0F172A; text-anchor: middle; dominant-baseline: middle; }
+      .edgeLabel { font: 500 14px 'IBM Plex Sans', 'Segoe UI', Arial, sans-serif; fill: #0F172A; }
+      .legendLabel { font: 500 15px 'IBM Plex Sans', 'Segoe UI', Arial, sans-serif; fill: #0F172A; }
+      .scopeNote { font: 500 14px 'IBM Plex Sans', 'Segoe UI', Arial, sans-serif; fill: #475569; }
+      .entityFill { fill: #FFF7ED; stroke: #9A3412; stroke-width: 2; }
+      .processFill { fill: #E8F1FF; stroke: #1D4ED8; stroke-width: 2; }
+      .optionalFill { fill: #F1F5F9; stroke: #334155; stroke-width: 2; stroke-dasharray: 10 8; }
+      .datastoreFill { fill: #ECFDF5; stroke: #166534; stroke-width: 2; }
+      .edge { fill: none; stroke: #334155; stroke-width: 2; marker-end: url(#arrowSolid); }
+      .edgeDashed { fill: none; stroke: #334155; stroke-width: 2; stroke-dasharray: 10 7; marker-end: url(#arrowDashed); }
+      .labelBg { fill: #F8FAFC; opacity: 0.9; }
+    </style>
+
+    <marker id="arrowSolid" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="9" markerHeight="9" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#334155"/>
+    </marker>
+    <marker id="arrowDashed" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="9" markerHeight="9" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#334155"/>
+    </marker>
+
+    <symbol id="entityShape" viewBox="0 0 100 50" preserveAspectRatio="none">
+      <rect x="0" y="0" width="100" height="50" rx="4" ry="4"/>
+    </symbol>
+
+    <symbol id="processShape" viewBox="0 0 100 50" preserveAspectRatio="none">
+      <rect x="0" y="0" width="100" height="50" rx="10" ry="10"/>
+    </symbol>
+
+    <symbol id="datastoreShape" viewBox="0 0 100 50" preserveAspectRatio="none">
+      <path d="M 8 0 H 92 C 96.5 0 100 3.5 100 8 V 42 C 100 46.5 96.5 50 92 50 H 8 C 3.5 50 0 46.5 0 42 V 8 C 0 3.5 3.5 0 8 0 Z"/>
+      <path d="M 12 0 V 50 M 88 0 V 50" fill="none" stroke="currentColor" stroke-width="1.5"/>
+    </symbol>
+  </defs>
+
+  <rect class="bg" x="0" y="0" width="2000" height="1200"/>
+
+  <text class="titleText" x="60" y="58">Artifact Miner - Level 1 Data Flow Diagram</text>
+  <text class="subtitleText" x="60" y="90">Operational DFD aligned to current FastAPI/worker/PostgreSQL/blobstore/Ollama behavior</text>
+
+  <!-- Nodes -->
+  <g id="E1">
+    <use href="#entityShape" x="60" y="250" width="240" height="120" class="entityFill"/>
+    <text class="nodeLabel" x="180" y="304">
+      <tspan x="180" dy="0">End User</tspan>
+      <tspan x="180" dy="26">(Browser / CLI)</tspan>
+    </text>
+  </g>
+
+  <g id="P1">
+    <use href="#processShape" x="360" y="120" width="330" height="130" class="processFill"/>
+    <text class="nodeLabel" x="525" y="185">1.0 Authenticate + Consent</text>
+  </g>
+
+  <g id="P2">
+    <use href="#processShape" x="740" y="120" width="360" height="130" class="processFill"/>
+    <text class="nodeLabel" x="920" y="185">2.0 Upload + Ingest ZIP</text>
+  </g>
+
+  <g id="P3">
+    <use href="#processShape" x="1150" y="120" width="370" height="130" class="processFill"/>
+    <text class="nodeLabel" x="1335" y="185">3.0 Queue + Run Analyses</text>
+  </g>
+
+  <g id="P4">
+    <use href="#processShape" x="1570" y="120" width="360" height="130" class="processFill"/>
+    <text class="nodeLabel" x="1750" y="185">4.0 Build Insights + Rankings</text>
+  </g>
+
+  <g id="P5">
+    <use href="#processShape" x="1150" y="360" width="370" height="130" class="processFill"/>
+    <text class="smallNodeLabel" x="1335" y="414">
+      <tspan x="1335" dy="0">5.0 Generate Artifacts</tspan>
+      <tspan x="1335" dy="24">(Resume/Portfolio/PDF)</tspan>
+    </text>
+  </g>
+
+  <g id="P6">
+    <use href="#processShape" x="740" y="360" width="360" height="130" class="processFill"/>
+    <text class="nodeLabel" x="920" y="425">6.0 Serve Dashboard + Media</text>
+  </g>
+
+  <g id="E2">
+    <use href="#entityShape" x="1570" y="360" width="360" height="130" class="optionalFill"/>
+    <text class="smallNodeLabel" x="1750" y="420">
+      <tspan x="1750" dy="0">Ollama Service</tspan>
+      <tspan x="1750" dy="24">(Optional)</tspan>
+    </text>
+  </g>
+
+  <g id="D1" style="color:#166534;">
+    <use href="#datastoreShape" x="500" y="760" width="520" height="150" class="datastoreFill"/>
+    <text class="nodeLabel" x="760" y="835">D1 PostgreSQL</text>
+  </g>
+
+  <g id="D2" style="color:#166534;">
+    <use href="#datastoreShape" x="1060" y="760" width="380" height="150" class="datastoreFill"/>
+    <text class="nodeLabel" x="1250" y="835">D2 Blobstore (/blobstore)</text>
+  </g>
+
+  <g id="D3" style="color:#166534;">
+    <use href="#datastoreShape" x="1480" y="760" width="420" height="150" class="datastoreFill"/>
+    <text class="smallNodeLabel" x="1690" y="830">
+      <tspan x="1690" dy="0">D3 Local ML Assets</tspan>
+      <tspan x="1690" dy="24">(models + artifacts)</tspan>
+    </text>
+  </g>
+
+  <!-- Edges -->
+  <g id="edges">
+    <path id="F01" class="edge" d="M300 294 C330 294 332 185 360 185"/>
+    <path id="F02" class="edge" d="M525 250 C525 390 760 515 760 760"/>
+    <path id="F03" class="edge" d="M300 330 C470 330 560 205 740 205"/>
+    <path id="F04" class="edge" d="M920 250 C920 420 790 545 760 760"/>
+    <path id="F05" class="edge" d="M920 250 C985 430 1250 540 1250 760"/>
+    <path id="F06" class="edgeDashed" d="M900 760 C980 600 1240 500 1335 250"/>
+    <path id="F07" class="edge" d="M1250 760 C1260 620 1320 470 1335 250"/>
+    <path id="F08" class="edge" d="M1600 760 C1590 620 1510 460 1450 250"/>
+    <path id="F09" class="edge" d="M1335 250 C1245 430 820 520 650 760"/>
+    <path id="F10" class="edgeDashed" d="M1520 182 C1542 220 1548 350 1570 410"/>
+    <path id="F11" class="edgeDashed" d="M1570 438 C1540 410 1530 300 1520 215"/>
+    <path id="F12" class="edge" d="M960 760 C1120 600 1600 500 1750 250"/>
+    <path id="F13" class="edge" d="M1620 250 C1500 300 1240 380 1100 430"/>
+    <path id="F14" class="edge" d="M1750 250 C1700 290 1505 320 1335 360"/>
+    <path id="F15" class="edge" d="M1335 490 C1240 560 1030 650 900 760"/>
+    <path id="F16" class="edge" d="M1335 490 C1300 580 1260 660 1250 760"/>
+    <path id="F17" class="edge" d="M920 490 C900 580 800 660 760 760"/>
+    <path id="F18" class="edge" d="M920 490 C980 580 1080 660 1120 760"/>
+    <path id="F19" class="edge" d="M740 425 C620 420 460 340 300 310"/>
+    <path id="F20" class="edge" d="M1150 440 C980 520 520 520 300 360"/>
+  </g>
+
+  <!-- Edge labels -->
+  <g id="edge-labels">
+    <text class="edgeLabel" x="317" y="238">register/login/logout + consent choices</text>
+    <text class="edgeLabel" x="555" y="508">users, auth_sessions, privacy_consents, user_config</text>
+    <text class="edgeLabel" x="420" y="292">ZIP upload + analysis_mode</text>
+    <text class="edgeLabel" x="795" y="525">portfolios/projects/snapshots + analyses(pending)</text>
+    <text class="edgeLabel" x="1020" y="514">file_blobs + snapshot_files (deduplicated)</text>
+    <text class="edgeLabel" x="995" y="585">pending analysis jobs</text>
+    <text class="edgeLabel" x="1270" y="546">snapshot file content</text>
+    <text class="edgeLabel" x="1546" y="544">embedding model + classifier artifacts</text>
+    <text class="edgeLabel" x="930" y="458">analysis outputs, analysis_skills, contributors, events</text>
+    <text class="edgeLabel" x="1530" y="286">external summary prompt</text>
+    <text class="edgeLabel" x="1530" y="340">LLM JSON result / fallback</text>
+    <text class="edgeLabel" x="1290" y="590">project/snapshot/analysis/contribution data</text>
+    <text class="edgeLabel" x="1288" y="326">ranked summaries, reports, chronology payloads</text>
+    <text class="edgeLabel" x="1492" y="305">normalized summary inputs</text>
+    <text class="edgeLabel" x="1076" y="610">resume_items + portfolio_showcases</text>
+    <text class="edgeLabel" x="1266" y="620">thumbnail blob refs + image files</text>
+    <text class="edgeLabel" x="820" y="610">read models for dashboards</text>
+    <text class="edgeLabel" x="1022" y="620">project image reads</text>
+    <text class="edgeLabel" x="490" y="356">JSON responses + image data</text>
+    <text class="edgeLabel" x="690" y="545">downloadable PDF + generated artifact output</text>
+  </g>
+
+  <!-- Legend -->
+  <g id="legend" transform="translate(1450,965)">
+    <rect x="0" y="0" width="500" height="180" rx="12" ry="12" fill="#FFFFFF" stroke="#334155" stroke-width="2"/>
+    <text class="smallNodeLabel" x="250" y="28">Legend</text>
+
+    <path d="M30 62 H170" class="edge"/>
+    <text class="legendLabel" x="190" y="67">Synchronous / required flow</text>
+
+    <path d="M30 102 H170" class="edgeDashed"/>
+    <text class="legendLabel" x="190" y="107">Asynchronous queue flow</text>
+
+    <path d="M30 142 H170" class="edgeDashed"/>
+    <text class="legendLabel" x="190" y="147">Optional or consent-gated flow</text>
+  </g>
+
+  <text class="scopeNote" x="60" y="1145">As implemented in src/api, src/worker, docker-compose.yml (March 1, 2026 snapshot).</text>
+</svg>

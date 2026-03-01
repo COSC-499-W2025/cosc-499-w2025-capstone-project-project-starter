@@ -1,0 +1,193 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="2000" height="1200" viewBox="0 0 2000 1200" role="img" aria-labelledby="title desc">
+  <title id="title">Artifact Miner Hybrid Runtime and Deployment Architecture</title>
+  <desc id="desc">Architecture diagram showing browser and CLI clients, Docker Compose containers for frontend, API, worker, migration job, optional Ollama service, and attached PostgreSQL/blobstore volumes with key data flows.</desc>
+
+  <defs>
+    <style>
+      .bg { fill: #F8FAFC; }
+      .titleText { font: 700 34px 'IBM Plex Sans', 'Segoe UI', Arial, sans-serif; fill: #0F172A; }
+      .subtitleText { font: 500 17px 'IBM Plex Sans', 'Segoe UI', Arial, sans-serif; fill: #334155; }
+      .nodeLabel { font: 600 20px 'IBM Plex Sans', 'Segoe UI', Arial, sans-serif; fill: #0F172A; text-anchor: middle; dominant-baseline: middle; }
+      .smallNodeLabel { font: 600 17px 'IBM Plex Sans', 'Segoe UI', Arial, sans-serif; fill: #0F172A; text-anchor: middle; dominant-baseline: middle; }
+      .edgeLabel { font: 500 14px 'IBM Plex Sans', 'Segoe UI', Arial, sans-serif; fill: #0F172A; }
+      .legendLabel { font: 500 15px 'IBM Plex Sans', 'Segoe UI', Arial, sans-serif; fill: #0F172A; }
+      .scopeNote { font: 500 14px 'IBM Plex Sans', 'Segoe UI', Arial, sans-serif; fill: #475569; }
+      .boundary { fill: #F8FAFC; stroke: #0F172A; stroke-width: 2; }
+      .client { fill: #FFF7ED; stroke: #9A3412; stroke-width: 2; }
+      .serviceFrontend { fill: #E2E8F0; stroke: #334155; stroke-width: 2; }
+      .serviceApi { fill: #DBEAFE; stroke: #1D4ED8; stroke-width: 2; }
+      .serviceWorker { fill: #DCFCE7; stroke: #166534; stroke-width: 2; }
+      .serviceMigrate { fill: #FDE68A; stroke: #92400E; stroke-width: 2; }
+      .inner { fill: #FFFFFF; stroke: #334155; stroke-width: 1.5; }
+      .optional { fill: #F1F5F9; stroke: #334155; stroke-width: 2; stroke-dasharray: 10 8; }
+      .cylinder { fill: #ECFDF5; stroke: #166534; stroke-width: 2; }
+      .docBox { fill: #ECFCCB; stroke: #3F6212; stroke-width: 1.7; }
+      .edge { fill: none; stroke: #334155; stroke-width: 2; marker-end: url(#arrowSolid); }
+      .edgeDashed { fill: none; stroke: #334155; stroke-width: 2; stroke-dasharray: 10 7; marker-end: url(#arrowDashed); }
+    </style>
+
+    <marker id="arrowSolid" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="9" markerHeight="9" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#334155"/>
+    </marker>
+    <marker id="arrowDashed" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="9" markerHeight="9" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#334155"/>
+    </marker>
+
+    <symbol id="rectShape" viewBox="0 0 100 50" preserveAspectRatio="none">
+      <rect x="0" y="0" width="100" height="50" rx="8" ry="8"/>
+    </symbol>
+  </defs>
+
+  <rect class="bg" x="0" y="0" width="2000" height="1200"/>
+
+  <text class="titleText" x="60" y="58">Artifact Miner - Hybrid Runtime + Deployment Architecture</text>
+  <text class="subtitleText" x="60" y="90">System boundaries, service responsibilities, and runtime data flow</text>
+
+  <!-- Clients -->
+  <g id="C1">
+    <use href="#rectShape" x="60" y="230" width="230" height="130" class="client"/>
+    <text class="nodeLabel" x="175" y="295">User Browser</text>
+  </g>
+
+  <g id="C2">
+    <use href="#rectShape" x="60" y="420" width="230" height="110" class="client"/>
+    <text class="smallNodeLabel" x="175" y="475">CLI / curl / scripts</text>
+  </g>
+
+  <!-- Docker compose boundary -->
+  <g id="B1">
+    <rect x="320" y="100" width="1640" height="1020" rx="20" ry="20" class="boundary"/>
+    <text class="nodeLabel" x="1140" y="136">Docker Compose Stack</text>
+  </g>
+
+  <!-- Services -->
+  <g id="S1">
+    <use href="#rectShape" x="380" y="220" width="300" height="180" class="serviceFrontend"/>
+    <text class="nodeLabel" x="530" y="250">frontend (React)</text>
+    <text class="smallNodeLabel" x="530" y="300">UI auth, upload,</text>
+    <text class="smallNodeLabel" x="530" y="326">dashboard views</text>
+  </g>
+
+  <g id="S2">
+    <use href="#rectShape" x="740" y="220" width="470" height="360" class="serviceApi"/>
+    <text class="nodeLabel" x="975" y="250">api (FastAPI + Uvicorn)</text>
+
+    <g id="S2a">
+      <use href="#rectShape" x="770" y="280" width="190" height="90" class="inner"/>
+      <text class="smallNodeLabel" x="865" y="325">Auth + Consent</text>
+    </g>
+    <g id="S2b">
+      <use href="#rectShape" x="980" y="280" width="200" height="90" class="inner"/>
+      <text class="smallNodeLabel" x="1080" y="318">Ingest + Report +</text>
+      <text class="smallNodeLabel" x="1080" y="340">Generation APIs</text>
+    </g>
+    <g id="S2c">
+      <use href="#rectShape" x="770" y="390" width="410" height="130" class="inner"/>
+      <text class="smallNodeLabel" x="975" y="440">Image + Resume PDF + Portfolio endpoints</text>
+    </g>
+  </g>
+
+  <g id="S3">
+    <use href="#rectShape" x="1260" y="220" width="430" height="420" class="serviceWorker"/>
+    <text class="nodeLabel" x="1475" y="250">worker (poller)</text>
+
+    <g id="S3a">
+      <use href="#rectShape" x="1290" y="280" width="170" height="90" class="inner"/>
+      <text class="smallNodeLabel" x="1375" y="325">parser</text>
+    </g>
+    <g id="S3b">
+      <use href="#rectShape" x="1470" y="280" width="190" height="90" class="inner"/>
+      <text class="smallNodeLabel" x="1565" y="325">git_metrics</text>
+    </g>
+    <g id="S3c">
+      <use href="#rectShape" x="1290" y="390" width="170" height="90" class="inner"/>
+      <text class="smallNodeLabel" x="1375" y="435">local_ml</text>
+    </g>
+    <g id="S3d">
+      <use href="#rectShape" x="1470" y="390" width="190" height="90" class="inner"/>
+      <text class="smallNodeLabel" x="1565" y="435">external_llm</text>
+    </g>
+  </g>
+
+  <g id="S7">
+    <use href="#rectShape" x="760" y="600" width="220" height="80" class="serviceMigrate"/>
+    <text class="smallNodeLabel" x="870" y="640">migrate (Alembic one-shot)</text>
+  </g>
+
+  <g id="S8">
+    <path class="docBox" d="M1290 510 H1615 L1660 555 V600 H1290 Z"/>
+    <path d="M1615 510 V555 H1660" fill="none" stroke="#3F6212" stroke-width="1.7"/>
+    <text class="smallNodeLabel" x="1475" y="548">ML assets in worker image</text>
+    <text class="smallNodeLabel" x="1475" y="572">(src/ml/artifacts, models)</text>
+  </g>
+
+  <g id="S6">
+    <use href="#rectShape" x="1710" y="240" width="220" height="170" class="optional"/>
+    <text class="smallNodeLabel" x="1820" y="304">ollama</text>
+    <text class="smallNodeLabel" x="1820" y="332">(optional profile)</text>
+  </g>
+
+  <!-- Cylinders -->
+  <g id="S4">
+    <ellipse cx="920" cy="734" rx="160" ry="24" class="cylinder"/>
+    <rect x="760" y="734" width="320" height="172" class="cylinder"/>
+    <ellipse cx="920" cy="906" rx="160" ry="24" class="cylinder"/>
+    <text class="nodeLabel" x="920" y="810">db (PostgreSQL)</text>
+  </g>
+
+  <g id="S5">
+    <ellipse cx="1270" cy="734" rx="150" ry="24" class="cylinder"/>
+    <rect x="1120" y="734" width="300" height="172" class="cylinder"/>
+    <ellipse cx="1270" cy="906" rx="150" ry="24" class="cylinder"/>
+    <text class="nodeLabel" x="1270" y="810">blobstore volume</text>
+  </g>
+
+  <!-- Connectors -->
+  <g id="connectors">
+    <path id="A01" class="edge" d="M290 295 H380"/>
+    <path id="A02" class="edge" d="M680 300 H740"/>
+    <path id="A03" class="edge" d="M290 475 C420 475 560 340 740 340"/>
+    <path id="A04" class="edge" d="M870 680 V710"/>
+    <path id="A05" class="edge" d="M980 580 C980 640 940 680 930 710"/>
+    <path id="A06" class="edge" d="M1120 520 C1160 600 1220 660 1250 710"/>
+    <path id="A07" class="edgeDashed" d="M830 580 C820 650 840 680 875 710"/>
+    <path id="A08" class="edgeDashed" d="M1420 640 C1360 680 1100 690 965 710"/>
+    <path id="A09" class="edge" d="M1380 640 C1360 670 1320 690 1290 710"/>
+    <path id="A10" class="edge" d="M1450 640 C1450 600 1460 590 1470 600"/>
+    <path id="A11" class="edgeDashed" d="M1690 430 C1730 390 1760 360 1710 320"/>
+    <path id="A12" class="edge" d="M740 260 C590 210 420 210 290 250"/>
+  </g>
+
+  <!-- Connector labels -->
+  <g id="connector-labels">
+    <text class="edgeLabel" x="315" y="286">HTTP :3000</text>
+    <text class="edgeLabel" x="688" y="292">REST/JSON :5001</text>
+    <text class="edgeLabel" x="380" y="430">REST/JSON</text>
+    <text class="edgeLabel" x="884" y="700">alembic upgrade head</text>
+    <text class="edgeLabel" x="986" y="650">SQLAlchemy read/write</text>
+    <text class="edgeLabel" x="1150" y="650">blob/image file IO</text>
+    <text class="edgeLabel" x="720" y="665">enqueue analyses (status=pending)</text>
+    <text class="edgeLabel" x="1160" y="700">claim jobs + persist outputs</text>
+    <text class="edgeLabel" x="1310" y="675">read snapshot file blobs</text>
+    <text class="edgeLabel" x="1478" y="623">load tokenizer/model/classifier</text>
+    <text class="edgeLabel" x="1680" y="384">ollama run (consent-gated)</text>
+    <text class="edgeLabel" x="460" y="208">dashboard JSON + PDF/image responses</text>
+  </g>
+
+  <!-- Legend -->
+  <g id="legend" transform="translate(1450,940)">
+    <rect x="0" y="0" width="500" height="180" rx="12" ry="12" fill="#FFFFFF" stroke="#334155" stroke-width="2"/>
+    <text class="smallNodeLabel" x="250" y="28">Legend</text>
+
+    <path d="M30 62 H170" class="edge"/>
+    <text class="legendLabel" x="190" y="67">Synchronous / required flow</text>
+
+    <path d="M30 102 H170" class="edgeDashed"/>
+    <text class="legendLabel" x="190" y="107">Asynchronous queue flow</text>
+
+    <path d="M30 142 H170" class="edgeDashed"/>
+    <text class="legendLabel" x="190" y="147">Optional or consent-gated flow</text>
+  </g>
+
+  <text class="scopeNote" x="60" y="1145">As implemented in src/api, src/worker, docker-compose.yml (March 1, 2026 snapshot).</text>
+</svg>
