@@ -1252,10 +1252,10 @@ def create_app() -> FastAPI:
                 if item.get("project_description"):
                     lines.append(f"- **Description:** {item['project_description']}")
                 
-                if item.get("contribution_display"):
-                    lines.append(f"- **Role/Contribution:** {item['contribution_display']}")
-                elif item.get("role_description"):
+                if item.get("role_description"):
                     lines.append(f"- **Role/Contribution:** {item['role_description']}")
+                elif item.get("contribution_display"):
+                    lines.append(f"- **Role/Contribution:** {item['contribution_display']}")
                 elif item.get("role"):
                     lines.append(f"- **Role:** {item['role']}")
                 

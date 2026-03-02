@@ -29,6 +29,7 @@ from print_utils import (
     _input_with_prefill
 )
 from resume_generator import _build_personal_project_description
+from portfolio_generator import _get_default_tech_stack
 
 # Configuration constants
 API_URL = "http://127.0.0.1:5000"
@@ -454,6 +455,210 @@ def edit_contributor_resume_via_api(scan_id):
                 _update({"reset_profile": True})
 
 
+def edit_portfolio_via_api(scan_id):
+    """
+    Allows editing portfolio settings (Showcase selection, descriptions) via API.
+    """
+    # Fetch contributors
+    contributors = []
+    try:
+        resp = requests.get(f"{API_URL}/scans/{scan_id}")
+        if resp.status_code == 200:
+            data = resp.json().get("scan", {}).get("scan_data", {})
+            profiles = data.get("contributor_profiles", {})
+            contributors = sorted([c for c in profiles.keys() if not is_noise(c)])
+    except Exception:
+        pass
+    
+    if not contributors:
+        print(_center_text("No contributors found."))
+        return
+
+    # Select contributor
+    print()
+    print(_center_text("Select contributor to customize portfolio:"))
+    for i, c in enumerate(contributors, 1):
+        print(_center_text(f"{i}. {c}"))
+    
+    sel = input(_center_text("Enter number (0 to back): ")).strip()
+    if not sel.isdigit(): return
+    idx = int(sel) - 1
+    if idx < 0 or idx >= len(contributors): return
+    
+    contributor_id = contributors[idx]
+
+    # Fetch all projects to filter by contributor
+    all_projects = []
+    try:
+        p_resp = requests.get(f"{API_URL}/projects", params={"scan_id": scan_id})
+        if p_resp.status_code == 200:
+            all_projects = p_resp.json().get("projects", [])
+    except:
+        pass
+
+    user_projects = []
+    for p in all_projects:
+        pcts = p.get("data", {}).get("per_contributor_pct", {})
+        if pcts.get(contributor_id, 0) > 0:
+            user_projects.append(p)
+    
+    if not user_projects:
+        print(_center_text("No projects found for this contributor."))
+        return
+
+    while True:
+        print()
+        print(_center_text(f"--- Portfolio Showcase: {contributor_id} ---"))
+        print(_center_text("1. Select Projects for Showcase"))
+        print(_center_text("2. Edit Portfolio Details"))
+        print(_center_text("3. Regenerate Portfolio"))
+        print(_center_text("0. Back to Contributor List"))
+        
+        choice = input(_center_text("Choose option: ")).strip()
+        
+        if choice == "0": break
+        
+        if choice == "1":
+            while True:
+                print()
+                print(_center_text(f"--- Select Projects: {contributor_id} ---"))
+                print(_center_text("(Projects marked [x] will appear in the portfolio)"))
+                
+                for i, p in enumerate(user_projects, 1):
+                    cust = p.get("customization", {})
+                    is_showcase = cust.get("selected_for_showcase")
+                    # Default to included if not explicitly False
+                    mark = "[x]" if is_showcase is not False else "[ ]"
+                    p_name = p.get("project_name", "Unknown")
+                    print(_center_text(f"{i}. {mark} {p_name}"))
+                
+                print()
+                print(_center_text("Type number to toggle selection (0 to back)."))
+                sel = input(_center_text("Select: ")).strip()
+                if sel == "0": break
+                
+                if sel.isdigit():
+                    pidx = int(sel) - 1
+                    if 0 <= pidx < len(user_projects):
+                        target = user_projects[pidx]
+                        pid = target["project_id"]
+                        curr = target.get("customization", {}).get("selected_for_showcase")
+                        new_val = True if curr is False else False
+                        
+                        try:
+                            r = requests.post(f"{API_URL}/projects/{pid}/edit", json={"selected_for_showcase": new_val})
+                            if r.status_code == 200:
+                                target["customization"] = r.json().get("customization", {})
+                        except:
+                            pass
+
+        elif choice == "2":
+            while True:
+                print()
+                print(_center_text(f"--- Edit Portfolio Details: {contributor_id} ---"))
+                for i, p in enumerate(user_projects, 1):
+                    p_name = p.get("project_name", "Unknown")
+                    cust = p.get("customization", {})
+                    has_custom = " *" if (cust.get("custom_portfolio_project_description") or cust.get("custom_portfolio_description") or cust.get("custom_portfolio_tech_stack")) else ""
+                    print(_center_text(f"{i}. {p_name}{has_custom}"))
+                
+                sel = input(_center_text("Select project to edit (0 to back): ")).strip()
+                if sel == "0": break
+                
+                if sel.isdigit():
+                    pidx = int(sel) - 1
+                    if 0 <= pidx < len(user_projects):
+                        target = user_projects[pidx]
+                        pid = target["project_id"]
+                        p_name = target.get("project_name")
+                        
+                        while True:
+                            cust = target.get("customization", {})
+                            print()
+                            print(_center_text(f"--- Editing: {p_name} ---"))
+                            print(_center_text("1. Description (General)"))
+                            print(_center_text("2. Role / Contribution"))
+                            print(_center_text("3. Tech Stack"))
+                            print(_center_text("0. Back"))
+                            
+                            sub = input(_center_text("Choose: ")).strip()
+                            if sub == "0": break
+                            
+                            payload = {}
+                            if sub == "1":
+                                curr = cust.get("custom_portfolio_project_description", "")
+                                print(_center_text("Edit Project Description (General) [Type 'RESET' to restore default]:"))
+                                val = _input_with_prefill(_center_text("Value: "), curr).strip()
+                                if val == "RESET": payload["custom_portfolio_project_description"] = ""
+                                elif val: payload["custom_portfolio_project_description"] = val
+                                else: continue
+                                
+                            elif sub == "2":
+                                curr = cust.get("custom_portfolio_description")
+                                # Generate default if not set
+                                default_val = ""
+                                pct = target.get("data", {}).get("per_contributor_pct", {}).get(contributor_id, 0)
+                                default_val = f"{pct:.1f}% of codebase"
+
+                                print(_center_text("Edit Role/Contribution [Type 'RESET' to restore default]:"))
+                                val = _input_with_prefill(_center_text("Value: "), curr if curr else default_val).strip()
+                                if val == "RESET": payload["custom_portfolio_description"] = ""
+                                elif val: payload["custom_portfolio_description"] = val
+                                else: continue
+
+                            elif sub == "3":
+                                curr_list = cust.get("custom_portfolio_tech_stack")
+                                # Generate default if not set
+                                default_list = _get_default_tech_stack(target.get("data", {}), contributor_id)
+                                curr_str = ", ".join(curr_list) if curr_list else ", ".join(default_list)
+
+                                print(_center_text("Edit Tech Stack (comma separated) [Type 'RESET' to restore default]:"))
+                                val = _input_with_prefill(_center_text("Value: "), curr_str).strip()
+                                if val == "RESET": payload["custom_portfolio_tech_stack"] = []
+                                elif val: payload["custom_portfolio_tech_stack"] = [s.strip() for s in val.split(",") if s.strip()]
+                                else: continue
+                            
+                            if payload:
+                                try:
+                                    r = requests.post(f"{API_URL}/projects/{pid}/edit", json=payload)
+                                    if r.status_code == 200:
+                                        print(_center_text("Saved."))
+                                        target["customization"] = r.json().get("customization", {})
+                                    else:
+                                        print(_center_text(f"Error: {r.text}"))
+                                except Exception as e:
+                                    print(_center_text(f"Error: {e}"))
+
+        elif choice == "3":
+            print(_center_text("Regenerating Portfolio..."))
+            gen_payload = {
+                "scan_id": scan_id,
+                "contributor_id": contributor_id,
+                "title": f"Portfolio - {contributor_id}"
+            }
+            try:
+                r = requests.post(f"{API_URL}/portfolio/generate", json=gen_payload)
+                if r.status_code == 200:
+                    pid = r.json().get("portfolio", {}).get("portfolio_id")
+                    exp = requests.get(f"{API_URL}/portfolio/{pid}/export")
+                    if exp.status_code == 200:
+                        safe_title = f"Portfolio_{contributor_id}".replace(' ', '_')
+                        filename = f"{safe_title}.md"
+                        out_dir = os.path.join(OUTPUT_DIR, "portfolios")
+                        os.makedirs(out_dir, exist_ok=True)
+                        out_path = os.path.join(out_dir, filename)
+                        with open(out_path, "wb") as f:
+                            f.write(exp.content)
+                        print(_center_text(f"Saved to: {out_path}"))
+                    else:
+                        print(_center_text("Export failed."))
+                else:
+                    print(_center_text("Generation failed."))
+            except Exception as e:
+                print(_center_text(f"Error: {e}"))
+            input(_center_text("Press Enter..."))
+
+
 def generate_artifacts_via_api():
     """Generates Resume or Portfolio artifacts via API."""
     scans = _fetch_scans()
@@ -538,8 +743,7 @@ def generate_artifacts_via_api():
             edit_contributor_resume_via_api(scan_id)
             continue
         elif sub == "5":
-             print(_center_text("Editing portfolio via API client is not yet implemented."))
-             input(_center_text("Press Enter..."))
+             edit_portfolio_via_api(scan_id)
              continue
 
         if endpoint:
