@@ -1,0 +1,256 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>API Endpoint Tester – Artifact</title>
+    <style>
+        :root {
+            --bg: #0f0f0f;
+            --surface: #1a1a1a;
+            --border: #2a2a2a;
+            --text: #e5e5e5;
+            --muted: #888;
+            --get: #22c55e;
+            --post: #3b82f6;
+            --put: #eab308;
+            --delete: #ef4444;
+            --patch: #a855f7;
+        }
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body { font-family: ui-monospace, monospace; font-size: 13px; background: var(--bg); color: var(--text); padding: 16px; line-height: 1.4; }
+        h1 { font-size: 1.25rem; margin-bottom: 8px; }
+        .base-url { margin-bottom: 16px; display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+        .base-url input { flex: 1; min-width: 200px; padding: 8px 10px; background: var(--surface); border: 1px solid var(--border); border-radius: 6px; color: var(--text); }
+        .base-url label { color: var(--muted); }
+        .section { margin-bottom: 20px; }
+        .section-title { font-weight: 600; color: var(--text); margin-bottom: 8px; padding: 6px 0; border-bottom: 1px solid var(--border); cursor: pointer; user-select: none; }
+        .section-title:hover { color: #fff; }
+        .section-title::before { content: "▾ "; color: var(--muted); }
+        .section-title.collapsed::before { content: "▸ "; }
+        .section.collapsed .endpoint { display: none; }
+        .endpoint { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 12px; margin-bottom: 10px; }
+        .endpoint-header { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 10px; }
+        .method { font-weight: 700; padding: 2px 8px; border-radius: 4px; font-size: 11px; }
+        .method.get { background: rgba(34,197,94,0.2); color: var(--get); }
+        .method.post { background: rgba(59,130,246,0.2); color: var(--post); }
+        .method.put { background: rgba(234,179,8,0.2); color: var(--put); }
+        .method.delete { background: rgba(239,68,68,0.2); color: var(--delete); }
+        .path { color: var(--muted); word-break: break-all; }
+        .endpoint-form { display: grid; gap: 8px; margin-bottom: 10px; }
+        .form-row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+        .form-row label { min-width: 90px; color: var(--muted); }
+        .form-row input[type="text"], .form-row input[type="number"] { flex: 1; min-width: 100px; padding: 6px 8px; background: var(--bg); border: 1px solid var(--border); border-radius: 4px; color: var(--text); }
+        .form-row textarea { width: 100%; min-height: 60px; padding: 6px 8px; background: var(--bg); border: 1px solid var(--border); border-radius: 4px; color: var(--text); font-family: inherit; resize: vertical; }
+        .form-row input[type="file"] { color: var(--text); }
+        .btn-send { padding: 6px 14px; background: var(--post); color: #fff; border: none; border-radius: 6px; cursor: pointer; font-weight: 600; font-size: 12px; }
+        .btn-send:hover { filter: brightness(1.1); }
+        .btn-send:disabled { opacity: 0.5; cursor: not-allowed; }
+        .response { margin-top: 10px; padding: 10px; background: var(--bg); border: 1px solid var(--border); border-radius: 6px; font-size: 12px; white-space: pre-wrap; word-break: break-word; max-height: 280px; overflow-y: auto; }
+        .response.empty { color: var(--muted); }
+        .response .status { font-weight: 600; margin-bottom: 4px; }
+        .response .status.ok { color: var(--get); }
+        .response .status.err { color: var(--delete); }
+        .response pre { margin: 0; white-space: pre-wrap; }
+    </style>
+</head>
+<body>
+    <h1>API Endpoint Tester</h1>
+    <div class="base-url">
+        <label for="baseUrl">Base URL:</label>
+        <input type="text" id="baseUrl" placeholder="Leave empty to use current origin" />
+    </div>
+
+    <div id="sections"></div>
+
+    <script>
+        const baseUrlInput = document.getElementById("baseUrl");
+
+        const endpoints = [
+            // Health
+            { section: "Health", method: "GET", path: "/api/health", pathParams: [], query: [], body: false, file: false },
+            { section: "Health", method: "GET", path: "/api/health/db", pathParams: [], query: [], body: false, file: false },
+            // Auth
+            { section: "Auth", method: "POST", path: "/api/auth/login", pathParams: [], query: [], body: true, bodyPlaceholder: '{"username":"user","password":"pass"}', file: false },
+            { section: "Auth", method: "POST", path: "/api/auth/register", pathParams: [], query: [], body: true, bodyPlaceholder: '{"username":"user","password":"password123"}', file: false },
+            { section: "Auth", method: "POST", path: "/api/auth/logout", pathParams: [], query: [], body: true, bodyPlaceholder: '{"username":"user"}', file: false },
+            { section: "Auth", method: "GET", path: "/api/auth/me", pathParams: [], query: [{ name: "username", placeholder: "username" }], body: false, file: false },
+            // Consent
+            { section: "Consent", method: "POST", path: "/api/privacy-consent", pathParams: [], query: [], body: true, bodyPlaceholder: '{"consent_given":true,"user_name":"user"}', file: false },
+            // Projects
+            { section: "Projects", method: "POST", path: "/api/projects/upload", pathParams: [], query: [{ name: "user_name", placeholder: "optional" }], body: false, file: true, fileLabel: "ZIP file" },
+            { section: "Projects", method: "GET", path: "/api/projects", pathParams: [], query: [{ name: "user_name", placeholder: "optional" }], body: false, file: false },
+            { section: "Projects", method: "GET", path: "/api/projects/rankings", pathParams: [], query: [], body: false, file: false },
+            { section: "Projects", method: "GET", path: "/api/projects/{project_id}", pathParams: [{ name: "project_id" }], query: [{ name: "user_name", placeholder: "optional" }], body: false, file: false },
+            { section: "Projects", method: "POST", path: "/api/projects/{project_id}/merge", pathParams: [{ name: "project_id" }], query: [{ name: "user_name", placeholder: "optional" }], body: false, file: true, fileLabel: "ZIP file" },
+            { section: "Projects", method: "POST", path: "/api/projects/{project_id}/thumbnail", pathParams: [{ name: "project_id" }], query: [{ name: "user_name", placeholder: "optional" }], body: false, file: true, fileLabel: "Image" },
+            { section: "Projects", method: "GET", path: "/api/projects/{project_id}/thumbnail", pathParams: [{ name: "project_id" }], query: [], body: false, file: false },
+            { section: "Projects", method: "POST", path: "/api/projects/{project_id}/analyze", pathParams: [{ name: "project_id" }], query: [{ name: "user_name", placeholder: "optional" }], body: false, file: false },
+            { section: "Projects", method: "POST", path: "/api/projects/{project_id}/analyze-gemini", pathParams: [{ name: "project_id" }], query: [{ name: "user_name", placeholder: "optional" }], body: false, file: false },
+            { section: "Projects", method: "POST", path: "/api/projects/{project_id}/quick-summary", pathParams: [{ name: "project_id" }], query: [{ name: "user_name", placeholder: "optional" }], body: false, file: false },
+            { section: "Projects", method: "POST", path: "/api/projects/rank", pathParams: [], query: [{ name: "user_name", placeholder: "optional" }], body: false, file: false },
+            { section: "Projects", method: "POST", path: "/api/projects/rank-top3", pathParams: [], query: [{ name: "user_name", placeholder: "optional" }], body: false, file: false },
+            { section: "Projects", method: "POST", path: "/api/projects/rank-gemini", pathParams: [], query: [{ name: "user_name", placeholder: "optional" }], body: false, file: false },
+            { section: "Projects", method: "DELETE", path: "/api/projects/{project_id}/data", pathParams: [{ name: "project_id" }], query: [{ name: "user_name", placeholder: "optional" }], body: false, file: false },
+            { section: "Projects", method: "POST", path: "/api/preferences", pathParams: [], query: [], body: true, bodyPlaceholder: '{"git_username":"gh-user"}', file: false },
+            // Resume & Portfolio
+            { section: "Resume & Portfolio", method: "GET", path: "/api/resume/preview/{project_id}", pathParams: [{ name: "project_id" }], query: [], body: false, file: false },
+            { section: "Resume & Portfolio", method: "GET", path: "/api/portfolio/card/{project_id}", pathParams: [{ name: "project_id" }], query: [], body: false, file: false },
+            { section: "Resume & Portfolio", method: "GET", path: "/api/skills", pathParams: [], query: [{ name: "user_name", placeholder: "optional" }], body: false, file: false },
+            { section: "Resume & Portfolio", method: "GET", path: "/api/resume/{user_id}", pathParams: [{ name: "user_id" }], query: [], body: false, file: false },
+            { section: "Resume & Portfolio", method: "POST", path: "/api/resume/generate", pathParams: [], query: [{ name: "user_name", placeholder: "optional" }], body: true, bodyPlaceholder: '{"top_projects_count":5,"selected_project_ids":null,"include_skills":true,"skills_mode":"categorized"}', file: false },
+            { section: "Resume & Portfolio", method: "POST", path: "/api/resume/{user_id}/edit", pathParams: [{ name: "user_id" }], query: [], body: true, bodyPlaceholder: '{"project_id":1,"wording":"Custom bullet text"}', file: false },
+            { section: "Resume & Portfolio", method: "GET", path: "/api/resume/{user_id}/custom-wording", pathParams: [{ name: "user_id" }], query: [], body: false, file: false },
+            { section: "Resume & Portfolio", method: "POST", path: "/api/resume/{user_id}/custom-wording", pathParams: [{ name: "user_id" }], query: [], body: true, bodyPlaceholder: '{"project_id":1,"wording":"Custom text"}', file: false },
+            { section: "Resume & Portfolio", method: "DELETE", path: "/api/resume/{user_id}/custom-wording/{project_id}", pathParams: [{ name: "user_id" }, { name: "project_id" }], query: [], body: false, file: false },
+            { section: "Resume & Portfolio", method: "DELETE", path: "/api/resume/{user_id}", pathParams: [{ name: "user_id" }], query: [], body: false, file: false },
+            { section: "Resume & Portfolio", method: "GET", path: "/api/portfolio/{user_id}", pathParams: [{ name: "user_id" }], query: [{ name: "top_n", placeholder: "optional" }], body: false, file: false },
+            { section: "Resume & Portfolio", method: "POST", path: "/api/portfolio/generate", pathParams: [], query: [{ name: "user_name", placeholder: "optional" }], body: true, bodyPlaceholder: '{"top_n":null}', file: false },
+            { section: "Resume & Portfolio", method: "POST", path: "/api/portfolio/{user_id}/edit", pathParams: [{ name: "user_id" }], query: [], body: true, bodyPlaceholder: '{"project_id":1,"custom_data":{}}', file: false },
+            { section: "Resume & Portfolio", method: "POST", path: "/api/portfolio/{user_id}/custom-data", pathParams: [{ name: "user_id" }], query: [], body: true, bodyPlaceholder: '{"project_id":1,"custom_title":"Title","custom_description":"Desc","custom_role":"Role"}', file: false },
+            { section: "Resume & Portfolio", method: "GET", path: "/api/portfolio/{user_id}/custom-data", pathParams: [{ name: "user_id" }], query: [], body: false, file: false },
+            { section: "Resume & Portfolio", method: "GET", path: "/api/portfolio/{user_id}/custom-data/{project_id}", pathParams: [{ name: "user_id" }, { name: "project_id" }], query: [], body: false, file: false },
+            { section: "Resume & Portfolio", method: "DELETE", path: "/api/portfolio/{user_id}/custom-data/{project_id}", pathParams: [{ name: "user_id" }, { name: "project_id" }], query: [], body: false, file: false },
+            // Settings (all require username query)
+            { section: "Settings", method: "GET", path: "/api/settings", pathParams: [], query: [{ name: "username", placeholder: "required" }], body: false, file: false },
+            { section: "Settings", method: "GET", path: "/api/settings/account", pathParams: [], query: [{ name: "username", placeholder: "required" }], body: false, file: false },
+            { section: "Settings", method: "POST", path: "/api/settings/account", pathParams: [], query: [{ name: "username", placeholder: "required" }], body: true, bodyPlaceholder: '{}', file: false },
+            { section: "Settings", method: "GET", path: "/api/settings/privacy", pathParams: [], query: [{ name: "username", placeholder: "required" }], body: false, file: false },
+            { section: "Settings", method: "POST", path: "/api/settings/privacy", pathParams: [], query: [{ name: "username", placeholder: "required" }], body: true, bodyPlaceholder: '{"consent_given":true}', file: false },
+            { section: "Settings", method: "GET", path: "/api/settings/general", pathParams: [], query: [{ name: "username", placeholder: "required" }], body: false, file: false },
+            { section: "Settings", method: "POST", path: "/api/settings/general", pathParams: [], query: [{ name: "username", placeholder: "required" }], body: true, bodyPlaceholder: '{"git_username":"my-gh"}', file: false },
+        ];
+
+        const sections = [...new Set(endpoints.map(e => e.section))];
+        const container = document.getElementById("sections");
+
+        function getBaseUrl() {
+            const v = (baseUrlInput.value || "").trim();
+            return v || (window.location.origin || "");
+        }
+
+        function buildPath(pathTemplate, pathParamValues) {
+            let p = pathTemplate;
+            (pathParamValues || []).forEach(({ name, value }) => {
+                p = p.replace("{" + name + "}", encodeURIComponent(value || ""));
+            });
+            return p;
+        }
+
+        function buildQueryString(queryParams) {
+            const pairs = (queryParams || []).filter(({ value }) => value != null && String(value).trim() !== "");
+            if (pairs.length === 0) return "";
+            return "?" + pairs.map(({ name, value }) => encodeURIComponent(name) + "=" + encodeURIComponent(value)).join("&");
+        }
+
+        async function sendRequest(ep, pathParamValues, queryParamValues, bodyValue, fileInput) {
+            const base = getBaseUrl().replace(/\/$/, "");
+            const path = buildPath(ep.path, pathParamValues);
+            const qs = buildQueryString(queryParamValues);
+            const url = base + path + qs;
+
+            const opts = { method: ep.method, headers: {} };
+            if (ep.file && fileInput && fileInput.files && fileInput.files[0]) {
+                const form = new FormData();
+                form.append("file", fileInput.files[0]);
+                opts.body = form;
+            } else {
+                if (ep.body && bodyValue) {
+                    try {
+                        opts.body = JSON.stringify(JSON.parse(bodyValue));
+                        opts.headers["Content-Type"] = "application/json";
+                    } catch (_) {
+                        opts.body = bodyValue;
+                        opts.headers["Content-Type"] = "application/json";
+                    }
+                } else if (ep.query.length && !ep.file) {
+                    // query params already in URL
+                }
+            }
+
+            const responseDiv = document.getElementById("response-" + ep.path.replace(/\//g, "-").replace(/\{|\}/g, ""));
+            try {
+                const res = await fetch(url, opts);
+                const text = await res.text();
+                let json = text;
+                try {
+                    json = JSON.stringify(JSON.parse(text), null, 2);
+                } catch (_) {}
+                const statusClass = res.ok ? "ok" : "err";
+                responseDiv.innerHTML = '<span class="status ' + statusClass + '">' + res.status + ' ' + res.statusText + '</span>\n<pre>' + escapeHtml(json) + '</pre>';
+                responseDiv.classList.remove("empty");
+            } catch (err) {
+                responseDiv.innerHTML = '<span class="status err">Error</span>\n<pre>' + escapeHtml(err.message) + '</pre>';
+                responseDiv.classList.remove("empty");
+            }
+        }
+
+        function escapeHtml(s) {
+            const div = document.createElement("div");
+            div.textContent = s;
+            return div.innerHTML;
+        }
+
+        sections.forEach(sectionName => {
+            const sectionDiv = document.createElement("div");
+            sectionDiv.className = "section";
+            sectionDiv.innerHTML = '<div class="section-title">' + sectionName + '</div>';
+            const sectionEndpoints = endpoints.filter(e => e.section === sectionName);
+
+            sectionEndpoints.forEach(ep => {
+                const responseId = "response-" + ep.path.replace(/\//g, "-").replace(/\{|\}/g, "");
+                const card = document.createElement("div");
+                card.className = "endpoint";
+
+                let pathParamsHtml = "";
+                ep.pathParams.forEach(pp => {
+                    pathParamsHtml += '<div class="form-row"><label>' + pp.name + '</label><input type="text" data-path-param="' + pp.name + '" placeholder="' + (pp.placeholder || pp.name) + '" /></div>';
+                });
+                let queryHtml = "";
+                ep.query.forEach((q, i) => {
+                    queryHtml += '<div class="form-row"><label>' + q.name + '</label><input type="text" data-query-index="' + i + '" data-query-name="' + q.name + '" placeholder="' + (q.placeholder || "") + '" /></div>';
+                });
+                let bodyHtml = "";
+                if (ep.body) {
+                    bodyHtml = '<div class="form-row"><label>Body (JSON)</label><textarea data-body placeholder="' + (ep.bodyPlaceholder || "{}") + '">' + (ep.bodyPlaceholder || "{}") + '</textarea></div>';
+                }
+                let fileHtml = "";
+                if (ep.file) {
+                    fileHtml = '<div class="form-row"><label>File</label><input type="file" data-file accept="' + (ep.fileLabel === "ZIP file" ? ".zip" : "image/*") + '" /></div>';
+                }
+
+                card.innerHTML =
+                    '<div class="endpoint-header"><span class="method ' + ep.method.toLowerCase() + '">' + ep.method + '</span><span class="path">' + ep.path + '</span></div>' +
+                    '<div class="endpoint-form">' + pathParamsHtml + queryHtml + bodyHtml + fileHtml +
+                    '<div class="form-row"><button class="btn-send" type="button">Send</button></div></div>' +
+                    '<div class="response empty" id="' + responseId + '">—</div>';
+
+                const btn = card.querySelector(".btn-send");
+                btn.addEventListener("click", () => {
+                    const pathParamValues = ep.pathParams.map(pp => ({
+                        name: pp.name,
+                        value: card.querySelector('[data-path-param="' + pp.name + '"]')?.value
+                    }));
+                    const queryParamValues = ep.query.map((q, i) => ({
+                        name: q.name,
+                        value: card.querySelector('[data-query-index="' + i + '"]')?.value
+                    }));
+                    const bodyEl = card.querySelector("[data-body]");
+                    const bodyValue = bodyEl ? bodyEl.value : "";
+                    const fileInput = card.querySelector("[data-file]");
+                    btn.disabled = true;
+                    sendRequest(ep, pathParamValues, queryParamValues, bodyValue, fileInput).finally(() => { btn.disabled = false; });
+                });
+
+                sectionDiv.appendChild(card);
+            });
+
+            sectionDiv.querySelector(".section-title").addEventListener("click", () => {
+                sectionDiv.classList.toggle("collapsed");
+                sectionDiv.querySelector(".section-title").classList.toggle("collapsed");
+            });
+            container.appendChild(sectionDiv);
+        });
+    </script>
+</body>
+</html>
