@@ -1,16 +1,15 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import './Dashboard.css';
 
-function normalizeProjectName(filename) {
-  return filename.replace(/\.zip$/i, '');
-}
-
-function formatDate(value) {
-  if (!value) return 'N/A';
-  const parsed = new Date(value);
-  if (Number.isNaN(parsed.getTime())) return 'N/A';
-  return parsed.toLocaleDateString();
-}
+// Helpers wrapped to avoid re-declaration errors
+const dashHelpers = {
+  normalizeName: (filename) => filename.replace(/\.zip$/i, ''),
+  formatDate: (value) => {
+    if (!value) return 'N/A';
+    const parsed = new Date(value);
+    return Number.isNaN(parsed.getTime()) ? 'N/A' : parsed.toLocaleDateString();
+  }
+};
 
 function Dashboard({ token, currentUser, onLogout, projectApi }) {
   const [view, setView] = useState('projects');
@@ -26,7 +25,7 @@ function Dashboard({ token, currentUser, onLogout, projectApi }) {
   const [selectedProject, setSelectedProject] = useState(null);
   const [projectReport, setProjectReport] = useState(null);
   const [projectSkills, setProjectSkills] = useState(null);
-  const [contributors, setContributors] = useState([]); // Now fully utilized!
+  const [contributors, setContributors] = useState([]);
   const [file, setFile] = useState(null);
   const [uploadProjectName, setUploadProjectName] = useState('');
 
@@ -86,7 +85,7 @@ function Dashboard({ token, currentUser, onLogout, projectApi }) {
     try {
       await projectApi.uploadProject(token, {
         file,
-        projectName: uploadProjectName.trim() || normalizeProjectName(file.name),
+        projectName: uploadProjectName.trim() || dashHelpers.normalizeName(file.name),
       });
       setFile(null);
       setUploadProjectName('');
@@ -102,7 +101,6 @@ function Dashboard({ token, currentUser, onLogout, projectApi }) {
 
   const viewProjectDetails = async (project) => {
     setSelectedProject(project);
-    setView('report');
     setLoading(true);
     try {
       const [report, conts] = await Promise.all([
@@ -111,26 +109,13 @@ function Dashboard({ token, currentUser, onLogout, projectApi }) {
       ]);
       setProjectReport(report);
       setContributors(conts.contributors || []);
-
       if (project.latest_snapshot?.id) {
         const skills = await projectApi.getSnapshotSkills(token, project.latest_snapshot.id, 20);
         setProjectSkills(skills);
       }
+      setView('report');
     } catch (error) {
       setDashboardError('Unable to load project details.');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const generateResume = async (projectId) => {
-    setLoading(true);
-    try {
-      const response = await projectApi.generateResume(token, projectId);
-      setFlashMessage(`Resume generated! ID: ${response.resume_id}`);
-      window.open(`http://localhost:5001/resume/${response.resume_id}/pdf`, '_blank');
-    } catch (error) {
-      setDashboardError('Resume generation failed.');
     } finally {
       setLoading(false);
     }
@@ -147,10 +132,10 @@ function Dashboard({ token, currentUser, onLogout, projectApi }) {
     <div className="dashboard-shell">
       <header className="dashboard-header">
         <div>
-          <p className="eyebrow">Signed in as</p>
-          <h1>{currentUser?.display_name || currentUser?.email || 'User'}</h1>
+          <p className="eyebrow" style={{ fontSize: '0.8rem', color: '#64748b', margin: 0, textTransform: 'uppercase' }}>Signed in as</p>
+          <h1 style={{ margin: 0 }}>{currentUser?.display_name || currentUser?.email || 'User'}</h1>
         </div>
-        <button className="ghost-btn" onClick={onLogout}>Log Out</button>
+        <button className="nav-btn" style={{ borderColor: '#fee2e2', color: '#ef4444' }} onClick={onLogout}>Log Out</button>
       </header>
 
       <nav className="dashboard-nav">
@@ -159,9 +144,9 @@ function Dashboard({ token, currentUser, onLogout, projectApi }) {
             key={btn.id}
             className={view === btn.id ? 'nav-btn active' : 'nav-btn'}
             onClick={() => {
-                setDashboardError('');
-                setFlashMessage('');
-                setView(btn.id);
+              setDashboardError('');
+              setFlashMessage('');
+              setView(btn.id);
             }}
           >
             {btn.label}
@@ -169,25 +154,30 @@ function Dashboard({ token, currentUser, onLogout, projectApi }) {
         ))}
       </nav>
 
-      {flashMessage && <p className="success-banner">{flashMessage}</p>}
-      {dashboardError && <p className="error-banner">{dashboardError}</p>}
-
       <main className="dashboard-main">
+        {flashMessage && <div className="panel" style={{ color: '#166534', backgroundColor: '#dcfce7', marginBottom: '1rem' }}>{flashMessage}</div>}
+        {dashboardError && <div className="panel" style={{ color: '#991b1b', backgroundColor: '#fee2e2', marginBottom: '1rem' }}>{dashboardError}</div>}
+
         {view === 'projects' && (
           <section className="panel">
-            <h2>Your Projects</h2>
+            <h2 style={{ marginTop: 0 }}>Your Projects</h2>
             {loading ? <p>Loading projects...</p> : (
               <div className="project-grid">
                 {projects.map((p) => (
                   <article key={p.id} className="project-card">
+                    <div className="thumbnail-box">No thumbnail</div>
                     <h3>{p.name}</h3>
-                    <div className="metrics-row">
-                      <span>Commits: {p.metrics?.user_commits || 0}</span>
-                      {p.metrics?.rank_score && <span className="rank-pill">Score: {p.metrics.rank_score.toFixed(1)}</span>}
-                    </div>
-                    <div className="card-actions">
-                      <button className="primary-btn" onClick={() => viewProjectDetails(p)}>View Details</button>
-                      <button className="secondary-btn" onClick={() => generateResume(p.id)}>Resume</button>
+                    <p>Type: code</p>
+                    <p>Added: {dashHelpers.formatDate(p.created_at)}</p>
+                    <div className="analysis-pill">Analysis in progress</div>
+                    <p style={{ fontSize: '0.75rem', color: '#64748b', marginBottom: '0.5rem' }}>
+                      {p.metrics?.complete_count || 0}/3 complete <br />
+                      Running: Git Metrics
+                    </p>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                      <button className="btn-primary" onClick={() => viewProjectDetails(p)}>View Details</button>
+                      <button className="btn-secondary" onClick={() => projectApi.generateResume(token, p.id)}>Generate Resume</button>
+                      <button className="btn-secondary" style={{ border: 'none', color: '#94a3b8', fontSize: '0.8rem' }}>Delete Project</button>
                     </div>
                   </article>
                 ))}
@@ -198,106 +188,103 @@ function Dashboard({ token, currentUser, onLogout, projectApi }) {
 
         {view === 'upload' && (
           <section className="panel">
-            <h2>Upload Project ZIP</h2>
-            <div className="upload-form">
-                <label className="field">
-                    Project name override
-                    <input type="text" value={uploadProjectName} onChange={(e) => setUploadProjectName(e.target.value)} />
-                </label>
-                <label className="field">
-                    ZIP file
-                    <input type="file" accept=".zip" onChange={(e) => {
-                        const selected = e.target.files?.[0] || null;
-                        setFile(selected);
-                        if (selected && !uploadProjectName) setUploadProjectName(normalizeProjectName(selected.name));
-                    }} />
-                </label>
-                <button className="primary-btn" disabled={!file || uploading} onClick={handleUpload}>
-                    {uploading ? 'Uploading...' : 'Upload Project'}
-                </button>
+            <h2 style={{ marginTop: 0 }}>Upload Project ZIP</h2>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem', maxWidth: '400px' }}>
+              <label style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', fontWeight: 'bold' }}>
+                Project name override
+                <input style={{ padding: '10px', borderRadius: '8px', border: '1px solid #ddd' }} type="text" value={uploadProjectName} onChange={(e) => setUploadProjectName(e.target.value)} />
+              </label>
+              <label style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', fontWeight: 'bold' }}>
+                ZIP file
+                <input type="file" accept=".zip" onChange={(e) => {
+                  const selected = e.target.files?.[0] || null;
+                  setFile(selected);
+                  if (selected && !uploadProjectName) setUploadProjectName(dashHelpers.normalizeName(selected.name));
+                }} />
+              </label>
+              <button className="btn-primary" disabled={!file || uploading} onClick={handleUpload}>
+                {uploading ? 'Uploading...' : 'Upload Project'}
+              </button>
             </div>
           </section>
         )}
 
         {view === 'report' && selectedProject && (
-          <section className="panel detail-view">
-            <button className="ghost-btn" onClick={() => setView('projects')}>← Back to Projects</button>
-            <h2>{selectedProject.name}</h2>
+          <section className="panel">
+            <button className="nav-btn" onClick={() => setView('projects')} style={{ marginBottom: '1rem' }}>← Back</button>
+            <h2 style={{ marginTop: 0 }}>{selectedProject.name}</h2>
             {loading ? <p>Loading details...</p> : (
-              <>
-                {projectReport && (
-                  <div className="stack-block">
-                    <h3>Summary</h3>
-                    <div className="summary-grid">
-                      <p>Total Files: {projectReport.summary?.total_files}</p>
-                      <p>Total Lines: {projectReport.summary?.total_lines}</p>
-                    </div>
-                  </div>
-                )}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}>
+                <div>
+                  <h3 style={{ borderBottom: '1px solid #eee', paddingBottom: '0.5rem' }}>Summary</h3>
+                  <p>Total Files: {projectReport?.summary?.total_files || 0}</p>
+                  <p>Total Lines: {projectReport?.summary?.total_lines || 0}</p>
+                </div>
                 {projectSkills?.skills && (
-                  <div className="stack-block">
-                    <h3>Detected Skills</h3>
-                    <div className="badge-row">
-                      {projectSkills.skills.map((s, i) => <span key={i} className="skill-badge">{s.skill_name}</span>)}
+                  <div>
+                    <h3 style={{ borderBottom: '1px solid #eee', paddingBottom: '0.5rem' }}>Detected Skills</h3>
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem', marginTop: '1rem' }}>
+                      {projectSkills.skills.map((s, i) => (
+                        <span key={i} style={{ backgroundColor: '#eff6ff', color: '#1e40af', padding: '4px 12px', borderRadius: '999px', fontSize: '0.85rem', fontWeight: '600' }}>
+                          {s.skill_name}
+                        </span>
+                      ))}
                     </div>
                   </div>
                 )}
-                
-                {/* RESTORED CONTRIBUTORS SECTION */}
                 {contributors.length > 0 && (
-                  <div className="stack-block">
-                    <h3>Contributors</h3>
-                    <div className="table-wrap">
-                      <table className="data-table">
-                        <thead>
-                          <tr><th>Name</th><th>Commits</th><th>Is You</th></tr>
-                        </thead>
-                        <tbody>
-                          {contributors.map((c, i) => (
-                            <tr key={i}>
-                              <td>{c.canonical_name}</td>
-                              <td>{c.commits}</td>
-                              <td>{c.is_user ? 'Yes' : 'No'}</td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
+                  <div>
+                    <h3 style={{ borderBottom: '1px solid #eee', paddingBottom: '0.5rem' }}>Contributors</h3>
+                    <table style={{ width: '100%', textAlign: 'left', borderCollapse: 'collapse', marginTop: '1rem' }}>
+                      <thead>
+                        <tr style={{ color: '#64748b', borderBottom: '1px solid #eee' }}>
+                          <th style={{ padding: '8px 0' }}>Name</th>
+                          <th>Commits</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {contributors.map((c, i) => (
+                          <tr key={i} style={{ borderBottom: '1px solid #f9f9f9' }}>
+                            <td style={{ padding: '8px 0' }}>{c.canonical_name}</td>
+                            <td>{c.commits}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
                   </div>
                 )}
-              </>
+              </div>
             )}
           </section>
         )}
 
         {view === 'top' && (
           <section className="panel">
-            <h2>Top Ranked Projects</h2>
-            {loading ? <p>Calculating ranks...</p> : (
-              <div className="top-list">
-                {topProjects.map((project, index) => (
-                  <article key={project.project_id} className="top-card">
-                    <p className="top-rank">#{index + 1}</p>
-                    <div>
-                      <h3>{project.name}</h3>
-                      <p>Rank Score: {project.rank_score?.toFixed(2) || 'N/A'}</p>
-                    </div>
-                  </article>
-                ))}
-              </div>
-            )}
+            <h2 style={{ marginTop: 0 }}>Top Ranked Projects</h2>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+              {topProjects.map((p, i) => (
+                <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '1.5rem', padding: '1rem', border: '1px solid #eee', borderRadius: '12px' }}>
+                  <span style={{ fontSize: '1.5rem', fontWeight: '800', color: '#2e6cf4' }}>#{i + 1}</span>
+                  <div>
+                    <h3 style={{ margin: 0 }}>{p.name}</h3>
+                    <p style={{ margin: 0, color: '#64748b' }}>Score: {p.rank_score?.toFixed(2)}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
           </section>
         )}
 
         {view === 'skills' && (
           <section className="panel">
-            <h2>Skills Timeline</h2>
-            <div className="timeline">
+            <h2 style={{ marginTop: 0 }}>Skills Timeline</h2>
+            <div style={{ borderLeft: '2px solid #e2e8f0', marginLeft: '1rem', paddingLeft: '2rem' }}>
               {chronologicalSkills.map((event, i) => (
-                <div key={i} className="timeline-item">
-                  <span className="date">{formatDate(event.first_seen_ts)}</span>
-                  <h4>{event.skill}</h4>
-                  <p className="muted">Project: {event.project_name}</p>
+                <div key={i} style={{ marginBottom: '2rem', position: 'relative' }}>
+                  <div style={{ position: 'absolute', left: '-2.45rem', top: '0.25rem', width: '12px', height: '12px', borderRadius: '50%', backgroundColor: '#2e6cf4', border: '4px solid white' }}></div>
+                  <span style={{ fontSize: '0.8rem', color: '#64748b', fontWeight: 'bold' }}>{dashHelpers.formatDate(event.first_seen_ts)}</span>
+                  <h4 style={{ margin: '0.25rem 0' }}>{event.skill}</h4>
+                  <p style={{ margin: 0, fontSize: '0.85rem', color: '#64748b' }}>Project: {event.project_name}</p>
                 </div>
               ))}
             </div>
