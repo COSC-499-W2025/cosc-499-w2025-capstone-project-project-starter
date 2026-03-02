@@ -1,12 +1,15 @@
 from __future__ import annotations
 
 import os
+import logging
 from dataclasses import dataclass
 from typing import Dict, List, Optional, Tuple
 
 from sqlalchemy import String, bindparam, text
 from sqlalchemy.dialects.postgresql import ARRAY
 from sqlalchemy.engine import Connection, Engine
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass(frozen=True)
@@ -66,7 +69,7 @@ def _delete_paths_best_effort(paths: List[str]) -> int:
                 deleted += 1
         except Exception:
             # Best effort. DB is already correct; filesystem cleanup should not break API semantics.
-            pass
+            logger.warning("Failed to delete blob file path during GC: %s", p, exc_info=True)
     return deleted
 
 
@@ -76,6 +79,7 @@ def delete_snapshot_and_gc(engine: Engine, snapshot_id: str) -> Dict:
     then garbage-collects any now-unreferenced blobs previously used by that snapshot.
     """
     snapshot_id = str(snapshot_id)
+    logger.info("Deleting snapshot %s with GC", snapshot_id)
 
     blob_paths: List[str] = []
     blob_deleted_rows: List[BlobDeleteResult] = []
@@ -104,7 +108,7 @@ def delete_snapshot_and_gc(engine: Engine, snapshot_id: str) -> Dict:
     # After commit, delete blob files from disk best-effort.
     fs_deleted = _delete_paths_best_effort(blob_paths)
 
-    return {
+    result = {
         "snapshot_id": snapshot_id,
         "deleted": True,
         "gc": {
@@ -114,6 +118,13 @@ def delete_snapshot_and_gc(engine: Engine, snapshot_id: str) -> Dict:
             "deleted_sha256": [r.deleted_sha256 for r in blob_deleted_rows],
         },
     }
+    logger.info(
+        "Deleted snapshot %s (blobs_deleted=%d files_deleted_from_disk=%d)",
+        snapshot_id,
+        len(blob_deleted_rows),
+        fs_deleted,
+    )
+    return result
 
 
 def delete_portfolio_showcase_and_gc(engine: Engine, showcase_id: str) -> Dict:
@@ -121,6 +132,7 @@ def delete_portfolio_showcase_and_gc(engine: Engine, showcase_id: str) -> Dict:
     Deletes a portfolio_showcases row. If it referenced a thumbnail blob, GC it if unreferenced elsewhere.
     """
     showcase_id = str(showcase_id)
+    logger.info("Deleting showcase %s with thumbnail GC", showcase_id)
     blob_paths: List[str] = []
     blob_deleted_rows: List[BlobDeleteResult] = []
 
@@ -148,7 +160,7 @@ def delete_portfolio_showcase_and_gc(engine: Engine, showcase_id: str) -> Dict:
 
     fs_deleted = _delete_paths_best_effort(blob_paths)
 
-    return {
+    result = {
         "showcase_id": showcase_id,
         "deleted": True,
         "thumbnail_gc": {
@@ -158,10 +170,18 @@ def delete_portfolio_showcase_and_gc(engine: Engine, showcase_id: str) -> Dict:
             "deleted_sha256": [r.deleted_sha256 for r in blob_deleted_rows],
         },
     }
+    logger.info(
+        "Deleted showcase %s (thumbnail_blobs_deleted=%d files_deleted_from_disk=%d)",
+        showcase_id,
+        len(blob_deleted_rows),
+        fs_deleted,
+    )
+    return result
 
 
 def delete_resume_item(engine: Engine, resume_id: str) -> Dict:
     resume_id = str(resume_id)
+    logger.info("Deleting resume item %s", resume_id)
     with engine.begin() as conn:
         exists = conn.execute(text("SELECT 1 FROM resume_items WHERE id = :id"), {"id": resume_id}).scalar()
         if not exists:
@@ -172,6 +192,7 @@ def delete_resume_item(engine: Engine, resume_id: str) -> Dict:
 
 def delete_analysis(engine: Engine, analysis_id: str) -> Dict:
     analysis_id = str(analysis_id)
+    logger.info("Deleting analysis %s", analysis_id)
     with engine.begin() as conn:
         exists = conn.execute(text("SELECT 1 FROM analyses WHERE id = :id"), {"id": analysis_id}).scalar()
         if not exists:
@@ -187,6 +208,7 @@ def delete_project_and_gc(engine: Engine, project_id: str) -> Dict:
     or showcase thumbnail.
     """
     project_id = str(project_id)
+    logger.info("Deleting project %s with GC", project_id)
 
     blob_paths: List[str] = []
     blob_deleted_rows: List[BlobDeleteResult] = []
@@ -236,7 +258,7 @@ def delete_project_and_gc(engine: Engine, project_id: str) -> Dict:
 
     fs_deleted = _delete_paths_best_effort(blob_paths)
 
-    return {
+    result = {
         "project_id": project_id,
         "deleted": True,
         "gc": {
@@ -246,3 +268,11 @@ def delete_project_and_gc(engine: Engine, project_id: str) -> Dict:
             "deleted_sha256": [r.deleted_sha256 for r in blob_deleted_rows],
         },
     }
+    logger.info(
+        "Deleted project %s (candidate_shas=%d blobs_deleted=%d files_deleted_from_disk=%d)",
+        project_id,
+        len(candidate_shas),
+        len(blob_deleted_rows),
+        fs_deleted,
+    )
+    return result

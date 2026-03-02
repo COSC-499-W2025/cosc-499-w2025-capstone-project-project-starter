@@ -6,7 +6,10 @@ from reportlab.lib import colors
 import os
 import tempfile
 import base64
+import logging
 from io import BytesIO
+
+logger = logging.getLogger(__name__)
 
 
 def materialize_blob_to_tempfile(blob, default_ext=".png"):
@@ -72,7 +75,7 @@ def export(data, llm_response=None,filename="report.pdf", consent="y"):
     if not clean_predictions:
         elements.append(Paragraph("No skills predicted.", styles["Normal"]))
         doc.build(elements)
-        print(f"✅ PDF created (empty): {filename}")
+        logger.info("PDF created without predictions: %s", filename)
         return
 
     # Section header
@@ -131,7 +134,7 @@ def export(data, llm_response=None,filename="report.pdf", consent="y"):
 
     # Build PDF
     doc.build(elements)
-    print(f"✅ PDF successfully created: {filename}")
+    logger.info("PDF created successfully: %s", filename)
 
 
 def collect_predictions(parsed_folder):
@@ -142,7 +145,7 @@ def collect_predictions(parsed_folder):
     """
 
     if not isinstance(parsed_folder, list):
-        print("⚠️ Unexpected parsed_folder structure. PDF will be empty.")
+        logger.warning("Unexpected parsed_folder structure; PDF will be empty")
         return []
 
     files_with_mtime = []
@@ -182,7 +185,7 @@ def collect_predictions(parsed_folder):
                 skill, prob = item
                 all_predictions.append([f"{file_name}: {skill}", prob])
             else:
-                print(f"⚠️ Skipping invalid skill entry in {file_name}: {item}")
+                logger.warning("Skipping invalid skill entry in %s: %r", file_name, item)
 
     return all_predictions
 
@@ -249,10 +252,10 @@ def export_portfolio_top_projects_pdf(portfolio_summary: dict, filename: str = "
                 elements.append(img)
                 elements.append(Spacer(1, 6))
 
-                print(f"✅ Image embedded from blob {blob_sha}")
+                logger.debug("Embedded image from blob %s", blob_sha)
 
-            except Exception as e:
-                print(f"⚠️ Could not add image from blob {blob_sha}: {e}")
+            except Exception:
+                logger.warning("Could not add image from blob %s", blob_sha, exc_info=True)
 
         # Add summary
         if summary:
@@ -454,10 +457,10 @@ def export_resume_item_pdf_bytes(resume_item: dict, filters: dict = None) -> byt
             img.drawWidth = 2.5 * 72
             elements.append(img)
             elements.append(Spacer(1, 12))
-            print(f"✅ Embedded thumbnail image in PDF")
+            logger.debug("Embedded thumbnail image in PDF")
 
-        except Exception as e:
-            print(f"⚠️ Could not embed thumbnail: {e}")
+        except Exception:
+            logger.warning("Could not embed thumbnail in resume PDF", exc_info=True)
 
     # Summary section
     if show_summary:

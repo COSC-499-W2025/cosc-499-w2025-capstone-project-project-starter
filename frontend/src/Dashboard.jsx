@@ -1,7 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import './Dashboard.css';
 
-// Helpers wrapped to avoid re-declaration errors
 const dashHelpers = {
   normalizeName: (filename) => filename.replace(/\.zip$/i, ''),
   formatDate: (value) => {
@@ -10,6 +9,16 @@ const dashHelpers = {
     return Number.isNaN(parsed.getTime()) ? 'N/A' : parsed.toLocaleDateString();
   }
 };
+function normalizeProjectName(filename) {
+  return filename.replace(/\.zip$/i, '');
+}
+
+function formatDate(value) {
+  if (!value) return 'N/A';
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) return 'N/A';
+  return parsed.toLocaleDateString();
+}
 
 function Dashboard({ token, currentUser, onLogout, projectApi }) {
   const [view, setView] = useState('projects');

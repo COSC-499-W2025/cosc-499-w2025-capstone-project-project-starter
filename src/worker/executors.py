@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import os
 import re
+import logging
 from collections import Counter
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Tuple, Optional
@@ -22,6 +23,8 @@ from src.ml import predict as ml_predict
 from src.worker.llm import run_external_llm_analysis
 
 from src.db.user_config import identity_rules_for_user
+
+logger = logging.getLogger(__name__)
 
 
 def _utcnow_iso() -> str:
@@ -48,6 +51,7 @@ def _classify_activity(relpath: str) -> str:
 
 def run_parser(engine: Engine, snapshot_id: str) -> Dict[str, Any]:
     files = fetch_snapshot_files(engine, snapshot_id)
+    logger.info("Running parser analysis for snapshot %s (%d files)", snapshot_id, len(files))
 
     total_files = len(files)
     size_total = sum(f.size_bytes for f in files)
@@ -105,7 +109,7 @@ def run_parser(engine: Engine, snapshot_id: str) -> Dict[str, Any]:
 
     top_languages = [{"language": k, "files": v} for k, v in language_counts.most_common(10)]
 
-    return {
+    output = {
         "snapshot_id": snapshot_id,
         "generated_at": _utcnow_iso(),
         "totals": {
@@ -122,6 +126,14 @@ def run_parser(engine: Engine, snapshot_id: str) -> Dict[str, Any]:
         "chunks_by_language": dict(chunks_by_lang),
         "top_languages": top_languages,
     }
+    logger.info(
+        "Parser analysis complete for snapshot %s (text_files=%d binary_files=%d total_lines=%d)",
+        snapshot_id,
+        text_count,
+        binary_count,
+        total_lines,
+    )
+    return output
 
 
 def _parse_author_key(author_key: str) -> Tuple[str, str | None]:
@@ -219,6 +231,7 @@ def _auto_flag_user_contributor(
 def run_git_metrics(engine: Engine, snapshot_id: str) -> Dict[str, Any]:
     files = fetch_snapshot_files(engine, snapshot_id)
     workdir = materialize_snapshot_to_dir(files)
+    logger.info("Running git_metrics analysis for snapshot %s", snapshot_id)
 
     try:
         repos = find_git_repos(workdir)
@@ -350,7 +363,7 @@ def run_git_metrics(engine: Engine, snapshot_id: str) -> Dict[str, Any]:
                 {"ctype": collab_type, "pid": project_id},
             )
 
-        return {
+        output = {
             "snapshot_id": snapshot_id,
             "generated_at": _utcnow_iso(),
             "git_repos_found": repo_count,
@@ -362,12 +375,19 @@ def run_git_metrics(engine: Engine, snapshot_id: str) -> Dict[str, Any]:
                 "authoritative_collaboration_type": collab_type,
             },
         }
+        logger.info(
+            "git_metrics complete for snapshot %s (repos=%d contributors=%d)",
+            snapshot_id,
+            repo_count,
+            len(all_contribs),
+        )
+        return output
     finally:
         try:
             import shutil
             shutil.rmtree(workdir, ignore_errors=True)
         except Exception:
-            pass
+            logger.warning("Failed to clean temporary git_metrics workspace %s", workdir, exc_info=True)
 
 def run_local_ml(engine: Engine, analysis_id: str, snapshot_id: str) -> Dict[str, Any]:
     threshold = float(os.environ.get("LOCAL_ML_THRESHOLD", "0.5"))
@@ -376,6 +396,7 @@ def run_local_ml(engine: Engine, analysis_id: str, snapshot_id: str) -> Dict[str
     embed_batch = int(os.environ.get("LOCAL_ML_EMBED_BATCH", "16"))
 
     files = fetch_snapshot_files(engine, snapshot_id)
+    logger.info("Running local_ml analysis for snapshot %s", snapshot_id)
 
     ml_predict._load_resources()
     skill_names: List[str] = list(ml_predict._skills)
@@ -577,15 +598,26 @@ def run_local_ml(engine: Engine, analysis_id: str, snapshot_id: str) -> Dict[str
                     {"aid": analysis_id, "sid": sid, "conf": float(row["max_prob"])},
                 )
 
+    logger.info(
+        "local_ml complete for snapshot %s (chunks_scored=%d skills_detected=%d)",
+        snapshot_id,
+        total_chunks,
+        len(skills_out),
+    )
     return output
 
 
 def run_external_llm(engine: Engine, analysis_id: str, snapshot_id: str) -> Dict[str, Any]:
+    logger.info("Running external_llm analysis for snapshot %s", snapshot_id)
     with engine.connect() as conn:
         uid = get_snapshot_owner_user_id(conn, snapshot_id)
         if not uid:
             fallback = run_local_ml(engine, analysis_id, snapshot_id)
             fallback["external_llm"] = {"used": "local_ml", "reason": "snapshot owner could not be resolved"}
+            logger.warning(
+                "external_llm fallback to local_ml for snapshot %s: snapshot owner unresolved",
+                snapshot_id,
+            )
             return fallback
 
         allowed = is_external_services_allowed(conn, str(uid))
@@ -593,8 +625,13 @@ def run_external_llm(engine: Engine, analysis_id: str, snapshot_id: str) -> Dict
     if not allowed:
         fallback = run_local_ml(engine, analysis_id, snapshot_id)
         fallback["external_llm"] = {"used": "local_ml", "reason": "external_services consent not granted"}
+        logger.warning(
+            "external_llm fallback to local_ml for snapshot %s: external services consent not granted",
+            snapshot_id,
+        )
         return fallback
 
     out = run_external_llm_analysis(engine, snapshot_id)
     out["external_llm"] = {"used": "ollama"}
+    logger.info("external_llm complete for snapshot %s", snapshot_id)
     return out
