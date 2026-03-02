@@ -1,140 +1,113 @@
-/* Global Layout & Background */
-body {
-    background-color: #f4f7fc;
-    font-family: 'Inter', -apple-system, sans-serif;
-    color: #1e293b;
-    margin: 0;
-    padding: 20px;
-}
-
+/* src/Dashboard.css */
 .dashboard-shell {
-    max-width: 1220px; 
-    padding: 1.25rem;
-    margin: 0 auto;
+    width: 100%;
+    min-height: 100vh;
+    background-color: #f8fafc;
+    display: flex;
+    flex-direction: column;
 }
 
-/* Header & Navigation */
+/* HEADER SECTION */
 .dashboard-header {
-    display: flex; 
-    justify-content: space-between; 
-    align-items: center; 
-    margin-bottom: 1.5rem; 
+    background: white;
+    padding: 1.5rem 5vw;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-bottom: 1px solid #e2e8f0;
 }
 
-.dashboard-nav { 
-    display: flex; 
-    flex-wrap: wrap; 
-    gap: 0.75rem; 
-    margin-bottom: 1.5rem; 
+.dashboard-header h1 {
+    font-size: 1.4rem;
+    font-weight: 800;
+    color: #0f172a;
 }
 
-.nav-btn { 
-    border: 1px solid #d1d5db; 
-    background: #ffffff; 
-    border-radius: 999px; 
-    padding: 0.5rem 1.2rem; 
+.dashboard-nav {
+    background: white;
+    padding: 0 5vw;
+    display: flex;
+    gap: 2.5rem;
+    box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05);
+}
+
+.nav-btn {
+    padding: 1.2rem 0;
+    background: none;
+    border: none;
     cursor: pointer;
-    font-size: 0.9rem;
-    font-weight: 500;
-    color: #374151;
-    transition: all 0.2s ease;
+    font-weight: 700;
+    color: #64748b;
+    border-bottom: 3px solid transparent;
+    transition: all 0.2s;
 }
 
-.nav-btn.active { 
-    border-color: #2e6cf4; 
-    background: #2e6cf4; 
-    color: #ffffff; 
+.nav-btn.active {
+    color: #0f172a;
+    border-bottom-color: #0f172a;
 }
 
-/* Main Panel Container */
-.panel {
-    padding: 2rem; 
-    border: 1px solid #e2e8f0; 
-    border-radius: 16px;
-    background: #ffffff; 
-    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
+/* MAIN DASHBOARD CONTENT */
+.dashboard-main {
+    padding: 3rem 5vw;
+    flex: 1;
 }
 
-/* Project Card Layout */
-.project-grid { 
-    display: grid; 
-    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); 
-    gap: 1.5rem; 
+/* PROJECT GRID */
+.project-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(400px, 1fr));
+    gap: 2rem;
 }
 
 .project-card {
-    border: 1px solid #e5e7eb; 
-    border-radius: 18px; 
-    background: #ffffff; 
-    padding: 1.2rem;
-    display: flex;
-    flex-direction: column;
-    gap: 0.4rem;
-}
-
-/* Thumbnail Placeholder */
-.thumbnail-box {
-    width: 100%;
-    aspect-ratio: 1.5 / 1;
-    background: #f8fafc;
+    background: white;
+    padding: 2.5rem;
+    border-radius: 20px;
     border: 1px solid #e2e8f0;
-    border-radius: 12px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    color: #94a3b8;
-    margin-bottom: 0.8rem;
-    font-size: 0.9rem;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.03);
+    transition: transform 0.2s, box-shadow 0.2s;
 }
 
-/* Typography in Card */
+.project-card:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 12px 24px rgba(0,0,0,0.06);
+}
+
 .project-card h3 {
-    margin: 0;
-    font-size: 1.1rem;
-    font-weight: 800;
+    font-size: 1.5rem;
+    margin-bottom: 1rem;
+    color: #0f172a;
 }
 
 .project-card p {
-    margin: 0;
-    font-size: 0.85rem;
+    color: #64748b;
+    margin-bottom: 0.5rem;
+    font-size: 1rem;
+}
+
+/* DASHBOARD BUTTONS */
+.secondary-btn {
+    background: #f1f5f9;
     color: #475569;
-}
-
-/* The Gold Analysis Pill */
-.analysis-pill { 
-    padding: 0.4rem 0.8rem; 
-    border-radius: 999px; 
-    background: #fef3c7; 
-    color: #92400e;      
-    font-weight: 600; 
-    font-size: 0.75rem;
-    display: inline-block;
-    width: fit-content;
-    margin: 0.5rem 0;
-}
-
-/* Action Buttons */
-.btn-primary {
-    background: #2e6cf4;
-    color: white;
+    padding: 12px 20px;
     border: none;
-    border-radius: 8px;
-    padding: 0.6rem;
+    border-radius: 10px;
     font-weight: 600;
     cursor: pointer;
-    margin-top: 0.5rem;
+    margin-right: 10px;
 }
 
-.btn-secondary {
-    background: white;
-    color: #475569;
-    border: 1px solid #e2e8f0;
+.ghost-btn {
+    padding: 10px 18px;
+    background: transparent;
+    color: #ef4444; /* Logout look */
+    border: 1px solid #fee2e2;
     border-radius: 8px;
-    padding: 0.5rem;
-    font-weight: 500;
+    font-weight: 600;
     cursor: pointer;
 }
 
-@media (max-width: 960px) {
-  .dashboard-header { flex-direction: column; align-items: flex-start; gap: 1rem; }
+.ghost-btn:hover {
+    background: #fef2f2;
 }
