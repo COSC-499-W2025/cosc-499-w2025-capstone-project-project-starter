@@ -1,5 +1,27 @@
 # Personal Log of Alex Batke
 
+# Term 2 Week 8
+
+## Applicable Date Range
+- Monday, Feburary 9th to Sunday, March 1st
+
+## Peer Evaluation Screenshot
+![alt text](<imgs/alex_batke_T2W8.png>)
+
+
+### Recap On Your Weeks Goals
+- Which Features Were Yours in the Project Plan for this Milestone?
+  In addition to all my previously completed work, I worked on styling and reorganizing the Front End into components for easier styling and maintainance for Milestone 3
+- Which Tasks from the Project Board are Associated with these Features?
+   There was no one single or mutiple identifiable task from the project board, as this was an overarching task that would span multiple tasks 
+- Among these tasks, which have you completed/in progress in the last 2 weeks?
+  There were mutliple issues i was running into with these tasks, as there was some miscommunication as to was responsible for styling. Due to the miscomunication, another group member took it upon themselves to do it, but not in a maintainable way at all. However, since I was assigned to actually do it, I had to untangle the code which, while complete and correct, would be a major problem to maintain and extend to what the milestone 3 requirments will be. As such, the best I could do was get a start on the reorganization, and get a small amount of meaningful styling done. 
+- Planning for next sprint: 
+  The main goal for the sprint is to firmly take control of styling and complete it, to ensure its done in a consistent way, and to also improve some of the communication issues that seem to be present
+- Optional text: additional context that we should be aware of:
+ The communication needs to be improved. We had numerous PRs sitting throughout this sprint open for a week plus, and a coupe even longer. Getting help this sprint in particular was difficult, and would often find myself struggling to resolve issues at times.
+
+
 
 # Term 2 Week 5
 
