@@ -251,8 +251,106 @@ def view_full_scan_details_via_api():
 
 
 def update_scan_via_api():
-    print(_center_text("Update not implemented in client yet."))
-    input(_center_text("Press Enter..."))
+    """
+    Allows updating an existing scan by uploading a new zip file (incremental merge).
+    """
+    # 1. Fetch scans
+    scans = _fetch_scans()
+    if not scans:
+        print(_center_text("No scans found."))
+        input(_center_text("Press Enter..."))
+        return
+
+    print()
+    print(_center_text("Select a scan to update:"))
+    print_scan_list(scans)
+
+    choice = input(_center_text("Enter number (0 to cancel): ")).strip()
+    if not choice.isdigit() or int(choice) == 0:
+        return
+    
+    idx = int(choice) - 1
+    if idx < 0 or idx >= len(scans):
+        print(_center_text("Invalid selection."))
+        return
+
+    target_scan = scans[idx]
+    summary_id = target_scan["summary_id"]
+    # Use the same analysis mode as the original scan to ensure consistency
+    analysis_mode = target_scan.get("analysis_mode", "basic")
+    
+    # Fetch existing hashes for this scan to prevent duplicate uploads
+    existing_hashes = set()
+    try:
+        detail_resp = requests.get(f"{API_URL}/scans/{summary_id}")
+        if detail_resp.status_code == 200:
+            scan_data = detail_resp.json().get("scan", {}).get("scan_data", {})
+            existing_hashes = set(scan_data.get("source_hashes", []))
+    except Exception:
+        # If we can't fetch details, we'll rely on the server-side check
+        pass
+
+    # 2. Select file
+    zip_path = get_input_zip_file()
+    if not zip_path:
+        return
+        
+    # Check if file is already in the scan
+    if existing_hashes:
+        local_hash = compute_file_hash(zip_path)
+        if local_hash and local_hash in existing_hashes:
+            print(_center_text("This file has already been added to this scan."))
+            input(_center_text("Press Enter..."))
+            return
+
+    # 3. Consent (check server or ask)
+    consent = False
+    try:
+        r = requests.get(f"{API_URL}/privacy-consent")
+        if r.status_code == 200:
+            consent = r.json().get("privacy", {}).get("consent", False)
+    except Exception:
+        pass
+
+    if not consent:
+        print()
+        if input(_center_text("Consent to process data? (y/n): ")).strip().lower() == 'y':
+            consent = True
+        else:
+            print(_center_text("Consent denied. Aborting."))
+            return
+
+    # 4. Upload
+    print(_center_text("Uploading and merging via API... please wait..."))
+    try:
+        with open(zip_path, 'rb') as f:
+            files = {'zip': f}
+            data = {
+                'analysis_mode': analysis_mode,
+                'consent': str(consent).lower(),
+                'persist': 'true',
+                'incremental': 'true',
+                'existing_scan_id': str(summary_id)
+            }
+            
+            resp = requests.post(f"{API_URL}/projects/upload", files=files, data=data)
+            
+        if resp.status_code in (200, 201):
+            result = resp.json()
+            
+            if result.get("duplicate"):
+                print(_center_text("This file has already been added to this scan."))
+            elif result.get("merged"):
+                print(_center_text("Scan updated successfully!"))
+            else:
+                print(_center_text("Scan processed."))
+        else:
+             print(_center_text(f"API Error: {resp.status_code} - {resp.text}"))
+
+    except Exception as e:
+        print(_center_text(f"Request failed: {e}"))
+    
+    input(_center_text("Press Enter to continue..."))
 
 
 def edit_contributor_resume_via_api(scan_id):
@@ -579,6 +677,7 @@ def edit_portfolio_via_api(scan_id):
                             print(_center_text("1. Description (General)"))
                             print(_center_text("2. Role / Contribution"))
                             print(_center_text("3. Tech Stack"))
+                            print(_center_text("4. Upload Thumbnail"))
                             print(_center_text("0. Back"))
                             
                             sub = input(_center_text("Choose: ")).strip()
@@ -618,6 +717,25 @@ def edit_portfolio_via_api(scan_id):
                                 elif val: payload["custom_portfolio_tech_stack"] = [s.strip() for s in val.split(",") if s.strip()]
                                 else: continue
                             
+                            elif sub == "4":
+                                print(_center_text("Enter path to image file:"))
+                                fpath = input(_center_text("> ")).strip().strip('"').strip("'")
+                                if os.path.isfile(fpath):
+                                    try:
+                                        with open(fpath, "rb") as f:
+                                            url = f"{API_URL}/projects/{pid}/thumbnail"
+                                            r = requests.post(url, files={"file": f})
+                                            if r.status_code == 200:
+                                                print(_center_text("Thumbnail uploaded."))
+                                                target["customization"] = r.json().get("customization", {})
+                                            else:
+                                                print(_center_text(f"Error: {r.text}"))
+                                    except Exception as e:
+                                        print(_center_text(f"Error: {e}"))
+                                else:
+                                    print(_center_text("File not found."))
+                                continue
+
                             if payload:
                                 try:
                                     r = requests.post(f"{API_URL}/projects/{pid}/edit", json=payload)

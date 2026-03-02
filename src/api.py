@@ -12,7 +12,8 @@ import tempfile
 from collections import Counter
 from typing import Any, Dict, List, Optional, Tuple
 
-from fastapi import FastAPI, HTTPException, Path, Query, Request
+from fastapi import FastAPI, HTTPException, Path, Query, Request, UploadFile, File
+from fastapi.concurrency import run_in_threadpool
 from fastapi.responses import JSONResponse, FileResponse
 from pydantic import BaseModel, Field
 
@@ -44,6 +45,9 @@ except ImportError:
     generate_portfolio_markdown = None
 
 logger = logging.getLogger(__name__)
+
+THUMBNAILS_DIR = os.path.join(os.path.dirname(__file__), "..", "output", "thumbnails")
+os.makedirs(THUMBNAILS_DIR, exist_ok=True)
 
 VALID_ANALYSIS_MODES = {"basic", "advanced"}
 VALID_ADVANCED_OPTION_KEYS = {
@@ -630,7 +634,7 @@ async def _handle_scan_upload(request: Request, include_project_summary: bool) -
             file_list = validation_result
             zip_hash = None
 
-        results = _analyze_scan(file_list, analysis_mode, advanced_options or {})
+        results = await run_in_threadpool(_analyze_scan, file_list, analysis_mode, advanced_options or {})
         if results is None:
             raise HTTPException(status_code=500, detail="scan execution failed")
 
@@ -748,12 +752,6 @@ def create_app() -> FastAPI:
 
     @app.get("/")
     def root():
-        """
-        Root endpoint providing API status and version information.
-
-        Returns:
-            JSON object containing app name, version, status, and a welcome message.
-        """
         return {
             "app": "Skill Scope API",
             "version": "0.2.0",
@@ -765,9 +763,6 @@ def create_app() -> FastAPI:
     def health():
         """
         Simple health check endpoint to verify the API is running.
-
-        Returns:
-            JSON object with status "ok".
         """
         return {"status": "ok"}
 
@@ -777,12 +772,6 @@ def create_app() -> FastAPI:
         """
         Legacy endpoint for creating a scan.
         Wraps the upload logic but returns a simplified response structure if needed.
-
-        Args:
-            request (Request): The HTTP request containing multipart/form-data with the ZIP file.
-
-        Returns:
-            JSONResponse: The result of the scan analysis.
         """
         return await _handle_scan_upload(request, include_project_summary=False)
 
@@ -790,12 +779,6 @@ def create_app() -> FastAPI:
     def get_scans():
         """
         Retrieves a list of all historical scans (metadata only).
-
-        This is useful for listing available scans without loading the heavy
-        analysis data for each one.
-
-        Returns:
-            JSON object containing a list of scan summaries (ID, timestamp, mode).
         """
         try:
             scans = list_full_scans()
@@ -808,12 +791,6 @@ def create_app() -> FastAPI:
     def check_scan_exists(file_hash: str = Query(..., min_length=1)):
         """
         Checks if a scan with the given file hash already exists.
-
-        Args:
-            file_hash (str): The SHA256 hash of the file to check.
-
-        Returns:
-            JSON object with boolean 'exists'.
         """
         return {"exists": scan_exists(file_hash)}
 
@@ -821,14 +798,6 @@ def create_app() -> FastAPI:
     def get_scan(summary_id: int = Path(..., ge=1)):
         """
         Retrieves the full detailed analysis results for a specific scan ID.
-
-        The response includes project summaries, contributor profiles, and chronological data.
-
-        Args:
-            summary_id (int): The ID of the scan to retrieve.
-
-        Returns:
-            JSON object containing the full scan data.
         """
         try:
             scan = get_full_scan_by_id(summary_id)
@@ -843,12 +812,6 @@ def create_app() -> FastAPI:
     def delete_scan(summary_id: int = Path(..., ge=1)):
         """
         Permanently deletes a scan and its associated data from the database.
-
-        Args:
-            summary_id (int): The ID of the scan to delete.
-
-        Returns:
-            JSON object confirming deletion and the deleted ID.
         """
         try:
             deleted = delete_full_scan_by_id(summary_id)
@@ -864,12 +827,6 @@ def create_app() -> FastAPI:
     def post_privacy_consent(payload: PrivacyConsentPayload):
         """
         Updates the user's privacy and data processing consent settings.
-
-        Args:
-            payload (PrivacyConsentPayload): The new privacy settings.
-
-        Returns:
-            JSON object containing the updated privacy settings.
         """
         saved = set_privacy_settings(_model_dump(payload))
         return {"privacy": _json_safe(saved)}
@@ -878,9 +835,6 @@ def create_app() -> FastAPI:
     def get_privacy():
         """
         Retrieves the current privacy and consent settings.
-
-        Returns:
-            JSON object containing current privacy settings.
         """
         return {"privacy": _json_safe(get_privacy_settings())}
 
@@ -889,12 +843,6 @@ def create_app() -> FastAPI:
         """
         Main entry point for scanning. Accepts a ZIP file or path.
         Performs analysis and persists results. Supports incremental updates.
-
-        Args:
-            request (Request): The HTTP request containing the file and parameters.
-
-        Returns:
-            JSONResponse: Detailed results of the analysis and persistence status.
         """
         return await _handle_scan_upload(request, include_project_summary=True)
 
@@ -902,12 +850,6 @@ def create_app() -> FastAPI:
     def list_projects(scan_id: Optional[int] = Query(None, ge=1)):
         """
         Lists all individual projects found across all scans (or filtered by scan_id).
-
-        Args:
-            scan_id (Optional[int]): Filter projects by a specific scan ID.
-
-        Returns:
-            JSON object containing a list of project records.
         """
         projects = _iter_projects(scan_id=scan_id)
         return {"projects": _json_safe(sorted(projects, key=_project_sort_key, reverse=True))}
@@ -916,12 +858,6 @@ def create_app() -> FastAPI:
     def get_project(project_id: str):
         """
         Retrieves details for a specific project, including any user customizations.
-
-        Args:
-            project_id (str): The unique identifier for the project (format: scan_id:index).
-
-        Returns:
-            JSON object containing the project details.
         """
         return {"project": _json_safe(_get_project_by_id(project_id))}
 
@@ -929,17 +865,43 @@ def create_app() -> FastAPI:
     def edit_project(project_id: str, payload: ProjectEditPayload):
         """
         Updates project metadata (e.g., custom descriptions, showcase flags).
-
-        Args:
-            project_id (str): The unique identifier for the project.
-            payload (ProjectEditPayload): The fields to update.
-
-        Returns:
-            JSON object containing the updated project customization data.
         """
         _get_project_by_id(project_id)  # validate existence
         saved = upsert_project_customization(project_id, _model_dump_exclude_none(payload))
         return {"project_id": project_id, "customization": _json_safe(saved)}
+
+    @app.post("/projects/{project_id:path}/thumbnail")
+    async def upload_project_thumbnail(
+        project_id: str,
+        file: UploadFile = File(...)
+    ):
+        """
+        Uploads a thumbnail image for a project.
+        """
+        _get_project_by_id(project_id)  # validate existence
+        
+        # Generate safe filename
+        safe_pid = project_id.replace(":", "_")
+        # Get extension from uploaded filename
+        _, ext = os.path.splitext(file.filename)
+        if not ext:
+            ext = ".jpg" # Default fallback
+            
+        filename = f"{safe_pid}_thumb{ext}"
+        path = os.path.join(THUMBNAILS_DIR, filename)
+        
+        try:
+            content = await file.read()
+            with open(path, "wb") as f:
+                f.write(content)
+        except Exception:
+            logger.exception("Failed to save thumbnail")
+            raise HTTPException(status_code=500, detail="Failed to save file")
+            
+        # Update customization
+        saved = upsert_project_customization(project_id, {"thumbnail": filename})
+        
+        return {"project_id": project_id, "thumbnail": filename, "customization": _json_safe(saved)}
 
     @app.post("/scans/{summary_id}/contributors/{contributor_id:path}")
     def update_contributor_profile(
@@ -949,16 +911,6 @@ def create_app() -> FastAPI:
     ):
         """
         Updates a contributor's profile details (name, title, summary) and project-specific overrides.
-
-        Allows editing name, title, summary, and specific project descriptions/skills for a contributor.
-
-        Args:
-            payload (ContributorProfileEditPayload): The profile updates.
-            summary_id (int): The ID of the scan containing the contributor.
-            contributor_id (str): The identifier (name/email) of the contributor.
-
-        Returns:
-            JSON object with update status.
         """
         scan = get_full_scan_by_id(summary_id)
         if not scan:
@@ -1015,12 +967,6 @@ def create_app() -> FastAPI:
     def get_skills(scan_id: Optional[int] = Query(None, ge=1)):
         """
         Returns an aggregated list of skills and their frequency across projects.
-
-        Args:
-            scan_id (Optional[int]): Filter skills by a specific scan ID.
-
-        Returns:
-            JSON object containing a list of skills and their project counts.
         """
         projects = _iter_projects(scan_id=scan_id)
         skills_count: Dict[str, int] = {}
@@ -1037,14 +983,6 @@ def create_app() -> FastAPI:
     def generate_resume(payload: ResumeGeneratePayload):
         """
         Creates a new Resume artifact (JSON) based on selected projects.
-
-        Generates a structured resume object that can be later exported to DOCX.
-
-        Args:
-            payload (ResumeGeneratePayload): Configuration for the resume (projects, title, contributor).
-
-        Returns:
-            JSON object containing the created resume artifact.
         """
         scan_id, selected_projects, ordered_ids = _select_projects_for_artifact(
             payload.scan_id,
@@ -1128,12 +1066,6 @@ def create_app() -> FastAPI:
     def get_resume(resume_id: int = Path(..., ge=1)):
         """
         Retrieves a stored Resume artifact.
-
-        Args:
-            resume_id (int): The ID of the resume artifact.
-
-        Returns:
-            JSON object containing the resume artifact data.
         """
         artifact = get_resume_artifact(resume_id)
         if not artifact:
@@ -1144,13 +1076,6 @@ def create_app() -> FastAPI:
     def edit_resume(resume_id: int, payload: ResumeEditPayload):
         """
         Updates an existing Resume artifact (reorder projects, edit wording).
-
-        Args:
-            resume_id (int): The ID of the resume to update.
-            payload (ResumeEditPayload): The updates to apply.
-
-        Returns:
-            JSON object containing the updated resume artifact.
         """
         artifact = get_resume_artifact(resume_id)
         if not artifact:
@@ -1179,12 +1104,6 @@ def create_app() -> FastAPI:
     def export_resume(resume_id: int = Path(..., ge=1)):
         """
         Generates and downloads a DOCX file for the specified resume artifact.
-
-        Args:
-            resume_id (int): The ID of the resume to export.
-
-        Returns:
-            FileResponse: The generated DOCX file.
         """
         artifact = get_resume_artifact(resume_id)
         if not artifact:
@@ -1212,12 +1131,6 @@ def create_app() -> FastAPI:
     def generate_portfolio(payload: PortfolioGeneratePayload):
         """
         Creates a new Portfolio artifact (JSON). Honors 'selected_for_showcase' flags.
-
-        Args:
-            payload (PortfolioGeneratePayload): Configuration for the portfolio.
-
-        Returns:
-            JSON object containing the created portfolio artifact.
         """
         scan_id, selected_projects, ordered_ids = _select_projects_for_artifact(
             payload.scan_id,
@@ -1282,12 +1195,6 @@ def create_app() -> FastAPI:
     def get_portfolio(portfolio_id: int = Path(..., ge=1)):
         """
         Retrieves a stored Portfolio artifact.
-
-        Args:
-            portfolio_id (int): The ID of the portfolio artifact.
-
-        Returns:
-            JSON object containing the portfolio artifact data.
         """
         artifact = get_portfolio_artifact(portfolio_id)
         if not artifact:
@@ -1298,15 +1205,6 @@ def create_app() -> FastAPI:
     def edit_portfolio(portfolio_id: int, payload: PortfolioEditPayload):
         """
         Updates an existing Portfolio artifact.
-
-        Allows reordering projects, changing titles, and editing project details.
-
-        Args:
-            portfolio_id (int): The ID of the portfolio to update.
-            payload (PortfolioEditPayload): The updates to apply.
-
-        Returns:
-            JSON object containing the updated portfolio artifact.
         """
         artifact = get_portfolio_artifact(portfolio_id)
         if not artifact:
@@ -1350,12 +1248,6 @@ def create_app() -> FastAPI:
     def export_portfolio(portfolio_id: int = Path(..., ge=1)):
         """
         Generates and downloads a Markdown file for the specified portfolio artifact.
-
-        Args:
-            portfolio_id (int): The ID of the portfolio to export.
-
-        Returns:
-            FileResponse: The generated Markdown file.
         """
         artifact = get_portfolio_artifact(portfolio_id)
         if not artifact:
