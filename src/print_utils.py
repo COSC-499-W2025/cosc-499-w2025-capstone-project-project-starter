@@ -1,5 +1,7 @@
 # to print stuff -moved from scan manager
 import shutil
+import os
+import ctypes
 from datetime import datetime
 
 def _center_text(text: str) -> str:
@@ -292,3 +294,78 @@ def print_scan_list(scans):
         print(
             _center_text(f"{i}. Scan {s['summary_id']} - {ts} ({s['analysis_mode']})")
         )
+
+
+def _input_with_prefill(prompt, text):
+    """
+    Prompts for input with a default value pre-filled.
+    Works on Windows (via ctypes) and Unix (via readline).
+    """
+    if not text:
+        return input(prompt)
+
+    if os.name == 'nt':
+        try:
+            # Windows implementation using WriteConsoleInputW
+            class KEY_EVENT_RECORD(ctypes.Structure):
+                _fields_ = [
+                    ("bKeyDown", ctypes.c_int),
+                    ("wRepeatCount", ctypes.c_ushort),
+                    ("wVirtualKeyCode", ctypes.c_ushort),
+                    ("wVirtualScanCode", ctypes.c_ushort),
+                    ("uChar", ctypes.c_wchar),
+                    ("dwControlKeyState", ctypes.c_ulong)
+                ]
+            
+            class INPUT_RECORD_Event(ctypes.Union):
+                _fields_ = [("KeyEvent", KEY_EVENT_RECORD)]
+            
+            class INPUT_RECORD(ctypes.Structure):
+                _fields_ = [
+                    ("EventType", ctypes.c_ushort),
+                    ("Event", INPUT_RECORD_Event)
+                ]
+
+            STD_INPUT_HANDLE = -10
+            hConsoleInput = ctypes.windll.kernel32.GetStdHandle(STD_INPUT_HANDLE)
+            
+            n = len(text)
+            records = (INPUT_RECORD * n)()
+            
+            for i, char in enumerate(text):
+                records[i].EventType = 0x0001 # KEY_EVENT
+                records[i].Event.KeyEvent.bKeyDown = 1
+                records[i].Event.KeyEvent.wRepeatCount = 1
+                records[i].Event.KeyEvent.wVirtualKeyCode = 0
+                records[i].Event.KeyEvent.wVirtualScanCode = 0
+                records[i].Event.KeyEvent.uChar = char
+                records[i].Event.KeyEvent.dwControlKeyState = 0
+
+            written = ctypes.c_ulong(0)
+            ctypes.windll.kernel32.WriteConsoleInputW(
+                hConsoleInput,
+                ctypes.byref(records),
+                n,
+                ctypes.byref(written)
+            )
+        except Exception:
+            pass
+    else:
+        try:
+            import readline
+            def hook():
+                readline.insert_text(text)
+                readline.redisplay()
+            readline.set_startup_hook(hook)
+        except ImportError:
+            pass
+
+    try:
+        return input(prompt)
+    finally:
+        if os.name != 'nt':
+            try:
+                import readline
+                readline.set_startup_hook()
+            except ImportError:
+                pass

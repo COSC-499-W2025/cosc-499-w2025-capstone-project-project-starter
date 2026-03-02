@@ -76,6 +76,20 @@ class ProjectEditPayload(BaseModel):
     custom_portfolio_tech_stack: Optional[List[str]] = None
 
 
+class ContributorProjectEdit(BaseModel):
+    custom_description: Optional[str] = None
+    custom_skills: Optional[List[str]] = None
+    reset_custom_skills: bool = False
+
+
+class ContributorProfileEditPayload(BaseModel):
+    custom_name: Optional[str] = None
+    custom_title: Optional[str] = None
+    custom_summary: Optional[str] = None
+    project_updates: Optional[Dict[str, ContributorProjectEdit]] = None
+    reset_profile: bool = False
+
+
 class ResumeGeneratePayload(BaseModel):
     scan_id: Optional[int] = None
     contributor_id: Optional[str] = None
@@ -312,13 +326,22 @@ def _project_to_resume_item(project: Dict[str, Any], user_stats: Optional[Dict[s
     evidence = project.get("evidence_of_success")
     
     # Determine skills source
-    # 1. Custom overrides (highlighted_skills)
-    skills_raw = project.get("highlighted_skills")
-    # 2. Contributor-specific skills (if generating for a person)
+    skills_raw = None
+    
+    # 1. Contributor custom skills (Highest priority for contributor resumes)
+    if user_stats and user_stats.get("custom_skills"):
+        skills_raw = user_stats.get("custom_skills")
+
+    # 2. Custom overrides (highlighted_skills) - Project level
+    if not skills_raw:
+        skills_raw = project.get("highlighted_skills")
+    
+    # 3. Contributor-specific skills (auto-detected)
     if not skills_raw and contributor_id:
         pcs = project.get("data", {}).get("per_contributor_skills", {})
         skills_raw = pcs.get(contributor_id)
-    # 3. Fallback to project-wide skills
+    
+    # 4. Fallback to project-wide skills
     if not skills_raw:
         skills_raw = project.get("skills") or []
 
@@ -338,14 +361,18 @@ def _project_to_resume_item(project: Dict[str, Any], user_stats: Optional[Dict[s
     if custom_text:
         text = custom_text
     elif user_stats:
-        # Use rich description logic from resume_generator
-        project_context = {
-            "languages": data.get("languages", "Unknown"),
-            "skills": data.get("skills", "NA"),
-            "frameworks": data.get("frameworks", "None"),
-            "duration_days": data.get("duration_days", 0)
-        }
-        text = _build_personal_project_description(project_name, project_context, user_stats)
+        # Check for custom description in user_stats (Contributor specific edit)
+        if user_stats.get("custom_description"):
+            text = user_stats.get("custom_description")
+        else:
+            # Use rich description logic from resume_generator
+            project_context = {
+                "languages": data.get("languages", "Unknown"),
+                "skills": data.get("skills", "NA"),
+                "frameworks": data.get("frameworks", "None"),
+                "duration_days": data.get("duration_days", 0)
+            }
+            text = _build_personal_project_description(project_name, project_context, user_stats)
     else:
         parts = [f"Contributed to {project_name}"]
         if role:
@@ -838,6 +865,66 @@ def create_app() -> FastAPI:
         _get_project_by_id(project_id)  # validate existence
         saved = upsert_project_customization(project_id, _model_dump_exclude_none(payload))
         return {"project_id": project_id, "customization": _json_safe(saved)}
+
+    @app.post("/scans/{summary_id}/contributors/{contributor_id:path}")
+    def update_contributor_profile(
+        payload: ContributorProfileEditPayload,
+        summary_id: int = Path(..., ge=1),
+        contributor_id: str = Path(...)
+    ):
+        """
+        Updates a contributor's profile details (name, title, summary) and project-specific overrides.
+        """
+        scan = get_full_scan_by_id(summary_id)
+        if not scan:
+            raise HTTPException(status_code=404, detail="scan not found")
+        
+        data = scan["scan_data"]
+        profiles = data.get("contributor_profiles", {})
+        if contributor_id not in profiles:
+             raise HTTPException(status_code=404, detail="contributor not found")
+        
+        profile = profiles[contributor_id]
+        
+        if payload.reset_profile:
+            # Clear custom fields
+            for k in list(profile.keys()):
+                if k.startswith("custom_"):
+                    profile.pop(k)
+            # Clear project custom fields
+            for p in profile.get("projects", []):
+                for k in list(p.keys()):
+                    if k.startswith("custom_") and k != "custom_portfolio_description":
+                        p.pop(k)
+        else:
+            if payload.custom_name is not None:
+                profile["custom_name"] = payload.custom_name if payload.custom_name else None
+                if profile["custom_name"] is None: profile.pop("custom_name", None)
+            
+            if payload.custom_title is not None:
+                profile["custom_title"] = payload.custom_title if payload.custom_title else None
+                if profile["custom_title"] is None: profile.pop("custom_title", None)
+            
+            if payload.custom_summary is not None:
+                profile["custom_summary"] = payload.custom_summary if payload.custom_summary else None
+                if profile["custom_summary"] is None: profile.pop("custom_summary", None)
+            
+            if payload.project_updates:
+                p_map = {p.get("name"): p for p in profile.get("projects", [])}
+                for p_name, p_edit in payload.project_updates.items():
+                    if p_name in p_map:
+                        target = p_map[p_name]
+                        if p_edit.custom_description is not None:
+                            target["custom_description"] = p_edit.custom_description if p_edit.custom_description else None
+                            if target["custom_description"] is None: target.pop("custom_description", None)
+                        
+                        if p_edit.reset_custom_skills:
+                            target.pop("custom_skills", None)
+                        elif p_edit.custom_skills is not None:
+                            target["custom_skills"] = p_edit.custom_skills
+
+        update_full_scan(summary_id, data)
+        return {"status": "updated", "contributor_id": contributor_id}
 
     @app.get("/skills")
     def get_skills(scan_id: Optional[int] = Query(None, ge=1)):
