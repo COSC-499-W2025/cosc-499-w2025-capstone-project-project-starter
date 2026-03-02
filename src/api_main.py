@@ -117,7 +117,7 @@ def get_input_zip_file():
     
     files = [f for f in os.listdir(INPUT_DIR) if f.lower().endswith(".zip")]
     if not files:
-        print(_center_text(f"No .zip files found in {INPUT_DIR}"))
+        print(_center_text(f"No .zip files found in src/input. Please add valid zip files there."))
         return None
     
     # Deduplicate files based on content hash to avoid showing identical zips
