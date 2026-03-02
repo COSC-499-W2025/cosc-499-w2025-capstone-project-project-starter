@@ -138,6 +138,15 @@ async def dashboard():
         return FileResponse(path)
     raise HTTPException(status_code=404, detail="Dashboard not found")
 
+
+@app.get("/api-test.html")
+async def api_test_page():
+    """Serve the API endpoint testing page."""
+    path = find_frontend_file("api-test.html")
+    if path:
+        return FileResponse(path)
+    raise HTTPException(status_code=404, detail="API test page not found")
+
 @app.exception_handler(HTTPException)
 async def http_exception_handler(request: Request, exc: HTTPException):
     error_type, message, data = _normalize_detail(exc.detail)
