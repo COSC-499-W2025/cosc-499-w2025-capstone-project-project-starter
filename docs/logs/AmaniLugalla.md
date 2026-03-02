@@ -1,19 +1,23 @@
 # Personal Log - Amani Lugalla
-## 2026-FEB-10 to 2026-FEB-22
+## 2026-FEB-10 to 2026-MAR-01
 
 ### Type of Tasks Worked On
-![Screenshot](<screenshots/Amani/Week19.png>)
+![Screenshot](<screenshots/Amani/Week20.png>)
 
 ### Recap of Week's Goals
 - Finalize Flask API endpoints for scan operations.
 - Connect backend scan routes to the shared scan workflow.
 - Improve API response structure and request validation for reliable CLI/frontend use.
+- Record and polish the project video demo for Milestone 2.
+- Prepare and deliver Milestone 2 presentation materials.
 
 
 ### Features Assigned (Project Plan)
 - Flask backend endpoint completion.
 - Scan workflow integration through API routes.
 - API validation and response consistency updates.
+- Video demo planning, recording, and refinement.
+- Milestone 2 slide prep and presentation delivery.
   
 ### Tasks from Project Board
 | Feature | Task | Status (Completed/In Progress) | Notes |
@@ -21,12 +25,16 @@
 | Flask backend | Finalize app setup and scan routes | Completed | Completed endpoint wiring for scan-related actions |
 | Scan integration | Hook scan endpoints to scan workflow/service layer | Completed | Routes now trigger shared scan logic and return structured output |
 | API quality | Add request validation and standardized responses | Completed | Improved handling of invalid input and consistent response payload shape |
+| Milestone 2 demo | Record and finalize project video demo | Completed | Captured walkthrough of end-to-end scan flow and polished final demo output |
+| Milestone 2 presentation | Build and present milestone slide deck | Completed | Prepared slide content/talking points and contributed to team presentation delivery |
 | Integration | Validate backend flow with CLI/consumer expectations | In Progress | Final integration checks and edge-case validation ongoing |
 
 ### Completed Tasks (Last 2 Weeks)
 - Finalized Flask scan endpoints and route wiring.
 - Connected scan API calls to the shared scan workflow/service logic.
 - Improved response consistency and strengthened request validation for scan operations.
+- Recorded and refined the Milestone 2 video demo showcasing the scan workflow and results.
+- Prepared Milestone 2 presentation content and delivered presentation contributions.
 
 
 ### In-Progress Tasks 
