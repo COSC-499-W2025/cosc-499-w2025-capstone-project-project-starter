@@ -90,6 +90,33 @@ app.include_router(consent.router, prefix="/api", tags=["consent"])
 app.include_router(resume_portfolio.router, prefix="/api", tags=["resume", "portfolio"])
 app.include_router(settings.router, prefix="/api/settings", tags=["settings"])
 
+# Mount static files for CSS, JS, and other assets
+def find_frontend_static_dir() -> str | None:
+    """Find frontend static directory in various possible locations."""
+    possible_paths = [
+        "/app/frontend",      # Docker container path
+        "frontend",           # Local development path
+        "../frontend",        # Alternative local path
+    ]
+    
+    for path in possible_paths:
+        if os.path.exists(path):
+            return path
+    return None
+
+frontend_dir = find_frontend_static_dir()
+if frontend_dir:
+    # Mount CSS directory
+    css_path = os.path.join(frontend_dir, "css")
+    if os.path.exists(css_path):
+        app.mount("/css", StaticFiles(directory=css_path), name="css")
+    
+    # Mount any other static directories (js, images, etc.)
+    for subdir in ["js", "images", "assets"]:
+        subdir_path = os.path.join(frontend_dir, subdir)
+        if os.path.exists(subdir_path):
+            app.mount(f"/{subdir}", StaticFiles(directory=subdir_path), name=subdir)
+
 def find_frontend_file(filename: str) -> str | None:
     """Find frontend file in various possible locations."""
     possible_paths = [
