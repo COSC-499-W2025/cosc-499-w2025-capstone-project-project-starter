@@ -12,7 +12,7 @@ function Auth({ onAuthSuccess, authApi }) {
   const [loginPassword, setLoginPassword] = useState('');
 
   // Registration Form State
-  const [registerdisplay_name, setRegisterdisplay_name] = useState('');
+  const [registerDisplayName, setRegisterDisplayName] = useState('');
   const [registerEmail, setRegisterEmail] = useState('');
   const [registerPassword, setRegisterPassword] = useState('');
   const [registerConfirmPassword, setRegisterConfirmPassword] = useState('');
@@ -51,7 +51,7 @@ function Auth({ onAuthSuccess, authApi }) {
       const response = await authApi.register({
         email: registerEmail,
         password: registerPassword,
-        display_name: registerdisplay_name,
+        displayName: registerDisplayName,
       });
       onAuthSuccess(response);
     } catch (error) {
@@ -131,8 +131,8 @@ function Auth({ onAuthSuccess, authApi }) {
                   Display Name
                   <input
                     type="text"
-                    value={registerdisplay_name}
-                    onChange={(e) => setRegisterdisplay_name(e.target.value)}
+                    value={registerDisplayName}
+                    onChange={(e) => setRegisterDisplayName(e.target.value)}
                     placeholder="John Doe"
                     required
                   />

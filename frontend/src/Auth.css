@@ -1,16 +1,30 @@
 /* src/Auth.css */
+html, body {
+    margin: 0;
+    padding: 0;
+    width: 100%;
+    height: 100%;
+}
+
 .screen-shell {
+    position: fixed; /* Force it to stay at the very top/left of the screen */
+    top: 0;
+    left: 0;
     width: 100vw;
     height: 100vh;
     display: flex;
     overflow: hidden;
+    z-index: 9999; /* Ensure it stays above any other background elements */
+    background-color: white; /* Prevents the dashboard background from bleeding through */
 }
 
 .auth-layout {
     display: flex;
     width: 100%;
     height: 100%;
+    margin: 0; /* Explicitly remove any inherited margins */
 }
+
 
 /* LEFT SIDE: HERO */
 .auth-hero {
