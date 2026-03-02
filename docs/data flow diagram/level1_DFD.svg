@@ -1,0 +1,214 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="2600" height="2000" viewBox="0 0 2200 1700" role="img" aria-labelledby="title desc">
+  <title id="title">Artifact Miner Level 1 Data Flow Diagram</title>
+  <desc id="desc">Level 1 data flow diagram for Artifact Miner showing user interactions, API processes, worker analysis pipeline, optional Ollama integration, and core data stores.</desc>
+
+  <defs>
+    <style>
+      .bg { fill: #F8FAFC; }
+      .titleText { font: 700 34px 'IBM Plex Sans', 'Segoe UI', Arial, sans-serif; fill: #0F172A; }
+      .subtitleText { font: 500 17px 'IBM Plex Sans', 'Segoe UI', Arial, sans-serif; fill: #334155; }
+      .nodeLabel { font: 600 21px 'IBM Plex Sans', 'Segoe UI', Arial, sans-serif; fill: #0F172A; text-anchor: middle; dominant-baseline: middle; }
+      .smallNodeLabel { font: 600 18px 'IBM Plex Sans', 'Segoe UI', Arial, sans-serif; fill: #0F172A; text-anchor: middle; dominant-baseline: middle; }
+      .edgeLabel { font: 500 14px 'IBM Plex Sans', 'Segoe UI', Arial, sans-serif; fill: #0F172A; }
+      .legendLabel { font: 500 15px 'IBM Plex Sans', 'Segoe UI', Arial, sans-serif; fill: #0F172A; }
+      .legendFlowId { font: 700 14px 'IBM Plex Sans', 'Segoe UI', Arial, sans-serif; fill: #0F172A; text-anchor: end; }
+      .flowLegendLabel { font: 500 13px 'IBM Plex Sans', 'Segoe UI', Arial, sans-serif; fill: #0F172A; }
+      .flowMarkerCircle { fill: #FFFFFF; stroke: #1E293B; stroke-width: 1.5; }
+      .flowMarkerText { font: 700 11px 'IBM Plex Sans', 'Segoe UI', Arial, sans-serif; fill: #1E293B; text-anchor: middle; dominant-baseline: middle; }
+      .scopeNote { font: 500 14px 'IBM Plex Sans', 'Segoe UI', Arial, sans-serif; fill: #475569; }
+      .entityFill { fill: #FFF7ED; stroke: #9A3412; stroke-width: 2; }
+      .processFill { fill: #E8F1FF; stroke: #1D4ED8; stroke-width: 2; }
+      .optionalFill { fill: #F1F5F9; stroke: #334155; stroke-width: 2; stroke-dasharray: 10 8; }
+      .datastoreFill { fill: #ECFDF5; stroke: #166534; stroke-width: 2; }
+      .edge { fill: none; stroke: #334155; stroke-width: 2; marker-end: url(#arrowSolid); }
+      .edgeDashed { fill: none; stroke: #334155; stroke-width: 2; stroke-dasharray: 10 7; marker-end: url(#arrowDashed); }
+      .labelBg { fill: #F8FAFC; opacity: 0.9; }
+    </style>
+
+    <marker id="arrowSolid" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="9" markerHeight="9" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#334155"/>
+    </marker>
+    <marker id="arrowDashed" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="9" markerHeight="9" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#334155"/>
+    </marker>
+
+    <symbol id="entityShape" viewBox="0 0 100 50" preserveAspectRatio="none">
+      <rect x="0" y="0" width="100" height="50" rx="4" ry="4"/>
+    </symbol>
+
+    <symbol id="processShape" viewBox="0 0 100 50" preserveAspectRatio="none">
+      <rect x="0" y="0" width="100" height="50" rx="10" ry="10"/>
+    </symbol>
+
+    <symbol id="datastoreShape" viewBox="0 0 100 50" preserveAspectRatio="none">
+      <path d="M 8 0 H 92 C 96.5 0 100 3.5 100 8 V 42 C 100 46.5 96.5 50 92 50 H 8 C 3.5 50 0 46.5 0 42 V 8 C 0 3.5 3.5 0 8 0 Z"/>
+      <path d="M 12 0 V 50 M 88 0 V 50" fill="none" stroke="currentColor" stroke-width="1.5"/>
+    </symbol>
+  </defs>
+
+  <rect class="bg" x="0" y="0" width="2200" height="1700"/>
+
+  <text class="titleText" x="60" y="58">Artifact Miner - Level 1 Data Flow Diagram</text>
+  <text class="subtitleText" x="60" y="90">Operational DFD aligned to current FastAPI/worker/PostgreSQL/blobstore/Ollama behavior</text>
+
+  <!-- Nodes -->
+  <g id="E1">
+    <use href="#entityShape" x="60" y="250" width="240" height="120" class="entityFill"/>
+    <text class="nodeLabel" x="180" y="304">
+      <tspan x="180" dy="0">End User</tspan>
+      <tspan x="180" dy="26">(Browser / CLI)</tspan>
+    </text>
+  </g>
+
+  <g id="P1">
+    <use href="#processShape" x="360" y="120" width="330" height="130" class="processFill"/>
+    <text class="nodeLabel" x="525" y="185">1.0 Authenticate + Consent</text>
+  </g>
+
+  <g id="P2">
+    <use href="#processShape" x="740" y="120" width="360" height="130" class="processFill"/>
+    <text class="nodeLabel" x="920" y="185">2.0 Upload + Ingest ZIP</text>
+  </g>
+
+  <g id="P3">
+    <use href="#processShape" x="1150" y="120" width="370" height="130" class="processFill"/>
+    <text class="nodeLabel" x="1335" y="185">3.0 Queue + Run Analyses</text>
+  </g>
+
+  <g id="P4">
+    <use href="#processShape" x="1570" y="120" width="360" height="130" class="processFill"/>
+    <text class="nodeLabel" x="1750" y="185">4.0 Build Insights + Rankings</text>
+  </g>
+
+  <g id="P5">
+    <use href="#processShape" x="1150" y="360" width="370" height="130" class="processFill"/>
+    <text class="smallNodeLabel" x="1335" y="414">
+      <tspan x="1335" dy="0">5.0 Generate Artifacts</tspan>
+      <tspan x="1335" dy="24">(Resume/Portfolio/PDF)</tspan>
+    </text>
+  </g>
+
+  <g id="P6">
+    <use href="#processShape" x="740" y="360" width="360" height="130" class="processFill"/>
+    <text class="nodeLabel" x="920" y="425">6.0 Serve Dashboard + Media</text>
+  </g>
+
+  <g id="E2">
+    <use href="#entityShape" x="1570" y="360" width="360" height="130" class="optionalFill"/>
+    <text class="smallNodeLabel" x="1750" y="420">
+      <tspan x="1750" dy="0">Ollama Service</tspan>
+      <tspan x="1750" dy="24">(Optional)</tspan>
+    </text>
+  </g>
+
+  <g id="D1" style="color:#166534;">
+    <use href="#datastoreShape" x="240" y="900" width="560" height="170" class="datastoreFill"/>
+    <text class="nodeLabel" x="520" y="985">D1 PostgreSQL</text>
+  </g>
+
+  <g id="D2" style="color:#166534;">
+    <use href="#datastoreShape" x="1000" y="900" width="430" height="170" class="datastoreFill"/>
+    <text class="nodeLabel" x="1215" y="985">D2 Blobstore (/blobstore)</text>
+  </g>
+
+  <g id="D3" style="color:#166534;">
+    <use href="#datastoreShape" x="1630" y="900" width="560" height="170" class="datastoreFill"/>
+    <text class="smallNodeLabel" x="1910" y="980">
+      <tspan x="1910" dy="0">D3 Local ML Assets</tspan>
+      <tspan x="1910" dy="24">(models + artifacts)</tspan>
+    </text>
+  </g>
+
+  <!-- Edges -->
+  <g id="edges">
+    <path id="F01" class="edge" d="M300 294 C330 294 332 185 360 185"/>
+    <path id="F02" class="edge" d="M525 250 C500 430 455 620 430 900"/>
+    <path id="F03" class="edge" d="M300 330 C470 330 560 205 740 205"/>
+    <path id="F04" class="edge" d="M900 250 C860 420 690 620 540 900"/>
+    <path id="F05" class="edge" d="M940 250 C980 430 1050 620 1080 900"/>
+    <path id="F06" class="edgeDashed" d="M660 900 C800 700 1060 470 1280 250"/>
+    <path id="F07" class="edge" d="M1260 900 C1285 700 1305 500 1335 250"/>
+    <path id="F08" class="edge" d="M1850 900 C1780 700 1550 470 1410 250"/>
+    <path id="F09" class="edge" d="M1240 250 C1110 430 860 620 740 900"/>
+    <path id="F10" class="edgeDashed" d="M1520 182 C1542 220 1548 350 1570 410"/>
+    <path id="F11" class="edgeDashed" d="M1570 438 C1540 410 1530 300 1520 215"/>
+    <path id="F12" class="edge" d="M780 900 C1000 700 1560 520 1750 250"/>
+    <path id="F13" class="edge" d="M1620 250 C1500 300 1240 380 1100 430"/>
+    <path id="F14" class="edge" d="M1750 250 C1700 290 1505 320 1335 360"/>
+    <path id="F15" class="edge" d="M1240 490 C1120 620 900 760 700 900"/>
+    <path id="F16" class="edge" d="M1335 490 C1305 620 1250 760 1210 900"/>
+    <path id="F17" class="edge" d="M860 490 C790 620 620 760 500 900"/>
+    <path id="F18" class="edge" d="M980 490 C1015 620 1070 760 1100 900"/>
+    <path id="F19" class="edge" d="M740 425 C620 420 460 340 300 310"/>
+    <path id="F20" class="edge" d="M1150 440 C980 520 520 520 300 360"/>
+  </g>
+
+  <!-- Flow origin markers -->
+  <g id="edge-origin-markers" aria-label="Numbered arrow origin markers">
+    <circle class="flowMarkerCircle" cx="286" cy="280" r="11"/><text class="flowMarkerText" x="286" y="280">1</text>
+    <circle class="flowMarkerCircle" cx="506" cy="236" r="11"/><text class="flowMarkerText" x="506" y="236">2</text>
+    <circle class="flowMarkerCircle" cx="285" cy="346" r="11"/><text class="flowMarkerText" x="285" y="346">3</text>
+    <circle class="flowMarkerCircle" cx="880" cy="234" r="11"/><text class="flowMarkerText" x="880" y="234">4</text>
+    <circle class="flowMarkerCircle" cx="955" cy="233" r="11"/><text class="flowMarkerText" x="955" y="233">5</text>
+    <circle class="flowMarkerCircle" cx="640" cy="918" r="11"/><text class="flowMarkerText" x="640" y="918">6</text>
+    <circle class="flowMarkerCircle" cx="1278" cy="918" r="11"/><text class="flowMarkerText" x="1278" y="918">7</text>
+    <circle class="flowMarkerCircle" cx="1868" cy="918" r="11"/><text class="flowMarkerText" x="1868" y="918">8</text>
+    <circle class="flowMarkerCircle" cx="1222" cy="234" r="11"/><text class="flowMarkerText" x="1222" y="234">9</text>
+    <circle class="flowMarkerCircle" cx="1501" cy="167" r="11"/><text class="flowMarkerText" x="1501" y="167">10</text>
+    <circle class="flowMarkerCircle" cx="1586" cy="456" r="11"/><text class="flowMarkerText" x="1586" y="456">11</text>
+    <circle class="flowMarkerCircle" cx="760" cy="918" r="11"/><text class="flowMarkerText" x="760" y="918">12</text>
+    <circle class="flowMarkerCircle" cx="1638" cy="234" r="11"/><text class="flowMarkerText" x="1638" y="234">13</text>
+    <circle class="flowMarkerCircle" cx="1768" cy="234" r="11"/><text class="flowMarkerText" x="1768" y="234">14</text>
+    <circle class="flowMarkerCircle" cx="1222" cy="506" r="11"/><text class="flowMarkerText" x="1222" y="506">15</text>
+    <circle class="flowMarkerCircle" cx="1353" cy="508" r="11"/><text class="flowMarkerText" x="1353" y="508">16</text>
+    <circle class="flowMarkerCircle" cx="842" cy="508" r="11"/><text class="flowMarkerText" x="842" y="508">17</text>
+    <circle class="flowMarkerCircle" cx="998" cy="508" r="11"/><text class="flowMarkerText" x="998" y="508">18</text>
+    <circle class="flowMarkerCircle" cx="722" cy="441" r="11"/><text class="flowMarkerText" x="722" y="441">19</text>
+    <circle class="flowMarkerCircle" cx="1132" cy="456" r="11"/><text class="flowMarkerText" x="1132" y="456">20</text>
+  </g>
+
+  <!-- Legend -->
+  <g id="legend" transform="translate(60,1080)">
+    <rect x="0" y="0" width="2080" height="560" rx="14" ry="14" fill="#FFFFFF" stroke="#334155" stroke-width="2"/>
+    <text class="smallNodeLabel" x="1040" y="34">Legend</text>
+
+    <path d="M40 78 H180" class="edge"/>
+    <text class="legendLabel" x="200" y="83">Synchronous / required flow</text>
+
+    <path d="M40 114 H180" class="edgeDashed"/>
+    <text class="legendLabel" x="200" y="119">Asynchronous queue flow</text>
+
+    <path d="M40 150 H180" class="edgeDashed"/>
+    <text class="legendLabel" x="200" y="155">Optional or consent-gated flow</text>
+
+    <circle class="flowMarkerCircle" cx="1330" cy="82" r="11"/>
+    <text class="flowMarkerText" x="1330" y="82">1</text>
+    <text class="legendLabel" x="1352" y="87">Number marks arrow start; match to the flow list below.</text>
+
+    <text class="legendLabel" x="40" y="196">Flow Data (mapped to numbered arrow starts)</text>
+
+    <text class="legendFlowId" x="66" y="232">1.</text><text class="flowLegendLabel" x="82" y="232">register/login/logout + consent choices</text>
+    <text class="legendFlowId" x="66" y="264">2.</text><text class="flowLegendLabel" x="82" y="264">users, auth_sessions, privacy_consents, user_config</text>
+    <text class="legendFlowId" x="66" y="296">3.</text><text class="flowLegendLabel" x="82" y="296">ZIP upload + analysis_mode</text>
+    <text class="legendFlowId" x="66" y="328">4.</text><text class="flowLegendLabel" x="82" y="328">portfolios/projects/snapshots + analyses (pending)</text>
+    <text class="legendFlowId" x="66" y="360">5.</text><text class="flowLegendLabel" x="82" y="360">file_blobs + snapshot_files (deduplicated)</text>
+    <text class="legendFlowId" x="66" y="392">6.</text><text class="flowLegendLabel" x="82" y="392">pending analysis jobs</text>
+    <text class="legendFlowId" x="66" y="424">7.</text><text class="flowLegendLabel" x="82" y="424">snapshot file content</text>
+    <text class="legendFlowId" x="66" y="456">8.</text><text class="flowLegendLabel" x="82" y="456">embedding model + classifier artifacts</text>
+    <text class="legendFlowId" x="66" y="488">9.</text><text class="flowLegendLabel" x="82" y="488">analysis outputs, analysis_skills, contributors, events</text>
+    <text class="legendFlowId" x="66" y="520">10.</text><text class="flowLegendLabel" x="82" y="520">external summary prompt</text>
+
+    <text class="legendFlowId" x="1100" y="232">11.</text><text class="flowLegendLabel" x="1118" y="232">LLM JSON result / fallback</text>
+    <text class="legendFlowId" x="1100" y="264">12.</text><text class="flowLegendLabel" x="1118" y="264">project/snapshot/analysis/contribution data</text>
+    <text class="legendFlowId" x="1100" y="296">13.</text><text class="flowLegendLabel" x="1118" y="296">ranked summaries, reports, chronology payloads</text>
+    <text class="legendFlowId" x="1100" y="328">14.</text><text class="flowLegendLabel" x="1118" y="328">normalized summary inputs</text>
+    <text class="legendFlowId" x="1100" y="360">15.</text><text class="flowLegendLabel" x="1118" y="360">resume_items + portfolio_showcases</text>
+    <text class="legendFlowId" x="1100" y="392">16.</text><text class="flowLegendLabel" x="1118" y="392">thumbnail blob refs + image files</text>
+    <text class="legendFlowId" x="1100" y="424">17.</text><text class="flowLegendLabel" x="1118" y="424">read models for dashboards</text>
+    <text class="legendFlowId" x="1100" y="456">18.</text><text class="flowLegendLabel" x="1118" y="456">project image reads</text>
+    <text class="legendFlowId" x="1100" y="488">19.</text><text class="flowLegendLabel" x="1118" y="488">JSON responses + image data</text>
+    <text class="legendFlowId" x="1100" y="520">20.</text><text class="flowLegendLabel" x="1118" y="520">downloadable PDF + generated artifact output</text>
+  </g>
+
+  <text class="scopeNote" x="60" y="1668">As implemented in src/api, src/worker, docker-compose.yml (March 1, 2026 snapshot).</text>
+</svg>

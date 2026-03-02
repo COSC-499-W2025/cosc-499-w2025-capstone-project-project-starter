@@ -1,3 +1,8 @@
+# ML Documentation Notice
+
+ML documentation is now maintained in:
+- `docs/ml/README.md`
+
 # Code-to-Skills Weak Supervision Pipeline
 
 This module builds and trains a weakly supervised multi-label classifier that assigns "skills" (such as Flask, SQL, React) to code snippets from the **BigCode/The Stack** dataset using regex-based labeling functions and CodeBERT embeddings. We use the `the-stack-smol` since the original one is several terabytes and would take ages. 

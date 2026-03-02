@@ -1,3 +1,10 @@
+# Frontend Documentation Notice
+
+Frontend documentation for this project is now maintained in:
+- `docs/frontend/README.md`
+
+This file is intentionally retained for compatibility with the original Create React App structure.
+
 # Getting Started with Create React App
 
 This project was bootstrapped with [Create React App](https://github.com/facebook/create-react-app).
