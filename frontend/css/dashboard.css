@@ -1,11 +1,16 @@
 /* ============================================
-   Dashboard Specific Styles
+   Dashboard Specific Styles – Artifact
    ============================================ */
+
+@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&display=swap');
 
 /* ============== Layout ============== */
 
 body {
-    padding: 20px;
+    font-family: 'DM Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+    min-height: 100vh;
+    padding: 24px;
+    line-height: 1.5;
 }
 
 /* ============== Header ============== */
@@ -14,60 +19,120 @@ body {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    margin-bottom: 20px;
-    padding: 15px;
-    background: var(--bg-secondary);
-    border-radius: 8px;
+    margin-bottom: 24px;
+    padding: 16px 24px;
+    background: var(--bg-card);
     border: 1px solid var(--border-color);
+    border-radius: var(--radius-md);
+    box-shadow: var(--shadow-sm);
 }
 
 .header-left {
     display: flex;
     align-items: center;
-    gap: 15px;
+    gap: 12px;
 }
 
-/* ============== Menu System ============== */
-
-.menu-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-    gap: 10px;
-    margin-bottom: 20px;
-}
-
-.menu-group {
+.header-actions {
     display: flex;
-    flex-direction: column;
-    gap: 8px;
+    gap: 12px;
+    align-items: center;
+}
+
+.header h1 {
+    font-size: 1.25rem;
+    font-weight: 700;
+    letter-spacing: -0.02em;
+    color: var(--text-primary);
+}
+
+.header h1 span {
+    color: var(--text-secondary);
+    font-weight: 500;
+}
+
+/* ============== Nav Wrapper & Dropdown Slot ============== */
+
+.nav-wrapper {
+    margin-bottom: 0;
+}
+
+.nav-wrapper.dropdown-open .nav-dropdown-slot {
+    min-height: 220px;
+}
+
+.nav-dropdown-slot {
+    min-height: 0;
+    transition: min-height 0.2s ease;
+    pointer-events: none;
+}
+
+.nav-wrapper + #viewContainer {
+    margin-top: 24px;
+}
+
+/* ============== Nav Bar – Horizontal Tabs ============== */
+
+.nav-bar {
+    margin-bottom: 0;
+    background: var(--bg-card);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-md);
+    padding: 8px 12px;
+    box-shadow: var(--shadow-sm);
+}
+
+.nav-tabs {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 6px;
+}
+
+.menu-group.nav-group {
     position: relative;
 }
 
 .menu-btn {
-    padding: 15px;
+    padding: 10px 16px;
     background: var(--bg-card);
-    border: 1px solid var(--border-color);
-    border-radius: 8px;
+    border: 1px solid transparent;
+    border-radius: var(--radius-sm);
     color: var(--text-primary);
     cursor: pointer;
     text-align: left;
-    transition: all 0.2s;
+    font-family: inherit;
     font-size: 14px;
+    font-weight: 500;
+    transition: all 0.2s ease;
+    white-space: nowrap;
 }
 
-.menu-btn:hover {
-    background: var(--bg-secondary);
-    border-color: var(--accent-primary);
+.menu-btn.nav-tab {
+    width: auto;
+    min-width: 0;
+    box-shadow: none;
+}
+
+.menu-btn.nav-tab:hover {
+    background: var(--bg-primary);
+    border-color: var(--border-color);
+}
+
+.menu-btn.nav-tab.active {
+    background: var(--bg-primary);
+    border-color: var(--border-color);
+    box-shadow: var(--shadow-sm);
 }
 
 .menu-btn.caret::after {
-    content: "▾";
-    float: right;
+    content: " ▾";
     color: var(--text-muted);
+    font-size: 11px;
 }
 
 .menu-btn.caret.open::after {
-    content: "▴";
+    content: " ▴";
 }
 
 .submenu-grid {
@@ -75,58 +140,214 @@ body {
     position: absolute;
     top: calc(100% + 6px);
     left: 0;
-    width: 100%;
-    z-index: 10;
-    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-    gap: 8px;
-    padding: 6px;
-    background: var(--bg-secondary);
+    min-width: 240px;
+    z-index: 20;
+    padding: 8px;
+    background: var(--bg-elevated);
     border: 1px solid var(--border-color);
-    border-radius: 8px;
-    box-shadow: 0 6px 18px rgba(0, 0, 0, 0.08);
+    border-radius: var(--radius-sm);
+    box-shadow: var(--shadow-lg);
 }
 
 .submenu-grid.open {
     display: grid;
+    grid-template-columns: 1fr;
+    gap: 2px;
 }
 
 .submenu-btn {
-    padding: 12px;
+    padding: 10px 14px;
     font-size: 13px;
+    width: 100%;
+    text-align: left;
+    border-radius: var(--radius-sm);
+}
+
+.submenu-btn.active {
+    background: var(--accent-glow);
+    font-weight: 600;
 }
 
 /* ============== View Panel ============== */
 
 .view-panel {
-    background: var(--bg-secondary);
+    background: var(--bg-card);
     border: 1px solid var(--border-color);
-    border-radius: 8px;
-    padding: 20px;
-    margin-top: 20px;
+    border-radius: var(--radius-md);
+    padding: 24px;
+    margin-top: 0;
+    box-shadow: var(--shadow-sm);
 }
 
 .view-panel h3 {
-    margin-bottom: 15px;
+    margin-bottom: 16px;
+    font-size: 1.125rem;
+    font-weight: 600;
+    letter-spacing: -0.01em;
     color: var(--text-primary);
 }
 
-/* ============== Projects List ============== */
+.view-panel p {
+    color: var(--text-secondary);
+    font-size: 14px;
+}
+
+/* ============== Dashboard Overview ============== */
+
+.dashboard-overview {
+    padding: 0;
+}
+
+.dashboard-hero {
+    margin-bottom: 28px;
+    padding-bottom: 24px;
+    border-bottom: 1px solid var(--border-color);
+}
+
+.dashboard-hero h2 {
+    font-size: 1.5rem;
+    font-weight: 700;
+    letter-spacing: -0.02em;
+    color: var(--text-primary);
+    margin-bottom: 4px;
+}
+
+.dashboard-hero p {
+    color: var(--text-muted);
+    font-size: 15px;
+}
+
+.dashboard-stats {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+    gap: 16px;
+    margin-bottom: 28px;
+}
+
+.dashboard-stat {
+    background: var(--bg-primary);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-md);
+    padding: 20px;
+    transition: box-shadow 0.2s, border-color 0.2s;
+}
+
+.dashboard-stat:hover {
+    border-color: var(--accent-primary);
+    box-shadow: var(--shadow-md);
+}
+
+.dashboard-stat-value {
+    font-size: 1.75rem;
+    font-weight: 700;
+    letter-spacing: -0.02em;
+    color: var(--text-primary);
+    line-height: 1.2;
+}
+
+.dashboard-stat-label {
+    font-size: 13px;
+    color: var(--text-muted);
+    margin-top: 4px;
+}
+
+.dashboard-section-title {
+    font-size: 0.875rem;
+    font-weight: 600;
+    color: var(--text-secondary);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    margin-bottom: 12px;
+}
+
+.dashboard-quick-actions {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+    gap: 12px;
+}
+
+.dashboard-quick-action {
+    display: block;
+    width: 100%;
+    padding: 18px 20px;
+    background: var(--bg-card);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-md);
+    color: var(--text-primary);
+    font-family: inherit;
+    font-size: 14px;
+    font-weight: 500;
+    text-align: left;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    box-shadow: var(--shadow-sm);
+    text-decoration: none;
+}
+
+.dashboard-quick-action:hover {
+    border-color: var(--accent-primary);
+    box-shadow: var(--shadow-md);
+    background: var(--bg-primary);
+}
+
+.dashboard-quick-action strong {
+    display: block;
+    margin-bottom: 4px;
+    font-weight: 600;
+}
+
+.dashboard-quick-action span {
+    color: var(--text-muted);
+    font-size: 13px;
+    font-weight: 400;
+}
+
+/* ============== Buttons (dashboard overrides) ============== */
+
+.view-panel .btn {
+    margin: 4px 8px 4px 0;
+    padding: 10px 18px;
+    font-size: 14px;
+    font-weight: 600;
+    border-radius: var(--radius-sm);
+}
+
+/* ============== Inputs (dashboard) ============== */
+
+.view-panel input[type="file"],
+.view-panel input[type="text"] {
+    padding: 10px 14px;
+    border-radius: var(--radius-sm);
+    margin: 6px 0;
+    font-size: 14px;
+}
+
+.view-panel input:focus {
+    box-shadow: 0 0 0 3px var(--accent-glow);
+}
+
+/* ============== Project List ============== */
 
 .project-list {
-    max-height: 400px;
+    max-height: 420px;
     overflow-y: auto;
     border: 1px solid var(--border-color);
-    border-radius: 6px;
-    padding: 10px;
-    margin: 10px 0;
-    background: var(--bg-card);
+    border-radius: var(--radius-sm);
+    padding: 8px;
+    margin: 12px 0;
+    background: var(--bg-primary);
 }
 
 .project-item {
-    padding: 10px;
+    padding: 12px 14px;
+    border-radius: var(--radius-sm);
     border-bottom: 1px solid var(--border-color);
     cursor: pointer;
     transition: background 0.2s;
+}
+
+.project-item:last-child {
+    border-bottom: none;
 }
 
 .project-item:hover {
@@ -134,14 +355,16 @@ body {
 }
 
 .project-item.selected {
-    background: var(--bg-secondary);
+    background: var(--accent-glow);
     border-left: 3px solid var(--accent-primary);
+    margin-left: -1px;
+    padding-left: 15px;
 }
 
 .project-row {
     display: flex;
     flex-direction: row;
-    gap: 12px;
+    gap: 14px;
     align-items: center;
 }
 
@@ -151,10 +374,10 @@ body {
 }
 
 .project-thumbnail {
-    width: 96px;
-    height: 96px;
+    width: 80px;
+    height: 80px;
     object-fit: cover;
-    border-radius: 6px;
+    border-radius: var(--radius-sm);
     border: 1px solid var(--border-color);
     background: var(--bg-secondary);
 }
@@ -162,39 +385,41 @@ body {
 /* ============== Results & Analysis ============== */
 
 .result {
-    margin-top: 15px;
-    padding: 15px;
-    background: var(--bg-card);
-    border-radius: 6px;
+    margin-top: 16px;
+    padding: 16px;
+    background: var(--bg-primary);
+    border-radius: var(--radius-sm);
     white-space: pre-wrap;
     border: 1px solid var(--border-color);
+    font-size: 14px;
 }
 
 .analysis-section {
-    margin: 15px 0;
-    padding: 15px;
-    background: var(--bg-card);
-    border-radius: 6px;
-    border-left: 3px solid var(--accent-primary);
+    margin: 16px 0;
+    padding: 16px;
+    background: var(--bg-primary);
+    border-radius: var(--radius-sm);
+    border-left: 4px solid var(--accent-primary);
 }
 
 .analysis-section h4 {
     color: var(--text-primary);
-    margin-bottom: 10px;
-    font-size: 1.1em;
+    margin-bottom: 12px;
+    font-size: 1rem;
     font-weight: 600;
 }
 
 .analysis-item {
     margin: 8px 0;
-    padding: 8px;
-    background: var(--bg-secondary);
-    border-radius: 4px;
+    padding: 10px 12px;
+    background: var(--bg-card);
+    border-radius: var(--radius-sm);
 }
 
 .analysis-label {
     color: var(--text-secondary);
     font-weight: 600;
+    font-size: 13px;
 }
 
 .analysis-value {
@@ -208,7 +433,7 @@ body {
 }
 
 .analysis-list li {
-    padding: 5px 0;
+    padding: 6px 0;
     border-bottom: 1px solid var(--border-color);
 }
 
@@ -223,7 +448,31 @@ body {
     font-weight: 500;
 }
 
-/* ============== Modal Styles ============== */
+/* ============== Badges (dashboard) ============== */
+
+.dashboard-overview .badge,
+.view-panel .badge {
+    padding: 4px 10px;
+    border-radius: 6px;
+    font-size: 12px;
+    margin: 2px 4px 2px 0;
+}
+
+/* ============== Theme Toggle (dashboard) ============== */
+
+.header .theme-toggle {
+    border-radius: var(--radius-sm);
+    padding: 8px 14px;
+    font-weight: 500;
+}
+
+/* ============== Spinner (dashboard) ============== */
+
+.view-panel .spinner {
+    border-top-color: var(--accent-primary);
+}
+
+/* ============== Modal ============== */
 
 .modal {
     display: none;
@@ -233,8 +482,8 @@ body {
     top: 0;
     width: 100%;
     height: 100%;
-    background: rgba(0, 0, 0, 0.6);
-    backdrop-filter: blur(4px);
+    background: rgba(0, 0, 0, 0.5);
+    backdrop-filter: blur(6px);
     animation: fadeIn 0.2s ease;
 }
 
@@ -242,96 +491,67 @@ body {
     display: flex;
     align-items: center;
     justify-content: center;
+    padding: 24px;
 }
 
 .modal-content {
-    background: var(--bg-secondary);
-    border: 1px solid var(--border-color);
-    border-radius: 12px;
-    padding: 25px;
-    max-width: 600px;
-    width: 90%;
-    max-height: 80vh;
-    overflow-y: auto;
-    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);
-    animation: slideIn 0.3s ease;
-}
-
-.modal-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: 20px;
-    padding-bottom: 15px;
-    border-bottom: 1px solid var(--border-color);
+    background: var(--bg-card);
+    border-radius: var(--radius-lg);
+    padding: 28px;
+    box-shadow: var(--shadow-lg);
+    animation: slideIn 0.25s ease;
 }
 
 .modal-header h3 {
-    margin: 0;
-    color: var(--text-primary);
+    font-size: 1.125rem;
+    font-weight: 600;
 }
 
 .modal-close {
-    background: none;
-    border: none;
-    font-size: 24px;
-    color: var(--text-muted);
-    cursor: pointer;
-    padding: 0;
-    width: 30px;
-    height: 30px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    border-radius: 4px;
-    transition: all 0.2s;
+    border-radius: var(--radius-sm);
+    width: 32px;
+    height: 32px;
+    font-size: 22px;
 }
 
 .modal-close:hover {
-    background: var(--bg-card);
-    color: var(--text-primary);
+    background: var(--bg-primary);
 }
 
-.modal-actions {
-    display: flex;
-    gap: 10px;
-    justify-content: flex-end;
-    margin-top: 25px;
-    padding-top: 20px;
-    border-top: 1px solid var(--border-color);
+.modal .form-group input[type="text"],
+.modal .form-group textarea {
+    padding: 10px 14px;
+    background: var(--bg-primary);
+    border-radius: var(--radius-sm);
+}
+
+.modal .form-group input:focus,
+.modal .form-group textarea:focus {
+    box-shadow: 0 0 0 3px var(--accent-glow);
 }
 
 .modal-project-info {
-    margin-bottom: 20px;
-    padding: 10px;
-    background: var(--bg-card);
-    border-radius: 6px;
+    padding: 12px 14px;
+    background: var(--bg-primary);
+    border-radius: var(--radius-sm);
+    font-size: 14px;
 }
 
-/* ============== Customization Buttons ============== */
-
 .btn-customize {
-    background: none;
-    border: 1px solid var(--border-color);
-    color: var(--accent-primary);
-    padding: 6px 12px;
-    border-radius: 4px;
-    cursor: pointer;
-    font-size: 12px;
-    transition: all 0.2s;
-    margin-left: 8px;
+    border-radius: var(--radius-sm);
+    font-weight: 500;
 }
 
 .btn-customize:hover {
-    background: var(--bg-secondary);
-    border-color: var(--accent-primary);
+    background: var(--bg-primary);
 }
 
 .badge-customized {
-    background: #7c3aed;
-    color: #ffffff;
-    font-size: 11px;
-    padding: 3px 8px;
-    border-radius: 3px;
-    margin-left: 8px;
+    border-radius: 6px;
+    font-weight: 500;
+}
+
+.modal-actions {
+    margin-top: 24px;
+    padding-top: 20px;
 }
