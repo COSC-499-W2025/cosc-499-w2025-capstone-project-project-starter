@@ -677,6 +677,7 @@ def edit_portfolio_via_api(scan_id):
                             print(_center_text("1. Description (General)"))
                             print(_center_text("2. Role / Contribution"))
                             print(_center_text("3. Tech Stack"))
+                            print(_center_text("4. Upload Thumbnail"))
                             print(_center_text("0. Back"))
                             
                             sub = input(_center_text("Choose: ")).strip()
@@ -716,6 +717,25 @@ def edit_portfolio_via_api(scan_id):
                                 elif val: payload["custom_portfolio_tech_stack"] = [s.strip() for s in val.split(",") if s.strip()]
                                 else: continue
                             
+                            elif sub == "4":
+                                print(_center_text("Enter path to image file:"))
+                                fpath = input(_center_text("> ")).strip().strip('"').strip("'")
+                                if os.path.isfile(fpath):
+                                    try:
+                                        with open(fpath, "rb") as f:
+                                            url = f"{API_URL}/projects/{pid}/thumbnail"
+                                            r = requests.post(url, files={"file": f})
+                                            if r.status_code == 200:
+                                                print(_center_text("Thumbnail uploaded."))
+                                                target["customization"] = r.json().get("customization", {})
+                                            else:
+                                                print(_center_text(f"Error: {r.text}"))
+                                    except Exception as e:
+                                        print(_center_text(f"Error: {e}"))
+                                else:
+                                    print(_center_text("File not found."))
+                                continue
+
                             if payload:
                                 try:
                                     r = requests.post(f"{API_URL}/projects/{pid}/edit", json=payload)
