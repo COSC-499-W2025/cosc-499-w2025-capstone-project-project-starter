@@ -9,6 +9,7 @@ body {
 
 .dashboard-shell {
     max-width: 1220px; 
+    padding: 1.25rem;
     margin: 0 auto;
 }
 

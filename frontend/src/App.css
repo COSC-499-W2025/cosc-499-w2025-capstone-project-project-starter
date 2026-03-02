@@ -9,20 +9,36 @@ body {
 h1, h2, h3, h4, p { margin: 0; }
 
 /* Shared Shell & Form Elements */
-.screen-shell { min-height: 100vh; padding: 1.25rem; }
-input, select, textarea, button { font: inherit; }
+.screen-shell { 
+  min-height: 100vh; 
+}
+
+
+input, select, textarea, button { 
+  font: inherit; 
+}
+
 input, select, textarea {
-  width: 100%; border: 1px solid #c8d6f7; border-radius: 10px;
-  background: #ffffff; color: #16223a; padding: 0.58rem 0.7rem;
+  width: 100%; 
+  border: 1px solid #c8d6f7; 
+  border-radius: 10px;
+  background: #ffffff; 
+  color: #16223a; 
+  padding: 0.58rem 0.7rem;
 }
 input:focus, select:focus, textarea:focus {
-  outline: 2px solid #8db1ff; outline-offset: 1px; border-color: #7ea5ff;
+  outline: 2px solid #8db1ff;
+  outline-offset: 1px; 
+  border-color: #7ea5ff;
 }
 
 /* Common Buttons & Utilities */
 .primary-btn, .secondary-btn, .ghost-btn {
-  border-radius: 10px; padding: 0.52rem 0.85rem; font-weight: 600;
-  cursor: pointer; transition: transform 0.15s ease;
+  border-radius: 10px; 
+  padding: 0.52rem 0.85rem; 
+  font-weight: 600;
+  cursor: pointer; 
+  transition: transform 0.15s ease;
 }
 .primary-btn { border: 1px solid #2e6cf4; background: #2e6cf4; color: #ffffff; }
 .muted { color: #5f6470; font-size: 0.92rem; }
