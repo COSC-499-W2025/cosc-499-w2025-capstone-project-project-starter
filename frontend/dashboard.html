@@ -8,12 +8,12 @@
     <link rel="stylesheet" href="css/dashboard.css">
 </head>
 <body>
-    <div class="header">
+    <header class="header">
         <div class="header-left">
-            <h1>Artifact Dashboard - <span id="username"></span></h1>
+            <h1>Artifact Dashboard <span id="username" class="header-username"></span></h1>
         </div>
-        <div style="display: flex; gap: 10px; align-items: center;">
-            <button class="theme-toggle" onclick="toggleTheme()" id="themeToggle">
+        <div class="header-actions">
+            <button class="theme-toggle" onclick="toggleTheme()" id="themeToggle" aria-label="Toggle theme">
                 <svg id="themeIcon" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z" />
                 </svg>
@@ -21,7 +21,7 @@
             </button>
             <button class="btn btn-secondary" onclick="logout()">Sign Out</button>
         </div>
-    </div>
+    </header>
     
     <div id="messageBox" class="message" style="display: none;"></div>
     
@@ -60,49 +60,54 @@
         </div>
     </div>
     
-    <div class="menu-grid">
-        <div class="menu-group">
-            <button class="menu-btn caret" id="projectMenuToggle" onclick="toggleSubmenu('projectSubmenu', 'projectMenuToggle')">Project Actions</button>
-            <div class="submenu-grid" id="projectSubmenu">
-                <button class="menu-btn submenu-btn" onclick="showView('upload')">1. Upload ZIP</button>
-                <button class="menu-btn submenu-btn" onclick="showView('list')">2. List Projects</button>
-                <button class="menu-btn submenu-btn" onclick="showView('analyze')">3. Analyze Project</button>
-                <button class="menu-btn submenu-btn" onclick="showView('thumbnail')">18. Add Thumbnail</button>
-                <button class="menu-btn submenu-btn" onclick="showView('thumbnail')">15. Add Thumbnail</button>
-                <button class="menu-btn submenu-btn" onclick="showView('merge')">17. Merge ZIP into Project</button>
+    <div class="nav-wrapper" id="navWrapper">
+        <nav class="nav-bar" aria-label="Main navigation">
+            <div class="nav-tabs">
+                <button type="button" class="menu-btn nav-tab" data-view="overview" onclick="showView('overview')">Overview</button>
+                <div class="menu-group nav-group">
+                    <button type="button" class="menu-btn nav-tab caret" id="projectMenuToggle" onclick="toggleSubmenu('projectSubmenu', 'projectMenuToggle')">Project Actions</button>
+                    <div class="submenu-grid" id="projectSubmenu">
+                        <button type="button" class="menu-btn submenu-btn" data-view="upload" onclick="showView('upload')">1. Upload ZIP</button>
+                        <button type="button" class="menu-btn submenu-btn" data-view="list" onclick="showView('list')">2. List Projects</button>
+                        <button type="button" class="menu-btn submenu-btn" data-view="analyze" onclick="showView('analyze')">3. Analyze Project</button>
+                        <button type="button" class="menu-btn submenu-btn" data-view="thumbnail" onclick="showView('thumbnail')">4. Add Thumbnail</button>
+                        <button type="button" class="menu-btn submenu-btn" data-view="merge" onclick="showView('merge')">5. Merge ZIP into Project</button>
+                    </div>
+                </div>
+                <div class="menu-group nav-group">
+                    <button type="button" class="menu-btn nav-tab caret" id="rankingMenuToggle" onclick="toggleSubmenu('rankingSubmenu', 'rankingMenuToggle')">Ranking Tools</button>
+                    <div class="submenu-grid" id="rankingSubmenu">
+                        <button type="button" class="menu-btn submenu-btn" data-view="rank" onclick="showView('rank')">6. Rank Projects</button>
+                        <button type="button" class="menu-btn submenu-btn" data-view="rank-top3" onclick="showView('rank-top3')">7. Rank Top 3</button>
+                        <button type="button" class="menu-btn submenu-btn" data-view="rankings" onclick="showView('rankings')">8. View Rankings</button>
+                        <button type="button" class="menu-btn submenu-btn" data-view="rank-gemini" onclick="showView('rank-gemini')">9. AI Rank (Gemini)</button>
+                    </div>
+                </div>
+                <div class="menu-group nav-group">
+                    <button type="button" class="menu-btn nav-tab caret" id="settingsMenuToggle" onclick="toggleSubmenu('settingsSubmenu', 'settingsMenuToggle')">Settings</button>
+                    <div class="submenu-grid" id="settingsSubmenu">
+                        <button type="button" class="menu-btn submenu-btn" data-view="external" onclick="showView('external')">10. External Services</button>
+                        <button type="button" class="menu-btn submenu-btn" data-view="cleanup" onclick="showView('cleanup')">11. Cleanup Insights</button>
+                        <button type="button" class="menu-btn submenu-btn" data-view="preferences" onclick="showView('preferences')">12. Preferences</button>
+                        <button type="button" class="menu-btn submenu-btn" data-view="account" onclick="showView('account')">13. Account</button>
+                    </div>
+                </div>
+                <div class="menu-group nav-group">
+                    <button type="button" class="menu-btn nav-tab caret" id="resumeMenuToggle" onclick="toggleSubmenu('resumeSubmenu', 'resumeMenuToggle')">Resume Tools</button>
+                    <div class="submenu-grid" id="resumeSubmenu">
+                        <button type="button" class="menu-btn submenu-btn" data-view="resume-gen" onclick="showView('resume-gen')">14. Generate Resume</button>
+                        <button type="button" class="menu-btn submenu-btn" data-view="resume-view" onclick="showView('resume-view')">15. View Resume</button>
+                        <button type="button" class="menu-btn submenu-btn" data-view="resume-delete" onclick="showView('resume-delete')">16. Delete Resume</button>
+                    </div>
+                </div>
+                <button type="button" class="menu-btn nav-tab" data-view="portfolio" onclick="showView('portfolio')">17. View Portfolio</button>
+                <button type="button" class="menu-btn nav-tab" data-view="customize-portfolio" onclick="showView('customize-portfolio')">18. Customize Portfolio</button>
+                <button type="button" class="menu-btn nav-tab" data-view="llm-summary" onclick="showView('llm-summary')">19. LLM Summary</button>
             </div>
-        </div>
-        <div class="menu-group">
-            <button class="menu-btn caret" id="rankingMenuToggle" onclick="toggleSubmenu('rankingSubmenu', 'rankingMenuToggle')">Ranking Tools</button>
-            <div class="submenu-grid" id="rankingSubmenu">
-                <button class="menu-btn submenu-btn" onclick="showView('rank')">4. Rank Projects</button>
-                <button class="menu-btn submenu-btn" onclick="showView('rank-top3')">5. Rank Top 3</button>
-                <button class="menu-btn submenu-btn" onclick="showView('rankings')">6. View Rankings</button>
-                <button class="menu-btn submenu-btn" onclick="showView('rank-gemini')">7. AI Rank (Gemini)</button>
-            </div>
-        </div>
-        <div class="menu-group">
-            <button class="menu-btn caret" id="settingsMenuToggle" onclick="toggleSubmenu('settingsSubmenu', 'settingsMenuToggle')">Settings</button>
-            <div class="submenu-grid" id="settingsSubmenu">
-                <button class="menu-btn submenu-btn" onclick="showView('external')">7. External Services</button>
-                <button class="menu-btn submenu-btn" onclick="showView('cleanup')">8. Cleanup Insights</button>
-                <button class="menu-btn submenu-btn" onclick="showView('preferences')">9. Preferences</button>
-                <button class="menu-btn submenu-btn" onclick="showView('account')">10. Account</button>
-            </div>
-        </div>
-        <div class="menu-group">
-            <button class="menu-btn caret" id="resumeMenuToggle" onclick="toggleSubmenu('resumeSubmenu', 'resumeMenuToggle')">Resume Tools</button>
-            <div class="submenu-grid" id="resumeSubmenu">
-                <button class="menu-btn submenu-btn" onclick="showView('resume-gen')">11. Generate Resume</button>
-                <button class="menu-btn submenu-btn" onclick="showView('resume-view')">12. View Resume</button>
-                <button class="menu-btn submenu-btn" onclick="showView('resume-delete')">13. Delete Resume</button>
-            </div>
-        </div>
-        <button class="menu-btn" onclick="showView('portfolio')">14. View Portfolio</button>
-        <button class="menu-btn" onclick="showView('customize-portfolio')">15. Customize Portfolio</button>
-        <button class="menu-btn" onclick="showView('llm-summary')">16. LLM Summary</button>
+        </nav>
+        <div class="nav-dropdown-slot" id="navDropdownSlot" aria-hidden="true"></div>
     </div>
-    
+
     <div id="viewContainer"></div>
 
     <script>
@@ -150,7 +155,7 @@
 
                 // restore view + selection
                 const state = loadDashboardState();
-                const view = state?.activeView || 'list';
+                const view = state?.activeView || 'overview';
                 selectedProjectId = state?.selectedProjectId || null;
 
                 showView(view, { preserveSelection: true });
@@ -304,22 +309,29 @@
             }
         }
 
+        function updateNavDropdownSlot() {
+            const wrapper = document.getElementById('navWrapper');
+            const anyOpen = document.querySelector('.submenu-grid.open');
+            if (wrapper) {
+                if (anyOpen) wrapper.classList.add('dropdown-open');
+                else wrapper.classList.remove('dropdown-open');
+            }
+        }
+
         function toggleSubmenu(submenuId, toggleId) {
             const submenu = document.getElementById(submenuId);
             const toggle = document.getElementById(toggleId);
-            
-            // Check if the current menu is already open
+
             const wasOpen = submenu.classList.contains('open');
-            
-            // Close all dropdown menus first
+
             document.querySelectorAll('.submenu-grid.open').forEach(s => s.classList.remove('open'));
             document.querySelectorAll('.menu-btn.caret.open').forEach(t => t.classList.remove('open'));
-            
-            // If it was closed before, open it now
+
             if (!wasOpen) {
                 submenu.classList.add('open');
                 toggle.classList.add('open');
             }
+            updateNavDropdownSlot();
         }
 
         async function submitPrivacyConsent(consentGiven) {
@@ -389,15 +401,46 @@
         function showView(viewName, options = {}) {
             const { preserveSelection = false } = options;
             const container = document.getElementById('viewContainer');
-            
+
+            // Close all dropdowns and collapse the reserved slot
+            document.querySelectorAll('.submenu-grid.open').forEach(s => s.classList.remove('open'));
+            document.querySelectorAll('.menu-btn.caret.open').forEach(t => t.classList.remove('open'));
+            if (typeof updateNavDropdownSlot === 'function') updateNavDropdownSlot();
+
             // If not preserving selection, clear selected project and update state
             if (!preserveSelection) {
                 selectedProjectId = null;
                 saveDashboardState({ selectedProjectId: null });
             }
             saveDashboardState({ activeView: viewName });
-            
+
+            const projectCount = (projects && projects.length) || 0;
+            const userName = (currentUser && currentUser.user_name) ? escapeHtml(currentUser.user_name) : '';
+
             const views = {
+                'overview': `<div class="view-panel dashboard-overview">
+                    <div class="dashboard-hero">
+                        <h2>Welcome back, ${userName}</h2>
+                        <p>Manage your projects, rankings, resume, and portfolio from here.</p>
+                    </div>
+                    <div class="dashboard-stats">
+                        <div class="dashboard-stat">
+                            <div class="dashboard-stat-value" id="overviewProjectCount">${projectCount}</div>
+                            <div class="dashboard-stat-label">Projects</div>
+                        </div>
+                    </div>
+                    <div class="dashboard-section-title">Quick actions</div>
+                    <div class="dashboard-quick-actions">
+                        <button type="button" class="dashboard-quick-action" onclick="showView('upload')"><strong>Upload ZIP</strong><span>Add a new project from a ZIP file</span></button>
+                        <button type="button" class="dashboard-quick-action" onclick="showView('list')"><strong>List Projects</strong><span>View and manage stored projects</span></button>
+                        <button type="button" class="dashboard-quick-action" onclick="showView('analyze')"><strong>Analyze Project</strong><span>Run local or AI analysis</span></button>
+                        <button type="button" class="dashboard-quick-action" onclick="showView('rank-gemini')"><strong>Rank Projects</strong><span>AI-powered project ranking</span></button>
+                        <button type="button" class="dashboard-quick-action" onclick="showView('portfolio')"><strong>View Portfolio</strong><span>Load or generate your portfolio</span></button>
+                        <button type="button" class="dashboard-quick-action" onclick="showView('resume-gen')"><strong>Generate Resume</strong><span>Create resume from projects</span></button>
+                        <button type="button" class="dashboard-quick-action" onclick="showView('customize-portfolio')"><strong>Customize Portfolio</strong><span>Titles, descriptions, roles</span></button>
+                        <button type="button" class="dashboard-quick-action" onclick="showView('preferences')"><strong>Preferences</strong><span>Consent &amp; Git username</span></button>
+                    </div>
+                </div>`,
                 'upload': `<div class="view-panel"><h3>Upload ZIP File</h3><input type="file" id="zipFile" accept=".zip" /><button class="btn" onclick="uploadFile()">Upload</button><div id="uploadResult"></div></div>`,
                 'list': `<div class="view-panel"><h3>Stored Projects</h3><button class="btn" onclick="refreshProjects()">Refresh</button><button class="btn btn-secondary" onclick="loadSkills()">View Skills</button><div id="projectsList" class="project-list"></div><div id="skillsResult" class="result"></div></div>`,
                 'analyze': `<div class="view-panel"><h3>Analyze Project</h3><div id="analyzeProjectsList" class="project-list"></div><div style="margin: 10px 0;"><button class="btn" onclick="analyzeProject()">Local Analysis</button><button class="btn" onclick="analyzeProjectGemini()">AI Deep Analysis (Gemini)</button></div><p class="text-muted" style="font-size: 0.9em; margin-bottom: 10px;">Local: Fast pattern-based analysis | AI: Thorough semantic analysis with recommendations</p><div id="analyzeResult" class="result"></div></div>`,
@@ -420,7 +463,12 @@
             };
             
             container.innerHTML = views[viewName] || '<div class="view-panel"><p>View not found</p></div>';
-            
+
+            // Update active nav tab
+            document.querySelectorAll('.menu-btn[data-view]').forEach(b => b.classList.remove('active'));
+            const activeBtn = document.querySelector(`.menu-btn[data-view="${viewName}"]`);
+            if (activeBtn) activeBtn.classList.add('active');
+
             if (viewName === 'list' || viewName === 'analyze' || 
                 viewName === 'cleanup' || viewName === 'thumbnail' || viewName === 'llm-summary' || viewName === 'merge') {
                 setTimeout(() => {
