@@ -414,7 +414,7 @@ def generate_portfolio_markdown(artifact_data: Dict[str, Any]) -> str:
         p_obj.projects.append({
             "Project Name": item.get("project_name", "Unknown"),
             "Description": item.get("project_description"),
-            "Role/Contribution": item.get("contribution_display") or item.get("role_description"),
+            "Role/Contribution": item.get("role_description") or item.get("contribution_display"),
             "Tech Stack Used": ", ".join(item.get("tech_stack", [])),
             "Project Impact Score": item.get("impact_score", 0),
             "Project Duration": f"{item.get('duration_days', 0)} days",
