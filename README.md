@@ -43,7 +43,7 @@ Run the following commands to build and launch the interactive client inside a c
 
 ```bash
 docker compose build
-docker compose run --rm -it skillscope python src/api_main.py
+docker compose run --rm -it skillscope python api_main.py
 ```
 
 Alternatively, if you have issues with Docker, you can run the project locally.
