@@ -12,7 +12,11 @@ from api.routes import consent
 from api.routes import resume_portfolio
 from api.routes import settings
 from api.middleware.request_context import RequestContextMiddleware
+from api.exception_handlers import global_exception_handler, http_exception_handler
 
+app = FastAPI(title="Capstone Project Team 9 API")
+app.add_exception_handler(Exception, global_exception_handler)
+app.add_exception_handler(HTTPException, http_exception_handler)
 
 def initialize_database_tables():
     """Initialize all database tables required by the application."""
