@@ -14,6 +14,9 @@ import sys
 import requests
 import json
 import urllib.parse
+import subprocess
+import time
+import atexit
 
 # Add the current directory to sys.path to allow importing local modules
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
@@ -32,9 +35,49 @@ from resume_generator import _build_personal_project_description
 from portfolio_generator import _get_default_tech_stack
 
 # Configuration constants
-API_URL = "http://127.0.0.1:5000"
+API_URL = os.getenv("SKILLSCOPE_API_URL", "http://127.0.0.1:5000")
 INPUT_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "input"))
 
+API_PROCESS = None
+
+def cleanup_api_process():
+    """Terminates the API subprocess if it was started by this client."""
+    global API_PROCESS
+    if API_PROCESS:
+        print(_center_text("Stopping API server..."))
+        API_PROCESS.terminate()
+        try:
+            API_PROCESS.wait(timeout=5)
+        except subprocess.TimeoutExpired:
+            API_PROCESS.kill()
+
+def start_api_server():
+    """Attempts to start the API server as a subprocess."""
+    global API_PROCESS
+    src_dir = os.path.dirname(os.path.abspath(__file__))
+    api_script = os.path.join(src_dir, "api.py")
+    
+    print(_center_text("Attempting to start API server automatically..."))
+    
+    try:
+        log_path = os.path.join(OUTPUT_DIR, "api_server.log")
+        log_file = open(log_path, "w")
+        API_PROCESS = subprocess.Popen([sys.executable, api_script], cwd=src_dir, stdout=log_file, stderr=subprocess.STDOUT)
+        atexit.register(cleanup_api_process)
+        
+        # Wait for server to initialize
+        for _ in range(10):
+            time.sleep(1)
+            try:
+                if requests.get(f"{API_URL}/health", timeout=1).status_code == 200:
+                    print(_center_text("API server started successfully."))
+                    return True
+            except requests.RequestException:
+                pass
+    except Exception as e:
+        print(_center_text(f"Failed to start API server: {e}"))
+    
+    return False
 
 def _print_menu(title, options, prompt="Choose an option: "):
     """Helper to display a standardized menu and get user input."""
@@ -55,6 +98,9 @@ def check_api_connection():
     except requests.exceptions.RequestException:
         pass
     
+    if start_api_server():
+        return True
+
     print(_center_text("Error: Could not connect to API."))
     print(_center_text("Please ensure the API server is running in a separate terminal:"))
     print(_center_text("  python src/api.py"))
@@ -71,7 +117,7 @@ def get_input_zip_file():
     
     files = [f for f in os.listdir(INPUT_DIR) if f.lower().endswith(".zip")]
     if not files:
-        print(_center_text(f"No .zip files found in {INPUT_DIR}"))
+        print(_center_text(f"No .zip files found in src/input. Please add valid zip files there."))
         return None
     
     # Deduplicate files based on content hash to avoid showing identical zips
