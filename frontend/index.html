@@ -301,10 +301,10 @@
                 const data = res.data;
 
                 if (res.ok && data.success && data.user) {
-                    // Store user info in localStorage
-                    localStorage.setItem('user', JSON.stringify(data.user));
-                    // Redirect to dashboard
-                    window.location.href = 'dashboard.html';
+                    // Store user info in localStorage, then redirect so dashboard sees it
+                    const userJson = JSON.stringify(data.user);
+                    localStorage.setItem('user', userJson);
+                    window.location.replace('dashboard.html');
                 } else {
                     showMessage(data.message || 'Login failed. Please try again.', 'error');
                 }

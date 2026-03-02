@@ -492,7 +492,7 @@ async def analyze_project_gemini(project_id: int, user_name: Optional[str] = Que
         analyzer = GeminiAnalyzer()
         results = analyzer.analyze_project(
             file_contents,
-            project_name=project['project_info']['filename'],
+            project_name=project.get('filename', 'Unknown'),
             project_context=context
         )
         
@@ -558,9 +558,10 @@ async def get_project_quick_summary(project_id: int, user_name: Optional[str] = 
             raise HTTPException(status_code=400, detail="No file contents found")
         
         analyzer = GeminiAnalyzer()
-        summary = analyzer.get_quick_summary(file_contents, project['project_info']['filename'])
+        project_name = project.get('filename', 'Unknown')
+        summary = analyzer.get_quick_summary(file_contents, project_name)
         
-        return {"success": True, "summary": summary, "project_name": project['project_info']['filename']}
+        return {"success": True, "summary": summary, "project_name": project_name}
         
     except HTTPException:
         raise
