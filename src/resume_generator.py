@@ -2,13 +2,12 @@
 
 import os
 from datetime import datetime
-import ctypes
 
 from docx import Document
 from docx.shared import Pt
 from file_parser import OUTPUT_DIR
 from db import update_full_scan, list_full_scans, get_full_scan_by_id
-from print_utils import _center_text, is_noise
+from print_utils import _center_text, is_noise, _input_with_prefill
 from permission_manager import get_yes_no
 
 
@@ -42,81 +41,6 @@ def _save_doc(doc, path):
         except Exception as e:
             print(f"Error saving document: {e}")
             return None
-
-
-def _input_with_prefill(prompt, text):
-    """
-    Prompts for input with a default value pre-filled.
-    Works on Windows (via ctypes) and Unix (via readline).
-    """
-    if not text:
-        return input(prompt)
-
-    if os.name == 'nt':
-        try:
-            # Windows implementation using WriteConsoleInputW
-            class KEY_EVENT_RECORD(ctypes.Structure):
-                _fields_ = [
-                    ("bKeyDown", ctypes.c_int),
-                    ("wRepeatCount", ctypes.c_ushort),
-                    ("wVirtualKeyCode", ctypes.c_ushort),
-                    ("wVirtualScanCode", ctypes.c_ushort),
-                    ("uChar", ctypes.c_wchar),
-                    ("dwControlKeyState", ctypes.c_ulong)
-                ]
-            
-            class INPUT_RECORD_Event(ctypes.Union):
-                _fields_ = [("KeyEvent", KEY_EVENT_RECORD)]
-            
-            class INPUT_RECORD(ctypes.Structure):
-                _fields_ = [
-                    ("EventType", ctypes.c_ushort),
-                    ("Event", INPUT_RECORD_Event)
-                ]
-
-            STD_INPUT_HANDLE = -10
-            hConsoleInput = ctypes.windll.kernel32.GetStdHandle(STD_INPUT_HANDLE)
-            
-            n = len(text)
-            records = (INPUT_RECORD * n)()
-            
-            for i, char in enumerate(text):
-                records[i].EventType = 0x0001 # KEY_EVENT
-                records[i].Event.KeyEvent.bKeyDown = 1
-                records[i].Event.KeyEvent.wRepeatCount = 1
-                records[i].Event.KeyEvent.wVirtualKeyCode = 0
-                records[i].Event.KeyEvent.wVirtualScanCode = 0
-                records[i].Event.KeyEvent.uChar = char
-                records[i].Event.KeyEvent.dwControlKeyState = 0
-
-            written = ctypes.c_ulong(0)
-            ctypes.windll.kernel32.WriteConsoleInputW(
-                hConsoleInput,
-                ctypes.byref(records),
-                n,
-                ctypes.byref(written)
-            )
-        except Exception:
-            pass
-    else:
-        try:
-            import readline
-            def hook():
-                readline.insert_text(text)
-                readline.redisplay()
-            readline.set_startup_hook(hook)
-        except ImportError:
-            pass
-
-    try:
-        return input(prompt)
-    finally:
-        if os.name != 'nt':
-            try:
-                import readline
-                readline.set_startup_hook()
-            except ImportError:
-                pass
 
 
 # -------------------------------------------------------------------------
@@ -248,81 +172,6 @@ def generate_resume(
 # -------------------------------------------------------------------------
 
 
-def render_resume_artifact(artifact_data: dict, output_path: str) -> str:
-    """
-    Renders a DOCX file from a resume artifact dictionary.
-    This decouples the data structure from the file generation, allowing
-    both the CLI and API to use the same rendering logic.
-    """
-    doc = Document()
-    
-    # 1. Header Info
-    user_name = artifact_data.get("user_name") or "Resume"
-    user_title = artifact_data.get("user_title")
-    user_summary = artifact_data.get("user_summary")
-    created_date = artifact_data.get("created_date")
-    
-    # Title / Name
-    h1 = doc.add_heading(user_name, level=0)
-    h1.runs[0].font.size = Pt(24)
-    
-    if created_date:
-        doc.add_paragraph(f"Generated on {created_date}")
-    
-    if user_title:
-        p = doc.add_paragraph(user_title)
-        p.runs[0].italic = True
-        p.runs[0].font.size = Pt(14)
-    
-    doc.add_paragraph() # Spacer
-
-    # 2. Summary Section
-    if user_summary:
-        doc.add_heading("Professional Summary", level=1)
-        doc.add_paragraph(user_summary)
-        doc.add_paragraph()
-
-    # 3. Skills Section
-    skills = artifact_data.get("skills", [])
-    if skills:
-        doc.add_heading("Technical Skills", level=1)
-        p = doc.add_paragraph()
-        p.add_run("Languages & Technologies: ").bold = True
-        p.add_run(", ".join(skills))
-        doc.add_paragraph()
-
-    # 4. Projects Section
-    items = artifact_data.get("items", [])
-    if items:
-        doc.add_heading("Project Experience", level=1)
-        
-        for item in items:
-            project_name = item.get("project_name", "Unnamed Project")
-            text = item.get("text", "")
-            date_str = item.get("date_str", "")
-            
-            # Project Header
-            p_head = doc.add_heading(level=2)
-            p_head.add_run(project_name).bold = True
-            if date_str:
-                p_head.add_run(date_str).font.size = Pt(11)
-            
-            # Description
-            if text:
-                doc.add_paragraph(text, style="List Bullet")
-            
-            # Per-project skills (optional, if present in item)
-            project_skills = item.get("skills", [])
-            if project_skills:
-                s_p = doc.add_paragraph(style="List Bullet")
-                s_p.add_run("Skills: ").bold = True
-                s_p.add_run(", ".join(project_skills))
-            
-            doc.add_paragraph()
-
-    return _save_doc(doc, output_path)
-
-
 def _build_personal_project_description(project_name, project_context, user_stats):
     """
     Constructs a sentence describing the user's specific contribution to a project.
@@ -389,14 +238,27 @@ def generate_contributor_portfolio(
     if not profile_data:
         return None
 
-    # 1. Prepare Data Structure (The "Artifact")
     safe_name = "".join(c for c in contributor_name if c.isalnum() or c in (' ', '_', '-')).strip()
     docx_path = os.path.join(RESUME_DIR, f"Resume_{safe_name}.docx")
     
-    artifact = {
-        "created_date": datetime.now().strftime('%B %d, %Y'),
-        "items": []
-    }
+    doc = Document()
+    
+    # Header
+    custom_name = profile_data.get("custom_name")
+    if custom_name:
+        display_name = custom_name
+    else:
+        display_name = contributor_name
+        if "@" in contributor_name:
+            display_name = contributor_name.split("@")[0]
+        display_name = display_name.replace(".", " ").replace("_", " ").title()
+    
+    title = doc.add_heading(display_name, level=0)
+    title.runs[0].font.size = Pt(24)
+    doc.add_paragraph(f"Generated on {datetime.now().strftime('%B %d, %Y')}")
+    
+    # Summary
+    doc.add_heading("Professional Summary", level=1)
     
     skills = profile_data.get("skills", [])
     projects_ref = profile_data.get("projects", [])
@@ -408,20 +270,6 @@ def generate_contributor_portfolio(
         dev_keywords = {"Development", "Programming", "Engineering"}
         if any(any(k in s for k in dev_keywords) for s in skills):
             role = "Software Developer"
-
-    # Name
-    custom_name = profile_data.get("custom_name")
-    if custom_name:
-        display_name = custom_name
-    else:
-        display_name = contributor_name
-        if "@" in contributor_name:
-            display_name = contributor_name.split("@")[0]
-        display_name = display_name.replace(".", " ").replace("_", " ").title()
-    
-    artifact["user_name"] = display_name
-    artifact["user_title"] = role
-    artifact["skills"] = skills
 
     custom_summary = profile_data.get("custom_summary")
     if custom_summary:
@@ -437,7 +285,21 @@ def generate_contributor_portfolio(
                 summary_text += f", along with expertise in {len(skills)-3} other technologies"
             summary_text += "."
         
-    artifact["user_summary"] = summary_text
+    doc.add_paragraph(summary_text)
+    doc.add_paragraph()
+
+    # Skills
+    doc.add_heading("Technical Skills", level=1)
+    if skills:
+        p = doc.add_paragraph()
+        p.add_run("Languages & Technologies: ").bold = True
+        p.add_run(", ".join(skills))
+    else:
+        doc.add_paragraph("No specific skills detected.")
+    doc.add_paragraph()
+
+    # Experience
+    doc.add_heading("Project Experience", level=1)
     
     # Prepare projects
     user_projects = []
@@ -478,40 +340,48 @@ def generate_contributor_portfolio(
         # Functional (Impact Score - Best First)
         user_projects.sort(key=lambda x: x[1]["score"], reverse=True)
 
-    for p_name, u_stats, p_context, custom_desc, custom_skills in user_projects:
-        # Filter negligible
-        if u_stats["pct"] < 0.1 and u_stats["files_worked"] == 0 and u_stats["commit_count"] == 0:
-            continue
+    if not user_projects:
+        doc.add_paragraph("No project contributions found.")
+    else:
+        for p_name, u_stats, p_context, custom_desc, custom_skills in user_projects:
+            # Filter negligible
+            if u_stats["pct"] < 0.1 and u_stats["files_worked"] == 0 and u_stats["commit_count"] == 0:
+                continue
 
-        # Date
-        start = p_context.get("first_modified")
-        end = p_context.get("last_modified")
-        date_str = ""
-        if start and end:
-            date_str = f" ({_fmt_date(start)} – {_fmt_date(end)})"
+            # Date
+            start = p_context.get("first_modified")
+            end = p_context.get("last_modified")
+            date_str = ""
+            if start and end:
+                date_str = f" ({_fmt_date(start)} – {_fmt_date(end)})"
 
-        # Description
-        if custom_desc:
-            desc = custom_desc
-        else:
-            desc = _build_personal_project_description(p_name, p_context, u_stats)
-        
-        # Skills for this project
-        if custom_skills is not None:
-            my_skills = custom_skills
-        else:
-            pcs = p_context.get("per_contributor_skills", {})
-            my_skills = pcs.get(contributor_name, [])
+            # Heading
+            p_head = doc.add_heading(level=2)
+            p_head.add_run(p_name).bold = True
+            if date_str:
+                p_head.add_run(date_str).font.size = Pt(11)
+            
+            # Description
+            if custom_desc:
+                desc = custom_desc
+            else:
+                desc = _build_personal_project_description(p_name, p_context, u_stats)
+            doc.add_paragraph(desc, style="List Bullet")
+            
+            # Skills for this project
+            if custom_skills is not None:
+                my_skills = custom_skills
+            else:
+                pcs = p_context.get("per_contributor_skills", {})
+                my_skills = pcs.get(contributor_name, [])
+            if my_skills:
+                s_p = doc.add_paragraph(style="List Bullet")
+                s_p.add_run("Skills: ").bold = True
+                s_p.add_run(", ".join(my_skills))
+            
+            doc.add_paragraph()
 
-        artifact["items"].append({
-            "project_name": p_name,
-            "text": desc,
-            "date_str": date_str,
-            "skills": my_skills
-        })
-
-    # 2. Render Artifact
-    return render_resume_artifact(artifact, docx_path)
+    return _save_doc(doc, docx_path)
 
 
 def edit_contributor_descriptions(target_scan=None):
@@ -827,3 +697,66 @@ def edit_contributor_descriptions(target_scan=None):
                     update_full_scan(summary_id, data)
                     print(_center_text("All custom fields cleared. Reverted to defaults."))
                     print(_center_text("Resume fields cleared."))
+
+
+def render_resume_artifact(artifact_data: dict, output_path: str) -> None:
+    """
+    Renders a resume artifact (JSON data) into a DOCX file at output_path.
+    Used by the API to generate the document on demand.
+    """
+    doc = Document()
+
+    # Header
+    user_name = artifact_data.get("user_name") or "Resume"
+    title = doc.add_heading(user_name, level=0)
+    title.runs[0].font.size = Pt(24)
+    
+    user_title = artifact_data.get("user_title")
+    if user_title:
+        doc.add_paragraph(user_title).bold = True
+
+    doc.add_paragraph(f"Generated on {datetime.now().strftime('%B %d, %Y')}")
+
+    # Summary
+    user_summary = artifact_data.get("user_summary")
+    if user_summary:
+        doc.add_heading("Professional Summary", level=1)
+        doc.add_paragraph(user_summary)
+
+    # Skills
+    skills = artifact_data.get("skills", [])
+    if skills:
+        doc.add_heading("Technical Skills", level=1)
+        p = doc.add_paragraph()
+        p.add_run("Languages & Technologies: ").bold = True
+        p.add_run(", ".join(skills))
+
+    # Projects
+    items = artifact_data.get("items", [])
+    if items:
+        doc.add_heading("Project Experience", level=1)
+        for item in items:
+            p_name = item.get("project_name", "Unknown Project")
+            date_str = item.get("date_str", "")
+            text = item.get("text", "")
+            
+            # Heading
+            p_head = doc.add_heading(level=2)
+            p_head.add_run(p_name).bold = True
+            if date_str:
+                p_head.add_run(date_str).font.size = Pt(11)
+            
+            # Description
+            if text:
+                doc.add_paragraph(text, style="List Bullet")
+            
+            # Item specific skills?
+            item_skills = item.get("skills", [])
+            if item_skills:
+                s_p = doc.add_paragraph(style="List Bullet")
+                s_p.add_run("Skills: ").bold = True
+                s_p.add_run(", ".join(item_skills))
+            
+            doc.add_paragraph()
+    
+    doc.save(output_path)

@@ -13,6 +13,7 @@ import os
 import sys
 import requests
 import json
+import urllib.parse
 
 # Add the current directory to sys.path to allow importing local modules
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
@@ -24,8 +25,10 @@ from print_utils import (
     _print_banner,
     print_full_scan_report,
     print_scan_list,
-    is_noise
+    is_noise,
+    _input_with_prefill
 )
+from resume_generator import _build_personal_project_description
 
 # Configuration constants
 API_URL = "http://127.0.0.1:5000"
@@ -251,6 +254,206 @@ def update_scan_via_api():
     input(_center_text("Press Enter..."))
 
 
+def edit_contributor_resume_via_api(scan_id):
+    """
+    Allows editing contributor profile details (Name, Title, Summary, Projects) via API.
+    """
+    # Fetch contributors
+    contributors = []
+    try:
+        resp = requests.get(f"{API_URL}/scans/{scan_id}")
+        if resp.status_code == 200:
+            data = resp.json().get("scan", {}).get("scan_data", {})
+            profiles = data.get("contributor_profiles", {})
+            contributors = sorted([c for c in profiles.keys() if not is_noise(c)])
+    except Exception:
+        pass
+    
+    if not contributors:
+        print(_center_text("No contributors found."))
+        return
+
+    # Select contributor
+    print()
+    print(_center_text("Select contributor to edit:"))
+    for i, c in enumerate(contributors, 1):
+        print(_center_text(f"{i}. {c}"))
+    
+    sel = input(_center_text("Enter number (0 to back): ")).strip()
+    if not sel.isdigit(): return
+    idx = int(sel) - 1
+    if idx < 0 or idx >= len(contributors): return
+    
+    contributor_id = contributors[idx]
+    
+    while True:
+        # Refresh profile data
+        profile = {}
+        project_map = {}
+        try:
+            resp = requests.get(f"{API_URL}/scans/{scan_id}")
+            if resp.status_code == 200:
+                data = resp.json().get("scan", {}).get("scan_data", {})
+                profile = data.get("contributor_profiles", {}).get(contributor_id, {})
+                summaries = data.get("project_summaries", [])
+                for p in summaries:
+                    if p.get("project"):
+                        project_map[p["project"]] = p
+        except:
+            pass
+
+        print()
+        print(_center_text(f"--- Editing {contributor_id} ---"))
+        print(_center_text("1. Edit Name"))
+        print(_center_text("2. Edit Professional Title"))
+        print(_center_text("3. Edit Professional Summary"))
+        print(_center_text("4. Edit Project Details (Desc/Skills)"))
+        print(_center_text("5. Regenerate Resume"))
+        print(_center_text("6. Reset Resume Changes"))
+        print(_center_text("0. Back to Contributor List"))
+        
+        choice = input(_center_text("Choose option: ")).strip()
+        
+        if choice == "0": break
+        
+        def _update(payload):
+            safe_cid = urllib.parse.quote(contributor_id, safe='')
+            url = f"{API_URL}/scans/{scan_id}/contributors/{safe_cid}"
+            try:
+                r = requests.post(url, json=payload)
+                if r.status_code == 200:
+                    print(_center_text("Saved."))
+                else:
+                    print(_center_text(f"Error: {r.text}"))
+            except Exception as e:
+                print(_center_text(f"Connection error: {e}"))
+
+        if choice == "1":
+            curr = profile.get("custom_name", "")
+            print(_center_text("Edit Name (type 'RESET' to restore default):"))
+            val = _input_with_prefill(_center_text("Value: "), curr).strip()
+            if val == "RESET": val = ""
+            _update({"custom_name": val})
+            
+        elif choice == "2":
+            curr = profile.get("custom_title", "")
+            print(_center_text("Edit Title (type 'RESET' to restore default):"))
+            val = _input_with_prefill(_center_text("Value: "), curr).strip()
+            if val == "RESET": val = ""
+            _update({"custom_title": val})
+
+        elif choice == "3":
+            curr = profile.get("custom_summary", "")
+            print(_center_text("Edit Summary (type 'RESET' to restore default):"))
+            val = _input_with_prefill(_center_text("Value: "), curr).strip()
+            if val == "RESET": val = ""
+            _update({"custom_summary": val})
+
+        elif choice == "4":
+            projects = profile.get("projects", [])
+            if not projects:
+                print(_center_text("No projects."))
+                continue
+            
+            while True:
+                print()
+                print(_center_text(f"Projects for {contributor_id}:"))
+                for i, p in enumerate(projects, 1):
+                    marker = " *" if p.get("custom_description") or p.get("custom_skills") else ""
+                    print(_center_text(f"{i}. {p.get('name')}{marker}"))
+                
+                psel = input(_center_text("Select project (0 to back): ")).strip()
+                if not psel.isdigit(): continue
+                pidx = int(psel) - 1
+                if pidx < 0 or pidx >= len(projects): break
+                
+                target_p = projects[pidx]
+                p_name = target_p.get("name")
+                
+                print()
+                print(_center_text(f"--- Editing Project: {p_name} ---"))
+                print(_center_text("1. Edit Description"))
+                print(_center_text("2. Edit Skills"))
+                print(_center_text("0. Back"))
+                
+                sub = input(_center_text("Choose: ")).strip()
+                if sub == "0": continue
+                
+                if sub == "1":
+                    curr = target_p.get("custom_description")
+                    
+                    # Generate default if no custom value exists
+                    default_val = ""
+                    p_context = project_map.get(p_name, {})
+                    if p_context:
+                        stats = dict(target_p)
+                        if stats.get("files_worked", 0) == 0 and stats.get("files_list"):
+                            stats["files_worked"] = len(stats["files_list"])
+                        default_val = _build_personal_project_description(p_name, p_context, stats)
+                    
+                    print(_center_text("Edit Description (type 'RESET' to restore default):"))
+                    val = _input_with_prefill(_center_text("Value: "), curr if curr else default_val).strip()
+                    if val == "RESET": val = ""
+                    _update({"project_updates": {p_name: {"custom_description": val}}})
+                    # Optimistic update
+                    if val: target_p["custom_description"] = val
+                    else: target_p.pop("custom_description", None)
+
+                elif sub == "2":
+                    curr_list = target_p.get("custom_skills")
+                    
+                    # Get default skills if no custom value exists
+                    default_skills = []
+                    p_context = project_map.get(p_name, {})
+                    if p_context:
+                        pcs = p_context.get("per_contributor_skills", {})
+                        default_skills = pcs.get(contributor_id, [])
+                    
+                    print(_center_text("Edit Skills (comma-separated, type 'RESET' to restore default):"))
+                    val = _input_with_prefill(_center_text("Value: "), ", ".join(curr_list if curr_list is not None else default_skills)).strip()
+                    
+                    if val == "RESET":
+                         _update({"project_updates": {p_name: {"reset_custom_skills": True}}})
+                         target_p.pop("custom_skills", None)
+                    else:
+                         new_skills = [s.strip() for s in val.split(",") if s.strip()]
+                         _update({"project_updates": {p_name: {"custom_skills": new_skills}}})
+                         target_p["custom_skills"] = new_skills
+
+        elif choice == "5":
+            print(_center_text("Regenerating..."))
+            payload = {
+                "scan_id": scan_id,
+                "contributor_id": contributor_id,
+                "title": f"Resume - {contributor_id}"
+            }
+            try:
+                r = requests.post(f"{API_URL}/resume/generate", json=payload)
+                if r.status_code == 200:
+                    rid = r.json().get("resume", {}).get("resume_id")
+                    exp = requests.get(f"{API_URL}/resume/{rid}/export")
+                    if exp.status_code == 200:
+                        safe_title = "".join(c for c in payload["title"] if c.isalnum() or c in (' ', '_', '-')).strip().replace(' ', '_')
+                        filename = f"{safe_title}.docx"
+                        out_dir = os.path.join(OUTPUT_DIR, "resumes")
+                        os.makedirs(out_dir, exist_ok=True)
+                        out_path = os.path.join(out_dir, filename)
+                        with open(out_path, "wb") as f:
+                            f.write(exp.content)
+                        print(_center_text(f"Saved to: {out_path}"))
+                    else:
+                        print(_center_text("Export failed."))
+                else:
+                    print(_center_text("Generation failed."))
+            except Exception as e:
+                print(_center_text(f"Error: {e}"))
+            input(_center_text("Press Enter..."))
+
+        elif choice == "6":
+            if get_yes_no(f"Discard ALL manual edits for {contributor_id}?"):
+                _update({"reset_profile": True})
+
+
 def generate_artifacts_via_api():
     """Generates Resume or Portfolio artifacts via API."""
     scans = _fetch_scans()
@@ -331,10 +534,13 @@ def generate_artifacts_via_api():
                 endpoint = "/portfolio/generate"
                 key = "portfolio"
 
-        elif sub in ("4", "5"):
-            print(_center_text("Editing via API client is not yet implemented."))
-            input(_center_text("Press Enter..."))
+        elif sub == "4":
+            edit_contributor_resume_via_api(scan_id)
             continue
+        elif sub == "5":
+             print(_center_text("Editing portfolio via API client is not yet implemented."))
+             input(_center_text("Press Enter..."))
+             continue
 
         if endpoint:
             default_title = f"My {key.capitalize()}"

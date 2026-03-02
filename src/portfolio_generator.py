@@ -5,7 +5,7 @@ import os
 from db import update_full_scan
 from print_utils import _center_text, is_noise
 from file_parser import OUTPUT_DIR
-from resume_generator import _input_with_prefill
+from print_utils import _input_with_prefill
 
 class Portfolio:
     """
