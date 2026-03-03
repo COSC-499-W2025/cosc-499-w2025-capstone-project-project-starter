@@ -67,6 +67,25 @@ def _mk_graph(engine):
 
     return user_id, portfolio_id, project_id, snapshot_id
 
+
+def _register_user(client, *, email: str):
+    response = client.post(
+        "/auth/register",
+        json={
+            "email": email,
+            "password": "password123",
+            "display_name": "Dashboard User",
+            "consent_data_access": True,
+        },
+    )
+    assert response.status_code == 200
+    payload = response.json()
+    return {
+        "user_id": payload["user"]["user_id"],
+        "portfolio_id": payload["user"]["portfolio_id"],
+        "token": payload["token"],
+    }
+
 # def fake_thumbnail_blob():
 #     # 1x1 PNG transparent pixel
 #     png_base64 = (
@@ -367,6 +386,172 @@ def test_auth_login_and_wrong_password(client):
     assert ok.status_code == 200
     assert ok.json()["user"]["email"] == "login-user@example.com"
     assert "token" in ok.json()
+
+
+def test_dashboard_mode_publish_unpublish_and_public_endpoint(client):
+    account = _register_user(client, email="dashboard-flow@example.com")
+    headers = {"Authorization": f"Bearer {account['token']}"}
+
+    r_mode = client.get(f"/portfolio/{account['portfolio_id']}/dashboard/mode", headers=headers)
+    assert r_mode.status_code == 200
+    mode_body = r_mode.json()
+    assert mode_body["mode"] == "private"
+    assert mode_body["public_slug"]
+
+    r_publish = client.post(f"/portfolio/{account['portfolio_id']}/dashboard/publish", headers=headers)
+    assert r_publish.status_code == 200
+    publish_body = r_publish.json()
+    assert publish_body["mode"] == "public"
+    assert publish_body["publication"]["version"] == 1
+    slug = publish_body["public_slug"]
+
+    r_public = client.get(f"/public/portfolio/{slug}")
+    assert r_public.status_code == 200
+    public_body = r_public.json()
+    assert public_body["publication"]["version"] == 1
+    assert isinstance(public_body["dashboard"], dict)
+    assert public_body["owner"]["username"] == "Dashboard User"
+
+    r_unpublish = client.post(f"/portfolio/{account['portfolio_id']}/dashboard/unpublish", headers=headers)
+    assert r_unpublish.status_code == 200
+    assert r_unpublish.json()["mode"] == "private"
+
+    r_public_after = client.get(f"/public/portfolio/{slug}")
+    assert r_public_after.status_code == 404
+
+
+def test_dashboard_mode_set_public_requires_publication(client):
+    account = _register_user(client, email="dashboard-nopub@example.com")
+    headers = {"Authorization": f"Bearer {account['token']}"}
+
+    r_set = client.post(
+        f"/portfolio/{account['portfolio_id']}/dashboard/mode",
+        json={"mode": "public"},
+        headers=headers,
+    )
+    assert r_set.status_code == 409
+    assert "Publish the dashboard" in r_set.text
+
+
+def test_public_dashboard_filter_validation_and_application(client, engine):
+    account = _register_user(client, email="dashboard-filters@example.com")
+    headers = {"Authorization": f"Bearer {account['token']}"}
+
+    p1 = _u()
+    p2 = _u()
+    s1 = _u()
+    s2 = _u()
+    a1 = _u()
+    a2 = _u()
+    t1 = datetime(2024, 1, 4, 12, 0, 0, tzinfo=timezone.utc)
+    t2 = datetime(2024, 2, 7, 12, 0, 0, tzinfo=timezone.utc)
+
+    with engine.begin() as conn:
+        conn.execute(
+            text(
+                "INSERT INTO projects (id, portfolio_id, name) VALUES (:id1, :pf, 'Alpha'), (:id2, :pf, 'Beta')"
+            ),
+            {"id1": p1, "id2": p2, "pf": account["portfolio_id"]},
+        )
+        conn.execute(
+            text(
+                """
+                INSERT INTO snapshots (id, project_id, source_zip_name, source_zip_sha256, ingested_at)
+                VALUES
+                  (:s1, :p1, 'a.zip', :zh1, :t1),
+                  (:s2, :p2, 'b.zip', :zh2, :t2)
+                """
+            ),
+            {"s1": s1, "s2": s2, "p1": p1, "p2": p2, "zh1": "a" * 64, "zh2": "b" * 64, "t1": t1, "t2": t2},
+        )
+        conn.execute(
+            text(
+                """
+                INSERT INTO analyses (id, snapshot_id, analysis_type, status, output_json, completed_at)
+                VALUES
+                  (:a1, :s1, 'local_ml', 'complete', CAST(:o1 AS jsonb), NOW()),
+                  (:a2, :s2, 'local_ml', 'complete', CAST(:o2 AS jsonb), NOW())
+                """
+            ),
+            {
+                "a1": a1,
+                "a2": a2,
+                "s1": s1,
+                "s2": s2,
+                "o1": json.dumps(
+                    {"skills": [{"skill": "python", "first_seen_ts": t1.isoformat(), "max_prob": 0.9, "hits": 5}]}
+                ),
+                "o2": json.dumps(
+                    {"skills": [{"skill": "react", "first_seen_ts": t2.isoformat(), "max_prob": 0.85, "hits": 3}]}
+                ),
+            },
+        )
+
+    r_publish = client.post(f"/portfolio/{account['portfolio_id']}/dashboard/publish", headers=headers)
+    assert r_publish.status_code == 200
+    slug = r_publish.json()["public_slug"]
+
+    r_bad = client.get(f"/public/portfolio/{slug}?unsupported=value")
+    assert r_bad.status_code == 400
+
+    r_filtered = client.get(f"/public/portfolio/{slug}?project_ids={p1}&skills=python")
+    assert r_filtered.status_code == 200
+    body = r_filtered.json()
+    assert body["applied_filters"]["project_ids"] == [p1]
+    assert body["applied_filters"]["skills"] == ["python"]
+    assert [p["id"] for p in body["dashboard"]["projects"]] == [p1]
+    assert all((event.get("skill") or "").casefold() == "python" for event in body["dashboard"]["skills_timeline"])
+
+
+def test_dashboard_public_mode_still_allows_dashboard_mutations(client, engine):
+    account = _register_user(client, email="dashboard-locks@example.com")
+    headers = {"Authorization": f"Bearer {account['token']}"}
+
+    project_id = _u()
+    snapshot_id = _u()
+    showcase_id = _u()
+
+    with engine.begin() as conn:
+        conn.execute(
+            text("INSERT INTO projects (id, portfolio_id, name) VALUES (:id, :pf, 'Locked Project')"),
+            {"id": project_id, "pf": account["portfolio_id"]},
+        )
+        conn.execute(
+            text(
+                """
+                INSERT INTO snapshots (id, project_id, source_zip_name, source_zip_sha256)
+                VALUES (:sid, :pid, 'locked.zip', :zh)
+                """
+            ),
+            {"sid": snapshot_id, "pid": project_id, "zh": "c" * 64},
+        )
+        conn.execute(
+            text(
+                """
+                INSERT INTO portfolio_showcases (id, project_id, content_json)
+                VALUES (:id, :pid, '{"title":"old"}'::jsonb)
+                """
+            ),
+            {"id": showcase_id, "pid": project_id},
+        )
+
+    r_publish = client.post(f"/portfolio/{account['portfolio_id']}/dashboard/publish", headers=headers)
+    assert r_publish.status_code == 200
+
+    r_cfg = client.patch(f"/users/{account['user_id']}/config", json={"highlights": {"skills": ["python"]}})
+    assert r_cfg.status_code == 200
+
+    r_generate_pf = client.post("/portfolio/generate", json={"portfolio_id": account["portfolio_id"]})
+    assert r_generate_pf.status_code == 200
+
+    r_generate_showcase = client.post(f"/projects/{project_id}/showcase/generate")
+    assert r_generate_showcase.status_code == 200
+
+    r_edit_showcase = client.post(
+        f"/portfolio/{showcase_id}/edit",
+        json={"title": "new title"},
+    )
+    assert r_edit_showcase.status_code == 200
 
 
 def test_authenticated_user_scope_rejects_mismatched_user_id(client):
