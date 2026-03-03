@@ -229,7 +229,6 @@ def get_public_dashboard_by_slug(conn, public_slug: str) -> Optional[Dict[str, A
               pd.published_at,
               p.user_id AS owner_user_id,
               aa.display_name AS owner_display_name,
-              aa.email AS owner_email,
               pub.version,
               pub.frozen_config_json,
               pub.frozen_dashboard_json,
@@ -256,8 +255,6 @@ def get_public_dashboard_by_slug(conn, public_slug: str) -> Optional[Dict[str, A
         "owner_display_name": str(row.get("owner_display_name") or "").strip() or None,
         "owner_username": _public_username(
             display_name=row.get("owner_display_name"),
-            email=row.get("owner_email"),
-            user_id=row.get("owner_user_id"),
         ),
         "version": int(row["version"]) if row.get("version") is not None else None,
         "frozen_config_json": _as_dict(row.get("frozen_config_json")),
@@ -426,21 +423,10 @@ def _as_dict(value: Any) -> Dict[str, Any]:
     return value if isinstance(value, dict) else {}
 
 
-def _public_username(*, display_name: Any, email: Any, user_id: Any) -> str:
+def _public_username(*, display_name: Any) -> str:
     name = str(display_name or "").strip()
     if name:
         return name
-
-    email_value = str(email or "").strip()
-    if email_value:
-        local_part = email_value.split("@", 1)[0].strip()
-        if local_part:
-            return local_part
-        return email_value
-
-    uid = str(user_id or "").strip()
-    if uid:
-        return f"user-{uid[:8]}"
 
     return "User"
 
