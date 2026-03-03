@@ -218,6 +218,14 @@ body > .modal {
     background: var(--bg-card);
     border: 1px solid var(--border-color);
     border-radius: var(--radius-lg);
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 32px;
+}
+.dashboard-hero-text {
+    flex: 1;
+    min-width: 0;
 }
 
 .dashboard-hero h2 {
@@ -238,7 +246,8 @@ body > .modal {
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
     gap: 16px;
-    margin-bottom: 32px;
+    margin-bottom: 0;
+    flex-shrink: 0;
 }
 
 .dashboard-stat {
@@ -814,6 +823,8 @@ body > .modal {
     }
     .dashboard-hero {
         padding: 28px 24px;
+        flex-direction: column;
+        gap: 24px;
     }
     .dashboard-hero h2 {
         font-size: 1.35rem;

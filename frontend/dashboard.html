@@ -437,8 +437,16 @@
             const views = {
                 'overview': `<div class="view-panel dashboard-overview">
                     <div class="dashboard-hero">
-                        <h2>Welcome to Your Dashboard</h2>
-                        <p>Manage your projects, rank them with AI, build your portfolio, and showcase your work — all in one place.</p>
+                        <div class="dashboard-hero-text">
+                            <h2>Welcome to Your Dashboard</h2>
+                            <p>Manage your projects, rank them with AI, build your portfolio, and showcase your work — all in one place.</p>
+                        </div>
+                        <div class="dashboard-stats">
+                            <div class="dashboard-stat">
+                                <div class="dashboard-stat-value" id="overviewProjectCount">${projectCount}</div>
+                                <div class="dashboard-stat-label">Total Projects</div>
+                            </div>
+                        </div>
                     </div>
                     <div class="dashboard-quick-actions">
                         <button type="button" class="dashboard-quick-action" onclick="showView('list')">
@@ -465,12 +473,6 @@
                             <strong>Settings</strong>
                             <span>Manage preferences, privacy consent, Git username, and external service permissions.</span>
                         </button>
-                    </div>
-                    <div class="dashboard-stats">
-                        <div class="dashboard-stat">
-                            <div class="dashboard-stat-value" id="overviewProjectCount">${projectCount}</div>
-                            <div class="dashboard-stat-label">Total Projects</div>
-                        </div>
                     </div>
                 </div>`,
                 'upload': `<div class="view-panel"><h3>Upload ZIP File</h3><input type="file" id="zipFile" accept=".zip" /><button class="btn" onclick="uploadFile()">Upload</button><div id="uploadResult"></div></div>`,
