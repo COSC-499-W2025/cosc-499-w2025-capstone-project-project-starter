@@ -69,15 +69,13 @@ body > .modal {
 
 .nav-wrapper {
     margin-bottom: 0;
-}
-
-.nav-wrapper.dropdown-open .nav-dropdown-slot {
-    min-height: 220px;
+    position: relative;
 }
 
 .nav-dropdown-slot {
     min-height: 0;
-    transition: min-height 0.2s ease;
+    height: 0;
+    overflow: hidden;
     pointer-events: none;
 }
 

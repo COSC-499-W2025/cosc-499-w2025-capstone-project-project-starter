@@ -1298,23 +1298,44 @@
 
         async function rankProjectsGemini() {
             const resultDiv = document.getElementById('rankGeminiResult');
-            resultDiv.innerHTML = 'Asking Gemini to rank your projects… this may take 15-30s.';
+            resultDiv.innerHTML = '<div class="analyze-loading"><div class="spinner"></div><p>Asking Gemini to rank your projects…</p><p class="text-muted">This may take 15–30 seconds</p></div>';
             try {
                 const res = await apiCall(`/api/projects/rank-gemini?user_name=${currentUser.user_name}`, { method: 'POST' });
                 if (!res.ok) { renderError(resultDiv, res.error || 'Gemini ranking failed'); return; }
                 const data = res.data;
-                if (data.success) {
-                    let html = data.rankings.map((r, i) =>
-                        `<strong>${i+1}. ${r.filename}</strong> — Score: ${r.score}/100\n` +
-                        (r.strengths.length ? `   Strengths: ${r.strengths.join(', ')}\n` : '') +
-                        (r.weaknesses.length ? `   Weaknesses: ${r.weaknesses.join(', ')}\n` : '') +
-                        (r.one_line_summary ? `   ${r.one_line_summary}\n` : '')
-                    ).join('\n');
-                    if (data.reasoning) html += `\nOverall: ${data.reasoning}`;
+                if (data.success && data.rankings && data.rankings.length > 0) {
+                    let html = '<div style="display:flex;flex-direction:column;gap:12px;">';
+                    data.rankings.forEach((r, i) => {
+                        const scoreColor = r.score >= 70 ? '#22c55e' : r.score >= 40 ? '#d97706' : '#dc2626';
+                        html += '<div class="analysis-item">';
+                        html += `<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">`;
+                        html += `<strong>${i+1}. ${escapeHtml(r.filename)}</strong>`;
+                        html += `<span style="color:${scoreColor};font-weight:700;font-size:1.1em;">${r.score}/100</span>`;
+                        html += '</div>';
+                        if (r.one_line_summary) html += `<div style="font-size:0.9em;color:var(--text-secondary);margin-bottom:6px;">${escapeHtml(r.one_line_summary)}</div>`;
+                        if (r.strengths && r.strengths.length) {
+                            html += '<div class="analysis-badges">';
+                            r.strengths.forEach(s => { html += `<span class="badge badge-success">${escapeHtml(s)}</span>`; });
+                            html += '</div>';
+                        }
+                        if (r.weaknesses && r.weaknesses.length) {
+                            html += '<div class="analysis-badges" style="margin-top:4px;">';
+                            r.weaknesses.forEach(w => { html += `<span class="badge badge-warning">${escapeHtml(w)}</span>`; });
+                            html += '</div>';
+                        }
+                        html += '</div>';
+                    });
+                    html += '</div>';
+                    if (data.reasoning) {
+                        html += `<div class="analysis-section" style="margin-top:16px;"><h4>Overall Reasoning</h4><p style="line-height:1.6;">${escapeHtml(data.reasoning)}</p></div>`;
+                    }
+                    resultDiv.innerHTML = html;
                     renderSuccess(resultDiv, 'Gemini ranking complete');
+                } else {
+                    renderError(resultDiv, data.error || 'No rankings returned');
                 }
             } catch (e) {
-                resultDiv.innerHTML = `Error: ${e.message}`;
+                renderError(resultDiv, e.message || 'Gemini ranking failed');
             }
         }
 
