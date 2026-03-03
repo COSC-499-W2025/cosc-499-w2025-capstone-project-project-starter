@@ -42,6 +42,13 @@ from src.db.user_config import (
     set_project_user_contributor_mapping,
     clear_project_user_contributor_mapping,
 )
+from src.db.dashboard_mode import (
+    DASHBOARD_MODE_PRIVATE,
+    DASHBOARD_MODE_PUBLIC,
+    ensure_portfolio_dashboard,
+    regenerate_portfolio_public_slug,
+    set_portfolio_dashboard_mode,
+)
 
 from src.api.ranking import compute_rank_score, normalize_ranking_config, sort_projects
 
@@ -178,6 +185,9 @@ class ResumeEditRequest(BaseModel):
 class PortfolioEditRequest(BaseModel):
     title: Optional[str] = None
     summary_text: Optional[str] = None
+
+class DashboardModeIn(BaseModel):
+    mode: str
 
 class AuthRegisterIn(BaseModel):
     email: str = Field(min_length=3, max_length=320)
@@ -1624,6 +1634,63 @@ def get_portfolio(
         items = []
 
     return {**dict(row), "items": items}
+
+
+@app.get("/portfolio/{portfolio_id}/dashboard/mode")
+def get_dashboard_mode(
+    portfolio_id: str,
+    credentials: Optional[HTTPAuthorizationCredentials] = Depends(auth_bearer),
+):
+    auth = _resolve_auth_context(credentials, required=True)
+    assert auth is not None
+
+    engine = get_engine()
+    with engine.begin() as conn:
+        _assert_portfolio_owned_by(conn, portfolio_id=portfolio_id, user_id=auth["user_id"])
+        dashboard = ensure_portfolio_dashboard(conn, portfolio_id)
+
+    return dashboard
+
+
+@app.post("/portfolio/{portfolio_id}/dashboard/mode")
+def set_dashboard_mode(
+    portfolio_id: str,
+    payload: DashboardModeIn,
+    credentials: Optional[HTTPAuthorizationCredentials] = Depends(auth_bearer),
+):
+    auth = _resolve_auth_context(credentials, required=True)
+    assert auth is not None
+
+    mode = str(payload.mode or "").strip().lower()
+    if mode not in {DASHBOARD_MODE_PRIVATE, DASHBOARD_MODE_PUBLIC}:
+        raise HTTPException(status_code=400, detail="mode must be 'private' or 'public'")
+
+    engine = get_engine()
+    with engine.begin() as conn:
+        _assert_portfolio_owned_by(conn, portfolio_id=portfolio_id, user_id=auth["user_id"])
+        out = set_portfolio_dashboard_mode(
+            conn,
+            portfolio_id=portfolio_id,
+            mode=mode,
+            active_publication_id=None,
+        )
+    return out
+
+
+@app.post("/portfolio/{portfolio_id}/dashboard/public-link/regenerate")
+def regenerate_dashboard_public_link(
+    portfolio_id: str,
+    credentials: Optional[HTTPAuthorizationCredentials] = Depends(auth_bearer),
+):
+    auth = _resolve_auth_context(credentials, required=True)
+    assert auth is not None
+
+    engine = get_engine()
+    with engine.begin() as conn:
+        _assert_portfolio_owned_by(conn, portfolio_id=portfolio_id, user_id=auth["user_id"])
+        out = regenerate_portfolio_public_slug(conn, portfolio_id)
+    return out
+
 
 class PortfolioGenerateIn(BaseModel):
     portfolio_id: str
