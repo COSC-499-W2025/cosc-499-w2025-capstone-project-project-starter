@@ -416,7 +416,7 @@ def _build_activity_heatmap(engine, portfolio_id: str) -> List[Dict[str, Any]]:
                 """
                 SELECT
                   DATE(s.ingested_at) AS bucket_date,
-                  COUNT(*) AS snapshot_count,
+                  COUNT(DISTINCT s.id) AS snapshot_count,
                   COALESCE(SUM(ce.commit_count), 0) AS commit_count,
                   ARRAY_AGG(DISTINCT pr.id) AS project_ids
                 FROM projects pr

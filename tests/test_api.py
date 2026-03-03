@@ -443,6 +443,10 @@ def test_public_dashboard_filter_validation_and_application(client, engine):
     s2 = _u()
     a1 = _u()
     a2 = _u()
+    c1 = _u()
+    c2 = _u()
+    e1 = _u()
+    e2 = _u()
     t1 = datetime(2024, 1, 4, 12, 0, 0, tzinfo=timezone.utc)
     t2 = datetime(2024, 2, 7, 12, 0, 0, tzinfo=timezone.utc)
 
@@ -486,10 +490,43 @@ def test_public_dashboard_filter_validation_and_application(client, engine):
                 ),
             },
         )
+        conn.execute(
+            text(
+                """
+                INSERT INTO contributors (id, canonical_name, email)
+                VALUES
+                  (:c1, 'Alpha Dev', 'alpha@example.com'),
+                  (:c2, 'Beta Dev', 'beta@example.com')
+                """
+            ),
+            {"c1": c1, "c2": c2},
+        )
+        conn.execute(
+            text(
+                """
+                INSERT INTO contribution_events (
+                  id, snapshot_id, contributor_id, activity_type, commit_count, file_change_count, lines_added, lines_deleted
+                )
+                VALUES
+                  (:e1, :s1, :c1, 'code', 3, 0, 0, 0),
+                  (:e2, :s1, :c2, 'code', 2, 0, 0, 0)
+                """
+            ),
+            {"e1": e1, "e2": e2, "s1": s1, "c1": c1, "c2": c2},
+        )
 
     r_publish = client.post(f"/portfolio/{account['portfolio_id']}/dashboard/publish", headers=headers)
     assert r_publish.status_code == 200
     slug = r_publish.json()["public_slug"]
+
+    r_public = client.get(f"/public/portfolio/{slug}")
+    assert r_public.status_code == 200
+    heatmap = r_public.json()["dashboard"]["activity_heatmap"]
+    first_bucket = next((row for row in heatmap if row.get("bucket_date") == "2024-01-04"), None)
+    assert first_bucket is not None
+    assert first_bucket["snapshot_count"] == 1
+    assert first_bucket["commit_count"] == 5
+    assert first_bucket["activity_count"] == 6
 
     r_bad = client.get(f"/public/portfolio/{slug}?unsupported=value")
     assert r_bad.status_code == 400
