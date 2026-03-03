@@ -20,11 +20,12 @@ class TestAnalysisRouter:
     @pytest.fixture
     def clean_db(self):
         """Clean up test data before and after tests."""
-       
         from config.db_config import get_connection
         from external_services.service_config import ServiceConfig
         from database.user_informations import init_user_informations_table, create_user
         conn = get_connection()
+        if conn is None:
+            pytest.skip("Database not available")
         if conn:
             with conn.cursor() as cursor:
                 cursor.execute("DROP TABLE IF EXISTS external_service_permissions CASCADE")
