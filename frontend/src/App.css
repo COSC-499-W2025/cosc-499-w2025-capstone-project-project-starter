@@ -189,6 +189,20 @@ button {
   background: #fbfcff;
 }
 
+.stack-block details > summary,
+details.stack-block > summary {
+  cursor: pointer;
+  font-weight: 700;
+}
+
+.public-preview-frame {
+  width: 100%;
+  min-height: 780px;
+  border: 1px solid #dce5ff;
+  border-radius: 12px;
+  background: #ffffff;
+}
+
 .project-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(270px, 1fr));

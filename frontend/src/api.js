@@ -236,4 +236,45 @@ export const userConfigApi = {
     }),
 };
 
+export const dashboardApi = {
+  getMode: (token, portfolioId) => apiRequest(`/portfolio/${portfolioId}/dashboard/mode`, { token }),
+  setMode: (token, portfolioId, mode) =>
+    apiRequest(`/portfolio/${portfolioId}/dashboard/mode`, {
+      method: 'POST',
+      token,
+      body: { mode },
+    }),
+  publish: (token, portfolioId) =>
+    apiRequest(`/portfolio/${portfolioId}/dashboard/publish`, {
+      method: 'POST',
+      token,
+    }),
+  unpublish: (token, portfolioId) =>
+    apiRequest(`/portfolio/${portfolioId}/dashboard/unpublish`, {
+      method: 'POST',
+      token,
+    }),
+  regeneratePublicLink: (token, portfolioId) =>
+    apiRequest(`/portfolio/${portfolioId}/dashboard/public-link/regenerate`, {
+      method: 'POST',
+      token,
+    }),
+  getPublicDashboard: (publicSlug, filters = {}) => {
+    const params = new URLSearchParams();
+    if (filters.q) params.set('q', String(filters.q));
+    if (filters.date_from) params.set('date_from', String(filters.date_from));
+    if (filters.date_to) params.set('date_to', String(filters.date_to));
+    if (filters.sort) params.set('sort', String(filters.sort));
+    (filters.project_ids || []).forEach((projectId) => {
+      if (projectId) params.append('project_ids', String(projectId));
+    });
+    (filters.skills || []).forEach((skill) => {
+      if (skill) params.append('skills', String(skill));
+    });
+    const queryString = params.toString();
+    const suffix = queryString ? `?${queryString}` : '';
+    return apiRequest(`/public/portfolio/${publicSlug}${suffix}`, { token: null });
+  },
+};
+
 export { API_BASE_URL };
