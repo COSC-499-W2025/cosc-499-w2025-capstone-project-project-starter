@@ -10,6 +10,8 @@ The frontend is a React app in `frontend/` (Create React App).
 - View top ranked projects.
 - View portfolio skills timeline.
 - Trigger resume generation and open generated PDF.
+- Publish/unpublish dashboard mode and share a public portfolio slug.
+- View read-only public portfolio route at `/portfolio/:publicSlug`.
 
 ## Run Frontend Locally
 ```bash

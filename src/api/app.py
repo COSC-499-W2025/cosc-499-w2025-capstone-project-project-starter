@@ -17,7 +17,7 @@ from datetime import datetime, timedelta, timezone
 from typing import Any, Dict, List, Optional, Tuple
 from uuid import UUID as PyUUID
 
-from fastapi import Body, Depends, FastAPI, File, Form, HTTPException, Query, UploadFile
+from fastapi import Body, Depends, FastAPI, File, Form, HTTPException, Query, Request, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import Response
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
@@ -45,7 +45,12 @@ from src.db.user_config import (
 from src.db.dashboard_mode import (
     DASHBOARD_MODE_PRIVATE,
     DASHBOARD_MODE_PUBLIC,
+    apply_public_filters,
+    create_dashboard_publication,
     ensure_portfolio_dashboard,
+    get_public_dashboard_by_slug,
+    parse_public_filters,
+    public_filter_spec,
     regenerate_portfolio_public_slug,
     set_portfolio_dashboard_mode,
 )
@@ -393,6 +398,73 @@ def _get_or_create_showcase(conn, project_id: str) -> str:
     ).scalar_one()
 
     return str(sid)
+
+
+def _serialize_ts(value: Any) -> Optional[str]:
+    if value is None:
+        return None
+    if hasattr(value, "isoformat"):
+        return value.isoformat()
+    text_value = str(value).strip()
+    return text_value or None
+
+
+def _build_activity_heatmap(engine, portfolio_id: str) -> List[Dict[str, Any]]:
+    with engine.connect() as conn:
+        rows = conn.execute(
+            text(
+                """
+                SELECT
+                  DATE(s.ingested_at) AS bucket_date,
+                  COUNT(DISTINCT s.id) AS snapshot_count,
+                  COALESCE(SUM(ce.commit_count), 0) AS commit_count,
+                  ARRAY_AGG(DISTINCT pr.id) AS project_ids
+                FROM projects pr
+                JOIN snapshots s ON s.project_id = pr.id
+                LEFT JOIN contribution_events ce ON ce.snapshot_id = s.id
+                WHERE pr.portfolio_id = :pf
+                GROUP BY DATE(s.ingested_at)
+                ORDER BY DATE(s.ingested_at) ASC
+                """
+            ),
+            {"pf": portfolio_id},
+        ).mappings().all()
+
+    out: List[Dict[str, Any]] = []
+    for row in rows:
+        pids = [str(v) for v in (row.get("project_ids") or []) if v is not None]
+        out.append(
+            {
+                "bucket_date": _serialize_ts(row.get("bucket_date")),
+                "activity_count": int(row.get("snapshot_count") or 0) + int(row.get("commit_count") or 0),
+                "snapshot_count": int(row.get("snapshot_count") or 0),
+                "commit_count": int(row.get("commit_count") or 0),
+                "project_ids": sorted(set(pids)),
+            }
+        )
+    return out
+
+
+def _build_dashboard_snapshot(engine, portfolio_id: str) -> Dict[str, Any]:
+    projects_payload = list_projects(portfolio_id=portfolio_id, user_id=None, credentials=None)
+    top_payload = top_projects(portfolio_id=portfolio_id, limit=3, credentials=None)
+    timeline_payload = list_portfolio_skills_chronological(
+        portfolio_id=portfolio_id,
+        direction="asc",
+        limit=500,
+        credentials=None,
+    )
+    showcases_payload = list_portfolio_showcases(engine=engine, portfolio_id=portfolio_id, limit=200)
+
+    return {
+        "generated_at": datetime.now(timezone.utc).isoformat(),
+        "portfolio_id": portfolio_id,
+        "projects": projects_payload.get("projects") or [],
+        "top_projects": top_payload.get("top_projects") or [],
+        "skills_timeline": timeline_payload.get("skill_events") or [],
+        "activity_heatmap": _build_activity_heatmap(engine, portfolio_id),
+        "showcases": showcases_payload.get("items") or [],
+    }
 
 
 @app.get("/health")
@@ -1649,7 +1721,7 @@ def get_dashboard_mode(
         _assert_portfolio_owned_by(conn, portfolio_id=portfolio_id, user_id=auth["user_id"])
         dashboard = ensure_portfolio_dashboard(conn, portfolio_id)
 
-    return dashboard
+    return {**dashboard, "filter_spec": public_filter_spec()}
 
 
 @app.post("/portfolio/{portfolio_id}/dashboard/mode")
@@ -1668,10 +1740,85 @@ def set_dashboard_mode(
     engine = get_engine()
     with engine.begin() as conn:
         _assert_portfolio_owned_by(conn, portfolio_id=portfolio_id, user_id=auth["user_id"])
+        dashboard = ensure_portfolio_dashboard(conn, portfolio_id)
+        if mode == DASHBOARD_MODE_PUBLIC and not dashboard.get("active_publication_id"):
+            raise HTTPException(
+                status_code=409,
+                detail="No published snapshot exists. Publish the dashboard before switching to public mode.",
+            )
         out = set_portfolio_dashboard_mode(
             conn,
             portfolio_id=portfolio_id,
             mode=mode,
+            active_publication_id=None,
+        )
+    return out
+
+
+@app.post("/portfolio/{portfolio_id}/dashboard/publish")
+def publish_dashboard(
+    portfolio_id: str,
+    credentials: Optional[HTTPAuthorizationCredentials] = Depends(auth_bearer),
+):
+    auth = _resolve_auth_context(credentials, required=True)
+    assert auth is not None
+
+    engine = get_engine()
+    with engine.connect() as conn:
+        _assert_portfolio_owned_by(conn, portfolio_id=portfolio_id, user_id=auth["user_id"])
+
+    dashboard_snapshot = _build_dashboard_snapshot(engine, portfolio_id)
+    spec = public_filter_spec()
+
+    with engine.begin() as conn:
+        _assert_portfolio_owned_by(conn, portfolio_id=portfolio_id, user_id=auth["user_id"])
+        owner_user_id = conn.execute(
+            text("SELECT user_id FROM portfolios WHERE id = :pid"),
+            {"pid": portfolio_id},
+        ).scalar()
+        if not owner_user_id:
+            raise HTTPException(status_code=404, detail="Portfolio not found")
+
+        user_cfg = get_user_config(conn, str(owner_user_id))
+        publication = create_dashboard_publication(
+            conn,
+            portfolio_id=portfolio_id,
+            created_by_user_id=auth["user_id"],
+            frozen_config_json={"user_config": user_cfg},
+            frozen_dashboard_json=dashboard_snapshot,
+            filter_spec_json=spec,
+        )
+        dashboard = set_portfolio_dashboard_mode(
+            conn,
+            portfolio_id=portfolio_id,
+            mode=DASHBOARD_MODE_PUBLIC,
+            active_publication_id=publication["publication_id"],
+        )
+
+    return {
+        "portfolio_id": portfolio_id,
+        "mode": dashboard.get("mode"),
+        "public_slug": dashboard.get("public_slug"),
+        "publication": publication,
+        "filter_spec": spec,
+    }
+
+
+@app.post("/portfolio/{portfolio_id}/dashboard/unpublish")
+def unpublish_dashboard(
+    portfolio_id: str,
+    credentials: Optional[HTTPAuthorizationCredentials] = Depends(auth_bearer),
+):
+    auth = _resolve_auth_context(credentials, required=True)
+    assert auth is not None
+
+    engine = get_engine()
+    with engine.begin() as conn:
+        _assert_portfolio_owned_by(conn, portfolio_id=portfolio_id, user_id=auth["user_id"])
+        out = set_portfolio_dashboard_mode(
+            conn,
+            portfolio_id=portfolio_id,
+            mode=DASHBOARD_MODE_PRIVATE,
             active_publication_id=None,
         )
     return out
@@ -1690,6 +1837,43 @@ def regenerate_dashboard_public_link(
         _assert_portfolio_owned_by(conn, portfolio_id=portfolio_id, user_id=auth["user_id"])
         out = regenerate_portfolio_public_slug(conn, portfolio_id)
     return out
+
+
+@app.get("/public/portfolio/{public_slug}")
+def get_public_dashboard(public_slug: str, request: Request):
+    try:
+        filters = parse_public_filters(request.query_params)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+
+    engine = get_engine()
+    with engine.connect() as conn:
+        row = get_public_dashboard_by_slug(conn, public_slug)
+
+    if not row:
+        raise HTTPException(status_code=404, detail="Public portfolio not found")
+    if row.get("mode") != DASHBOARD_MODE_PUBLIC or not row.get("active_publication_id"):
+        raise HTTPException(status_code=404, detail="Public portfolio not found")
+
+    filtered_dashboard = apply_public_filters(row.get("frozen_dashboard_json") or {}, filters)
+    return {
+        "public_slug": public_slug,
+        "portfolio_id": row.get("portfolio_id"),
+        "owner": {
+            "user_id": row.get("owner_user_id"),
+            "username": row.get("owner_username"),
+            "display_name": row.get("owner_display_name"),
+        },
+        "publication": {
+            "publication_id": row.get("active_publication_id"),
+            "version": row.get("version"),
+            "published_at": row.get("published_at"),
+            "created_at": row.get("publication_created_at"),
+        },
+        "filter_spec": row.get("filter_spec_json") or public_filter_spec(),
+        "applied_filters": filters,
+        "dashboard": filtered_dashboard,
+    }
 
 
 class PortfolioGenerateIn(BaseModel):

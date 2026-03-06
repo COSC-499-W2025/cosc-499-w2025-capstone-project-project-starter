@@ -66,6 +66,16 @@ User-adjustable controls are stored under `user_config.config_json`:
 - `comparison`: default attributes for `/projects/compare`.
 - `highlights` and `showcase`: skill/project selections for generated outputs.
 
+## Dashboard Mode and Publish Flow
+- `portfolio_dashboards` tracks owner-facing mode state:
+  - `private`: draft/customization mode.
+  - `public`: public slug is live and serves a frozen publication.
+- `dashboard_publications` stores immutable snapshots of:
+  - frozen configuration payloads,
+  - frozen dashboard datasets,
+  - filter specification contract used by public mode.
+- Public route `GET /public/portfolio/{public_slug}` is read-only and only accepts the approved search/filter params.
+
 ## Consent-Gated External Behavior
 - External analysis execution is allowed only when latest `external_services` consent is granted.
 - Ingest in external modes (`external`, `both`) is blocked without consent.

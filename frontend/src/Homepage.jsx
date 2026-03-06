@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { API_BASE_URL, authApi, projectApi, userConfigApi } from './api';
+import { API_BASE_URL, authApi, dashboardApi, projectApi, userConfigApi } from './api';
 
 const TOKEN_STORAGE_KEY = 'artifactMiner.authToken';
 const ANALYSIS_POLL_INTERVAL_MS = 5000;
@@ -425,6 +425,12 @@ function Homepage() {
   const [showcaseSaving, setShowcaseSaving] = useState(false);
   const [showcaseGenerating, setShowcaseGenerating] = useState(false);
   const [showcaseError, setShowcaseError] = useState('');
+  const [dashboardMode, setDashboardMode] = useState('private');
+  const [dashboardPublicSlug, setDashboardPublicSlug] = useState('');
+  const [publicPreviewVersion, setPublicPreviewVersion] = useState(0);
+  const [dashboardModeLoading, setDashboardModeLoading] = useState(false);
+  const [dashboardModeActionBusy, setDashboardModeActionBusy] = useState(false);
+  const [dashboardModeError, setDashboardModeError] = useState('');
 
   const isAuthenticated = Boolean(token && currentUser);
 
@@ -478,6 +484,12 @@ function Homepage() {
     setShowcaseSaving(false);
     setShowcaseGenerating(false);
     setShowcaseError('');
+    setDashboardMode('private');
+    setDashboardPublicSlug('');
+    setPublicPreviewVersion(0);
+    setDashboardModeLoading(false);
+    setDashboardModeActionBusy(false);
+    setDashboardModeError('');
     setView('projects');
   }, []);
 
@@ -605,6 +617,21 @@ function Homepage() {
     }
   }, [token, currentUser, applyRepresentationConfig]);
 
+  const fetchDashboardMode = useCallback(async () => {
+    if (!token || !portfolioId) return;
+    setDashboardModeLoading(true);
+    setDashboardModeError('');
+    try {
+      const response = await dashboardApi.getMode(token, portfolioId);
+      setDashboardMode(response?.mode || 'private');
+      setDashboardPublicSlug(response?.public_slug || '');
+    } catch (error) {
+      setDashboardModeError(error.message || 'Unable to load dashboard mode.');
+    } finally {
+      setDashboardModeLoading(false);
+    }
+  }, [token, portfolioId]);
+
   const fetchTopProjects = useCallback(async () => {
     if (!token || !portfolioId) return;
     setLoading(true);
@@ -650,6 +677,11 @@ function Homepage() {
     if (!isAuthenticated) return;
     fetchUserConfig();
   }, [isAuthenticated, fetchUserConfig]);
+
+  useEffect(() => {
+    if (!isAuthenticated || !portfolioId) return;
+    fetchDashboardMode();
+  }, [isAuthenticated, portfolioId, fetchDashboardMode]);
 
   useEffect(() => {
     if (!isAuthenticated) return;
@@ -937,6 +969,76 @@ function Homepage() {
     } finally {
       clearSession();
     }
+  };
+
+  const publishDashboard = async () => {
+    if (!token || !portfolioId) return;
+    setDashboardModeActionBusy(true);
+    setDashboardModeError('');
+    setDashboardError('');
+    try {
+      const response = await dashboardApi.publish(token, portfolioId);
+      setDashboardMode(response?.mode || 'public');
+      setDashboardPublicSlug(response?.public_slug || '');
+      setPublicPreviewVersion((version) => version + 1);
+      setFlashMessage('Dashboard published. Public mode is now live.');
+    } catch (error) {
+      setDashboardModeError(error.message || 'Unable to publish dashboard.');
+    } finally {
+      setDashboardModeActionBusy(false);
+    }
+  };
+
+  const switchDashboardToPrivate = async () => {
+    if (!token || !portfolioId) return;
+    setDashboardModeActionBusy(true);
+    setDashboardModeError('');
+    try {
+      const response = await dashboardApi.unpublish(token, portfolioId);
+      setDashboardMode(response?.mode || 'private');
+      setDashboardPublicSlug(response?.public_slug || dashboardPublicSlug);
+      setPublicPreviewVersion((version) => version + 1);
+      setFlashMessage('Dashboard switched to private mode.');
+    } catch (error) {
+      setDashboardModeError(error.message || 'Unable to switch dashboard to private mode.');
+    } finally {
+      setDashboardModeActionBusy(false);
+    }
+  };
+
+  const regeneratePublicLink = async () => {
+    if (!token || !portfolioId) return;
+    setDashboardModeActionBusy(true);
+    setDashboardModeError('');
+    try {
+      const response = await dashboardApi.regeneratePublicLink(token, portfolioId);
+      setDashboardPublicSlug(response?.public_slug || '');
+      setPublicPreviewVersion((version) => version + 1);
+      setFlashMessage('Public link regenerated.');
+    } catch (error) {
+      setDashboardModeError(error.message || 'Unable to regenerate public link.');
+    } finally {
+      setDashboardModeActionBusy(false);
+    }
+  };
+
+  const copyPublicLink = async () => {
+    if (!dashboardPublicSlug) return;
+    const url = `${window.location.origin}/portfolio/${dashboardPublicSlug}`;
+    try {
+      await navigator.clipboard.writeText(url);
+      setFlashMessage('Public link copied to clipboard.');
+    } catch (error) {
+      setDashboardModeError('Unable to copy public link. Copy it manually from the URL preview.');
+    }
+  };
+
+  const toggleDashboardVisibility = async () => {
+    if (dashboardMode === 'public') {
+      await switchDashboardToPrivate();
+      return;
+    }
+    await publishDashboard();
   };
 
   const handleUpload = async () => {
@@ -1607,6 +1709,7 @@ function Homepage() {
   const navButtons = useMemo(
     () => [
       { id: 'projects', label: 'Projects' },
+      { id: 'dashboardMode', label: 'Dashboard Mode' },
       { id: 'preferences', label: 'Preferences' },
       { id: 'compare', label: 'Compare' },
       { id: 'upload', label: 'Upload' },
@@ -1711,6 +1814,16 @@ function Homepage() {
     () => projects.find((project) => project.id === uploadTargetProjectId) || null,
     [projects, uploadTargetProjectId]
   );
+
+  const publicPortfolioUrl = useMemo(() => {
+    if (!dashboardPublicSlug) return '';
+    return `${window.location.origin}/portfolio/${dashboardPublicSlug}`;
+  }, [dashboardPublicSlug]);
+
+  const publicPreviewUrl = useMemo(() => {
+    if (!publicPortfolioUrl) return '';
+    return `${publicPortfolioUrl}?preview=${publicPreviewVersion}`;
+  }, [publicPortfolioUrl, publicPreviewVersion]);
 
   const uploadSnapshotHistory = useMemo(() => {
     const snapshots = Array.isArray(uploadTargetReport?.snapshots) ? uploadTargetReport.snapshots : [];
@@ -1951,6 +2064,71 @@ function Homepage() {
             </section>
           )}
 
+          {view === 'dashboardMode' && (
+            <section className="panel">
+              <h2>Dashboard Mode</h2>
+              <div className="stack-block">
+                <div className="panel-title-row">
+                  <div>
+                    <p className="muted">
+                      Current mode:{' '}
+                      <strong>{dashboardModeLoading ? 'Loading...' : dashboardMode === 'public' ? 'Public' : 'Private'}</strong>
+                    </p>
+                    {publicPortfolioUrl && <p className="muted">Public URL: {publicPortfolioUrl}</p>}
+                  </div>
+                  <div className="card-actions">
+                    <button
+                      className="primary-btn"
+                      type="button"
+                      onClick={toggleDashboardVisibility}
+                      disabled={dashboardModeActionBusy || dashboardModeLoading}
+                    >
+                      {dashboardModeActionBusy
+                        ? 'Working...'
+                        : dashboardMode === 'public'
+                          ? 'Make Private'
+                          : 'Make Public'}
+                    </button>
+                    <button
+                      className="secondary-btn"
+                      type="button"
+                      onClick={regeneratePublicLink}
+                      disabled={dashboardModeActionBusy || dashboardModeLoading}
+                    >
+                      Regenerate Link
+                    </button>
+                    <button
+                      className="ghost-btn"
+                      type="button"
+                      onClick={copyPublicLink}
+                      disabled={!dashboardPublicSlug || dashboardModeLoading}
+                    >
+                      Copy Public URL
+                    </button>
+                  </div>
+                </div>
+                {dashboardModeError && <p className="error-banner inline-error">{dashboardModeError}</p>}
+              </div>
+
+              <div className="stack-block">
+                <h3>Public Preview</h3>
+                <p className="muted">This is what others see at your public URL.</p>
+                {!publicPortfolioUrl ? (
+                  <p className="muted">Public URL not available yet.</p>
+                ) : dashboardMode !== 'public' ? (
+                  <p className="muted">Your profile is private. Switch to public mode to enable public viewing.</p>
+                ) : (
+                  <iframe
+                    key={`${dashboardMode}:${dashboardPublicSlug}:${publicPreviewVersion}`}
+                    className="public-preview-frame"
+                    src={publicPreviewUrl}
+                    title="Public portfolio preview"
+                  />
+                )}
+              </div>
+            </section>
+          )}
+
           {view === 'preferences' && (
             <section className="panel">
               <h2>Preferences</h2>
@@ -2169,7 +2347,12 @@ function Homepage() {
                       )}
                     </div>
 
-                    <button className="primary-btn" type="button" onClick={saveRepresentationPreferences} disabled={configSaving}>
+                    <button
+                      className="primary-btn"
+                      type="button"
+                      onClick={saveRepresentationPreferences}
+                      disabled={configSaving}
+                    >
                       {configSaving ? 'Saving preferences...' : 'Save Representation Preferences'}
                     </button>
                     {userConfig && <p className="muted">Preferences are saved to your profile-level user configuration.</p>}
