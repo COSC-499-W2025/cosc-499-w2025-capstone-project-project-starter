@@ -4,17 +4,25 @@ import re
 import secrets
 from copy import deepcopy
 from datetime import date, datetime
-from typing import Any, Dict, List, Mapping, Optional, Sequence, Set
+from typing import Any, Dict, Iterable, List, Mapping, Optional, Sequence, Set
 
 from sqlalchemy import text
 from sqlalchemy.exc import IntegrityError
+
 
 DASHBOARD_MODE_PRIVATE = "private"
 DASHBOARD_MODE_PUBLIC = "public"
 ALLOWED_DASHBOARD_MODES = {DASHBOARD_MODE_PRIVATE, DASHBOARD_MODE_PUBLIC}
 
 PUBLIC_FILTER_ALLOWED_KEYS = {"q", "date_from", "date_to", "project_ids", "skills", "sort"}
-PUBLIC_FILTER_ALLOWED_SORTS = {"rank_desc", "rank_asc", "name_asc", "name_desc", "date_desc", "date_asc"}
+PUBLIC_FILTER_ALLOWED_SORTS = {
+    "rank_desc",
+    "rank_asc",
+    "name_asc",
+    "name_desc",
+    "date_desc",
+    "date_asc",
+}
 DEFAULT_PUBLIC_SORT = "rank_desc"
 
 
@@ -315,6 +323,11 @@ def apply_public_filters(
         top_projects = [p for p in top_projects if str(p.get("project_id") or "").strip() in pid_filter]
         skills_timeline = [e for e in skills_timeline if str(e.get("project_id") or "").strip() in pid_filter]
         showcases = [s for s in showcases if str(s.get("project_id") or "").strip() in pid_filter]
+        activity_heatmap = [
+            bucket
+            for bucket in activity_heatmap
+            if pid_filter.intersection({str(v).strip() for v in (bucket.get("project_ids") or []) if str(v).strip()})
+        ]
 
     if skill_filter:
         skills_timeline = [
@@ -326,6 +339,11 @@ def apply_public_filters(
         projects = [p for p in projects if str(p.get("id") or "").strip() in inferred_ids]
         top_projects = [p for p in top_projects if str(p.get("project_id") or "").strip() in inferred_ids]
         showcases = [s for s in showcases if str(s.get("project_id") or "").strip() in inferred_ids]
+        activity_heatmap = [
+            bucket
+            for bucket in activity_heatmap
+            if inferred_ids.intersection({str(v).strip() for v in (bucket.get("project_ids") or []) if str(v).strip()})
+        ]
 
     if from_date or to_date:
         skills_timeline = [e for e in skills_timeline if _date_in_range(_parse_date(_event_ts(e)), from_date, to_date)]
@@ -358,15 +376,25 @@ def apply_public_filters(
         ]
 
     sort = str(filters.get("sort") or DEFAULT_PUBLIC_SORT).strip().lower()
-    projects = _sort_rows(projects, sort=sort, id_key="id", name_key="name", date_key="created_at", score_key="metrics")
+    projects = _sort_rows(projects, sort=sort, id_key="id", name_key="name", date_key="created_at", score_key="metrics.rank_score")
     top_projects = _sort_rows(
         top_projects,
         sort=sort,
         id_key="project_id",
         name_key="project_name",
         date_key="created_at",
-        score_key=None,
+        score_key="rank_score",
     )
+    skills_timeline = sorted(
+        skills_timeline,
+        key=lambda row: (
+            _sort_ts(_parse_date(_event_ts(row))),
+            str(row.get("skill") or ""),
+            str(row.get("project_id") or ""),
+        ),
+    )
+    if sort in {"date_desc", "rank_desc", "name_desc"}:
+        skills_timeline = list(reversed(skills_timeline))
 
     source["projects"] = projects
     source["top_projects"] = top_projects
@@ -468,29 +496,37 @@ def _date_in_range(value: Optional[date], date_from: Optional[date], date_to: Op
     return True
 
 
-def _coerce_float(value: Any) -> float:
-    try:
-        return float(value)
-    except Exception:
-        return float("-inf")
+def _sort_ts(value: Optional[date]) -> int:
+    if value is None:
+        return -1
+    return int(value.strftime("%Y%m%d"))
+
+
+def _nested_value(row: Mapping[str, Any], dotted_key: str) -> Any:
+    current: Any = row
+    for part in dotted_key.split("."):
+        if not isinstance(current, Mapping):
+            return None
+        current = current.get(part)
+    return current
 
 
 def _sort_rows(
-    rows: List[Dict[str, Any]],
+    rows: Iterable[Dict[str, Any]],
     *,
     sort: str,
     id_key: str,
     name_key: str,
     date_key: str,
-    score_key: Optional[str],
+    score_key: str,
 ) -> List[Dict[str, Any]]:
     sorted_rows = list(rows)
 
-    if sort in {"rank_desc", "rank_asc"} and score_key:
+    if sort in {"rank_desc", "rank_asc"}:
         reverse = sort == "rank_desc"
         sorted_rows.sort(
             key=lambda row: (
-                _coerce_float((row.get(score_key) or {}).get("rank_score")),
+                _coerce_float(_nested_value(row, score_key)),
                 str(row.get(name_key) or ""),
                 str(row.get(id_key) or ""),
             ),
@@ -512,10 +548,17 @@ def _sort_rows(
     reverse = sort == "date_desc"
     sorted_rows.sort(
         key=lambda row: (
-            str(row.get(date_key) or ""),
+            _sort_ts(_parse_date(row.get(date_key))),
             str(row.get(name_key) or "").casefold(),
             str(row.get(id_key) or ""),
         ),
         reverse=reverse,
     )
     return sorted_rows
+
+
+def _coerce_float(value: Any) -> float:
+    try:
+        return float(value)
+    except Exception:
+        return float("-inf")

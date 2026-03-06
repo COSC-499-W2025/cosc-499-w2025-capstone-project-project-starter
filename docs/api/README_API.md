@@ -275,6 +275,31 @@ Resume PDF filters are read from `config.resume_filters` (optional):
     - `title` (optional)
     - `summary_text` (optional)
 
+- Dashboard mode/publish endpoints (owner-authenticated):
+  - `GET /portfolio/{portfolio_id}/dashboard/mode`
+    - Returns mode state, `public_slug`, active publication metadata.
+  - `POST /portfolio/{portfolio_id}/dashboard/mode`
+    - Body: `{ "mode": "private" | "public" }`
+    - Switching to `public` requires an existing published snapshot.
+  - `POST /portfolio/{portfolio_id}/dashboard/publish`
+    - Freezes current dashboard config + data as a new immutable publication.
+    - Also switches dashboard mode to `public`.
+  - `POST /portfolio/{portfolio_id}/dashboard/unpublish`
+    - Switches mode back to `private` (previous publication is retained).
+  - `POST /portfolio/{portfolio_id}/dashboard/public-link/regenerate`
+    - Rotates the portfolio's public slug.
+
+- Public read endpoint:
+  - `GET /public/portfolio/{public_slug}`
+    - Public-mode read-only dashboard payload.
+    - Supported query params only:
+      - `q`
+      - `date_from` / `date_to` (`YYYY-MM-DD`)
+      - `project_ids` (repeated or comma-separated)
+      - `skills` (repeated or comma-separated)
+      - `sort` (`rank_desc`, `rank_asc`, `name_asc`, `name_desc`, `date_desc`, `date_asc`)
+    - Unknown query params return `400`.
+
 - `DELETE /portfolio/showcases/{showcase_id}`
   - Deletes showcase artifact and GC's unreferenced thumbnail blob.
 
