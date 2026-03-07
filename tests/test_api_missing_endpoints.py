@@ -163,13 +163,13 @@ class TestPreferencesEndpoint:
     def test_update_preferences(self, mock_get_git, mock_update_git):
         mock_get_git.return_value = "new_git"
 
-        response = client.post("/api/preferences", json={"git_username": "new_git"})
+        response = client.post("/api/preferences?user_name=test_user", json={"git_username": "new_git"})
 
         assert response.status_code == 200
         data = response.json()
         assert data["success"] is True
         assert data["git_username"] == "new_git"
-        mock_update_git.assert_called_once_with("new_git")
+        mock_update_git.assert_called_once_with("test_user", "new_git")
 
 
 class TestResumeDeleteEndpoint:
