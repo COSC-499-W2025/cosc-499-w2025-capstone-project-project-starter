@@ -93,11 +93,12 @@ class TestProjectManager:
         mock_context.__enter__.return_value = mock_cursor
         mock_with_db_cursor.return_value = mock_context
         
-        # FIX: Updated mock to match the 4-column SELECT query (id, filename, metadata, created_at)
-        # Old mock had 6 columns which caused the crash
+        # Mock must match the 6-column SELECT query: id, filename, filepath, status, metadata, created_at
         mock_project = (
             1, 
-            "test_project.zip", 
+            "test_project.zip",
+            "/uploads/test_project.zip",
+            "uploaded",
             '{"files": ["file1.py"]}', 
             datetime(2024, 1, 1, 10, 0, 0)
         )

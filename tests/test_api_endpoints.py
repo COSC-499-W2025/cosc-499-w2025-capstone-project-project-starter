@@ -417,13 +417,16 @@ class TestGetProjectByIdEndpoint:
     def test_get_project_by_id_success(self, mock_get):
         """Test successfully retrieving a project by ID."""
         from datetime import datetime
+        # Mock should return nested structure with project_info
         mock_get.return_value = {
-            'id': 123,
-            'filename': 'test_project.zip',
-            'filepath': '/uploads/test_project.zip',
-            'status': 'uploaded',
-            'metadata': '{"files": ["file1.txt", "file2.py"]}',
-            'created_at': datetime(2024, 1, 1, 0, 0, 0)
+            'project_info': {
+                'id': 123,
+                'filename': 'test_project.zip',
+                'filepath': '/uploads/test_project.zip',
+                'status': 'uploaded',
+                'created_at': datetime(2024, 1, 1, 0, 0, 0).isoformat()
+            },
+            'files': ['file1.txt', 'file2.py']
         }
 
         client = TestClient(app)
@@ -453,13 +456,15 @@ class TestGetProjectByIdEndpoint:
     def test_get_project_by_id_without_user(self, mock_get):
         """Test retrieving a project without user verification."""
         from datetime import datetime
+        # Mock should return nested structure with project_info
         mock_get.return_value = {
-            'id': 456,
-            'filename': 'another_project.zip',
-            'filepath': '/uploads/another_project.zip',
-            'status': 'uploaded',
-            'metadata': None,
-            'created_at': datetime(2024, 1, 2, 0, 0, 0)
+            'project_info': {
+                'id': 456,
+                'filename': 'another_project.zip',
+                'filepath': '/uploads/another_project.zip',
+                'status': 'uploaded',
+                'created_at': datetime(2024, 1, 2, 0, 0, 0).isoformat()
+            }
         }
 
         client = TestClient(app)
