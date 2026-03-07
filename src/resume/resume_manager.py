@@ -533,7 +533,7 @@ class ResumeManager:
         return sorted(list(detected_frameworks))
     
     @staticmethod
-    def generate_user_resume(user_name, top_projects_count=5, selection: dict | None = None, interactive: bool = False):
+    def generate_user_resume(user_name, top_projects_count=5, selection: dict | None = None):
         """
         Generate a user-aggregated resume from top ranked projects.
         
@@ -544,8 +544,6 @@ class ResumeManager:
         Args:
             user_name (str): Username (string) to identify the user
             top_projects_count (int): Number of top projects to include (default: 5)
-            selection (dict, optional): Project and skill selection options
-            interactive (bool): Whether to prompt for user input (default: False for API calls)
             
         Returns:
             dict: Generated resume data containing top projects and aggregated skills
@@ -589,8 +587,8 @@ class ResumeManager:
                 if git_username and git_username in all_authors:
                     # Auto-select if git username matches
                     display_name = git_username
-                elif interactive:
-                    # Let user select their name from detected authors (only in interactive mode)
+                else:
+                    # Let user select their name from detected authors
                     authors_list = sorted(list(all_authors))
                     print(f"\n{'='*70}")
                     print("Select Your Name for Resume")
@@ -631,12 +629,8 @@ class ResumeManager:
                             print("\nUsing default username.")
                             display_name = user_name
                             break
-                else:
-                    # Non-interactive mode: use first detected author or username
-                    authors_list = sorted(list(all_authors))
-                    display_name = authors_list[0] if authors_list else user_name
-            elif interactive:
-                # No authors detected, use login username or ask for custom name (only in interactive mode)
+            else:
+                # No authors detected, use login username or ask for custom name
                 print(f"\nNo author names detected in projects.")
                 use_custom = input("Enter your name for the resume (or press Enter to use login username): ").strip()
                 if use_custom:
