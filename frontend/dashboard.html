@@ -471,14 +471,13 @@
 
             if (viewName === 'list' || viewName === 'analyze' || 
                 viewName === 'cleanup' || viewName === 'thumbnail' || viewName === 'llm-summary' || viewName === 'merge') {
-                // Define listId outside setTimeout so it's accessible in the entire block
-                const listId = viewName === 'list' ? 'projectsList' : 
-                              viewName === 'analyze' ? 'analyzeProjectsList' :
-                              viewName === 'cleanup' ? 'cleanupProjectsList' :
-                              viewName === 'thumbnail' ? 'thumbnailProjectsList' :
-                              viewName === 'merge' ? 'mergeProjectsList' : 'llmProjectsList';
-                
                 setTimeout(() => {
+                    let listId = null;
+                    listId = viewName === 'list' ? 'projectsList' : 
+                                  viewName === 'analyze' ? 'analyzeProjectsList' :
+                                  viewName === 'cleanup' ? 'cleanupProjectsList' :
+                                  viewName === 'thumbnail' ? 'thumbnailProjectsList' :
+                                  viewName === 'merge' ? 'mergeProjectsList' : 'llmProjectsList';
                     const showThumbs = viewName === 'list' || viewName === 'analyze' || viewName === 'thumbnail' || viewName === 'merge';
                     renderProjectsList(listId, 'onProjectSelect', showThumbs);
                 }, 100);
