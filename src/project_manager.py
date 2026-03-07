@@ -164,7 +164,7 @@ def get_project_by_id(project_id, user_name=None):
         user_name (str, optional): Username to verify project ownership. If None, uses current user.
         
     Returns:
-        dict: Project information with 'project_info' and 'files' keys, or None if not found or access denied
+        dict: Project information or None if not found or access denied
     """
     # Get current user if user_name not provided
     if user_name is None:
@@ -177,7 +177,7 @@ def get_project_by_id(project_id, user_name=None):
         with with_db_cursor() as cursor:
             # Data Isolation: Verify project belongs to the specified user
             cursor.execute("""
-                SELECT id, filename, metadata, created_at
+                SELECT id, filename, filepath, status, metadata, created_at
                 FROM uploaded_files
                 WHERE id = %s AND user_name = %s
             """, (project_id, user_name))
@@ -188,27 +188,16 @@ def get_project_by_id(project_id, user_name=None):
             print(f"Project with ID {project_id} not found.")
             return None
         
-        project_id, filename, metadata, created_at = project
+        project_id, filename, filepath, status, metadata, created_at = project
         
-        # Extract files from metadata
-        files = []
-        if metadata:
-            try:
-                metadata_dict = json.loads(metadata) if isinstance(metadata, str) else metadata
-                if 'files' in metadata_dict and metadata_dict['files']:
-                    # Get actual files (not directories)
-                    files = [f for f in metadata_dict['files'] if not f.endswith('/')]
-            except (json.JSONDecodeError, TypeError):
-                pass
-        
-        # return the project information in new format
+        # return the project information
         return {
-            'project_info': {
-                'id': project_id,
-                'filename': filename,
-                'created_at': created_at.isoformat() if created_at else None
-            },
-            'files': files
+            'id': project_id,
+            'filename': filename,
+            'filepath': filepath,
+            'status': status,
+            'metadata': metadata,
+            'created_at': created_at
         }
         
     except ConnectionError:
