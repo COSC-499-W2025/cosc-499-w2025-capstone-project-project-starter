@@ -190,15 +190,8 @@
                 const data = await response.json().catch(() => ({}));
 
                 if (!response.ok) {
-                    // Handle FastAPI validation errors (422) which return detail as an array
-                    let msg;
-                    if (Array.isArray(data.detail)) {
-                        // Extract error messages from validation error array
-                        msg = data.detail.map(err => err.msg || JSON.stringify(err)).join('; ');
-                    } else {
-                        msg = data.detail || data.message || `Request failed (${response.status})`;
-                    }
-                    return { ok: false, error: msg, status: response.status, data };
+                const msg = data.detail || data.message || `Request failed (${response.status})`;
+                return { ok: false, error: msg, status: response.status, data };
                 }
                 return { ok: true, data, status: response.status };
             } catch (e) {
@@ -345,7 +338,6 @@
             try {
                 const res = await apiCall('/api/privacy-consent', {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
                         consent_given: consentGiven,
                         user_id: currentUser.user_id || currentUser.user_name
@@ -1308,7 +1300,6 @@
             try {
                 const res = await apiCall('/api/preferences', {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ git_username: gitUsername || null })
                 });
                 if (!res.ok) { renderError(resultDiv, res.error || 'Failed to save preferences'); return; }
@@ -1328,7 +1319,6 @@
             try {
                 const res = await apiCall(`/api/resume/generate?user_name=${currentUser.user_name}`, {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ top_projects_count: 5 })
                 });
                 if (!res.ok) { renderError(resultDiv, res.error || 'Failed to generate resume'); return; }
@@ -1396,7 +1386,6 @@
             try {
                 const res = await apiCall(`/api/portfolio/generate?user_name=${currentUser.user_name}`, {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ top_n: null })
                 });
                 if (!res.ok) { renderError(resultDiv, res.error || 'Failed to generate portfolio'); return; }
@@ -1659,7 +1648,6 @@
             try {
                 const data = await apiCall(`/api/portfolio/${currentUser.user_name}/custom-data`, {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
                         project_id: currentCustomizingProjectId,
                         custom_title: customTitle,
