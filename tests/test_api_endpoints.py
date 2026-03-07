@@ -269,7 +269,7 @@ class TestSettingsEndpoints:
         data = response.json()
         assert data["success"] is True
         assert data["general"]["git_username"] == "new_github_user"
-        mock_update_git.assert_called_once_with("test_user", "new_github_user")
+        mock_update_git.assert_called_once_with("new_github_user")
 
     @patch('api.routes.settings.ConsentStorage.get_consent_status')
     @patch('api.dependencies.get_user_by_username')

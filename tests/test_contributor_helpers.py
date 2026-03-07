@@ -1,13 +1,8 @@
 # tests/test_contributor_helpers.py
-import sys
-import os
 import builtins
 from typing import Dict, Set
 
 import pytest
-
-# Adjust the path to import from src
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'src')))
 
 import analysis.key_metrics as key_metrics
 
@@ -63,7 +58,7 @@ def test_choose_author_from_zip_select_specific_author(monkeypatch):
     )
     monkeypatch.setattr(
         "analysis.key_metrics.get_user_git_username",
-        lambda user_name: None,
+        lambda: None,
     )
     monkeypatch.setattr(
         "analysis.key_metrics.set_project_contributor_name",
@@ -99,7 +94,7 @@ def test_choose_author_from_zip_not_collaborative(monkeypatch):
     )
     monkeypatch.setattr(
         "analysis.key_metrics.get_user_git_username",
-        lambda user_name: None,
+        lambda: None,
     )
 
     # Simulate user typing "3" (len(authors) + 1)
