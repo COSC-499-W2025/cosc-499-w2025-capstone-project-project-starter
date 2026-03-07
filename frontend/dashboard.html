@@ -1306,7 +1306,7 @@
             const resultDiv = document.getElementById('preferencesResult');
             resultDiv.innerHTML = 'Saving...';
             try {
-                const res = await apiCall('/api/preferences', {
+                const res = await apiCall(`/api/preferences?user_name=${currentUser.user_name}`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ git_username: gitUsername || null })
