@@ -678,7 +678,7 @@ def handle_generate_resume():
     print("This may take a moment...")
     
     # Generate resume
-    resume_data = ResumeManager.generate_user_resume(user_id, top_projects_count=top_count)
+    resume_data = ResumeManager.generate_user_resume(user_id, top_projects_count=top_count, interactive=True)
     
     if not resume_data:
         print("\nFailed to generate resume. Please ensure you have uploaded projects.")
