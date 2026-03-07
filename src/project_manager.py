@@ -153,59 +153,59 @@ def list_project_files(project_id, user_name=None):
         print(f"Error retrieving project files: {e}")
         return []
 
-# # this function will get a project by its id
-# def get_project_by_id(project_id, user_name=None):
-#     """
-#     Get a project by its ID for a specific user.
-#     Data Isolation: Only returns project if it belongs to the specified user.
+# this function will get a project by its id
+def get_project_by_id(project_id, user_name=None):
+    """
+    Get a project by its ID for a specific user.
+    Data Isolation: Only returns project if it belongs to the specified user.
     
-#     Args:
-#         project_id (int): The ID of the project to retrieve
-#         user_name (str, optional): Username to verify project ownership. If None, uses current user.
+    Args:
+        project_id (int): The ID of the project to retrieve
+        user_name (str, optional): Username to verify project ownership. If None, uses current user.
         
-#     Returns:
-#         dict: Project information or None if not found or access denied
-#     """
-#     # Get current user if user_name not provided
-#     if user_name is None:
-#         user_name = AuthManager.get_current_username()
-#         if not user_name:
-#             print("No user is currently logged in.")
-#             return None
+    Returns:
+        dict: Project information or None if not found or access denied
+    """
+    # Get current user if user_name not provided
+    if user_name is None:
+        user_name = AuthManager.get_current_username()
+        if not user_name:
+            print("No user is currently logged in.")
+            return None
     
-#     try:
-#         with with_db_cursor() as cursor:
-#             # Data Isolation: Verify project belongs to the specified user
-#             cursor.execute("""
-#                 SELECT id, filename, filepath, status, metadata, created_at
-#                 FROM uploaded_files
-#                 WHERE id = %s AND user_name = %s
-#             """, (project_id, user_name))
+    try:
+        with with_db_cursor() as cursor:
+            # Data Isolation: Verify project belongs to the specified user
+            cursor.execute("""
+                SELECT id, filename, filepath, status, metadata, created_at
+                FROM uploaded_files
+                WHERE id = %s AND user_name = %s
+            """, (project_id, user_name))
             
-#             project = cursor.fetchone()
+            project = cursor.fetchone()
         
-#         if not project:
-#             print(f"Project with ID {project_id} not found.")
-#             return None
+        if not project:
+            print(f"Project with ID {project_id} not found.")
+            return None
         
-#         project_id, filename, filepath, status, metadata, created_at = project
+        project_id, filename, filepath, status, metadata, created_at = project
         
-#         # return the project information
-#         return {
-#             'id': project_id,
-#             'filename': filename,
-#             'filepath': filepath,
-#             'status': status,
-#             'metadata': metadata,
-#             'created_at': created_at
-#         }
+        # return the project information
+        return {
+            'id': project_id,
+            'filename': filename,
+            'filepath': filepath,
+            'status': status,
+            'metadata': metadata,
+            'created_at': created_at
+        }
         
-#     except ConnectionError:
-#         print("Could not connect to database.")
-#         return None
-#     except Exception as e:
-#         print(f"Error retrieving project: {e}")
-#         return None
+    except ConnectionError:
+        print("Could not connect to database.")
+        return None
+    except Exception as e:
+        print(f"Error retrieving project: {e}")
+        return None
 
 # this function will get the total number of projects in the database
 def get_project_count(user_name=None):
@@ -325,55 +325,55 @@ def list_projects_chronologically(user_name=None):
     except Exception as e:
         print(f"Error retrieving projects chronologically: {e}")
         return []
-def get_project_by_id(project_id, user_name=None):
-    """
-    Retrieves the raw analysis data for a specific project ID.
-    Used by the Resume and Portfolio formatters.
-    Returns project data with nested 'project_info' structure including analysis metadata.
-    """
-    # 1. Get User Context
-    if user_name is None:
-        user_name = AuthManager.get_current_username()
-        # For public portfolio access, we might need to relax this check later,
-        # but for now, we assume the user is accessing their own data.
+# def get_project_by_id(project_id, user_name=None):
+#     """
+#     Retrieves the raw analysis data for a specific project ID.
+#     Used by the Resume and Portfolio formatters.
+#     Returns project data with nested 'project_info' structure including analysis metadata.
+#     """
+#     # 1. Get User Context
+#     if user_name is None:
+#         user_name = AuthManager.get_current_username()
+#         # For public portfolio access, we might need to relax this check later,
+#         # but for now, we assume the user is accessing their own data.
     
-    try:
-        with with_db_cursor() as cursor:
-            # 2. Query the specific project
-            cursor.execute("""
-                SELECT id, filename, metadata, created_at
-                FROM uploaded_files
-                WHERE id = %s
-            """, (project_id,))
-            row = cursor.fetchone()
+#     try:
+#         with with_db_cursor() as cursor:
+#             # 2. Query the specific project
+#             cursor.execute("""
+#                 SELECT id, filename, metadata, created_at
+#                 FROM uploaded_files
+#                 WHERE id = %s
+#             """, (project_id,))
+#             row = cursor.fetchone()
             
-        if not row:
-            return None
+#         if not row:
+#             return None
             
-        # 3. Parse the 'metadata' column (where ProjectAnalyzer stored the JSON)
-        metadata_json = row[2]
-        analysis_data = {}
-        if metadata_json:
-            if isinstance(metadata_json, str):
-                try:
-                    analysis_data = json.loads(metadata_json)
-                except json.JSONDecodeError:
-                    print(f"Error decoding metadata for project {project_id}")
-            elif isinstance(metadata_json, dict):
-                analysis_data = metadata_json
+#         # 3. Parse the 'metadata' column (where ProjectAnalyzer stored the JSON)
+#         metadata_json = row[2]
+#         analysis_data = {}
+#         if metadata_json:
+#             if isinstance(metadata_json, str):
+#                 try:
+#                     analysis_data = json.loads(metadata_json)
+#                 except json.JSONDecodeError:
+#                     print(f"Error decoding metadata for project {project_id}")
+#             elif isinstance(metadata_json, dict):
+#                 analysis_data = metadata_json
 
-        # 4. Construct the Standard Project Dictionary
-        # We ensure 'project_info' exists so formatters don't crash
-        project_data = analysis_data.copy()
-        if 'project_info' not in project_data:
-            project_data['project_info'] = {}
+#         # 4. Construct the Standard Project Dictionary
+#         # We ensure 'project_info' exists so formatters don't crash
+#         project_data = analysis_data.copy()
+#         if 'project_info' not in project_data:
+#             project_data['project_info'] = {}
             
-        project_data['project_info']['id'] = row[0]
-        project_data['project_info']['filename'] = row[1]
-        project_data['project_info']['created_at'] = row[3].isoformat() if row[3] else None
+#         project_data['project_info']['id'] = row[0]
+#         project_data['project_info']['filename'] = row[1]
+#         project_data['project_info']['created_at'] = row[3].isoformat() if row[3] else None
 
-        return project_data
+#         return project_data
 
-    except Exception as e:
-        print(f"Error retrieving project {project_id}: {e}")
-        return None
+#     except Exception as e:
+#         print(f"Error retrieving project {project_id}: {e}")
+#         return None
