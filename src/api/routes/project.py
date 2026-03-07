@@ -645,12 +645,14 @@ async def delete_project_data(
 
 
 @router.post("/preferences")
-async def update_preferences(request: dict):
+async def update_preferences(request: dict, user_name: Optional[str] = Query(None)):
     """Update user preferences."""
     try:
+        if not user_name:
+            raise HTTPException(status_code=400, detail="user_name is required")
         git_username = request.get('git_username')
         if git_username:
-            update_user_git_username(git_username)
-        return {"success": True, "git_username": get_user_git_username()}
+            update_user_git_username(user_name, git_username)
+        return {"success": True, "git_username": get_user_git_username(user_name)}
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error updating preferences: {str(e)}")

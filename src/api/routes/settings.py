@@ -72,8 +72,8 @@ async def get_all_settings(
         consent_status = ConsentStorage.get_consent_status(username)
         settings["privacy"] = consent_status
         
-        # Get general settings (note: get_user_git_username uses user_id=1, may need user-specific version)
-        git_username = get_user_git_username()
+        # Get general settings
+        git_username = get_user_git_username(username)
         settings["general"] = {
             "git_username": git_username
         }
@@ -217,9 +217,8 @@ async def get_general_settings(
         dict: General settings
     """
     try:
-        # Note: get_user_git_username() currently uses user_id=1
-        # This may need to be updated to be user-specific
-        git_username = get_user_git_username()
+        username = current_user['user_name']
+        git_username = get_user_git_username(username)
         return {
             "success": True,
             "general": {
@@ -251,12 +250,11 @@ async def update_general_settings(
         dict: Success message and updated settings
     """
     try:
+        username = current_user['user_name']
         if request.git_username is not None:
-            # Note: update_user_git_username() currently uses user_id=1
-            # This may need to be updated to be user-specific
-            update_user_git_username(request.git_username)
+            update_user_git_username(username, request.git_username)
         
-        git_username = get_user_git_username()
+        git_username = get_user_git_username(username)
         
         return {
             "success": True,
