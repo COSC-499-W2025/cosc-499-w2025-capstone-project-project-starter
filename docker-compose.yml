@@ -28,6 +28,9 @@ services:
     container_name: artifactminer-migrate
     environment:
       DATABASE_URL: postgresql+psycopg2://postgres:postgres@db:5432/artifactminer
+      ARTIFACT_MINER_BLOBSTORE: /blobstore
+    volumes:
+      - blobstore:/blobstore
     depends_on:
       db:
         condition: service_healthy
