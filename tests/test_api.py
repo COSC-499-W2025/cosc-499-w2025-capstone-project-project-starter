@@ -2098,3 +2098,4 @@ def test_portfolio_showcase_upsert_logic(engine):
         if isinstance(final_content, str):
             final_content = json.loads(final_content)
         assert final_content["description"] == "Updated Version"
+        
