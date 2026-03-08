@@ -2978,3 +2978,486 @@ async def echo_upload(file: UploadFile = File(...)):
         "size": len(data),
         "sha256": hashlib.sha256(data).hexdigest(),
     }
+
+class EducationIn(BaseModel):
+    institution: str = Field(..., max_length=255)
+    degree: Optional[str] = Field(default=None, max_length=255)
+    field_of_study: Optional[str] = Field(default=None, max_length=255)
+    start_year: Optional[int] = None
+    end_year: Optional[int] = None
+    is_current: bool = False
+    description: Optional[str] = None
+
+
+class EducationOut(BaseModel):
+    id: str
+    user_id: str
+    institution: str
+    degree: Optional[str]
+    field_of_study: Optional[str]
+    start_year: Optional[int]
+    end_year: Optional[int]
+    is_current: bool
+    description: Optional[str]
+    created_at: str
+    updated_at: str
+
+
+class AwardIn(BaseModel):
+    title: str = Field(..., max_length=255)
+    issuer: Optional[str] = Field(default=None, max_length=255)
+    awarded_year: Optional[int] = None
+    description: Optional[str] = None
+
+
+class AwardOut(BaseModel):
+    id: str
+    user_id: str
+    title: str
+    issuer: Optional[str]
+    awarded_year: Optional[int]
+    description: Optional[str]
+    created_at: str
+    updated_at: str
+
+
+# ---------------------------------------------------------------------------
+# Skill expertise bucketing  (deterministic, pure function)
+# ---------------------------------------------------------------------------
+
+# Thresholds are intentionally constants so bucketing is fully deterministic.
+SKILL_EXPERTISE_THRESHOLDS = {
+    "expert":        0.80,
+    "proficient":    0.55,
+    "familiar":      0.30,
+    # anything below 0.30 → "exposure"
+}
+
+
+def bucket_skill_expertise(probability: float) -> str:
+    """
+    Map a raw skill probability score (0.0–1.0) to a stable expertise label.
+
+    Buckets (descending):
+        expert      >= 0.80
+        proficient  >= 0.55
+        familiar    >= 0.30
+        exposure     < 0.30
+    """
+    if not isinstance(probability, (int, float)):
+        raise ValueError(f"probability must be numeric, got {type(probability)}")
+    p = float(probability)
+    if p < 0.0 or p > 1.0:
+        raise ValueError(f"probability must be in [0.0, 1.0], got {p}")
+
+    if p >= SKILL_EXPERTISE_THRESHOLDS["expert"]:
+        return "expert"
+    if p >= SKILL_EXPERTISE_THRESHOLDS["proficient"]:
+        return "proficient"
+    if p >= SKILL_EXPERTISE_THRESHOLDS["familiar"]:
+        return "familiar"
+    return "exposure"
+
+
+def _bucket_skills_from_rows(skill_rows: list) -> List[Dict[str, Any]]:
+    """
+    Build a bucketed skill list from rows returned by the analysis_skills/skills join.
+    Each row must have: skill_name (str), confidence (float|None).
+    Returns a stable list sorted by confidence descending.
+    """
+    bucketed = []
+    for s in skill_rows:
+        name = str(s.get("skill_name") or "").strip()
+        if not name:
+            continue
+        prob = float(s.get("confidence") or 0.0)
+        bucketed.append({
+            "name": name,
+            "probability": prob,
+            "expertise": bucket_skill_expertise(prob),
+        })
+    bucketed.sort(key=lambda x: x["probability"], reverse=True)
+    return bucketed
+
+
+def _normalize_evidence(evidence_json: Optional[Dict[str, Any]]) -> Dict[str, Any]:
+    """
+    Normalize a raw evidence_json blob into a stable contribution/impact schema.
+    Unknown keys are preserved under 'extra' so callers are never silently data-lost.
+    """
+    if not evidence_json:
+        return {"contributions": [], "impact": [], "extra": {}}
+
+    known_keys = {"contributions", "impact"}
+    contributions = evidence_json.get("contributions") or []
+    impact = evidence_json.get("impact") or []
+
+    # Coerce scalars → list so the schema is always array-shaped
+    if isinstance(contributions, str):
+        contributions = [contributions]
+    if isinstance(impact, str):
+        impact = [impact]
+
+    extra = {k: v for k, v in evidence_json.items() if k not in known_keys}
+    return {
+        "contributions": [str(c) for c in contributions if c],
+        "impact": [str(i) for i in impact if i],
+        "extra": extra,
+    }
+
+
+# ---------------------------------------------------------------------------
+# Education CRUD
+# ---------------------------------------------------------------------------
+
+@app.post("/users/{user_id}/education", response_model=EducationOut)
+def create_education(user_id: str, body: EducationIn, db: Session = Depends(get_db)):
+    row = db.execute(
+        text("SELECT 1 FROM users WHERE id = :uid"),
+        {"uid": user_id},
+    ).scalar()
+    if not row:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    result = db.execute(
+        text(
+            """
+            INSERT INTO education_entries
+                (user_id, institution, degree, field_of_study,
+                 start_year, end_year, is_current, description)
+            VALUES
+                (:uid, :institution, :degree, :field_of_study,
+                 :start_year, :end_year, :is_current, :description)
+            RETURNING id, user_id, institution, degree, field_of_study,
+                      start_year, end_year, is_current, description,
+                      created_at, updated_at
+            """
+        ),
+        {
+            "uid": user_id,
+            "institution": body.institution,
+            "degree": body.degree,
+            "field_of_study": body.field_of_study,
+            "start_year": body.start_year,
+            "end_year": body.end_year,
+            "is_current": body.is_current,
+            "description": body.description,
+        },
+    ).mappings().one()
+    db.commit()
+    return _education_row_to_out(result)
+
+
+@app.get("/users/{user_id}/education")
+def list_education(user_id: str, db: Session = Depends(get_db)):
+    rows = db.execute(
+        text(
+            """
+            SELECT id, user_id, institution, degree, field_of_study,
+                   start_year, end_year, is_current, description,
+                   created_at, updated_at
+            FROM education_entries
+            WHERE user_id = :uid
+            ORDER BY start_year DESC NULLS LAST, created_at DESC
+            """
+        ),
+        {"uid": user_id},
+    ).mappings().all()
+    return {"user_id": user_id, "education": [_education_row_to_out(r) for r in rows]}
+
+
+@app.put("/users/{user_id}/education/{entry_id}", response_model=EducationOut)
+def update_education(user_id: str, entry_id: str, body: EducationIn, db: Session = Depends(get_db)):
+    result = db.execute(
+        text(
+            """
+            UPDATE education_entries
+            SET institution    = :institution,
+                degree         = :degree,
+                field_of_study = :field_of_study,
+                start_year     = :start_year,
+                end_year       = :end_year,
+                is_current     = :is_current,
+                description    = :description,
+                updated_at     = NOW()
+            WHERE id = :eid AND user_id = :uid
+            RETURNING id, user_id, institution, degree, field_of_study,
+                      start_year, end_year, is_current, description,
+                      created_at, updated_at
+            """
+        ),
+        {
+            "uid": user_id,
+            "eid": entry_id,
+            "institution": body.institution,
+            "degree": body.degree,
+            "field_of_study": body.field_of_study,
+            "start_year": body.start_year,
+            "end_year": body.end_year,
+            "is_current": body.is_current,
+            "description": body.description,
+        },
+    ).mappings().one_or_none()
+    if not result:
+        raise HTTPException(status_code=404, detail="Education entry not found")
+    db.commit()
+    return _education_row_to_out(result)
+
+
+@app.delete("/users/{user_id}/education/{entry_id}")
+def delete_education(user_id: str, entry_id: str, db: Session = Depends(get_db)):
+    deleted = db.execute(
+        text(
+            "DELETE FROM education_entries WHERE id = :eid AND user_id = :uid RETURNING id"
+        ),
+        {"uid": user_id, "eid": entry_id},
+    ).scalar()
+    if not deleted:
+        raise HTTPException(status_code=404, detail="Education entry not found")
+    db.commit()
+    return {"deleted": True, "id": entry_id}
+
+
+def _education_row_to_out(row) -> Dict[str, Any]:
+    r = dict(row)
+    return {
+        "id": str(r["id"]),
+        "user_id": str(r["user_id"]),
+        "institution": r["institution"],
+        "degree": r.get("degree"),
+        "field_of_study": r.get("field_of_study"),
+        "start_year": r.get("start_year"),
+        "end_year": r.get("end_year"),
+        "is_current": bool(r.get("is_current", False)),
+        "description": r.get("description"),
+        "created_at": r["created_at"].isoformat() if hasattr(r["created_at"], "isoformat") else str(r["created_at"]),
+        "updated_at": r["updated_at"].isoformat() if hasattr(r["updated_at"], "isoformat") else str(r["updated_at"]),
+    }
+
+
+# ---------------------------------------------------------------------------
+# Awards CRUD
+# ---------------------------------------------------------------------------
+
+@app.post("/users/{user_id}/awards", response_model=AwardOut)
+def create_award(user_id: str, body: AwardIn, db: Session = Depends(get_db)):
+    row = db.execute(text("SELECT 1 FROM users WHERE id = :uid"), {"uid": user_id}).scalar()
+    if not row:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    result = db.execute(
+        text(
+            """
+            INSERT INTO award_entries
+                (user_id, title, issuer, awarded_year, description)
+            VALUES
+                (:uid, :title, :issuer, :awarded_year, :description)
+            RETURNING id, user_id, title, issuer, awarded_year, description,
+                      created_at, updated_at
+            """
+        ),
+        {
+            "uid": user_id,
+            "title": body.title,
+            "issuer": body.issuer,
+            "awarded_year": body.awarded_year,
+            "description": body.description,
+        },
+    ).mappings().one()
+    db.commit()
+    return _award_row_to_out(result)
+
+
+@app.get("/users/{user_id}/awards")
+def list_awards(user_id: str, db: Session = Depends(get_db)):
+    rows = db.execute(
+        text(
+            """
+            SELECT id, user_id, title, issuer, awarded_year, description,
+                   created_at, updated_at
+            FROM award_entries
+            WHERE user_id = :uid
+            ORDER BY awarded_year DESC NULLS LAST, created_at DESC
+            """
+        ),
+        {"uid": user_id},
+    ).mappings().all()
+    return {"user_id": user_id, "awards": [_award_row_to_out(r) for r in rows]}
+
+
+@app.put("/users/{user_id}/awards/{entry_id}", response_model=AwardOut)
+def update_award(user_id: str, entry_id: str, body: AwardIn, db: Session = Depends(get_db)):
+    result = db.execute(
+        text(
+            """
+            UPDATE award_entries
+            SET title        = :title,
+                issuer       = :issuer,
+                awarded_year = :awarded_year,
+                description  = :description,
+                updated_at   = NOW()
+            WHERE id = :eid AND user_id = :uid
+            RETURNING id, user_id, title, issuer, awarded_year, description,
+                    created_at, updated_at
+            """
+        ),
+        {
+            "uid": user_id,
+            "eid": entry_id,
+            "title": body.title,
+            "issuer": body.issuer,
+            "awarded_year": body.awarded_year,
+            "description": body.description,
+        },
+    ).mappings().one_or_none()
+    if not result:
+        raise HTTPException(status_code=404, detail="Award entry not found")
+    db.commit()
+    return _award_row_to_out(result)
+
+
+@app.delete("/users/{user_id}/awards/{entry_id}")
+def delete_award(user_id: str, entry_id: str, db: Session = Depends(get_db)):
+    deleted = db.execute(
+        text("DELETE FROM award_entries WHERE id = :eid AND user_id = :uid RETURNING id"),
+        {"uid": user_id, "eid": entry_id},
+    ).scalar()
+    if not deleted:
+        raise HTTPException(status_code=404, detail="Award entry not found")
+    db.commit()
+    return {"deleted": True, "id": entry_id}
+
+
+def _award_row_to_out(row) -> Dict[str, Any]:
+    r = dict(row)
+    return {
+        "id": str(r["id"]),
+        "user_id": str(r["user_id"]),
+        "title": r["title"],
+        "issuer": r.get("issuer"),
+        "awarded_year": r.get("awarded_year"),
+        "description": r.get("description"),
+        "created_at": r["created_at"].isoformat() if hasattr(r["created_at"], "isoformat") else str(r["created_at"]),
+        "updated_at": r["updated_at"].isoformat() if hasattr(r["updated_at"], "isoformat") else str(r["updated_at"]),
+    }
+
+
+# ---------------------------------------------------------------------------
+# Resume composite payload
+# GET /users/{user_id}/resume-payload
+# ---------------------------------------------------------------------------
+
+@app.get("/users/{user_id}/resume-payload")
+def get_resume_payload(user_id: str, db: Session = Depends(get_db)):
+    """
+    Returns the full one-page resume data contract:
+      - education entries
+      - awards entries
+      - bucketed skills (derived from latest analysis per project)
+      - normalized contribution/impact evidence per project
+    """
+    # 1. Verify user exists
+    row = db.execute(text("SELECT 1 FROM users WHERE id = :uid"), {"uid": user_id}).scalar()
+    if not row:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    # 2. Education
+    edu_rows = db.execute(
+        text(
+            """
+            SELECT id, user_id, institution, degree, field_of_study,
+                   start_year, end_year, is_current, description,
+                   created_at, updated_at
+            FROM education_entries WHERE user_id = :uid
+            ORDER BY start_year DESC NULLS LAST, created_at DESC
+            """
+        ),
+        {"uid": user_id},
+    ).mappings().all()
+
+    # 3. Awards
+    award_rows = db.execute(
+        text(
+            """
+            SELECT id, user_id, title, issuer, awarded_year, description,
+                   created_at, updated_at
+            FROM award_entries WHERE user_id = :uid
+            ORDER BY awarded_year DESC NULLS LAST, created_at DESC
+            """
+        ),
+        {"uid": user_id},
+    ).mappings().all()
+
+    # 4. Projects with their evidence payloads
+    project_rows = db.execute(
+        text(
+            """
+            SELECT
+                p.id          AS project_id,
+                p.name        AS project_name,
+                p.user_role,
+                p.evidence_json
+            FROM projects p
+            JOIN portfolios pf ON pf.id = p.portfolio_id
+            WHERE pf.user_id = :uid
+            ORDER BY p.created_at DESC
+            """
+        ),
+        {"uid": user_id},
+    ).mappings().all()
+
+    # 5. Skills via normalized tables: latest analysis per project → analysis_skills → skills
+    skill_rows = db.execute(
+        text(
+            """
+            SELECT
+                p.id        AS project_id,
+                sk.skill_name,
+                ask.confidence
+            FROM projects p
+            JOIN portfolios pf ON pf.id = p.portfolio_id
+            JOIN snapshots sn ON sn.project_id = p.id
+            JOIN LATERAL (
+                SELECT id
+                FROM analyses
+                WHERE snapshot_id IN (
+                    SELECT id FROM snapshots WHERE project_id = p.id
+                )
+                ORDER BY created_at DESC
+                LIMIT 1
+            ) latest_a ON true
+            JOIN analysis_skills ask ON ask.analysis_id = latest_a.id
+            JOIN skills sk ON sk.id = ask.skill_id
+            WHERE pf.user_id = :uid
+            """
+        ),
+        {"uid": user_id},
+    ).mappings().all()
+
+    # Group skills by project_id for O(1) lookup below
+    from collections import defaultdict
+    skills_by_project: Dict[str, list] = defaultdict(list)
+    for sr in skill_rows:
+        skills_by_project[str(sr["project_id"])].append(sr)
+
+    projects_out = []
+    for pr in project_rows:
+        pid = str(pr["project_id"])
+        evidence_json = pr.get("evidence_json") or {}
+        if isinstance(evidence_json, str):
+            evidence_json = json.loads(evidence_json)
+
+        projects_out.append({
+            "project_id": pid,
+            "project_name": pr.get("project_name"),
+            "user_role": pr.get("user_role"),
+            "skills": _bucket_skills_from_rows(skills_by_project[pid]),
+            "evidence": _normalize_evidence(evidence_json),
+        })
+
+    return {
+        "user_id": user_id,
+        "education": [_education_row_to_out(r) for r in edu_rows],
+        "awards": [_award_row_to_out(r) for r in award_rows],
+        "projects": projects_out,
+    }

@@ -2098,3 +2098,350 @@ def test_portfolio_showcase_upsert_logic(engine):
         if isinstance(final_content, str):
             final_content = json.loads(final_content)
         assert final_content["description"] == "Updated Version"
+
+from src.api.app import bucket_skill_expertise, _normalize_evidence, _bucket_skills_from_rows
+
+
+# ---------------------------------------------------------------------------
+# Skill expertise bucketing  (pure unit tests — no DB needed)
+# ---------------------------------------------------------------------------
+
+def test_bucket_skill_expertise_expert():
+    assert bucket_skill_expertise(0.80) == "expert"
+    assert bucket_skill_expertise(1.00) == "expert"
+    assert bucket_skill_expertise(0.95) == "expert"
+
+
+def test_bucket_skill_expertise_proficient():
+    assert bucket_skill_expertise(0.55) == "proficient"
+    assert bucket_skill_expertise(0.70) == "proficient"
+    assert bucket_skill_expertise(0.799) == "proficient"
+
+
+def test_bucket_skill_expertise_familiar():
+    assert bucket_skill_expertise(0.30) == "familiar"
+    assert bucket_skill_expertise(0.45) == "familiar"
+    assert bucket_skill_expertise(0.549) == "familiar"
+
+
+def test_bucket_skill_expertise_exposure():
+    assert bucket_skill_expertise(0.00) == "exposure"
+    assert bucket_skill_expertise(0.10) == "exposure"
+    assert bucket_skill_expertise(0.299) == "exposure"
+
+
+def test_bucket_skill_expertise_boundary_exact():
+    # Boundaries must be deterministic and inclusive at the threshold
+    assert bucket_skill_expertise(0.80) == "expert"
+    assert bucket_skill_expertise(0.55) == "proficient"
+    assert bucket_skill_expertise(0.30) == "familiar"
+
+
+def test_bucket_skill_expertise_invalid_range():
+    import pytest
+    with pytest.raises(ValueError):
+        bucket_skill_expertise(1.01)
+    with pytest.raises(ValueError):
+        bucket_skill_expertise(-0.01)
+
+
+def test_bucket_skill_expertise_invalid_type():
+    import pytest
+    with pytest.raises((ValueError, TypeError)):
+        bucket_skill_expertise("high")
+
+
+# ---------------------------------------------------------------------------
+# Evidence normalisation  (pure unit tests)
+# ---------------------------------------------------------------------------
+
+def test_normalize_evidence_empty():
+    result = _normalize_evidence(None)
+    assert result == {"contributions": [], "impact": [], "extra": {}}
+
+
+def test_normalize_evidence_full():
+    raw = {
+        "contributions": ["Designed API", "Led migration"],
+        "impact": ["Reduced latency by 30%"],
+        "custom_field": "preserved",
+    }
+    result = _normalize_evidence(raw)
+    assert result["contributions"] == ["Designed API", "Led migration"]
+    assert result["impact"] == ["Reduced latency by 30%"]
+    assert result["extra"]["custom_field"] == "preserved"
+
+
+def test_normalize_evidence_scalar_coercion():
+    # Scalars should be coerced to single-element lists
+    raw = {"contributions": "Single contribution", "impact": "Single impact"}
+    result = _normalize_evidence(raw)
+    assert result["contributions"] == ["Single contribution"]
+    assert result["impact"] == ["Single impact"]
+
+
+def test_normalize_evidence_missing_keys():
+    result = _normalize_evidence({"impact": ["shipped feature"]})
+    assert result["contributions"] == []
+    assert result["impact"] == ["shipped feature"]
+
+
+# ---------------------------------------------------------------------------
+# Bucketed skill extraction from normalized analysis_skills rows
+# ---------------------------------------------------------------------------
+
+def test_bucket_skills_from_rows_sorted():
+    rows = [
+        {"skill_name": "Python", "confidence": 0.60},
+        {"skill_name": "Rust",   "confidence": 0.90},
+        {"skill_name": "Bash",   "confidence": 0.20},
+    ]
+    result = _bucket_skills_from_rows(rows)
+    assert result[0]["name"] == "Rust"
+    assert result[0]["expertise"] == "expert"
+    assert result[1]["name"] == "Python"
+    assert result[1]["expertise"] == "proficient"
+    assert result[2]["name"] == "Bash"
+    assert result[2]["expertise"] == "exposure"
+
+
+def test_bucket_skills_from_rows_empty():
+    assert _bucket_skills_from_rows([]) == []
+
+
+def test_bucket_skills_from_rows_null_confidence():
+    # None confidence should default to 0.0 → exposure
+    rows = [{"skill_name": "Go", "confidence": None}]
+    result = _bucket_skills_from_rows(rows)
+    assert result[0]["expertise"] == "exposure"
+
+
+# ---------------------------------------------------------------------------
+# Education CRUD  (integration tests)
+# ---------------------------------------------------------------------------
+
+def test_education_create_and_list(client, engine):
+    info = _register_user(client, email="edu_test@example.com")
+    user_id = info["user_id"]
+
+    # Create
+    r = client.post(
+        f"/users/{user_id}/education",
+        json={
+            "institution": "MIT",
+            "degree": "B.Sc.",
+            "field_of_study": "Computer Science",
+            "start_year": 2018,
+            "end_year": 2022,
+            "is_current": False,
+            "description": "Focused on distributed systems.",
+        },
+    )
+    assert r.status_code == 200
+    body = r.json()
+    assert body["institution"] == "MIT"
+    assert body["degree"] == "B.Sc."
+    entry_id = body["id"]
+
+    # List
+    r2 = client.get(f"/users/{user_id}/education")
+    assert r2.status_code == 200
+    entries = r2.json()["education"]
+    assert any(e["id"] == entry_id for e in entries)
+
+
+def test_education_update(client, engine):
+    info = _register_user(client, email="edu_update@example.com")
+    user_id = info["user_id"]
+
+    r = client.post(
+        f"/users/{user_id}/education",
+        json={"institution": "Old University", "degree": "B.A."},
+    )
+    entry_id = r.json()["id"]
+
+    r2 = client.put(
+        f"/users/{user_id}/education/{entry_id}",
+        json={"institution": "New University", "degree": "M.Sc.", "is_current": True},
+    )
+    assert r2.status_code == 200
+    updated = r2.json()
+    assert updated["institution"] == "New University"
+    assert updated["degree"] == "M.Sc."
+    assert updated["is_current"] is True
+
+
+def test_education_delete(client, engine):
+    info = _register_user(client, email="edu_delete@example.com")
+    user_id = info["user_id"]
+
+    r = client.post(
+        f"/users/{user_id}/education",
+        json={"institution": "Delete Me University"},
+    )
+    entry_id = r.json()["id"]
+
+    r2 = client.delete(f"/users/{user_id}/education/{entry_id}")
+    assert r2.status_code == 200
+    assert r2.json()["deleted"] is True
+
+    # Confirm gone
+    r3 = client.get(f"/users/{user_id}/education")
+    ids = [e["id"] for e in r3.json()["education"]]
+    assert entry_id not in ids
+
+
+def test_education_delete_wrong_user_returns_404(client, engine):
+    info_a = _register_user(client, email="edu_a@example.com")
+    info_b = _register_user(client, email="edu_b@example.com")
+
+    r = client.post(
+        f"/users/{info_a['user_id']}/education",
+        json={"institution": "Belongs to A"},
+    )
+    entry_id = r.json()["id"]
+
+    r2 = client.delete(f"/users/{info_b['user_id']}/education/{entry_id}")
+    assert r2.status_code == 404
+
+
+# ---------------------------------------------------------------------------
+# Awards CRUD  (integration tests)
+# ---------------------------------------------------------------------------
+
+def test_awards_create_and_list(client, engine):
+    info = _register_user(client, email="award_test@example.com")
+    user_id = info["user_id"]
+
+    r = client.post(
+        f"/users/{user_id}/awards",
+        json={
+            "title": "Best Paper Award",
+            "issuer": "ICSE 2023",
+            "awarded_year": 2023,
+            "description": "Top submission in software engineering track.",
+        },
+    )
+    assert r.status_code == 200
+    body = r.json()
+    assert body["title"] == "Best Paper Award"
+    entry_id = body["id"]
+
+    r2 = client.get(f"/users/{user_id}/awards")
+    assert r2.status_code == 200
+    assert any(a["id"] == entry_id for a in r2.json()["awards"])
+
+
+def test_awards_update(client, engine):
+    info = _register_user(client, email="award_update@example.com")
+    user_id = info["user_id"]
+
+    r = client.post(f"/users/{user_id}/awards", json={"title": "Old Award"})
+    entry_id = r.json()["id"]
+
+    r2 = client.put(
+        f"/users/{user_id}/awards/{entry_id}",
+        json={"title": "Updated Award", "issuer": "New Org", "awarded_year": 2024},
+    )
+    assert r2.status_code == 200
+    assert r2.json()["title"] == "Updated Award"
+    assert r2.json()["issuer"] == "New Org"
+
+
+def test_awards_delete(client, engine):
+    info = _register_user(client, email="award_delete@example.com")
+    user_id = info["user_id"]
+
+    r = client.post(f"/users/{user_id}/awards", json={"title": "Temporary Award"})
+    entry_id = r.json()["id"]
+
+    r2 = client.delete(f"/users/{user_id}/awards/{entry_id}")
+    assert r2.status_code == 200
+    assert r2.json()["deleted"] is True
+
+    r3 = client.get(f"/users/{user_id}/awards")
+    ids = [a["id"] for a in r3.json()["awards"]]
+    assert entry_id not in ids
+
+
+def test_awards_delete_wrong_user_returns_404(client, engine):
+    info_a = _register_user(client, email="award_a@example.com")
+    info_b = _register_user(client, email="award_b@example.com")
+
+    r = client.post(f"/users/{info_a['user_id']}/awards", json={"title": "Belongs to A"})
+    entry_id = r.json()["id"]
+
+    r2 = client.delete(f"/users/{info_b['user_id']}/awards/{entry_id}")
+    assert r2.status_code == 404
+
+
+# ---------------------------------------------------------------------------
+# Resume composite payload
+# ---------------------------------------------------------------------------
+
+def test_resume_payload_shape(client, engine):
+    info = _register_user(client, email="resume_payload@example.com")
+    user_id = info["user_id"]
+
+    # Seed education + award
+    client.post(
+        f"/users/{user_id}/education",
+        json={"institution": "State University", "degree": "B.Sc.", "start_year": 2019, "end_year": 2023},
+    )
+    client.post(
+        f"/users/{user_id}/awards",
+        json={"title": "Dean's List", "awarded_year": 2021},
+    )
+
+    r = client.get(f"/users/{user_id}/resume-payload")
+    assert r.status_code == 200
+    payload = r.json()
+
+    # Top-level keys
+    assert "user_id" in payload
+    assert "education" in payload
+    assert "awards" in payload
+    assert "projects" in payload
+
+    # Education present
+    assert any(e["institution"] == "State University" for e in payload["education"])
+
+    # Award present
+    assert any(a["title"] == "Dean's List" for a in payload["awards"])
+
+    # Projects list is always an array
+    assert isinstance(payload["projects"], list)
+
+
+def test_resume_payload_project_evidence_schema(client, engine):
+    """Each project in the payload must have stable evidence/skills keys."""
+    info = _register_user(client, email="resume_proj@example.com")
+    user_id = info["user_id"]
+    portfolio_id = info["portfolio_id"]
+
+    # Insert a project directly for speed
+    project_id = _u()
+    with engine.begin() as conn:
+        conn.execute(
+            text("INSERT INTO projects (id, portfolio_id, name) VALUES (:id, :pf, 'TestProj')"),
+            {"id": project_id, "pf": portfolio_id},
+        )
+
+    r = client.get(f"/users/{user_id}/resume-payload")
+    assert r.status_code == 200
+    projects = r.json()["projects"]
+    assert any(p["project_id"] == project_id for p in projects)
+
+    for p in projects:
+        assert "skills" in p
+        assert "evidence" in p
+        assert isinstance(p["skills"], list)
+        evidence = p["evidence"]
+        assert "contributions" in evidence
+        assert "impact" in evidence
+        assert "extra" in evidence
+
+
+def test_resume_payload_unknown_user_returns_404(client):
+    r = client.get(f"/users/{_u()}/resume-payload")
+    assert r.status_code == 404
