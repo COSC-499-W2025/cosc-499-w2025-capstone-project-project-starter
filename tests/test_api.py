@@ -2132,7 +2132,6 @@ def test_education_create_and_list(client, engine):
     entries = r2.json()["education"]
     assert any(e["id"] == entry_id for e in entries)
 
-
 def test_education_update(client, engine):
     info = _register_user(client, email="edu_update@example.com")
     user_id = info["user_id"]
@@ -2153,7 +2152,6 @@ def test_education_update(client, engine):
     assert updated["degree"] == "M.Sc."
     assert updated["is_current"] is True
 
-
 def test_education_delete(client, engine):
     info = _register_user(client, email="edu_delete@example.com")
     user_id = info["user_id"]
@@ -2173,7 +2171,6 @@ def test_education_delete(client, engine):
     ids = [e["id"] for e in r3.json()["education"]]
     assert entry_id not in ids
 
-
 def test_education_delete_wrong_user_returns_404(client, engine):
     info_a = _register_user(client, email="edu_a@example.com")
     info_b = _register_user(client, email="edu_b@example.com")
@@ -2186,7 +2183,6 @@ def test_education_delete_wrong_user_returns_404(client, engine):
 
     r2 = client.delete(f"/users/{info_b['user_id']}/education/{entry_id}")
     assert r2.status_code == 404
-
 
 # ---------------------------------------------------------------------------
 # Awards CRUD  (integration tests)
@@ -2214,7 +2210,6 @@ def test_awards_create_and_list(client, engine):
     assert r2.status_code == 200
     assert any(a["id"] == entry_id for a in r2.json()["awards"])
 
-
 def test_awards_update(client, engine):
     info = _register_user(client, email="award_update@example.com")
     user_id = info["user_id"]
@@ -2229,7 +2224,6 @@ def test_awards_update(client, engine):
     assert r2.status_code == 200
     assert r2.json()["title"] == "Updated Award"
     assert r2.json()["issuer"] == "New Org"
-
 
 def test_awards_delete(client, engine):
     info = _register_user(client, email="award_delete@example.com")
@@ -2246,7 +2240,6 @@ def test_awards_delete(client, engine):
     ids = [a["id"] for a in r3.json()["awards"]]
     assert entry_id not in ids
 
-
 def test_awards_delete_wrong_user_returns_404(client, engine):
     info_a = _register_user(client, email="award_a@example.com")
     info_b = _register_user(client, email="award_b@example.com")
@@ -2256,7 +2249,6 @@ def test_awards_delete_wrong_user_returns_404(client, engine):
 
     r2 = client.delete(f"/users/{info_b['user_id']}/awards/{entry_id}")
     assert r2.status_code == 404
-
 
 # ---------------------------------------------------------------------------
 # Resume composite payload
@@ -2295,7 +2287,6 @@ def test_resume_payload_shape(client, engine):
     # Projects list is always an array
     assert isinstance(payload["projects"], list)
 
-
 def test_resume_payload_project_evidence_schema(client, engine):
     """Each project in the payload must have stable evidence/skills keys."""
     info = _register_user(client, email="resume_proj@example.com")
@@ -2323,7 +2314,6 @@ def test_resume_payload_project_evidence_schema(client, engine):
         assert "contributions" in evidence
         assert "impact" in evidence
         assert "extra" in evidence
-
 
 def test_resume_payload_unknown_user_returns_404(client):
     r = client.get(f"/users/{_u()}/resume-payload")
