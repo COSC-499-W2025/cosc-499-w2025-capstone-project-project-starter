@@ -1706,124 +1706,6 @@ function Homepage() {
     }
   };
 
-  // ---------------------------------------------------------------------------
-  // Resume tab state
-  // ---------------------------------------------------------------------------
-  const [resumeEducation, setResumeEducation] = useState([]);
-  const [resumeAwards, setResumeAwards] = useState([]);
-  const [resumeProjects, setResumeProjects] = useState([]);
-  const [resumeLoading, setResumeLoading] = useState(false);
-  const [resumeSaving, setResumeSaving] = useState(false);
-  const [editingEduId, setEditingEduId] = useState(null);
-  const [editingAwardId, setEditingAwardId] = useState(null);
-  const [eduForm, setEduForm] = useState({});
-  const [awardForm, setAwardForm] = useState({});
-
-  const EMPTY_EDU = { institution: '', degree: '', field_of_study: '', start_year: '', end_year: '', is_current: false, description: '' };
-  const EMPTY_AWARD = { title: '', issuer: '', awarded_year: '', description: '' };
-
-  const fetchResumePayload = useCallback(async () => {
-    if (!token || !currentUser?.user_id) return;
-    setResumeLoading(true);
-    try {
-      const data = await resumeApi.getResumePayload(token, currentUser.user_id);
-      setResumeEducation(data.education || []);
-      setResumeAwards(data.awards || []);
-      setResumeProjects(data.projects || []);
-    } catch (err) {
-      setDashboardError(err.message || 'Unable to load resume data.');
-    } finally {
-      setResumeLoading(false);
-    }
-  }, [token, currentUser]);
-
-  useEffect(() => {
-    if (view === 'resume') fetchResumePayload();
-  }, [view, fetchResumePayload]);
-
-  const startAddEdu = () => { setEduForm(EMPTY_EDU); setEditingEduId('new'); };
-  const startEditEdu = (entry) => { setEduForm({ ...entry, start_year: entry.start_year || '', end_year: entry.end_year || '' }); setEditingEduId(entry.id); };
-  const cancelEdu = () => setEditingEduId(null);
-
-  const saveEdu = async () => {
-    setResumeSaving(true);
-    try {
-      const body = {
-        institution: eduForm.institution,
-        degree: eduForm.degree || null,
-        field_of_study: eduForm.field_of_study || null,
-        start_year: eduForm.start_year ? parseInt(eduForm.start_year, 10) : null,
-        end_year: eduForm.is_current ? null : (eduForm.end_year ? parseInt(eduForm.end_year, 10) : null),
-        is_current: eduForm.is_current || false,
-        description: eduForm.description || null,
-      };
-      if (editingEduId === 'new') {
-        await resumeApi.createEducation(token, currentUser.user_id, body);
-      } else {
-        await resumeApi.updateEducation(token, currentUser.user_id, editingEduId, body);
-      }
-      setEditingEduId(null);
-      await fetchResumePayload();
-    } catch (err) {
-      setDashboardError(err.message || 'Failed to save education entry.');
-    } finally {
-      setResumeSaving(false);
-    }
-  };
-
-  const deleteEdu = async (id) => {
-    if (!window.confirm('Delete this education entry?')) return;
-    setResumeSaving(true);
-    try {
-      await resumeApi.deleteEducation(token, currentUser.user_id, id);
-      await fetchResumePayload();
-    } catch (err) {
-      setDashboardError(err.message || 'Failed to delete.');
-    } finally {
-      setResumeSaving(false);
-    }
-  };
-
-  const startAddAward = () => { setAwardForm(EMPTY_AWARD); setEditingAwardId('new'); };
-  const startEditAward = (entry) => { setAwardForm({ ...entry, awarded_year: entry.awarded_year || '' }); setEditingAwardId(entry.id); };
-  const cancelAward = () => setEditingAwardId(null);
-
-  const saveAward = async () => {
-    setResumeSaving(true);
-    try {
-      const body = {
-        title: awardForm.title,
-        issuer: awardForm.issuer || null,
-        awarded_year: awardForm.awarded_year ? parseInt(awardForm.awarded_year, 10) : null,
-        description: awardForm.description || null,
-      };
-      if (editingAwardId === 'new') {
-        await resumeApi.createAward(token, currentUser.user_id, body);
-      } else {
-        await resumeApi.updateAward(token, currentUser.user_id, editingAwardId, body);
-      }
-      setEditingAwardId(null);
-      await fetchResumePayload();
-    } catch (err) {
-      setDashboardError(err.message || 'Failed to save award.');
-    } finally {
-      setResumeSaving(false);
-    }
-  };
-
-  const deleteAward = async (id) => {
-    if (!window.confirm('Delete this award?')) return;
-    setResumeSaving(true);
-    try {
-      await resumeApi.deleteAward(token, currentUser.user_id, id);
-      await fetchResumePayload();
-    } catch (err) {
-      setDashboardError(err.message || 'Failed to delete.');
-    } finally {
-      setResumeSaving(false);
-    }
-  };
-
   const navButtons = useMemo(
     () => [
       { id: 'projects', label: 'Projects' },
@@ -1833,7 +1715,6 @@ function Homepage() {
       { id: 'upload', label: 'Upload' },
       { id: 'skills', label: 'Skills Timeline' },
       { id: 'top', label: 'Top Projects' },
-      { id: 'resume', label: 'Resume' },
     ],
     []
   );
