@@ -644,7 +644,10 @@ async def delete_project_data(
 
 
 @router.post("/preferences")
-async def update_preferences(request: dict):
+async def update_preferences(
+    request: dict,
+    user_name: Optional[str] = Query(None, description="Username for preferences")
+):
     """Update user preferences."""
     if not user_name:
         raise HTTPException(status_code=400, detail="user_name is required")

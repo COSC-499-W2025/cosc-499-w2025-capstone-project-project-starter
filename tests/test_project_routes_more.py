@@ -349,12 +349,14 @@ class TestSingleProjectRoutes:
     @patch("api.routes.project.get_project_by_id")
     def test_get_project_by_id_success_with_datetime(self, mock_get_project):
         mock_get_project.return_value = {
-            "id": 1,
-            "filename": "proj.zip",
-            "filepath": "/tmp/proj.zip",
-            "status": "uploaded",
-            "metadata": {"files": ["a.py"]},
-            "created_at": datetime(2024, 1, 1, 9, 30, 0),
+            "project_info": {
+                "id": 1,
+                "filename": "proj.zip",
+                "filepath": "/tmp/proj.zip",
+                "status": "uploaded",
+                "created_at": "2024-01-01T09:30:00"
+            },
+            "files": ["a.py"]
         }
 
         response = client.get("/api/projects/1?user_name=test_user")
@@ -369,12 +371,13 @@ class TestSingleProjectRoutes:
     @patch("api.routes.project.get_project_by_id")
     def test_get_project_by_id_success_with_string_datetime(self, mock_get_project):
         mock_get_project.return_value = {
-            "id": 2,
-            "filename": "proj2.zip",
-            "filepath": "/tmp/proj2.zip",
-            "status": "uploaded",
-            "metadata": {},
-            "created_at": "2024-01-01T10:00:00",
+            "project_info": {
+                "id": 2,
+                "filename": "proj2.zip",
+                "filepath": "/tmp/proj2.zip",
+                "status": "uploaded",
+                "created_at": "2024-01-01T10:00:00"
+            }
         }
 
         response = client.get("/api/projects/2")
