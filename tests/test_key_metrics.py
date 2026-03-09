@@ -101,8 +101,7 @@ def test_choose_author_from_zip_git_username_match(monkeypatch):
     monkeypatch.setattr(key_metrics, "get_file_contents_by_upload_id", lambda _: {})
     monkeypatch.setattr(key_metrics, "_identify_authors_from_zip", lambda _: {"user1", "user2"})
     monkeypatch.setattr(key_metrics, "_extract_common_names_from_filenames", lambda _: set())
-    monkeypatch.setattr(key_metrics, "AuthManager")
-    monkeypatch.setattr(key_metrics.AuthManager, "get_current_username", lambda: "test_user")
+    monkeypatch.setattr("analysis.key_metrics.AuthManager.get_current_username", lambda: "test_user")
     monkeypatch.setattr(key_metrics, "get_user_git_username", lambda user_name: "user1")
     
     result = key_metrics.choose_author_from_zip(1)
