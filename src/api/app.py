@@ -3021,6 +3021,90 @@ class AwardOut(BaseModel):
     updated_at: str
 
 # ---------------------------------------------------------------------------
+# Skill expertise bucketing  (deterministic, pure function)
+# ---------------------------------------------------------------------------
+
+# Thresholds are intentionally constants so bucketing is fully deterministic.
+SKILL_EXPERTISE_THRESHOLDS = {
+    "expert":        0.80,
+    "proficient":    0.55,
+    "familiar":      0.30,
+    # anything below 0.30 → "exposure"
+}
+
+
+def bucket_skill_expertise(probability: float) -> str:
+    """
+    Map a raw skill probability score (0.0–1.0) to a stable expertise label.
+
+    Buckets (descending):
+        expert      >= 0.80
+        proficient  >= 0.55
+        familiar    >= 0.30
+        exposure     < 0.30
+    """
+    if not isinstance(probability, (int, float)):
+        raise ValueError(f"probability must be numeric, got {type(probability)}")
+    p = float(probability)
+    if p < 0.0 or p > 1.0:
+        raise ValueError(f"probability must be in [0.0, 1.0], got {p}")
+
+    if p >= SKILL_EXPERTISE_THRESHOLDS["expert"]:
+        return "expert"
+    if p >= SKILL_EXPERTISE_THRESHOLDS["proficient"]:
+        return "proficient"
+    if p >= SKILL_EXPERTISE_THRESHOLDS["familiar"]:
+        return "familiar"
+    return "exposure"
+
+
+def _bucket_skills_from_rows(skill_rows: list) -> List[Dict[str, Any]]:
+    """
+    Build a bucketed skill list from rows returned by the analysis_skills/skills join.
+    Each row must have: skill_name (str), confidence (float|None).
+    Returns a stable list sorted by confidence descending.
+    """
+    bucketed = []
+    for s in skill_rows:
+        name = str(s.get("skill_name") or "").strip()
+        if not name:
+            continue
+        prob = float(s.get("confidence") or 0.0)
+        bucketed.append({
+            "name": name,
+            "probability": prob,
+            "expertise": bucket_skill_expertise(prob),
+        })
+    bucketed.sort(key=lambda x: x["probability"], reverse=True)
+    return bucketed
+
+
+def _normalize_evidence(evidence_json: Optional[Dict[str, Any]]) -> Dict[str, Any]:
+    """
+    Normalize a raw evidence_json blob into a stable contribution/impact schema.
+    Unknown keys are preserved under 'extra' so callers are never silently data-lost.
+    """
+    if not evidence_json:
+        return {"contributions": [], "impact": [], "extra": {}}
+
+    known_keys = {"contributions", "impact"}
+    contributions = evidence_json.get("contributions") or []
+    impact = evidence_json.get("impact") or []
+
+    # Coerce scalars → list so the schema is always array-shaped
+    if isinstance(contributions, str):
+        contributions = [contributions]
+    if isinstance(impact, str):
+        impact = [impact]
+
+    extra = {k: v for k, v in evidence_json.items() if k not in known_keys}
+    return {
+        "contributions": [str(c) for c in contributions if c],
+        "impact": [str(i) for i in impact if i],
+        "extra": extra,
+    }
+
+# ---------------------------------------------------------------------------
 # Education CRUD
 # ---------------------------------------------------------------------------
 
