@@ -604,13 +604,20 @@ class PortfolioManager:
 
             ranked = []
             try:
-                stored = get_stored_rankings(self.user_name)
-                if stored:
-                    for r in stored[:3]:
+                with with_db_cursor() as cursor:
+                    cursor.execute("""
+                        SELECT pr.project_id, uf.filename, pr.score
+                        FROM project_rankings pr
+                        JOIN uploaded_files uf ON uf.id = pr.project_id
+                        WHERE pr.user_name = %s
+                        ORDER BY pr.rank_position ASC
+                        LIMIT 3
+                    """, (self.user_name,))
+                    for row in cursor.fetchall():
                         ranked.append({
-                            'project_id': r.get('project_id'),
-                            'filename': r.get('filename', ''),
-                            'score': r.get('score', 0)
+                            'project_id': row[0],
+                            'filename': row[1],
+                            'score': float(row[2]) if row[2] else 0
                         })
             except Exception:
                 pass

@@ -206,7 +206,7 @@
                 // Stats
                 const summary = portfolio.summary || {};
                 setText('pubTotalProjects', summary.total_projects ?? '-');
-                setText('pubTotalLOC', (summary.total_lines_of_code ?? 0).toLocaleString());
+                setText('pubTotalLOC', (summary.total_files ?? summary.total_lines_of_code ?? 0).toLocaleString());
                 setText('pubTotalSkills', summary.unique_skills ?? '-');
                 setText('pubTotalLangs', summary.unique_languages ?? '-');
                 toggle('pubStatsRow', settings.show_stats !== false);
