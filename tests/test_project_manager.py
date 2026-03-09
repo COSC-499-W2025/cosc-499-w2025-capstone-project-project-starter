@@ -84,39 +84,35 @@ class TestProjectManager:
         assert result == []
     
     @patch('src.project_manager.with_db_cursor')
-    # this test will test the get_project_by_id function
+    # this test will test the get_project_by_id function (flat structure, user-scoped)
     def test_get_project_by_id_success(self, mock_with_db_cursor):
-        """Test successful project retrieval by ID"""
-        # Mock database cursor
+        """Test successful project retrieval by ID."""
         mock_cursor = Mock()
         mock_context = MagicMock()
         mock_context.__enter__.return_value = mock_cursor
         mock_with_db_cursor.return_value = mock_context
         
-        # Mock must match the 6-column SELECT query: id, filename, filepath, status, metadata, created_at
+        # get_project_by_id SELECT: id, filename, filepath, status, metadata, created_at
         mock_project = (
-            1, 
+            1,
             "test_project.zip",
-            "/uploads/test_project.zip",
-            "uploaded",
-            '{"files": ["file1.py"]}', 
-            datetime(2024, 1, 1, 10, 0, 0)
+            "/path/to/test_project.zip",
+            "processed",
+            '{"files": ["file1.py"]}',
+            datetime(2024, 1, 1, 10, 0, 0),
         )
         mock_cursor.fetchone.return_value = mock_project
         
-        # Call the function with user_name parameter for data isolation
         result = get_project_by_id(1, 'test_user')
         
-        # Verify database operations
         mock_cursor.execute.assert_called_once()
-        
-        # FIX: Updated assertions to match the new nested structure returned by get_project_by_id
-        # The new function returns a dict with 'project_info' containing the metadata
-        assert result['project_info']['id'] == 1
-        assert result['project_info']['filename'] == "test_project.zip"
-        # Verify the created_at was converted to string as expected by the new logic
-        assert result['project_info']['created_at'] == datetime(2024, 1, 1, 10, 0, 0).isoformat()
-        assert result['files'] == ["file1.py"]
+        assert result is not None
+        assert result['id'] == 1
+        assert result['filename'] == "test_project.zip"
+        assert result['filepath'] == "/path/to/test_project.zip"
+        assert result['status'] == "processed"
+        assert result['metadata'] == '{"files": ["file1.py"]}'
+        assert result['created_at'] == datetime(2024, 1, 1, 10, 0, 0)
     
     @patch('src.project_manager.with_db_cursor')
     # this test will test the get_project_by_id function when the project does not exist

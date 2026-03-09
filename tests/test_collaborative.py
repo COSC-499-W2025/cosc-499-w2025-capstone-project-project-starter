@@ -16,10 +16,12 @@ from database.user_informations import init_user_informations_table
 from config.db_config import get_connection
 
 @pytest.fixture(scope="function")
-def collaborative_manager():
+def collaborative_manager(db_connection):
     init_user_informations_table()
     
     conn = get_connection()
+    if conn is None:
+        pytest.skip("Database not available")
     cursor = conn.cursor()
     cursor.execute("DROP TABLE IF EXISTS user_preferences CASCADE;")
     conn.commit()
@@ -45,9 +47,11 @@ def collaborative_manager():
 def db_connection():
     """
     Session-level fixture to verify database connection.
+    Skips all tests in this module when database is not available.
     """
     conn = get_connection()
-    assert conn is not None, "Database connection failed"
+    if conn is None:
+        pytest.skip("Database not available")
     conn.close()
     return True
 

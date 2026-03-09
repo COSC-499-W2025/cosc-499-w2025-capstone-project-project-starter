@@ -8,7 +8,7 @@ Uses ONLY existing functions from the codebase - no new analysis logic.
 from datetime import datetime
 from typing import Dict, List, Set, Any, Optional
 from collections import defaultdict
-from project_manager import get_project_by_id, list_projects_chronologically
+from project_manager import get_project_by_id, get_project_with_analysis, list_projects_chronologically
 from project_summarizer import ProjectSummarizer
 from analysis.project_ranking import rank_all_projects
 from analysis.key_metrics import analyze_project_from_db

@@ -27,39 +27,29 @@ class ProjectAnalyzer:
         
         project_path = project_info['filepath']
         
-        # Check if the file still exists
-        # Handle both relative paths and potential location variations
-        if not os.path.exists(project_path):
-            # Try alternative locations for backward compatibility
-            alternative_paths = [
-                project_path,
-                os.path.join('data', project_path),  # Try data/uploads/ prefix
-                os.path.abspath(project_path)
-            ]
-            
-            found_path = None
-            for alt_path in alternative_paths:
-                if os.path.exists(alt_path):
-                    found_path = alt_path
-                    break
-            
-            if found_path:
-                project_path = found_path
-            else:
-                return {
-                    'success': False,
-                    'error': f'Project file not found: {project_path}'
-                }
+        # Resolve the zip path on disk (needed only for optional zip success report).
+        # The main analysis reads file contents from the database, so a missing
+        # zip on disk is NOT fatal.
+        resolved_zip_path = None
+        candidate_paths = [
+            project_path,
+            os.path.join('data', project_path),
+            os.path.abspath(project_path),
+        ]
+        for p in candidate_paths:
+            if os.path.exists(p):
+                resolved_zip_path = p
+                break
+        
+        if not resolved_zip_path:
+            self.logger.warning(f"ZIP file not on disk ({project_path}); zip report will be skipped")
         
         # Request external service permission if needed (Issue #10)
-        # Only prompt in interactive mode (CLI). Skip for API calls.
         if self.interactive:
             from external_services.external_service_prompt import request_external_service_permission
             request_external_service_permission(self.user_id, 'LLM', force=False)
-            # Update router with fresh permission data
             self.router = AnalysisRouter(user_name=self.user_id)
         
-        # Route the analysis based on user permissions
         strategy = self.router.get_analysis_strategy('project')
         
         self.logger.info("-" * 70)
@@ -67,18 +57,7 @@ class ProjectAnalyzer:
         self.logger.info(f"Analysis Strategy: {strategy.upper()}")
         self.logger.info("-" * 70)
         
-        if strategy == 'enhanced':
-            # User has granted permission for external services
-            self.logger.info("Using enhanced analysis (local + external services)")
-            self.logger.info("Note: External service integration not yet implemented")
-            self.logger.info("Falling back to local analysis for now...")
-            # For now, fall back to local analysis
-            # TODO: Implement external service integration in future PRs
-            analysis_results = self._perform_local_analysis(project_path, project_info)
-        else:
-            # User declined or has not granted permission - use local only
-            self.logger.info("Using local analysis only (your data stays completely private)")
-            analysis_results = self._perform_local_analysis(project_path, project_info)
+        analysis_results = self._perform_local_analysis(resolved_zip_path, project_info)
         
         # Add metadata
         analysis_results['uploaded_file_id'] = uploaded_file_id
@@ -118,7 +97,7 @@ class ProjectAnalyzer:
             'contribution_metrics': self._calculate_contribution_metrics(file_contents)
         }
         try:
-            if zipfile.is_zipfile(project_path):
+            if project_path and zipfile.is_zipfile(project_path):
                 from analysis.zip_project_analyzer import analyze_zip_project
                 zip_report = analyze_zip_project(project_path)
                 analysis['zip_success_report'] = {

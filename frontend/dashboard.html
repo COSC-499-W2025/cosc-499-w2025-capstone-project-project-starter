@@ -10,7 +10,7 @@
 <body>
     <header class="header">
         <div class="header-left">
-            <h1>Artifact Dashboard <span id="username" class="header-username"></span></h1>
+            <h1>Artifact Dashboard <span id="username"></span></h1>
         </div>
         <div class="header-actions">
             <button class="theme-toggle" onclick="toggleTheme()" id="themeToggle" aria-label="Toggle theme">
@@ -67,42 +67,42 @@
                 <div class="menu-group nav-group">
                     <button type="button" class="menu-btn nav-tab caret" id="projectMenuToggle" onclick="toggleSubmenu('projectSubmenu', 'projectMenuToggle')">Project Actions</button>
                     <div class="submenu-grid" id="projectSubmenu">
-                        <button type="button" class="menu-btn submenu-btn" data-view="upload" onclick="showView('upload')">1. Upload ZIP</button>
-                        <button type="button" class="menu-btn submenu-btn" data-view="list" onclick="showView('list')">2. List Projects</button>
-                        <button type="button" class="menu-btn submenu-btn" data-view="analyze" onclick="showView('analyze')">3. Analyze Project</button>
-                        <button type="button" class="menu-btn submenu-btn" data-view="thumbnail" onclick="showView('thumbnail')">4. Add Thumbnail</button>
-                        <button type="button" class="menu-btn submenu-btn" data-view="merge" onclick="showView('merge')">5. Merge ZIP into Project</button>
+                        <button type="button" class="menu-btn submenu-btn" data-view="upload" onclick="showView('upload')">Upload ZIP</button>
+                        <button type="button" class="menu-btn submenu-btn" data-view="list" onclick="showView('list')">List Projects</button>
+                        <button type="button" class="menu-btn submenu-btn" data-view="analyze" onclick="showView('analyze')">Analyze Project</button>
+                        <button type="button" class="menu-btn submenu-btn" data-view="thumbnail" onclick="showView('thumbnail')">Add Thumbnail</button>
+                        <button type="button" class="menu-btn submenu-btn" data-view="merge" onclick="showView('merge')">Merge ZIP</button>
                     </div>
                 </div>
                 <div class="menu-group nav-group">
                     <button type="button" class="menu-btn nav-tab caret" id="rankingMenuToggle" onclick="toggleSubmenu('rankingSubmenu', 'rankingMenuToggle')">Ranking Tools</button>
                     <div class="submenu-grid" id="rankingSubmenu">
-                        <button type="button" class="menu-btn submenu-btn" data-view="rank" onclick="showView('rank')">6. Rank Projects</button>
-                        <button type="button" class="menu-btn submenu-btn" data-view="rank-top3" onclick="showView('rank-top3')">7. Rank Top 3</button>
-                        <button type="button" class="menu-btn submenu-btn" data-view="rankings" onclick="showView('rankings')">8. View Rankings</button>
-                        <button type="button" class="menu-btn submenu-btn" data-view="rank-gemini" onclick="showView('rank-gemini')">9. AI Rank (Gemini)</button>
+                        <button type="button" class="menu-btn submenu-btn" data-view="rank" onclick="showView('rank')">Rank Projects</button>
+                        <button type="button" class="menu-btn submenu-btn" data-view="rank-top3" onclick="showView('rank-top3')">Rank Top 3</button>
+                        <button type="button" class="menu-btn submenu-btn" data-view="rankings" onclick="showView('rankings')">View Rankings</button>
+                        <button type="button" class="menu-btn submenu-btn" data-view="rank-gemini" onclick="showView('rank-gemini')">AI Rank (Gemini)</button>
                     </div>
                 </div>
                 <div class="menu-group nav-group">
                     <button type="button" class="menu-btn nav-tab caret" id="settingsMenuToggle" onclick="toggleSubmenu('settingsSubmenu', 'settingsMenuToggle')">Settings</button>
                     <div class="submenu-grid" id="settingsSubmenu">
-                        <button type="button" class="menu-btn submenu-btn" data-view="external" onclick="showView('external')">10. External Services</button>
-                        <button type="button" class="menu-btn submenu-btn" data-view="cleanup" onclick="showView('cleanup')">11. Cleanup Insights</button>
-                        <button type="button" class="menu-btn submenu-btn" data-view="preferences" onclick="showView('preferences')">12. Preferences</button>
-                        <button type="button" class="menu-btn submenu-btn" data-view="account" onclick="showView('account')">13. Account</button>
+                        <button type="button" class="menu-btn submenu-btn" data-view="external" onclick="showView('external')">External Services</button>
+                        <button type="button" class="menu-btn submenu-btn" data-view="cleanup" onclick="showView('cleanup')">Cleanup Insights</button>
+                        <button type="button" class="menu-btn submenu-btn" data-view="preferences" onclick="showView('preferences')">Preferences</button>
+                        <button type="button" class="menu-btn submenu-btn" data-view="account" onclick="showView('account')">Account</button>
                     </div>
                 </div>
                 <div class="menu-group nav-group">
                     <button type="button" class="menu-btn nav-tab caret" id="resumeMenuToggle" onclick="toggleSubmenu('resumeSubmenu', 'resumeMenuToggle')">Resume Tools</button>
                     <div class="submenu-grid" id="resumeSubmenu">
-                        <button type="button" class="menu-btn submenu-btn" data-view="resume-gen" onclick="showView('resume-gen')">14. Generate Resume</button>
-                        <button type="button" class="menu-btn submenu-btn" data-view="resume-view" onclick="showView('resume-view')">15. View Resume</button>
-                        <button type="button" class="menu-btn submenu-btn" data-view="resume-delete" onclick="showView('resume-delete')">16. Delete Resume</button>
+                        <button type="button" class="menu-btn submenu-btn" data-view="resume-gen" onclick="showView('resume-gen')">Generate Resume</button>
+                        <button type="button" class="menu-btn submenu-btn" data-view="resume-view" onclick="showView('resume-view')">View Resume</button>
+                        <button type="button" class="menu-btn submenu-btn" data-view="resume-delete" onclick="showView('resume-delete')">Delete Resume</button>
                     </div>
                 </div>
-                <button type="button" class="menu-btn nav-tab" data-view="portfolio" onclick="showView('portfolio')">17. View Portfolio</button>
-                <button type="button" class="menu-btn nav-tab" data-view="customize-portfolio" onclick="showView('customize-portfolio')">18. Customize Portfolio</button>
-                <button type="button" class="menu-btn nav-tab" data-view="llm-summary" onclick="showView('llm-summary')">19. LLM Summary</button>
+                <button type="button" class="menu-btn nav-tab" data-view="portfolio" onclick="showView('portfolio')">View Portfolio</button>
+                <button type="button" class="menu-btn nav-tab" data-view="customize-portfolio" onclick="showView('customize-portfolio')">Customize Portfolio</button>
+                <button type="button" class="menu-btn nav-tab" data-view="llm-summary" onclick="showView('llm-summary')">LLM Summary</button>
             </div>
         </nav>
         <div class="nav-dropdown-slot" id="navDropdownSlot" aria-hidden="true"></div>
@@ -140,28 +140,45 @@
             localStorage.removeItem(DASHBOARD_STATE_KEY);
         }
 
-        // Check auth on load
+        // Check auth on load — only redirect when user is missing or invalid, not on API/DOM errors
         document.addEventListener('DOMContentLoaded', async () => {
             const storedUser = localStorage.getItem('user');
             if (!storedUser) {
                 window.location.href = 'index.html';
                 return;
             }
+            let userParsed = null;
             try {
-                currentUser = JSON.parse(storedUser);
-                document.getElementById('username').textContent = currentUser.user_name;
-
-                await loadProjects();
-
-                // restore view + selection
-                const state = loadDashboardState();
-                const view = state?.activeView || 'overview';
-                selectedProjectId = state?.selectedProjectId || null;
-
-                showView(view, { preserveSelection: true });
+                userParsed = JSON.parse(storedUser);
             } catch (e) {
                 localStorage.removeItem('user');
                 window.location.href = 'index.html';
+                return;
+            }
+            if (!userParsed || !userParsed.user_name) {
+                localStorage.removeItem('user');
+                window.location.href = 'index.html';
+                return;
+            }
+            currentUser = userParsed;
+            const usernameEl = document.getElementById('username');
+            if (usernameEl) usernameEl.textContent = '– ' + currentUser.user_name;
+
+            try {
+                await loadProjects();
+            } catch (e) {
+                console.error('Load projects failed:', e);
+                showMessage('Could not load projects. You can try again.', 'error');
+            }
+
+            try {
+                const state = loadDashboardState();
+                const view = state?.activeView || 'overview';
+                selectedProjectId = state?.selectedProjectId || null;
+                showView(view, { preserveSelection: true });
+            } catch (e) {
+                console.error('Show view failed:', e);
+                showView('overview');
             }
         });
         
@@ -420,30 +437,78 @@
             const views = {
                 'overview': `<div class="view-panel dashboard-overview">
                     <div class="dashboard-hero">
-                        <h2>Welcome back, ${userName}</h2>
-                        <p>Manage your projects, rankings, resume, and portfolio from here.</p>
-                    </div>
-                    <div class="dashboard-stats">
-                        <div class="dashboard-stat">
-                            <div class="dashboard-stat-value" id="overviewProjectCount">${projectCount}</div>
-                            <div class="dashboard-stat-label">Projects</div>
+                        <div class="dashboard-hero-text">
+                            <h2>Welcome to Your Dashboard</h2>
+                            <p>Manage your projects, rank them with AI, build your portfolio, and showcase your work — all in one place.</p>
+                        </div>
+                        <div class="dashboard-stats">
+                            <div class="dashboard-stat">
+                                <div class="dashboard-stat-value" id="overviewProjectCount">${projectCount}</div>
+                                <div class="dashboard-stat-label">Total Projects</div>
+                            </div>
                         </div>
                     </div>
-                    <div class="dashboard-section-title">Quick actions</div>
                     <div class="dashboard-quick-actions">
-                        <button type="button" class="dashboard-quick-action" onclick="showView('upload')"><strong>Upload ZIP</strong><span>Add a new project from a ZIP file</span></button>
-                        <button type="button" class="dashboard-quick-action" onclick="showView('list')"><strong>List Projects</strong><span>View and manage stored projects</span></button>
-                        <button type="button" class="dashboard-quick-action" onclick="showView('analyze')"><strong>Analyze Project</strong><span>Run local or AI analysis</span></button>
-                        <button type="button" class="dashboard-quick-action" onclick="showView('rank-gemini')"><strong>Rank Projects</strong><span>AI-powered project ranking</span></button>
-                        <button type="button" class="dashboard-quick-action" onclick="showView('portfolio')"><strong>View Portfolio</strong><span>Load or generate your portfolio</span></button>
-                        <button type="button" class="dashboard-quick-action" onclick="showView('resume-gen')"><strong>Generate Resume</strong><span>Create resume from projects</span></button>
-                        <button type="button" class="dashboard-quick-action" onclick="showView('customize-portfolio')"><strong>Customize Portfolio</strong><span>Titles, descriptions, roles</span></button>
-                        <button type="button" class="dashboard-quick-action" onclick="showView('preferences')"><strong>Preferences</strong><span>Consent &amp; Git username</span></button>
+                        <button type="button" class="dashboard-quick-action" onclick="showView('list')">
+                            <strong>Projects</strong>
+                            <span>Upload, organize, and manage all your development projects in one centralized location.</span>
+                        </button>
+                        <button type="button" class="dashboard-quick-action" onclick="showView('analyze')">
+                            <strong>Analyze</strong>
+                            <span>Deep dive into your project's structure, dependencies, complexity, and technical stack.</span>
+                        </button>
+                        <button type="button" class="dashboard-quick-action" onclick="showView('rank-gemini')">
+                            <strong>AI Ranking</strong>
+                            <span>Use Gemini AI to intelligently rank your projects by quality, complexity, and technical skills.</span>
+                        </button>
+                        <button type="button" class="dashboard-quick-action" onclick="showView('resume-gen')">
+                            <strong>Resume Tools</strong>
+                            <span>Generate, update, and export professional resumes tailored to your project history and skills.</span>
+                        </button>
+                        <button type="button" class="dashboard-quick-action" onclick="showView('portfolio')">
+                            <strong>Portfolio</strong>
+                            <span>Create and customize a beautiful portfolio website to showcase your best work to potential employers.</span>
+                        </button>
+                        <button type="button" class="dashboard-quick-action" onclick="showView('preferences')">
+                            <strong>Settings</strong>
+                            <span>Manage preferences, privacy consent, Git username, and external service permissions.</span>
+                        </button>
                     </div>
                 </div>`,
                 'upload': `<div class="view-panel"><h3>Upload ZIP File</h3><input type="file" id="zipFile" accept=".zip" /><button class="btn" onclick="uploadFile()">Upload</button><div id="uploadResult"></div></div>`,
                 'list': `<div class="view-panel"><h3>Stored Projects</h3><button class="btn" onclick="refreshProjects()">Refresh</button><button class="btn btn-secondary" onclick="loadSkills()">View Skills</button><div id="projectsList" class="project-list"></div><div id="skillsResult" class="result"></div></div>`,
-                'analyze': `<div class="view-panel"><h3>Analyze Project</h3><div id="analyzeProjectsList" class="project-list"></div><div style="margin: 10px 0;"><button class="btn" onclick="analyzeProject()">Local Analysis</button><button class="btn" onclick="analyzeProjectGemini()">AI Deep Analysis (Gemini)</button></div><p class="text-muted" style="font-size: 0.9em; margin-bottom: 10px;">Local: Fast pattern-based analysis | AI: Thorough semantic analysis with recommendations</p><div id="analyzeResult" class="result"></div></div>`,
+                'analyze': `<div class="view-panel analyze-view">
+                    <div class="analyze-header">
+                        <h3>Analyze Project</h3>
+                        <p class="analyze-desc">Run local (pattern-based) or AI-powered analysis on a project. Local analysis is fast and private; AI analysis gives deeper insights and recommendations.</p>
+                    </div>
+                    <div class="analyze-project-select">
+                        <label class="analyze-label">Select a project</label>
+                        <div id="analyzeProjectsList" class="project-list"></div>
+                    </div>
+                    <div class="analyze-actions">
+                        <div class="analyze-action-card analyze-action-local">
+                            <div class="analyze-action-icon">⚡</div>
+                            <h4>Local Analysis</h4>
+                            <p>Fast, private pattern-based analysis: languages, frameworks, structure, code quality, OOP, and file stats.</p>
+                            <button type="button" class="btn" onclick="analyzeProject()">Run Local Analysis</button>
+                        </div>
+                        <div class="analyze-action-card analyze-action-gemini">
+                            <div class="analyze-action-icon">✦</div>
+                            <h4>AI Deep Analysis (Gemini)</h4>
+                            <p>Thorough semantic analysis: quality score, architecture, recommendations, security, and best practices. May take 15–30 seconds.</p>
+                            <button type="button" class="btn btn-gemini" onclick="analyzeProjectGemini()">Run AI Analysis</button>
+                        </div>
+                    </div>
+                    <div class="analyze-results-wrapper">
+                        <div class="analyze-tabs">
+                            <button type="button" class="analyze-tab active" data-tab="local" onclick="switchAnalyzeTab('local')">Local</button>
+                            <button type="button" class="analyze-tab" data-tab="ai" onclick="switchAnalyzeTab('ai')">AI (Gemini)</button>
+                        </div>
+                        <div id="analyzeResultLocal" class="analyze-tab-pane active" role="tabpanel"></div>
+                        <div id="analyzeResultAi" class="analyze-tab-pane" role="tabpanel"></div>
+                    </div>
+                </div>`,
                 'rank': `<div class="view-panel"><h3>Rank All Projects</h3><button class="btn" onclick="rankProjects()">Rank Projects</button><div id="rankResult" class="result"></div></div>`,
                 'rank-top3': `<div class="view-panel"><h3>Rank and Summarize Top 3</h3><button class="btn" onclick="rankTop3()">Rank & Summarize</button><div id="rankTop3Result" class="result"></div></div>`,
                 'rankings': `<div class="view-panel"><h3>View and Edit Rankings</h3><button class="btn" onclick="loadRankings()">Load Rankings</button><div id="rankingsList" class="result"></div></div>`,
@@ -543,40 +608,44 @@
         }
 
         function formatAnalysisResults(analysis) {
-            let html = '<div class="analysis-section">';
-            html += '<h4>Analysis Overview</h4>';
-            
-            // Project Info
             const projInfo = analysis.project_info || {};
-            html += `<div class="analysis-item"><span class="analysis-label">Project:</span><span class="analysis-value">${projInfo.filename || 'Unknown'}</span></div>`;
-            html += `<div class="analysis-item"><span class="analysis-label">Strategy:</span><span class="analysis-value">${analysis.analysis_strategy || 'local'}</span></div>`;
-            
-            // Languages
+            const stats = analysis.file_statistics || {};
             const langs = analysis.languages || {};
-            if (langs.primary_language) {
-                html += '<div class="analysis-item">';
-                html += `<span class="analysis-label">Primary Language:</span><span class="analysis-value">${langs.primary_language}</span>`;
-                html += '</div>';
-            }
+            const zipReport = analysis.zip_success_report || null;
+            const zipSuccess = zipReport && !zipReport.error && zipReport.success;
+            const zipStatus = zipSuccess ? (zipReport.success.status || 'unknown').toUpperCase() : (zipReport?.error ? 'N/A' : '—');
+
+            // Summary card (at a glance)
+            let html = '<div class="analysis-summary-card">';
+            html += '<h4 class="analysis-summary-title">Overview</h4>';
+            html += '<div class="analysis-summary-grid">';
+            html += `<div class="analysis-summary-item"><span class="analysis-summary-label">Project</span><span class="analysis-summary-value">${escapeHtml(projInfo.filename || 'Unknown')}</span></div>`;
+            html += `<div class="analysis-summary-item"><span class="analysis-summary-label">Strategy</span><span class="analysis-summary-value">${analysis.analysis_strategy || 'local'}</span></div>`;
+            html += `<div class="analysis-summary-item"><span class="analysis-summary-label">Primary language</span><span class="analysis-summary-value">${langs.primary_language || '—'}</span></div>`;
+            html += `<div class="analysis-summary-item"><span class="analysis-summary-label">Files</span><span class="analysis-summary-value">${stats.total_files ?? '—'}</span></div>`;
+            html += `<div class="analysis-summary-item"><span class="analysis-summary-label">Lines of code</span><span class="analysis-summary-value">${stats.total_lines_of_code ?? '—'}</span></div>`;
+            html += `<div class="analysis-summary-item"><span class="analysis-summary-label">ZIP status</span><span class="analysis-summary-value">${zipStatus}</span></div>`;
+            html += '</div></div>';
+
+            // Languages (detailed)
             if (langs.detected_languages && langs.detected_languages.length > 0) {
+                html += '<div class="analysis-section">';
+                html += '<h4>Languages</h4>';
                 html += '<div class="analysis-item">';
-                html += `<span class="analysis-label">All Languages (${langs.detected_languages.length}):</span>`;
-                html += '<div style="margin-top: 5px;">';
+                html += '<span class="analysis-label">Detected:</span>';
+                html += '<div class="analysis-badges">';
                 langs.detected_languages.forEach(lang => {
                     const count = langs.file_counts?.[lang] || 0;
                     const pct = langs.language_percentages?.[lang] || 0;
-                    html += `<span class="badge">${lang} (${count} files, ${pct}%)</span>`;
+                    html += `<span class="badge">${escapeHtml(lang)} (${count} files, ${pct}%)</span>`;
                 });
-                html += '</div></div>';
+                html += '</div></div></div>';
             }
-            
-            html += '</div>';
 
             // Evidence of Success (ZIP)
-            const zipReport = analysis.zip_success_report || null;
             if (zipReport) {
                 html += '<div class="analysis-section">';
-                html += '<h4> - Evidence of Success (ZIP)</h4>';
+                html += '<h4>Evidence of Success (ZIP)</h4>';
                 if (zipReport.error) {
                     html += `<div class="analysis-item"><span class="analysis-label">Status:</span><span class="analysis-value">${zipReport.error}</span></div>`;
                 } else {
@@ -593,11 +662,11 @@
                     const addEvidenceRow = (label, values, limit = 10) => {
                         if (!values || (Array.isArray(values) && values.length === 0)) return;
                         html += '<div class="analysis-item">';
-                        html += `<span class="analysis-label">${label}:</span>`;
-                        html += '<div style="margin-top: 5px;">';
+                        html += `<span class="analysis-label">${escapeHtml(label)}:</span>`;
+                        html += '<div class="analysis-badges">';
                         const list = Array.isArray(values) ? values.slice(0, limit) : [values];
                         list.forEach(val => {
-                            html += `<span class="badge">${val}</span>`;
+                            html += `<span class="badge">${escapeHtml(String(val))}</span>`;
                         });
                         html += '</div></div>';
                     };
@@ -617,14 +686,12 @@
             }
             
             // File Statistics
-            const stats = analysis.file_statistics || {};
             if (stats.total_files !== undefined) {
                 html += '<div class="analysis-section">';
-                html += '<h4> - File Statistics</h4>';
+                html += '<h4>File Statistics</h4>';
                 html += `<div class="analysis-item"><span class="analysis-label">Total Files:</span><span class="analysis-value">${stats.total_files}</span></div>`;
                 html += `<div class="analysis-item"><span class="analysis-label">Total Size:</span><span class="analysis-value">${stats.total_size_mb || 0} MB</span></div>`;
-                html += `<div class="analysis-item"><span class="analysis-label">Text Files:</span><span class="analysis-value">${stats.text_files || 0}</span></div>`;
-                html += `<div class="analysis-item"><span class="analysis-label">Binary Files:</span><span class="analysis-value">${stats.binary_files || 0}</span></div>`;
+                html += `<div class="analysis-item"><span class="analysis-label">Text / Binary:</span><span class="analysis-value">${stats.text_files || 0} text, ${stats.binary_files || 0} binary</span></div>`;
                 html += `<div class="analysis-item"><span class="analysis-label">Lines of Code:</span><span class="analysis-value">${stats.total_lines_of_code || 0}</span></div>`;
                 html += '</div>';
             }
@@ -633,7 +700,7 @@
             const frameworks = analysis.frameworks || [];
             if (frameworks.length > 0) {
                 html += '<div class="analysis-section">';
-                html += '<h4> - Frameworks & Technologies</h4>';
+                html += '<h4>Frameworks & Technologies</h4>';
                 html += '<div class="analysis-item">';
                 frameworks.forEach(fw => {
                     html += `<span class="badge">${fw}</span>`;
@@ -645,7 +712,7 @@
             const skills = analysis.skills || [];
             if (skills.length > 0) {
                 html += '<div class="analysis-section">';
-                html += '<h4> - Skills Detected</h4>';
+                html += '<h4>Skills Detected</h4>';
                 html += '<div class="analysis-item">';
                 skills.forEach(skill => {
                     html += `<span class="badge">${skill}</span>`;
@@ -657,7 +724,7 @@
             const docSubjects = analysis.document_subjects || null;
             if (docSubjects && docSubjects.top_terms && docSubjects.top_terms.length > 0) {
                 html += '<div class="analysis-section">';
-                html += '<h4> - Document Subject Terms</h4>';
+                html += '<h4>Document Subject Terms</h4>';
                 html += `<div class="analysis-item"><span class="analysis-label">Files Scanned:</span><span class="analysis-value">${docSubjects.files_scanned || 0} (PDFs: ${docSubjects.pdfs_scanned || 0}, Images: ${docSubjects.images_scanned || 0})</span></div>`;
                 if (docSubjects.sample_snippet) {
                     html += `<div class="analysis-item"><span class="analysis-label">Sample Extract:</span><span class="analysis-value">${docSubjects.sample_snippet}</span></div>`;
@@ -673,7 +740,7 @@
             const structure = analysis.project_structure || {};
             if (structure.total_folders !== undefined) {
                 html += '<div class="analysis-section">';
-                html += '<h4> - Project Structure</h4>';
+                html += '<h4>Project Structure</h4>';
                 html += `<div class="analysis-item"><span class="analysis-label">Total Folders:</span><span class="analysis-value">${structure.total_folders}</span></div>`;
                 html += `<div class="analysis-item"><span class="analysis-label">Max Depth:</span><span class="analysis-value">${structure.max_depth}</span></div>`;
                 const features = [];
@@ -690,7 +757,7 @@
             const contrib = analysis.contribution_metrics || {};
             if (contrib.code_files !== undefined) {
                 html += '<div class="analysis-section">';
-                html += '<h4> - Contribution Metrics</h4>';
+                html += '<h4>Contribution Metrics</h4>';
                 html += `<div class="analysis-item"><span class="analysis-label">Code Files:</span><span class="analysis-value">${contrib.code_files}</span></div>`;
                 html += `<div class="analysis-item"><span class="analysis-label">Test Files:</span><span class="analysis-value">${contrib.test_files || 0}</span></div>`;
                 html += `<div class="analysis-item"><span class="analysis-label">Documentation Files:</span><span class="analysis-value">${contrib.documentation_files || 0}</span></div>`;
@@ -706,10 +773,10 @@
                 html += '</div>';
             }
             
-            // Deep Analysis
+            // Deep Analysis (emphasized for local)
             if (analysis.deep_analysis && Object.keys(analysis.deep_analysis).length > 0) {
-                html += '<div class="analysis-section">';
-                html += '<h4> - Deep Code Analysis</h4>';
+                html += '<div class="analysis-section analysis-deep">';
+                html += '<h4>Deep Code Analysis</h4>';
                 const deep = analysis.deep_analysis;
                 
                 // Code Quality Score
@@ -899,13 +966,25 @@
             return html;
         }
 
+        function switchAnalyzeTab(tab) {
+            const tabs = document.querySelectorAll('.analyze-tab');
+            const panes = document.querySelectorAll('.analyze-tab-pane');
+            tabs.forEach(t => t.classList.toggle('active', t.getAttribute('data-tab') === tab));
+            panes.forEach((p, i) => {
+                const isLocal = tab === 'local';
+                p.classList.toggle('active', (tab === 'local' && p.id === 'analyzeResultLocal') || (tab === 'ai' && p.id === 'analyzeResultAi'));
+            });
+        }
+
         async function analyzeProject() {
             if (!selectedProjectId) {
                 showMessage('Please select a project', 'error');
                 return;
             }
-            const resultDiv = document.getElementById('analyzeResult');
-            resultDiv.innerHTML = 'Analyzing locally...';
+            const resultDiv = document.getElementById('analyzeResultLocal');
+            if (!resultDiv) return;
+            resultDiv.innerHTML = '<div class="analyze-loading"><div class="spinner"></div><p>Analyzing locally...</p></div>';
+            switchAnalyzeTab('local');
             try {
                 const res = await apiCall(`/api/projects/${selectedProjectId}/analyze?user_name=${currentUser.user_name}`, { method: 'POST' });
                 if (!res.ok) { renderError(resultDiv, res.error || 'Local analysis failed'); return; }
@@ -926,14 +1005,17 @@
                 showMessage('Please select a project', 'error');
                 return;
             }
-            const resultDiv = document.getElementById('analyzeResult');
-            resultDiv.innerHTML = '<div style="text-align: center; padding: 20px;"><div class="spinner"></div><p style="margin-top: 10px;">Running AI-powered deep analysis with Gemini...</p><p class="text-muted">This may take 15-30 seconds</p></div>';
+            const resultDiv = document.getElementById('analyzeResultAi');
+            if (!resultDiv) return;
+            resultDiv.innerHTML = '<div class="analyze-loading"><div class="spinner"></div><p>Running AI-powered deep analysis with Gemini...</p><p class="text-muted">This may take 15–30 seconds</p></div>';
+            switchAnalyzeTab('ai');
             try {
                 const res = await apiCall(`/api/projects/${selectedProjectId}/analyze-gemini?user_name=${currentUser.user_name}`, { method: 'POST' });
                 if (!res.ok) { renderError(resultDiv, res.error || 'Gemini analysis failed'); return; }
                 const data = res.data;
-                if (data.success) {
-                    renderSuccess(resultDiv, 'Gemini analysis complete');
+                if (data.success && data.analysis) {
+                    resultDiv.innerHTML = formatGeminiAnalysis(data.analysis);
+                    renderSuccess(resultDiv, 'AI analysis complete');
                 } else {
                     renderError(resultDiv, data.error || 'Gemini analysis failed');
                 }
@@ -1218,23 +1300,44 @@
 
         async function rankProjectsGemini() {
             const resultDiv = document.getElementById('rankGeminiResult');
-            resultDiv.innerHTML = 'Asking Gemini to rank your projects… this may take 15-30s.';
+            resultDiv.innerHTML = '<div class="analyze-loading"><div class="spinner"></div><p>Asking Gemini to rank your projects…</p><p class="text-muted">This may take 15–30 seconds</p></div>';
             try {
                 const res = await apiCall(`/api/projects/rank-gemini?user_name=${currentUser.user_name}`, { method: 'POST' });
                 if (!res.ok) { renderError(resultDiv, res.error || 'Gemini ranking failed'); return; }
                 const data = res.data;
-                if (data.success) {
-                    let html = data.rankings.map((r, i) =>
-                        `<strong>${i+1}. ${r.filename}</strong> — Score: ${r.score}/100\n` +
-                        (r.strengths.length ? `   Strengths: ${r.strengths.join(', ')}\n` : '') +
-                        (r.weaknesses.length ? `   Weaknesses: ${r.weaknesses.join(', ')}\n` : '') +
-                        (r.one_line_summary ? `   ${r.one_line_summary}\n` : '')
-                    ).join('\n');
-                    if (data.reasoning) html += `\nOverall: ${data.reasoning}`;
+                if (data.success && data.rankings && data.rankings.length > 0) {
+                    let html = '<div style="display:flex;flex-direction:column;gap:12px;">';
+                    data.rankings.forEach((r, i) => {
+                        const scoreColor = r.score >= 70 ? '#22c55e' : r.score >= 40 ? '#d97706' : '#dc2626';
+                        html += '<div class="analysis-item">';
+                        html += `<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">`;
+                        html += `<strong>${i+1}. ${escapeHtml(r.filename)}</strong>`;
+                        html += `<span style="color:${scoreColor};font-weight:700;font-size:1.1em;">${r.score}/100</span>`;
+                        html += '</div>';
+                        if (r.one_line_summary) html += `<div style="font-size:0.9em;color:var(--text-secondary);margin-bottom:6px;">${escapeHtml(r.one_line_summary)}</div>`;
+                        if (r.strengths && r.strengths.length) {
+                            html += '<div class="analysis-badges">';
+                            r.strengths.forEach(s => { html += `<span class="badge badge-success">${escapeHtml(s)}</span>`; });
+                            html += '</div>';
+                        }
+                        if (r.weaknesses && r.weaknesses.length) {
+                            html += '<div class="analysis-badges" style="margin-top:4px;">';
+                            r.weaknesses.forEach(w => { html += `<span class="badge badge-warning">${escapeHtml(w)}</span>`; });
+                            html += '</div>';
+                        }
+                        html += '</div>';
+                    });
+                    html += '</div>';
+                    if (data.reasoning) {
+                        html += `<div class="analysis-section" style="margin-top:16px;"><h4>Overall Reasoning</h4><p style="line-height:1.6;">${escapeHtml(data.reasoning)}</p></div>`;
+                    }
+                    resultDiv.innerHTML = html;
                     renderSuccess(resultDiv, 'Gemini ranking complete');
+                } else {
+                    renderError(resultDiv, data.error || 'No rankings returned');
                 }
             } catch (e) {
-                resultDiv.innerHTML = `Error: ${e.message}`;
+                renderError(resultDiv, e.message || 'Gemini ranking failed');
             }
         }
 

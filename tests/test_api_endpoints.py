@@ -621,7 +621,7 @@ class TestMergeProjectEndpoint:
 class TestResumePortfolioEndpoints:
     """Tests for the new Resume Item and Portfolio Card preview endpoints."""
 
-    @patch('api.routes.resume_portfolio.get_project_by_id')
+    @patch('api.routes.resume_portfolio.get_project_with_analysis')
     def test_get_resume_preview_success(self, mock_get_db):
         """
         Test that the endpoint correctly converts raw data into a Resume Item.
@@ -667,7 +667,7 @@ class TestResumePortfolioEndpoints:
         assert "Python" in data['technologies']
         assert "React" in data['technologies']
 
-    @patch('api.routes.resume_portfolio.get_project_by_id')
+    @patch('api.routes.resume_portfolio.get_project_with_analysis')
     def test_get_resume_preview_not_found(self, mock_get_db):
         """Test 404 error when project doesn't exist."""
         mock_get_db.return_value = None
@@ -680,7 +680,7 @@ class TestResumePortfolioEndpoints:
         assert data["success"] is False
         assert data["message"] == "Project not found"
 
-    @patch('api.routes.resume_portfolio.get_project_by_id')
+    @patch('api.routes.resume_portfolio.get_project_with_analysis')
     def test_get_portfolio_card_success(self, mock_get_db):
         """
         Test that the endpoint correctly returns a rich Portfolio Card.
@@ -721,7 +721,7 @@ class TestResumePortfolioEndpoints:
         assert "LOC" in evidence_text or "lines" in evidence_text
         assert "test" in evidence_text.lower()
 
-    @patch('api.routes.resume_portfolio.get_project_by_id')
+    @patch('api.routes.resume_portfolio.get_project_with_analysis')
     def test_get_portfolio_card_not_found(self, mock_get_db):
         """Test 404 error for portfolio card."""
         mock_get_db.return_value = None
