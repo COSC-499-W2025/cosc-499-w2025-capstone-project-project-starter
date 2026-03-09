@@ -92,7 +92,7 @@
             { section: "Projects", method: "POST", path: "/api/projects/rank-top3", pathParams: [], query: [{ name: "user_name", placeholder: "optional" }], body: false, file: false },
             { section: "Projects", method: "POST", path: "/api/projects/rank-gemini", pathParams: [], query: [{ name: "user_name", placeholder: "optional" }], body: false, file: false },
             { section: "Projects", method: "DELETE", path: "/api/projects/{project_id}/data", pathParams: [{ name: "project_id" }], query: [{ name: "user_name", placeholder: "optional" }], body: false, file: false },
-            { section: "Projects", method: "POST", path: "/api/preferences", pathParams: [], query: [], body: true, bodyPlaceholder: '{"git_username":"gh-user"}', file: false },
+            { section: "Projects", method: "POST", path: "/api/preferences", pathParams: [], query: [{ name: "user_name", placeholder: "optional" }], body: true, bodyPlaceholder: '{"git_username":"gh-user"}', file: false },
             // Resume & Portfolio
             { section: "Resume & Portfolio", method: "GET", path: "/api/resume/preview/{project_id}", pathParams: [{ name: "project_id" }], query: [], body: false, file: false },
             { section: "Resume & Portfolio", method: "GET", path: "/api/portfolio/card/{project_id}", pathParams: [{ name: "project_id" }], query: [], body: false, file: false },
