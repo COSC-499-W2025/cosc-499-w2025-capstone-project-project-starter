@@ -1,8 +1,14 @@
+import sys
+import os
 from typing import List, Tuple
 from datetime import datetime, date
 from unittest.mock import patch, MagicMock
 import pytest
-from src.analysis import key_metrics
+
+# Adjust the path to import from src
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'src')))
+
+from analysis import key_metrics
 
 class _FakeCursor:
     def __init__(self, rows):
@@ -77,11 +83,31 @@ def test_choose_author_from_zip_no_authors(monkeypatch):
 
 def test_choose_author_from_zip_git_username_match(monkeypatch):
     """Test choose_author_from_zip when git username matches."""
+    # Mock database connection to return user_name
+    class _MockCursor:
+        def execute(self, *args, **kwargs):
+            pass
+        def fetchone(self):
+            return ("test_user",)  # Return user_name
+        def __enter__(self):
+            return self
+        def __exit__(self, exc_type, exc, tb):
+            return False
+    
+    class _MockConn:
+        def cursor(self):
+            return _MockCursor()
+        def __enter__(self):
+            return self
+        def __exit__(self, exc_type, exc, tb):
+            return False
+    
+    monkeypatch.setattr(key_metrics, "get_connection", lambda: _MockConn())
     monkeypatch.setattr(key_metrics, "get_project_contributor_name", lambda _: None)
     monkeypatch.setattr(key_metrics, "get_file_contents_by_upload_id", lambda _: {})
     monkeypatch.setattr(key_metrics, "_identify_authors_from_zip", lambda _: {"user1", "user2"})
     monkeypatch.setattr(key_metrics, "_extract_common_names_from_filenames", lambda _: set())
-    monkeypatch.setattr(key_metrics, "get_user_git_username", lambda: "user1")
+    monkeypatch.setattr(key_metrics, "get_user_git_username", lambda user_name: "user1")
     
     result = key_metrics.choose_author_from_zip(1)
     assert result == "user1"
@@ -92,7 +118,7 @@ def test_choose_author_from_zip_user_selection(monkeypatch, capsys):
     monkeypatch.setattr(key_metrics, "get_file_contents_by_upload_id", lambda _: {})
     monkeypatch.setattr(key_metrics, "_identify_authors_from_zip", lambda _: {"user1", "user2"})
     monkeypatch.setattr(key_metrics, "_extract_common_names_from_filenames", lambda _: set())
-    monkeypatch.setattr(key_metrics, "get_user_git_username", lambda: "other_user")
+    monkeypatch.setattr(key_metrics, "get_user_git_username", lambda user_name: "other_user")
     monkeypatch.setattr(key_metrics, "set_project_contributor_name", lambda *_args, **_kwargs: True)
     monkeypatch.setattr("builtins.input", lambda _: "1")
     
@@ -105,7 +131,7 @@ def test_choose_author_from_zip_all_authors(monkeypatch):
     monkeypatch.setattr(key_metrics, "get_file_contents_by_upload_id", lambda _: {})
     monkeypatch.setattr(key_metrics, "_identify_authors_from_zip", lambda _: {"user1", "user2"})
     monkeypatch.setattr(key_metrics, "_extract_common_names_from_filenames", lambda _: set())
-    monkeypatch.setattr(key_metrics, "get_user_git_username", lambda: "other_user")
+    monkeypatch.setattr(key_metrics, "get_user_git_username", lambda user_name: "other_user")
     monkeypatch.setattr("builtins.input", lambda _: "3")  # Select "all authors"
     
     result = key_metrics.choose_author_from_zip(1)
@@ -117,7 +143,7 @@ def test_choose_author_from_zip_invalid_input(monkeypatch):
     monkeypatch.setattr(key_metrics, "get_file_contents_by_upload_id", lambda _: {})
     monkeypatch.setattr(key_metrics, "_identify_authors_from_zip", lambda _: {"user1", "user2"})
     monkeypatch.setattr(key_metrics, "_extract_common_names_from_filenames", lambda _: set())
-    monkeypatch.setattr(key_metrics, "get_user_git_username", lambda: "other_user")
+    monkeypatch.setattr(key_metrics, "get_user_git_username", lambda user_name: "other_user")
     monkeypatch.setattr(key_metrics, "set_project_contributor_name", lambda *_args, **_kwargs: True)
     
     inputs = ["invalid", "0", "1"]

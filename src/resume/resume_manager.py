@@ -533,7 +533,7 @@ class ResumeManager:
         return sorted(list(detected_frameworks))
     
     @staticmethod
-    def generate_user_resume(user_name, top_projects_count=5, selection: dict | None = None):
+    def generate_user_resume(user_name, top_projects_count=5, selection: dict | None = None, interactive: bool = False):
         """
         Generate a user-aggregated resume from top ranked projects.
         
@@ -544,6 +544,8 @@ class ResumeManager:
         Args:
             user_name (str): Username (string) to identify the user
             top_projects_count (int): Number of top projects to include (default: 5)
+            selection (dict, optional): Project and skill selection options
+            interactive (bool): Whether to prompt for user input (default: False for API calls)
             
         Returns:
             dict: Generated resume data containing top projects and aggregated skills
@@ -573,7 +575,9 @@ class ResumeManager:
             all_authors = set()
             for project in top_projects:
                 try:
-                    project_id = project['project_id']
+                    project_id = project.get('project_id')
+                    if not project_id:
+                        continue
                     file_contents = get_file_contents_by_upload_id(project_id)
                     authors = _identify_authors_from_zip(project_id) | _extract_common_names_from_filenames(file_contents)
                     all_authors.update(authors)
@@ -583,12 +587,12 @@ class ResumeManager:
             # Get user's display name from detected authors (similar to choose_author_from_zip logic)
             display_name = user_name  # Default fallback
             if all_authors:
-                git_username = get_user_git_username()
+                git_username = get_user_git_username(user_name)
                 if git_username and git_username in all_authors:
                     # Auto-select if git username matches
                     display_name = git_username
-                else:
-                    # Let user select their name from detected authors
+                elif interactive:
+                    # Let user select their name from detected authors (only in interactive mode)
                     authors_list = sorted(list(all_authors))
                     print(f"\n{'='*70}")
                     print("Select Your Name for Resume")
@@ -629,8 +633,12 @@ class ResumeManager:
                             print("\nUsing default username.")
                             display_name = user_name
                             break
-            else:
-                # No authors detected, use login username or ask for custom name
+                else:
+                    # Non-interactive mode: use first detected author or username
+                    authors_list = sorted(list(all_authors))
+                    display_name = authors_list[0] if authors_list else user_name
+            elif interactive:
+                # No authors detected, use login username or ask for custom name (only in interactive mode)
                 print(f"\nNo author names detected in projects.")
                 use_custom = input("Enter your name for the resume (or press Enter to use login username): ").strip()
                 if use_custom:
@@ -667,7 +675,10 @@ class ResumeManager:
 
             for project in top_projects:
                 try:
-                    project_id = project['project_id']
+                    project_id = project.get('project_id')
+                    if not project_id:
+                        print(f"[WARNING] Skipping project with missing ID")
+                        continue
                     
                     # custom wording takes priority
                     custom_text = custom_wording_map.get(str(project_id), "")
@@ -729,8 +740,8 @@ class ResumeManager:
                             # Still keep per-project skills key stable, but empty
                             project_skills = set()
                         
-                        # Clean project name
-                        project_name = project['filename']
+                        # Clean project name - use .get() for safety
+                        project_name = project.get('filename', f'Project {project_id}')
                         # Remove common suffixes and extensions
                         clean_name = project_name
                         # Remove file extensions
@@ -791,7 +802,8 @@ class ResumeManager:
                         })
                 
                 except Exception as e:
-                    print(f"[ERROR] Failed to summarize project {project['project_id']}: {e}")
+                    project_id = project.get('project_id', 'unknown')
+                    print(f"[ERROR] Failed to summarize project {project_id}: {e}")
                     continue
             
             # Categorize skills (respect selection)
