@@ -76,10 +76,17 @@ class ProjectSummarizer:
                 'created_at': project_data.get('created_at')  # Will be string from API
             }
         except Exception as e:
-            # Fallback to direct call if API fails
-            project_info = get_project_by_id(project_id, user_name)
-            if not project_info:
+            # Fallback to direct call if API fails (returns nested structure with project_info)
+            project_data = get_project_by_id(project_id, user_name)
+            if not project_data:
                 return {"error": "Project not found or access denied"}
+            project_info = project_data.get("project_info") or project_data
+            if isinstance(project_info, dict) and "filename" not in project_info and "project_info" in project_data:
+                project_info = {
+                    "id": project_data["project_info"].get("id"),
+                    "filename": project_data["project_info"].get("filename", "Unknown"),
+                    "created_at": project_data["project_info"].get("created_at"),
+                }
         
         # Get file contents and statistics
         file_contents = get_file_contents_by_upload_id(project_id)

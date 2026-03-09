@@ -480,10 +480,9 @@ class TestRankingRoutesMore:
         assert data["error_type"] == "HTTP_ERROR"
         assert "Error ranking projects" in data["message"]
 
-    @patch("api.routes.project.rank_and_summarize_top_projects")
     @patch("api.routes.project.rank_all_projects")
-    def test_rank_top3_failure(self, mock_rank_all, mock_rank_top3):
-        mock_rank_top3.side_effect = Exception("top3 boom")
+    def test_rank_top3_failure(self, mock_rank_all):
+        mock_rank_all.side_effect = Exception("top3 boom")
 
         response = client.post("/api/projects/rank-top3")
 
