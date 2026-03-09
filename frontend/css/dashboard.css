@@ -457,6 +457,44 @@ body > #viewContainer {
     font-weight: 500;
 }
 
+/* Rank All Projects – matches rest of dashboard */
+.rank-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin-bottom: 16px;
+}
+.rank-result {
+    white-space: normal;
+}
+.rank-result .rank-list .analysis-section {
+    margin-top: 0;
+}
+.rank-item-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex-wrap: wrap;
+}
+.rank-position {
+    min-width: 1.5em;
+    font-weight: 600;
+    color: var(--text-muted);
+}
+.rank-filename {
+    flex: 1;
+    word-break: break-word;
+    color: var(--text-primary);
+}
+.rank-score {
+    font-size: 1rem;
+}
+.rank-loading,
+.rank-empty {
+    padding: 16px;
+    font-size: 14px;
+}
+
 .analysis-list {
     list-style: none;
     padding-left: 0;

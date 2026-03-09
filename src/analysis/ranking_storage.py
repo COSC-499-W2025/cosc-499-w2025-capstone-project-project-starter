@@ -76,19 +76,19 @@ def init_ranking_storage_table():
         raise
 
 
-def save_rankings_to_db(ranked_projects: List[Dict[str, Any]], summaries: Optional[Dict[int, str]] = None) -> bool:
+def save_rankings_to_db(ranked_projects: List[Dict[str, Any]], summaries: Optional[Dict[int, str]] = None, user_name: Optional[str] = None) -> bool:
     """
     Save ranked projects and their summaries to the database.
     Preserves existing summaries if new summary is not provided or is empty.
-    Only saves rankings for the current logged-in user.
+    Only saves rankings for the given user (or current logged-in user if user_name not provided).
     """
     try:
         init_ranking_storage_table()
         
-        # Get current user for data isolation
-        user_name = AuthManager.get_current_username()
+        if user_name is None:
+            user_name = AuthManager.get_current_username()
         if not user_name:
-            print("Error: No user logged in")
+            print("Error: No user logged in and no user_name provided")
             return False
         
         with with_db_cursor() as cursor:
@@ -120,10 +120,13 @@ def save_rankings_to_db(ranked_projects: List[Dict[str, Any]], summaries: Option
                 else:
                     summary = ""
                 
+                created_at = project.get("created_at")
+                if created_at is not None and hasattr(created_at, "isoformat"):
+                    created_at = created_at.isoformat()
                 ranking_data = json.dumps({
                     "analysis": project.get("analysis", {}),
                     "filename": project.get("filename", ""),
-                    "created_at": project.get("created_at").isoformat() if project.get("created_at") else None
+                    "created_at": created_at
                 })
                 
                 cursor.execute("""

@@ -115,6 +115,7 @@
         const API_BASE = API_BASE_URL;
         let currentUser = null;
         let projects = [];
+        let lastRankedProjects = [];
         let selectedProjectId = null;
 
         // Dashboard State Persistence
@@ -509,7 +510,7 @@
                         <div id="analyzeResultAi" class="analyze-tab-pane" role="tabpanel"></div>
                     </div>
                 </div>`,
-                'rank': `<div class="view-panel"><h3>Rank All Projects</h3><button class="btn" onclick="rankProjects()">Rank Projects</button><div id="rankResult" class="result"></div></div>`,
+                'rank': `<div class="view-panel"><h3>Rank All Projects</h3><p class="text-muted" style="margin-bottom: 12px; font-size: 0.9em;">Rank your projects by score, then save the rankings to the database.</p><div class="rank-actions"><button type="button" class="btn" onclick="rankProjects()">Rank Projects</button><button type="button" class="btn btn-secondary" id="rankSaveBtn" onclick="saveRankingsToDb()" disabled>Save to database</button></div><div id="rankResult" class="result rank-result"></div></div>`,
                 'rank-top3': `<div class="view-panel"><h3>Rank and Summarize Top 3</h3><button class="btn" onclick="rankTop3()">Rank & Summarize</button><div id="rankTop3Result" class="result"></div></div>`,
                 'rankings': `<div class="view-panel"><h3>View and Edit Rankings</h3><button class="btn" onclick="loadRankings()">Load Rankings</button><div id="rankingsList" class="result"></div></div>`,
                 'rank-gemini': `<div class="view-panel"><h3>AI Rank Projects (Gemini)</h3><p class="text-muted" style="font-size:0.9em;">Uses Gemini AI to comparatively rank all your projects by quality, complexity, and skills.</p><button class="btn" onclick="rankProjectsGemini()">Rank with Gemini</button><div id="rankGeminiResult" class="result"></div></div>`,
@@ -567,6 +568,10 @@
                 setTimeout(() => {
                     loadCustomizedProjects();
                 }, 100);
+            }
+            if (viewName === 'rank') {
+                const rankSaveBtn = document.getElementById('rankSaveBtn');
+                if (rankSaveBtn) rankSaveBtn.disabled = !lastRankedProjects || lastRankedProjects.length === 0;
             }
         }
 
@@ -1270,16 +1275,70 @@
 
         async function rankProjects() {
             const resultDiv = document.getElementById('rankResult');
-            resultDiv.innerHTML = 'Ranking...';
+            const saveBtn = document.getElementById('rankSaveBtn');
+            if (!resultDiv) return;
+            resultDiv.innerHTML = '<div class="rank-loading text-muted">Ranking...</div>';
+            if (saveBtn) saveBtn.disabled = true;
             try {
-                const res = await apiCall(`/api/projects/rank?user_name=${currentUser.user_name}`, { method: 'POST' });
+                const res = await apiCall(`/api/projects/rank?user_name=${encodeURIComponent(currentUser.user_name || '')}`, { method: 'POST' });
                 if (!res.ok) { renderError(resultDiv, res.error || 'Failed to rank projects'); return; }
                 const data = res.data;
-                if (data.success) {
-                    renderSuccess(resultDiv, `Ranked ${data.count} projects\nTop: ${data.ranked_projects.map((p, i) => `${i+1}. ${p.filename} (${p.score})`).join('\n')}`);
+                if (!data || !data.success) {
+                    resultDiv.innerHTML = '<div class="message error">Failed to rank projects.</div>';
+                    return;
                 }
+                const ranked = data.ranked_projects || [];
+                lastRankedProjects = ranked;
+                if (saveBtn) saveBtn.disabled = ranked.length === 0;
+                if (ranked.length === 0) {
+                    resultDiv.innerHTML = '<div class="rank-empty text-muted">No projects to rank. Upload projects first.</div>';
+                    return;
+                }
+                let html = '<div class="rank-list">';
+                html += '<div class="analysis-section"><h4>Project rankings</h4>';
+                ranked.forEach((p, i) => {
+                    const score = typeof p.score === 'number' ? p.score.toFixed(2) : p.score;
+                    const scoreColor = p.score >= 70 ? 'var(--success, #22c55e)' : p.score >= 40 ? 'var(--warning, #d97706)' : 'var(--danger, #dc2626)';
+                    html += '<div class="analysis-item rank-item">';
+                    html += '<div class="rank-item-row">';
+                    html += '<span class="rank-position">' + (i + 1) + '.</span>';
+                    html += '<span class="rank-filename">' + escapeHtml(p.filename || 'Project') + '</span>';
+                    html += '<span class="rank-score" style="color:' + scoreColor + ';font-weight:700;">' + escapeHtml(String(score)) + '</span>';
+                    html += '</div>';
+                    html += '</div>';
+                });
+                html += '</div></div>';
+                resultDiv.innerHTML = html;
+                showMessage('Ranking complete. Click "Save to database" to store these rankings.', 'success');
             } catch (e) {
                 renderError(resultDiv, e.message || 'Ranking failed');
+            }
+        }
+
+        async function saveRankingsToDb() {
+            if (!lastRankedProjects || lastRankedProjects.length === 0) {
+                showMessage('No rankings to save. Rank projects first.', 'error');
+                return;
+            }
+            const user = currentUser?.user_name;
+            if (!user) {
+                showMessage('You must be logged in to save rankings.', 'error');
+                return;
+            }
+            try {
+                const res = await apiCall(`/api/projects/rankings/save?user_name=${encodeURIComponent(user)}`, {
+                    method: 'POST',
+                    body: JSON.stringify({ ranked_projects: lastRankedProjects }),
+                    headers: { 'Content-Type': 'application/json' }
+                });
+                const data = res.ok && res.data ? res.data : null;
+                if (data && data.success) {
+                    showMessage(data.message || 'Rankings saved to database.', 'success');
+                } else {
+                    showMessage((data && data.detail) || res.error || 'Failed to save rankings', 'error');
+                }
+            } catch (e) {
+                showMessage(e.message || 'Error saving rankings', 'error');
             }
         }
 

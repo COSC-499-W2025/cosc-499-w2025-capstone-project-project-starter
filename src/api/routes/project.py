@@ -1,5 +1,5 @@
 """Project-related endpoints."""
-from fastapi import APIRouter, HTTPException, UploadFile, File, Query
+from fastapi import APIRouter, HTTPException, UploadFile, File, Query, Body
 from typing import Optional
 import base64
 import json
@@ -11,7 +11,7 @@ from upload_file import add_file_to_db, list_uploaded_files, add_thumbnail_bytes
 from project_manager import list_projects, get_project_by_id
 from project_analyzer import analyze_project_by_id
 from analysis.project_ranking import rank_all_projects, save_rankings_with_summaries, rank_and_summarize_top_projects
-from analysis.ranking_storage import get_stored_rankings
+from analysis.ranking_storage import get_stored_rankings, save_rankings_to_db
 from analysis.gemini_ranker import rank_projects_with_gemini
 from tools.cleanup_insights import delete_insights
 from database.user_preferences import update_user_git_username, get_user_git_username
@@ -355,6 +355,31 @@ async def get_rankings():
         return {"success": True, "rankings": rankings}
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error retrieving rankings: {str(e)}")
+
+
+@router.post("/projects/rankings/save")
+async def save_rankings(
+    body: dict = Body(..., description="JSON with 'ranked_projects' array"),
+    user_name: Optional[str] = Query(None, description="Username for data isolation"),
+):
+    """Save ranked projects to the database (same as backend save). Requires ranked_projects in body."""
+    try:
+        if not isinstance(body.get("ranked_projects"), list):
+            raise HTTPException(
+                status_code=400,
+                detail="Request body must include 'ranked_projects' (array of { project_id, filename, score, ... })",
+            )
+        if not user_name:
+            raise HTTPException(status_code=400, detail="user_name query parameter is required")
+        ranked = body["ranked_projects"]
+        success = save_rankings_to_db(ranked, summaries=None, user_name=user_name)
+        if not success:
+            raise HTTPException(status_code=500, detail="Failed to save rankings to database")
+        return {"success": True, "message": f"Saved {len(ranked)} rankings to database"}
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error saving rankings: {str(e)}")
 
 
 @router.get("/projects/{project_id}")
