@@ -293,6 +293,71 @@ def _assert_portfolio_owned_by(conn, *, portfolio_id: str, user_id: str) -> None
     if owner != str(user_id):
         raise HTTPException(status_code=403, detail="Portfolio does not belong to the authenticated user")
 
+
+def _assert_dashboard_private_for_portfolio(conn, portfolio_id: Optional[str]) -> None:
+    if not portfolio_id:
+        return
+    dashboard = ensure_portfolio_dashboard(conn, str(portfolio_id))
+    if dashboard.get("mode") == DASHBOARD_MODE_PUBLIC:
+        raise HTTPException(
+            status_code=409,
+            detail="Dashboard is in public mode. Switch to private mode before editing dashboard customizations.",
+        )
+
+
+def _portfolio_id_for_project(conn, project_id: str) -> Optional[str]:
+    value = conn.execute(
+        text("SELECT portfolio_id FROM projects WHERE id = :pid"),
+        {"pid": project_id},
+    ).scalar()
+    return str(value) if value else None
+
+
+def _portfolio_id_for_resume(conn, resume_id: str) -> Optional[str]:
+    value = conn.execute(
+        text(
+            """
+            SELECT p.portfolio_id
+            FROM resume_items r
+            JOIN projects p ON p.id = r.project_id
+            WHERE r.id = :rid
+            """
+        ),
+        {"rid": resume_id},
+    ).scalar()
+    return str(value) if value else None
+
+
+def _portfolio_id_for_showcase(conn, showcase_id: str) -> Optional[str]:
+    value = conn.execute(
+        text(
+            """
+            SELECT p.portfolio_id
+            FROM portfolio_showcases s
+            JOIN projects p ON p.id = s.project_id
+            WHERE s.id = :sid
+            """
+        ),
+        {"sid": showcase_id},
+    ).scalar()
+    return str(value) if value else None
+
+
+def _default_portfolio_id_for_user(conn, user_id: str) -> Optional[str]:
+    value = conn.execute(
+        text(
+            """
+            SELECT id
+            FROM portfolios
+            WHERE user_id = :uid
+            ORDER BY CASE WHEN name = 'default' THEN 0 ELSE 1 END, created_at ASC
+            LIMIT 1
+            """
+        ),
+        {"uid": user_id},
+    ).scalar()
+    return str(value) if value else None
+
 def _auth_user_payload(user_id: str, email: str, display_name: Optional[str], portfolio_id: Optional[str]) -> Dict[str, Any]:
     return {
         "user_id": str(user_id),
@@ -963,6 +1028,8 @@ def get_config(user_id: str):
 def put_config(user_id: str, payload: UserConfigIn):
     engine = get_engine()
     with engine.begin() as conn:
+        portfolio_id = _default_portfolio_id_for_user(conn, user_id)
+        _assert_dashboard_private_for_portfolio(conn, portfolio_id)
         cfg = put_user_config(conn, user_id, payload.config or {})
     return {"user_id": user_id, "config": cfg}
 
@@ -971,6 +1038,8 @@ def put_config(user_id: str, payload: UserConfigIn):
 def patch_config(user_id: str, patch: Dict[str, Any] = Body(default_factory=dict)):
     engine = get_engine()
     with engine.begin() as conn:
+        portfolio_id = _default_portfolio_id_for_user(conn, user_id)
+        _assert_dashboard_private_for_portfolio(conn, portfolio_id)
         cfg = merge_user_config(conn, user_id, patch or {})
     return {"user_id": user_id, "config": cfg}
 
@@ -1484,12 +1553,14 @@ def update_project(project_id: str, payload: ProjectUpdateIn):
     engine = get_engine()
     with engine.begin() as conn:
         row = conn.execute(
-            text("SELECT 1 FROM projects WHERE id = :pid"),
+            text("SELECT portfolio_id FROM projects WHERE id = :pid"),
             {"pid": project_id}
-        ).scalar()
+        ).mappings().first()
 
         if not row:
             raise HTTPException(status_code=404, detail="Project not found")
+
+        _assert_dashboard_private_for_portfolio(conn, row.get("portfolio_id"))
 
         updates = payload.model_dump(exclude_unset=True)
         if not updates:
@@ -1894,6 +1965,12 @@ def generate_resume(payload: ResumeGenerateIn):
     Returns the created resume_id and its stored content_json.
     """
     engine = get_engine()
+    with engine.begin() as conn:
+        portfolio_id = _portfolio_id_for_project(conn, payload.project_id)
+        if not portfolio_id:
+            raise HTTPException(status_code=404, detail="Project not found")
+        _assert_dashboard_private_for_portfolio(conn, portfolio_id)
+
     try:
         out = generate_resume_item(
             engine=engine,
@@ -1946,6 +2023,11 @@ def edit_resume(resume_id: str, body: ResumeEditRequest):
     engine = get_engine()
 
     with engine.begin() as conn:
+        portfolio_id = _portfolio_id_for_resume(conn, resume_id)
+        if not portfolio_id:
+            raise HTTPException(status_code=404, detail="Resume not found")
+        _assert_dashboard_private_for_portfolio(conn, portfolio_id)
+
         row = conn.execute(
             text("SELECT content_json FROM resume_items WHERE id = :id"),
             {"id": resume_id},
@@ -2038,6 +2120,9 @@ def generate_portfolio(payload: PortfolioGenerateIn):
     If persist=true, creates portfolio_showcases rows (output artifacts) per summarized project.
     """
     engine = get_engine()
+    with engine.begin() as conn:
+        _assert_dashboard_private_for_portfolio(conn, payload.portfolio_id)
+
     try:
         out = generate_portfolio_top_summaries(
             engine=engine,
@@ -2056,6 +2141,12 @@ def generate_project_showcase_endpoint(project_id: str):
     Unlike /portfolio/generate, this only affects the one project.
     """
     engine = get_engine()
+    with engine.begin() as conn:
+        portfolio_id = _portfolio_id_for_project(conn, project_id)
+        if not portfolio_id:
+            raise HTTPException(status_code=404, detail="Project not found")
+        _assert_dashboard_private_for_portfolio(conn, portfolio_id)
+
     try:
         return generate_project_showcase(engine=engine, project_id=project_id)
     except KeyError:
@@ -2066,6 +2157,11 @@ def edit_portfolio_showcase(showcase_id: str, body: PortfolioEditRequest):
     engine = get_engine()
 
     with engine.begin() as conn:
+        portfolio_id = _portfolio_id_for_showcase(conn, showcase_id)
+        if not portfolio_id:
+            raise HTTPException(status_code=404, detail="Showcase not found")
+        _assert_dashboard_private_for_portfolio(conn, portfolio_id)
+
         row = conn.execute(
             text("SELECT content_json FROM portfolio_showcases WHERE id = :id"),
             {"id": showcase_id},
@@ -2779,11 +2875,13 @@ async def set_project_image(
 ):
     # 1. Early FK check
     exists = db.execute(
-        text("SELECT 1 FROM projects WHERE id = :pid"),
+        text("SELECT portfolio_id FROM projects WHERE id = :pid"),
         {"pid": str(project_id)},
-    ).scalar()
+    ).mappings().first()
     if not exists:
         raise HTTPException(status_code=404, detail="Project not found")
+
+    _assert_dashboard_private_for_portfolio(db, exists.get("portfolio_id"))
 
     # 2. Read file
     data = await file.read()
@@ -2939,6 +3037,11 @@ def get_project_image(project_id: str):
 def delete_project_image(project_id: str):
     engine = get_engine()
     with engine.begin() as conn:
+        portfolio_id = _portfolio_id_for_project(conn, project_id)
+        if not portfolio_id:
+            raise HTTPException(status_code=404, detail="Project not found")
+        _assert_dashboard_private_for_portfolio(conn, portfolio_id)
+
         row = conn.execute(
             text(
                 """
