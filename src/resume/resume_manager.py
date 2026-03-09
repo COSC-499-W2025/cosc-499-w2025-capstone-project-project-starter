@@ -583,7 +583,7 @@ class ResumeManager:
             # Get user's display name from detected authors (similar to choose_author_from_zip logic)
             display_name = user_name  # Default fallback
             if all_authors:
-                git_username = get_user_git_username()
+                git_username = get_user_git_username(user_name)
                 if git_username and git_username in all_authors:
                     # Auto-select if git username matches
                     display_name = git_username

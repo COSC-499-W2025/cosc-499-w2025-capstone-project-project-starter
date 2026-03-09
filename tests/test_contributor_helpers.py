@@ -57,8 +57,12 @@ def test_choose_author_from_zip_select_specific_author(monkeypatch):
         lambda file_contents: set(),
     )
     monkeypatch.setattr(
+        "analysis.key_metrics.AuthManager.get_current_username",
+        lambda: "test_user",
+    )
+    monkeypatch.setattr(
         "analysis.key_metrics.get_user_git_username",
-        lambda: None,
+        lambda user_name: None,
     )
     monkeypatch.setattr(
         "analysis.key_metrics.set_project_contributor_name",
@@ -93,8 +97,12 @@ def test_choose_author_from_zip_not_collaborative(monkeypatch):
         lambda file_contents: set(),
     )
     monkeypatch.setattr(
+        "analysis.key_metrics.AuthManager.get_current_username",
+        lambda: "test_user",
+    )
+    monkeypatch.setattr(
         "analysis.key_metrics.get_user_git_username",
-        lambda: None,
+        lambda user_name: None,
     )
 
     # Simulate user typing "3" (len(authors) + 1)

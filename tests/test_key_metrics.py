@@ -101,7 +101,9 @@ def test_choose_author_from_zip_git_username_match(monkeypatch):
     monkeypatch.setattr(key_metrics, "get_file_contents_by_upload_id", lambda _: {})
     monkeypatch.setattr(key_metrics, "_identify_authors_from_zip", lambda _: {"user1", "user2"})
     monkeypatch.setattr(key_metrics, "_extract_common_names_from_filenames", lambda _: set())
-    monkeypatch.setattr(key_metrics, "get_user_git_username", lambda: "user1")
+    monkeypatch.setattr(key_metrics, "AuthManager")
+    monkeypatch.setattr(key_metrics.AuthManager, "get_current_username", lambda: "test_user")
+    monkeypatch.setattr(key_metrics, "get_user_git_username", lambda user_name: "user1")
     
     result = key_metrics.choose_author_from_zip(1)
     assert result == "user1"
@@ -112,7 +114,8 @@ def test_choose_author_from_zip_user_selection(monkeypatch, capsys):
     monkeypatch.setattr(key_metrics, "get_file_contents_by_upload_id", lambda _: {})
     monkeypatch.setattr(key_metrics, "_identify_authors_from_zip", lambda _: {"user1", "user2"})
     monkeypatch.setattr(key_metrics, "_extract_common_names_from_filenames", lambda _: set())
-    monkeypatch.setattr(key_metrics, "get_user_git_username", lambda: "other_user")
+    monkeypatch.setattr(key_metrics.AuthManager, "get_current_username", lambda: "test_user")
+    monkeypatch.setattr(key_metrics, "get_user_git_username", lambda user_name: "other_user")
     monkeypatch.setattr(key_metrics, "set_project_contributor_name", lambda *_args, **_kwargs: True)
     monkeypatch.setattr("builtins.input", lambda _: "1")
     
@@ -125,7 +128,8 @@ def test_choose_author_from_zip_all_authors(monkeypatch):
     monkeypatch.setattr(key_metrics, "get_file_contents_by_upload_id", lambda _: {})
     monkeypatch.setattr(key_metrics, "_identify_authors_from_zip", lambda _: {"user1", "user2"})
     monkeypatch.setattr(key_metrics, "_extract_common_names_from_filenames", lambda _: set())
-    monkeypatch.setattr(key_metrics, "get_user_git_username", lambda: "other_user")
+    monkeypatch.setattr(key_metrics.AuthManager, "get_current_username", lambda: "test_user")
+    monkeypatch.setattr(key_metrics, "get_user_git_username", lambda user_name: "other_user")
     monkeypatch.setattr("builtins.input", lambda _: "3")  # Select "all authors"
     
     result = key_metrics.choose_author_from_zip(1)
@@ -137,7 +141,8 @@ def test_choose_author_from_zip_invalid_input(monkeypatch):
     monkeypatch.setattr(key_metrics, "get_file_contents_by_upload_id", lambda _: {})
     monkeypatch.setattr(key_metrics, "_identify_authors_from_zip", lambda _: {"user1", "user2"})
     monkeypatch.setattr(key_metrics, "_extract_common_names_from_filenames", lambda _: set())
-    monkeypatch.setattr(key_metrics, "get_user_git_username", lambda: "other_user")
+    monkeypatch.setattr(key_metrics.AuthManager, "get_current_username", lambda: "test_user")
+    monkeypatch.setattr(key_metrics, "get_user_git_username", lambda user_name: "other_user")
     monkeypatch.setattr(key_metrics, "set_project_contributor_name", lambda *_args, **_kwargs: True)
     
     inputs = ["invalid", "0", "1"]

@@ -73,8 +73,10 @@ def choose_author_from_zip(uploaded_file_id: int):
     if not authors:
         return None
 
-    git_username = get_user_git_username()
-    if git_username in authors:
+    # Get current user for git username lookup
+    current_user = AuthManager.get_current_username()
+    git_username = get_user_git_username(current_user) if current_user else None
+    if git_username and git_username in authors:
         return git_username
 
     authors = sorted(list(authors))  # ordered for consistency

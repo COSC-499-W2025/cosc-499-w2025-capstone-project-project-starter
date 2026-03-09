@@ -104,7 +104,7 @@ def test_generate_user_resume_uses_custom_wording(monkeypatch):
     monkeypatch.setattr("resume.resume_manager.get_file_contents_by_upload_id", lambda pid: [])
     monkeypatch.setattr("resume.resume_manager._identify_authors_from_zip", lambda pid: set())
     monkeypatch.setattr("resume.resume_manager._extract_common_names_from_filenames", lambda fc: set())
-    monkeypatch.setattr("resume.resume_manager.get_user_git_username", lambda: None)
+    monkeypatch.setattr("resume.resume_manager.get_user_git_username", lambda user_name: None)
 
     # If any input() happens, return empty to proceed
     monkeypatch.setattr(builtins, "input", lambda *args, **kwargs: "")
