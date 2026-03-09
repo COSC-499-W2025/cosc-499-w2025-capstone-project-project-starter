@@ -511,9 +511,9 @@
                     </div>
                 </div>`,
                 'rank': `<div class="view-panel"><h3>Rank All Projects</h3><p class="text-muted" style="margin-bottom: 12px; font-size: 0.9em;">Rank your projects by score, then save the rankings to the database.</p><div class="rank-actions"><button type="button" class="btn" onclick="rankProjects()">Rank Projects</button><button type="button" class="btn btn-secondary" id="rankSaveBtn" onclick="saveRankingsToDb()" disabled>Save to database</button></div><div id="rankResult" class="result rank-result"></div></div>`,
-                'rank-top3': `<div class="view-panel"><h3>Rank and Summarize Top 3</h3><button class="btn" onclick="rankTop3()">Rank & Summarize</button><div id="rankTop3Result" class="result"></div></div>`,
-                'rankings': `<div class="view-panel"><h3>View and Edit Rankings</h3><button class="btn" onclick="loadRankings()">Load Rankings</button><div id="rankingsList" class="result"></div></div>`,
-                'rank-gemini': `<div class="view-panel"><h3>AI Rank Projects (Gemini)</h3><p class="text-muted" style="font-size:0.9em;">Uses Gemini AI to comparatively rank all your projects by quality, complexity, and skills.</p><button class="btn" onclick="rankProjectsGemini()">Rank with Gemini</button><div id="rankGeminiResult" class="result"></div></div>`,
+                'rank-top3': `<div class="view-panel"><h3>Rank and Summarize Top 3</h3><p class="text-muted" style="margin-bottom: 12px; font-size: 0.9em;">Rank all projects, summarize the top 3, then save rankings to the database (like the backend).</p><div class="rank-actions"><button type="button" class="btn" onclick="rankTop3()">Rank & Summarize</button><button type="button" class="btn btn-secondary" id="rankTop3SaveBtn" onclick="saveRankingsToDb()" disabled>Save to database</button></div><div id="rankTop3Result" class="result rank-result"></div></div>`,
+                'rankings': `<div class="view-panel"><h3>View and Edit Rankings</h3><p class="text-muted" style="margin-bottom: 12px; font-size: 0.9em;">Load and view rankings stored in the database.</p><button type="button" class="btn" onclick="loadRankings()">Load Rankings</button><div id="rankingsList" class="result rank-result"></div></div>`,
+                'rank-gemini': `<div class="view-panel"><h3>AI Rank Projects (Gemini)</h3><p class="text-muted" style="margin-bottom: 12px; font-size: 0.9em;">Uses Gemini AI to comparatively rank your projects by quality, complexity, and skills.</p><div class="rank-actions"><button type="button" class="btn" onclick="rankProjectsGemini()">Rank with Gemini</button><button type="button" class="btn btn-secondary" id="rankGeminiSaveBtn" onclick="saveRankingsToDb()" disabled>Save to database</button></div><div id="rankGeminiResult" class="result rank-result"></div></div>`,
                 'external': `<div class="view-panel"><h3>External Service Settings</h3><p>Manage external service permissions</p><div id="externalServicesResult" class="result"></div></div>`,
                 'cleanup': `<div class="view-panel"><h3>Cleanup Insights</h3><div id="cleanupProjectsList" class="project-list"></div><button class="btn" onclick="cleanupInsights()">Cleanup Selected</button><div id="cleanupResult" class="result"></div></div>`,
                 'preferences': `<div class="view-panel"><h3>User Preferences</h3><label>Privacy Consent:</label><button class="btn" onclick="submitPrivacyConsent(true)">Grant</button><button class="btn btn-secondary" onclick="submitPrivacyConsent(false)">Deny</button><label>Git Username:</label><input type="text" id="gitUsername" /><button class="btn" onclick="savePreferences()">Save</button><div id="preferencesResult" class="result"></div></div>`,
@@ -572,6 +572,14 @@
             if (viewName === 'rank') {
                 const rankSaveBtn = document.getElementById('rankSaveBtn');
                 if (rankSaveBtn) rankSaveBtn.disabled = !lastRankedProjects || lastRankedProjects.length === 0;
+            }
+            if (viewName === 'rank-top3') {
+                const rankTop3SaveBtn = document.getElementById('rankTop3SaveBtn');
+                if (rankTop3SaveBtn) rankTop3SaveBtn.disabled = !lastRankedProjects || lastRankedProjects.length === 0;
+            }
+            if (viewName === 'rank-gemini') {
+                const rankGeminiSaveBtn = document.getElementById('rankGeminiSaveBtn');
+                if (rankGeminiSaveBtn) rankGeminiSaveBtn.disabled = !lastRankedProjects || lastRankedProjects.length === 0;
             }
         }
 
@@ -1344,14 +1352,46 @@
 
         async function rankTop3() {
             const resultDiv = document.getElementById('rankTop3Result');
-            resultDiv.innerHTML = 'Ranking and summarizing...';
+            const saveBtn = document.getElementById('rankTop3SaveBtn');
+            if (!resultDiv) return;
+            resultDiv.innerHTML = '<div class="rank-loading text-muted">Ranking and summarizing top 3...</div>';
+            if (saveBtn) saveBtn.disabled = true;
             try {
-                const res = await apiCall(`/api/projects/rank-top3?user_name=${currentUser.user_name}`, { method: 'POST' });
+                const res = await apiCall(`/api/projects/rank-top3?user_name=${encodeURIComponent(currentUser.user_name || '')}`, { method: 'POST' });
                 if (!res.ok) { renderError(resultDiv, res.error || 'Failed to rank top 3 projects'); return; }
                 const data = res.data;
-                if (data.success) {
-                    renderSuccess(resultDiv, `Top 3 Projects:\n${data.top3.map((p, i) => `${i+1}. ${p.filename} (Score: ${p.score})`).join('\n')}`);
+                if (!data || !data.success) {
+                    resultDiv.innerHTML = '<div class="message error">Failed to rank top 3.</div>';
+                    return;
                 }
+                const top3 = data.top3 || [];
+                lastRankedProjects = top3;
+                if (saveBtn) saveBtn.disabled = top3.length === 0;
+                if (top3.length === 0) {
+                    resultDiv.innerHTML = '<div class="rank-empty text-muted">No projects to rank. Upload projects first.</div>';
+                    return;
+                }
+                let html = '<div class="rank-list"><div class="analysis-section"><h4>Top 3 projects</h4>';
+                top3.forEach((p, i) => {
+                    const score = typeof p.score === 'number' ? p.score.toFixed(2) : p.score;
+                    const scoreColor = p.score >= 70 ? 'var(--success, #22c55e)' : p.score >= 40 ? 'var(--warning, #d97706)' : 'var(--danger, #dc2626)';
+                    const summary = (p.summary && String(p.summary).trim()) ? String(p.summary).trim() : '';
+                    html += '<div class="analysis-item rank-item top3-item">';
+                    html += '<div class="rank-item-row">';
+                    html += '<span class="rank-position">' + (i + 1) + '.</span>';
+                    html += '<span class="rank-filename">' + escapeHtml(p.filename || 'Project') + '</span>';
+                    html += '<span class="rank-score" style="color:' + scoreColor + ';font-weight:700;">' + escapeHtml(String(score)) + '</span>';
+                    html += '</div>';
+                    if (summary) {
+                        html += '<div class="top3-summary">' + escapeHtml(summary) + '</div>';
+                    } else {
+                        html += '<div class="top3-summary text-muted">No summary generated.</div>';
+                    }
+                    html += '</div>';
+                });
+                html += '</div></div>';
+                resultDiv.innerHTML = html;
+                showMessage('Top 3 ranked. Click "Save to database" to store these rankings.', 'success');
             } catch (e) {
                 renderError(resultDiv, e.message || 'Ranking failed');
             }
@@ -1359,42 +1399,54 @@
 
         async function rankProjectsGemini() {
             const resultDiv = document.getElementById('rankGeminiResult');
+            const saveBtn = document.getElementById('rankGeminiSaveBtn');
+            if (!resultDiv) return;
             resultDiv.innerHTML = '<div class="analyze-loading"><div class="spinner"></div><p>Asking Gemini to rank your projects…</p><p class="text-muted">This may take 15–30 seconds</p></div>';
+            if (saveBtn) saveBtn.disabled = true;
             try {
-                const res = await apiCall(`/api/projects/rank-gemini?user_name=${currentUser.user_name}`, { method: 'POST' });
+                const res = await apiCall(`/api/projects/rank-gemini?user_name=${encodeURIComponent(currentUser.user_name || '')}`, { method: 'POST' });
                 if (!res.ok) { renderError(resultDiv, res.error || 'Gemini ranking failed'); return; }
                 const data = res.data;
-                if (data.success && data.rankings && data.rankings.length > 0) {
-                    let html = '<div style="display:flex;flex-direction:column;gap:12px;">';
-                    data.rankings.forEach((r, i) => {
-                        const scoreColor = r.score >= 70 ? '#22c55e' : r.score >= 40 ? '#d97706' : '#dc2626';
-                        html += '<div class="analysis-item">';
-                        html += `<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">`;
-                        html += `<strong>${i+1}. ${escapeHtml(r.filename)}</strong>`;
-                        html += `<span style="color:${scoreColor};font-weight:700;font-size:1.1em;">${r.score}/100</span>`;
-                        html += '</div>';
-                        if (r.one_line_summary) html += `<div style="font-size:0.9em;color:var(--text-secondary);margin-bottom:6px;">${escapeHtml(r.one_line_summary)}</div>`;
-                        if (r.strengths && r.strengths.length) {
-                            html += '<div class="analysis-badges">';
-                            r.strengths.forEach(s => { html += `<span class="badge badge-success">${escapeHtml(s)}</span>`; });
-                            html += '</div>';
-                        }
-                        if (r.weaknesses && r.weaknesses.length) {
-                            html += '<div class="analysis-badges" style="margin-top:4px;">';
-                            r.weaknesses.forEach(w => { html += `<span class="badge badge-warning">${escapeHtml(w)}</span>`; });
-                            html += '</div>';
-                        }
-                        html += '</div>';
-                    });
-                    html += '</div>';
-                    if (data.reasoning) {
-                        html += `<div class="analysis-section" style="margin-top:16px;"><h4>Overall Reasoning</h4><p style="line-height:1.6;">${escapeHtml(data.reasoning)}</p></div>`;
-                    }
-                    resultDiv.innerHTML = html;
-                    renderSuccess(resultDiv, 'Gemini ranking complete');
-                } else {
+                if (!data.success || !data.rankings || data.rankings.length === 0) {
                     renderError(resultDiv, data.error || 'No rankings returned');
+                    return;
                 }
+                lastRankedProjects = data.rankings.map(r => ({
+                    project_id: r.project_id,
+                    filename: r.filename || '',
+                    score: r.score,
+                    created_at: null,
+                    analysis: {}
+                }));
+                if (saveBtn) saveBtn.disabled = false;
+                let html = '<div class="rank-list" style="display:flex;flex-direction:column;gap:12px;">';
+                data.rankings.forEach((r, i) => {
+                    const scoreColor = r.score >= 70 ? 'var(--success, #22c55e)' : r.score >= 40 ? 'var(--warning, #d97706)' : 'var(--danger, #dc2626)';
+                    html += '<div class="analysis-item">';
+                    html += '<div class="rank-item-row" style="margin-bottom:6px;">';
+                    html += '<span class="rank-position">' + (i + 1) + '.</span>';
+                    html += '<strong class="rank-filename">' + escapeHtml(r.filename || 'Project') + '</strong>';
+                    html += '<span class="rank-score" style="color:' + scoreColor + ';font-weight:700;font-size:1.1em;">' + r.score + '/100</span>';
+                    html += '</div>';
+                    if (r.one_line_summary) html += '<div class="text-muted" style="font-size:0.9em;margin-bottom:6px;">' + escapeHtml(r.one_line_summary) + '</div>';
+                    if (r.strengths && r.strengths.length) {
+                        html += '<div class="analysis-badges">';
+                        r.strengths.forEach(s => { html += '<span class="badge badge-success">' + escapeHtml(s) + '</span>'; });
+                        html += '</div>';
+                    }
+                    if (r.weaknesses && r.weaknesses.length) {
+                        html += '<div class="analysis-badges" style="margin-top:4px;">';
+                        r.weaknesses.forEach(w => { html += '<span class="badge badge-warning">' + escapeHtml(w) + '</span>'; });
+                        html += '</div>';
+                    }
+                    html += '</div>';
+                });
+                html += '</div>';
+                if (data.reasoning) {
+                    html += '<div class="analysis-section" style="margin-top:16px;"><h4>Overall Reasoning</h4><p style="line-height:1.6;">' + escapeHtml(data.reasoning) + '</p></div>';
+                }
+                resultDiv.innerHTML = html;
+                showMessage('Gemini ranking complete. Click "Save to database" to store these rankings.', 'success');
             } catch (e) {
                 renderError(resultDiv, e.message || 'Gemini ranking failed');
             }
@@ -1402,16 +1454,37 @@
 
         async function loadRankings() {
             const resultDiv = document.getElementById('rankingsList');
-            resultDiv.innerHTML = 'Loading...';
+            if (!resultDiv) return;
+            resultDiv.innerHTML = '<div class="rank-loading text-muted">Loading rankings...</div>';
             try {
                 const res = await apiCall('/api/projects/rankings');
                 if (!res.ok) { renderError(resultDiv, res.error || "Failed to load rankings"); return; }
                 const data = res.data;
-                if (data.success) {
-                    resultDiv.innerHTML = data.rankings.length ? data.rankings.map(r => `${r.rank_position}. Project ${r.project_id} (Score: ${r.score})`).join('\n') : 'No rankings found';
+                const list = (data && data.rankings) ? data.rankings : [];
+                if (list.length === 0) {
+                    resultDiv.innerHTML = '<div class="rank-empty text-muted">No rankings found. Rank projects and save to database first.</div>';
+                    return;
                 }
+                let html = '<div class="rank-list"><div class="analysis-section"><h4>Stored rankings</h4>';
+                list.forEach(r => {
+                    const score = typeof r.score === 'number' ? r.score.toFixed(2) : r.score;
+                    const scoreColor = r.score >= 70 ? 'var(--success, #22c55e)' : r.score >= 40 ? 'var(--warning, #d97706)' : 'var(--danger, #dc2626)';
+                    const filename = (r.ranking_data && r.ranking_data.filename) ? r.ranking_data.filename : 'Project ' + r.project_id;
+                    const summaryStr = (r.summary && String(r.summary).trim()) ? String(r.summary).trim() : '';
+                    const summary = summaryStr ? summaryStr.slice(0, 120) + (summaryStr.length > 120 ? '…' : '') : '';
+                    html += '<div class="analysis-item rank-item">';
+                    html += '<div class="rank-item-row">';
+                    html += '<span class="rank-position">' + r.rank_position + '.</span>';
+                    html += '<span class="rank-filename">' + escapeHtml(filename) + '</span>';
+                    html += '<span class="rank-score" style="color:' + scoreColor + ';font-weight:700;">' + escapeHtml(String(score)) + '</span>';
+                    html += '</div>';
+                    if (summary) html += '<div class="rank-summary text-muted">' + escapeHtml(summary) + '</div>';
+                    html += '</div>';
+                });
+                html += '</div></div>';
+                resultDiv.innerHTML = html;
             } catch (e) {
-                renderError(resultDiv, `Error: ${e.message}`);
+                resultDiv.innerHTML = '<div class="message error">' + escapeHtml(e.message || 'Error loading rankings') + '</div>';
             }
         }
 

@@ -12,6 +12,7 @@ from project_manager import list_projects, get_project_by_id
 from project_analyzer import analyze_project_by_id
 from analysis.project_ranking import rank_all_projects, save_rankings_with_summaries, rank_and_summarize_top_projects
 from analysis.ranking_storage import get_stored_rankings, save_rankings_to_db
+from project_summarizer import summarize_project
 from analysis.gemini_ranker import rank_projects_with_gemini
 from tools.cleanup_insights import delete_insights
 from database.user_preferences import update_user_git_username, get_user_git_username
@@ -606,11 +607,30 @@ async def rank_projects(user_name: Optional[str] = Query(None)):
 
 @router.post("/projects/rank-top3")
 async def rank_top3(user_name: Optional[str] = Query(None)):
-    """Rank and summarize top 3 projects."""
+    """Rank all projects, then generate and return summaries for the top 3."""
     try:
-        rank_and_summarize_top_projects()
         ranked = rank_all_projects(user_name=user_name)
-        return {"success": True, "top3": ranked[:3]}
+        top3_raw = ranked[:3]
+        top3 = []
+        for project in top3_raw:
+            summary_text = ""
+            try:
+                raw = summarize_project(project["project_id"], user_name=user_name)
+                if raw and isinstance(raw, str):
+                    summary_text = raw.strip()
+            except Exception as e:
+                logger.warning("Summary failed for project %s: %s", project.get("project_id"), e)
+            created_at = project.get("created_at")
+            if hasattr(created_at, "isoformat"):
+                created_at = created_at.isoformat()
+            top3.append({
+                "project_id": project["project_id"],
+                "filename": project.get("filename", ""),
+                "score": project.get("score", 0.0),
+                "created_at": created_at,
+                "summary": summary_text,
+            })
+        return {"success": True, "top3": top3}
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error ranking top 3: {str(e)}")
 
