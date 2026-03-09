@@ -2062,38 +2062,57 @@ def edit_resume(resume_id: str, body: ResumeEditRequest):
 def download_resume_pdf(resume_id: str):
     engine = get_engine()
     try:
-        # 1. Get the resume data
+        # 1. Get the core project resume data
         item = get_resume_item(engine=engine, resume_id=resume_id)
         
-        # 2. Fetch the user's config to get preferences
         from sqlalchemy import text
         with engine.connect() as conn:
-            query = text("""
-                SELECT uc.config_json 
-                FROM user_config uc
-                JOIN portfolios po ON uc.user_id = po.user_id
+            # --- NEW: Get User ID first to fetch their data ---
+            user_row = conn.execute(text("""
+                SELECT po.user_id 
+                FROM portfolios po
                 JOIN projects pr ON po.id = pr.portfolio_id
                 JOIN resume_items ri ON pr.id = ri.project_id
                 WHERE ri.id = :rid
-            """)
-            result = conn.execute(query, {"rid": resume_id}).mappings().first()
-
-            logger.debug("Found config for resume %s: %s", resume_id, result is not None)
+            """), {"rid": resume_id}).mappings().first()
             
-            # Extract the filters if they exist, otherwise empty dict
-            user_config = result["config_json"] if result else {}
+            if not user_row:
+                raise HTTPException(status_code=404, detail="User not found for this resume")
+            
+            uid = user_row["user_id"]
+
+            # --- NEW: Fetch Education and Awards ---
+            edu_rows = conn.execute(text("""
+                SELECT institution, degree, field_of_study, start_year, end_year, is_current, description
+                FROM education_entries WHERE user_id = :uid
+                ORDER BY start_year DESC NULLS LAST
+            """), {"uid": uid}).mappings().all()
+
+            award_rows = conn.execute(text("""
+                SELECT title, issuer, awarded_year, description
+                FROM award_entries WHERE user_id = :uid
+                ORDER BY awarded_year DESC NULLS LAST
+            """), {"uid": uid}).mappings().all()
+
+            # --- Existing Config/Filters Logic ---
+            config_result = conn.execute(text("""
+                SELECT config_json FROM user_config WHERE user_id = :uid
+            """), {"uid": uid}).mappings().first()
+            
+            user_config = config_result["config_json"] if config_result else {}
             filters = user_config.get("resume_filters", {})
 
-            logger.debug("Filters passed to PDF exporter for resume %s: %s", resume_id, filters)
+        # 2. Inject the data into the 'item' dict so the exporter sees it
+        item["education"] = [dict(r) for r in edu_rows]
+        item["awards"] = [dict(r) for r in award_rows]
 
     except KeyError:
         raise HTTPException(status_code=404, detail="Resume item not found")
 
-    # 3. Pass the filters into the exporter we just modified
+    # 3. Now the exporter has everything it needs
     pdf_bytes = export_resume_item_pdf_bytes(item, filters=filters)
     
     filename = f"resume-{resume_id}.pdf"
-
     return Response(
         content=pdf_bytes,
         media_type="application/pdf",
