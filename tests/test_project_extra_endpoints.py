@@ -191,14 +191,15 @@ class TestProjectRankingEndpoints:
         assert data["count"] == 2
         mock_save.assert_called_once()
 
+    @patch('api.routes.project.summarize_project')
     @patch('api.routes.project.rank_all_projects')
-    @patch('api.routes.project.rank_and_summarize_top_projects')
-    def test_rank_top3(self, mock_rank_top3, mock_rank_all):
+    def test_rank_top3(self, mock_rank_all, mock_summarize):
         mock_rank_all.return_value = [
-            {"project_id": 1, "score": 0.9},
-            {"project_id": 2, "score": 0.8},
-            {"project_id": 3, "score": 0.7},
+            {"project_id": 1, "filename": "p1.zip", "score": 0.9},
+            {"project_id": 2, "filename": "p2.zip", "score": 0.8},
+            {"project_id": 3, "filename": "p3.zip", "score": 0.7},
         ]
+        mock_summarize.return_value = "Generated summary text"
 
         response = client.post("/api/projects/rank-top3?user_name=test_user")
 
@@ -206,7 +207,13 @@ class TestProjectRankingEndpoints:
         data = response.json()
         assert data["success"] is True
         assert len(data["top3"]) == 3
-        mock_rank_top3.assert_called_once()
+        for item in data["top3"]:
+            assert "project_id" in item
+            assert "filename" in item
+            assert "score" in item
+            assert "summary" in item
+            assert item["summary"] == "Generated summary text"
+        assert mock_summarize.call_count == 3
 
     @patch('api.routes.project.get_stored_rankings')
     def test_get_rankings(self, mock_get_rankings):
