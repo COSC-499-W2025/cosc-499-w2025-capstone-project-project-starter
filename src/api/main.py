@@ -11,6 +11,7 @@ import os
 from api.routes import consent
 from api.routes import resume_portfolio
 from api.routes import settings
+from api.routes import public
 from api.middleware.request_context import RequestContextMiddleware
 from api.exception_handlers import global_exception_handler, http_exception_handler
 
@@ -93,6 +94,7 @@ app.include_router(auth.router, prefix="/api/auth", tags=["authentication"])
 app.include_router(consent.router, prefix="/api", tags=["consent"])
 app.include_router(resume_portfolio.router, prefix="/api", tags=["resume", "portfolio"])
 app.include_router(settings.router, prefix="/api/settings", tags=["settings"])
+app.include_router(public.router, prefix="/api", tags=["public"])
 
 # Mount static files for CSS, JS, and other assets
 def find_frontend_static_dir() -> str | None:
@@ -168,6 +170,15 @@ async def dashboard():
     if path:
         return FileResponse(path)
     raise HTTPException(status_code=404, detail="Dashboard not found")
+
+
+@app.get("/public-dashboard.html")
+async def public_dashboard():
+    """Serve the public dashboard page."""
+    path = find_frontend_file("public-dashboard.html")
+    if path:
+        return FileResponse(path)
+    raise HTTPException(status_code=404, detail="Public dashboard not found")
 
 
 @app.get("/api-test.html")

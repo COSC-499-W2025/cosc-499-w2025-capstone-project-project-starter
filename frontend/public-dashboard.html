@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Artifact - Public Dashboard</title>
+    <link rel="stylesheet" href="css/styles.css">
+    <link rel="stylesheet" href="css/dashboard.css">
+</head>
+<body>
+    <header class="header">
+        <div class="header-left">
+            <h1>Artifact Public Dashboard</h1>
+        </div>
+        <div class="header-actions">
+            <button class="theme-toggle" onclick="toggleTheme()" id="themeToggle" aria-label="Toggle theme">
+                <svg id="themeIcon" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z" />
+                </svg>
+                <span id="themeLabel">Dark</span>
+            </button>
+            <button class="btn btn-secondary" onclick="goBack()">Back</button>
+        </div>
+    </header>
+
+    <div id="messageBox" class="message" style="display: none;"></div>
+
+    <section class="view-panel public-dashboard">
+        <div class="public-dashboard-header">
+            <div class="public-dashboard-title">
+                <h2>Registered Users</h2>
+                <p>Each card shows a user record pulled from the database.</p>
+            </div>
+            <div class="badge user-status" id="userStatus">Loading...</div>
+        </div>
+        <div class="user-grid" id="userGrid"></div>
+    </section>
+
+    <script>
+        const API_BASE_URL = window.location.origin;
+
+        document.addEventListener('DOMContentLoaded', () => {
+            loadUsers();
+        });
+
+        function showMessage(text, type) {
+            const msg = document.getElementById('messageBox');
+            msg.textContent = text;
+            msg.className = `message ${type}`;
+            msg.style.display = 'block';
+            setTimeout(() => msg.style.display = 'none', 5000);
+        }
+
+        function escapeHtml(str) {
+            return String(str)
+                .replaceAll("&", "&amp;")
+                .replaceAll("<", "&lt;")
+                .replaceAll(">", "&gt;")
+                .replaceAll('"', "&quot;")
+                .replaceAll("'", "&#039;");
+        }
+
+        function formatDate(value) {
+            if (!value) return 'Never';
+            const date = new Date(value);
+            if (Number.isNaN(date.getTime())) return String(value);
+            return date.toLocaleString();
+        }
+
+        function renderUsers(users) {
+            const container = document.getElementById('userGrid');
+            if (!users.length) {
+                container.innerHTML = '<div class="message">No users found.</div>';
+                return;
+            }
+
+            container.innerHTML = users.map(user => {
+                const name = escapeHtml(user.user_name || 'Unknown');
+                const statusBadge = user.is_login ? 'badge-success' : 'badge-warning';
+                const statusText = user.is_login ? 'Logged In' : 'Logged Out';
+                return `
+                    <article class="user-card">
+                        <h4>${name}</h4>
+                        <div class="user-meta">
+                            <div><span>User ID:</span> ${escapeHtml(user.user_id ?? '—')}</div>
+                            <div><span>Created:</span> ${escapeHtml(formatDate(user.create_time))}</div>
+                            <div><span>Last Login:</span> ${escapeHtml(formatDate(user.last_login_time))}</div>
+                        </div>
+                        <div class="badge ${statusBadge}">${statusText}</div>
+                    </article>
+                `;
+            }).join('');
+        }
+
+        async function loadUsers() {
+            const status = document.getElementById('userStatus');
+            const container = document.getElementById('userGrid');
+            container.innerHTML = '';
+            status.textContent = 'Loading...';
+
+            try {
+                const response = await fetch(`${API_BASE_URL}/api/users`);
+                const data = await response.json().catch(() => ({}));
+
+                if (!response.ok || !data.success) {
+                    const msg = data.message || data.detail || `Request failed (${response.status})`;
+                    throw new Error(msg);
+                }
+
+                const users = Array.isArray(data.users) ? data.users : [];
+                status.textContent = `${users.length} users`;
+                renderUsers(users);
+            } catch (e) {
+                status.textContent = 'Unavailable';
+                container.innerHTML = `<div class="message error">${escapeHtml(e.message || 'Failed to load users')}</div>`;
+                showMessage('Failed to load users', 'error');
+            }
+        }
+
+        function toggleTheme() {
+            const html = document.documentElement;
+            const currentTheme = html.getAttribute('data-theme');
+            const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
+            html.setAttribute('data-theme', newTheme);
+            localStorage.setItem('theme', newTheme);
+            updateThemeUI(newTheme);
+        }
+
+        function goBack() {
+            if (window.history.length > 1) {
+                window.history.back();
+            } else {
+                window.location.href = 'index.html';
+            }
+        }
+
+        function updateThemeUI(theme) {
+            const themeIcon = document.getElementById('themeIcon');
+            const themeLabel = document.getElementById('themeLabel');
+
+            if (theme === 'dark') {
+                themeIcon.innerHTML = '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z" />';
+                themeLabel.textContent = 'Light';
+            } else {
+                themeIcon.innerHTML = '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z" />';
+                themeLabel.textContent = 'Dark';
+            }
+        }
+
+        (function initTheme() {
+            const savedTheme = localStorage.getItem('theme') || 'light';
+            document.documentElement.setAttribute('data-theme', savedTheme);
+            updateThemeUI(savedTheme);
+        })();
+    </script>
+</body>
+</html>
