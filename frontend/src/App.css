@@ -122,6 +122,59 @@ button {
   margin-bottom: 1rem;
 }
 
+.dashboard-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.mode-switch {
+  margin: 0;
+  padding: 0.4rem;
+  border: 1px solid #cdd8f6;
+  border-radius: 12px;
+  background: #ffffff;
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+}
+
+.mode-switch-label {
+  margin: 0;
+  padding: 0 0.25rem;
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: #5d6b86;
+}
+
+.mode-switch-option {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  font-weight: 600;
+  color: #22304f;
+}
+
+.mode-switch-option input {
+  accent-color: #2e6cf4;
+}
+
+.mode-select {
+  border: 1px solid #cdd8f6;
+  border-radius: 8px;
+  padding: 0.38rem 0.55rem;
+  background: #ffffff;
+  color: #22304f;
+  font-weight: 600;
+  min-width: 120px;
+}
+
+.mode-switch:disabled {
+  opacity: 0.65;
+}
+
 .dashboard-header h1 {
   font-size: clamp(1.35rem, 2vw, 1.8rem);
 }
@@ -559,6 +612,11 @@ pre {
   .dashboard-header {
     align-items: flex-start;
     flex-direction: column;
+  }
+
+  .dashboard-header-actions {
+    width: 100%;
+    justify-content: space-between;
   }
 }
 

@@ -539,14 +539,23 @@ def test_public_dashboard_filter_validation_and_application(client, engine):
     assert [p["id"] for p in body["dashboard"]["projects"]] == [p1]
     assert all((event.get("skill") or "").casefold() == "python" for event in body["dashboard"]["skills_timeline"])
 
+    r_filtered_again = client.get(f"/public/portfolio/{slug}?project_ids={p1}&skills=python")
+    assert r_filtered_again.status_code == 200
+    body_again = r_filtered_again.json()
+    assert [p["id"] for p in body_again["dashboard"]["projects"]] == [p["id"] for p in body["dashboard"]["projects"]]
+    assert [p.get("project_id") for p in body_again["dashboard"]["top_projects"]] == [
+        p.get("project_id") for p in body["dashboard"]["top_projects"]
+    ]
 
-def test_dashboard_public_mode_still_allows_dashboard_mutations(client, engine):
+
+def test_dashboard_public_mode_blocks_dashboard_mutations(client, engine):
     account = _register_user(client, email="dashboard-locks@example.com")
     headers = {"Authorization": f"Bearer {account['token']}"}
 
     project_id = _u()
     snapshot_id = _u()
     showcase_id = _u()
+    resume_id = _u()
 
     with engine.begin() as conn:
         conn.execute(
@@ -571,24 +580,46 @@ def test_dashboard_public_mode_still_allows_dashboard_mutations(client, engine):
             ),
             {"id": showcase_id, "pid": project_id},
         )
+        conn.execute(
+            text(
+                """
+                INSERT INTO resume_items (id, project_id, content_json)
+                VALUES (:id, :pid, '{"summary_text":"old","resume_bullets":["b1"]}'::jsonb)
+                """
+            ),
+            {"id": resume_id, "pid": project_id},
+        )
 
     r_publish = client.post(f"/portfolio/{account['portfolio_id']}/dashboard/publish", headers=headers)
     assert r_publish.status_code == 200
 
     r_cfg = client.patch(f"/users/{account['user_id']}/config", json={"highlights": {"skills": ["python"]}})
-    assert r_cfg.status_code == 200
+    assert r_cfg.status_code == 409
+    assert "public mode" in r_cfg.text.lower()
 
     r_generate_pf = client.post("/portfolio/generate", json={"portfolio_id": account["portfolio_id"]})
-    assert r_generate_pf.status_code == 200
+    assert r_generate_pf.status_code == 409
 
     r_generate_showcase = client.post(f"/projects/{project_id}/showcase/generate")
-    assert r_generate_showcase.status_code == 200
+    assert r_generate_showcase.status_code == 409
+
+    r_edit_project = client.patch(
+        f"/projects/{project_id}",
+        json={"user_role": "Lead Developer"},
+    )
+    assert r_edit_project.status_code == 409
 
     r_edit_showcase = client.post(
         f"/portfolio/{showcase_id}/edit",
         json={"title": "new title"},
     )
-    assert r_edit_showcase.status_code == 200
+    assert r_edit_showcase.status_code == 409
+
+    r_edit_resume = client.post(
+        f"/resume/{resume_id}/edit",
+        json={"summary_text": "new summary"},
+    )
+    assert r_edit_resume.status_code == 409
 
 
 def test_authenticated_user_scope_rejects_mismatched_user_id(client):

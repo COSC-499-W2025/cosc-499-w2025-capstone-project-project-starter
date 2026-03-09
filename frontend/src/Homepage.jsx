@@ -425,6 +425,7 @@ function Homepage() {
   const [showcaseSaving, setShowcaseSaving] = useState(false);
   const [showcaseGenerating, setShowcaseGenerating] = useState(false);
   const [showcaseError, setShowcaseError] = useState('');
+  const [dashboardViewMode, setDashboardViewMode] = useState('owner');
   const [dashboardMode, setDashboardMode] = useState('private');
   const [dashboardPublicSlug, setDashboardPublicSlug] = useState('');
   const [publicPreviewVersion, setPublicPreviewVersion] = useState(0);
@@ -484,6 +485,7 @@ function Homepage() {
     setShowcaseSaving(false);
     setShowcaseGenerating(false);
     setShowcaseError('');
+    setDashboardViewMode('owner');
     setDashboardMode('private');
     setDashboardPublicSlug('');
     setPublicPreviewVersion(0);
@@ -1040,6 +1042,8 @@ function Homepage() {
     }
     await publishDashboard();
   };
+
+  const isPublicFacingView = dashboardViewMode === 'public';
 
   const handleUpload = async () => {
     if (!file) return;
@@ -1719,6 +1723,12 @@ function Homepage() {
     []
   );
 
+  const visibleNavButtons = useMemo(() => {
+    if (!isPublicFacingView) return navButtons;
+    const allowedInPublic = new Set(['projects', 'skills', 'top']);
+    return navButtons.filter((item) => allowedInPublic.has(item.id));
+  }, [isPublicFacingView, navButtons]);
+
   const reportStats = useMemo(() => {
     const toNumber = (value) => {
       if (value === null || value === undefined) return null;
@@ -1846,6 +1856,14 @@ function Homepage() {
     return asText.length >= 10 ? asText.slice(0, 10) : asText;
   }, []);
 
+  useEffect(() => {
+    if (!isPublicFacingView) return;
+    const allowedViews = new Set(['projects', 'skills', 'top', 'report']);
+    if (!allowedViews.has(view)) {
+      setView('projects');
+    }
+  }, [isPublicFacingView, view]);
+
   if (sessionLoading) {
     return (
       <div className="screen-shell">
@@ -1968,13 +1986,26 @@ function Homepage() {
             <p className="eyebrow">Signed in as</p>
             <h1>{currentUser.display_name || currentUser.email}</h1>
           </div>
-          <button className="ghost-btn" type="button" onClick={handleLogout}>
-            Log Out
-          </button>
+          <div className="dashboard-header-actions">
+            <fieldset className="mode-switch">
+              <legend className="mode-switch-label">Dashboard View</legend>
+              <select
+                className="mode-select"
+                value={dashboardViewMode}
+                onChange={(event) => setDashboardViewMode(event.target.value)}
+              >
+                <option value="owner">Owner</option>
+                <option value="public">Public</option>
+              </select>
+            </fieldset>
+            <button className="ghost-btn" type="button" onClick={handleLogout}>
+              Log Out
+            </button>
+          </div>
         </header>
 
         <nav className="dashboard-nav">
-          {navButtons.map((item) => (
+          {visibleNavButtons.map((item) => (
             <button
               key={item.id}
               type="button"
@@ -2042,19 +2073,23 @@ function Homepage() {
                         )}
                         <div className="card-actions">
                           <button className="primary-btn" type="button" onClick={() => viewProjectDetails(project)}>
-                            View Details
+                            {isPublicFacingView ? 'View Public Details' : 'View Details'}
                           </button>
-                          <button className="secondary-btn" type="button" onClick={() => generateResume(project.id)}>
-                            Generate Resume
-                          </button>
-                          <button
-                            className="secondary-btn"
-                            type="button"
-                            onClick={() => deleteProject(project)}
-                            disabled={deletingProjectId === project.id}
-                          >
-                            {deletingProjectId === project.id ? 'Deleting...' : 'Delete Project'}
-                          </button>
+                          {!isPublicFacingView && (
+                            <>
+                              <button className="secondary-btn" type="button" onClick={() => generateResume(project.id)}>
+                                Generate Resume
+                              </button>
+                              <button
+                                className="secondary-btn"
+                                type="button"
+                                onClick={() => deleteProject(project)}
+                                disabled={deletingProjectId === project.id}
+                              >
+                                {deletingProjectId === project.id ? 'Deleting...' : 'Delete Project'}
+                              </button>
+                            </>
+                          )}
                         </div>
                       </article>
                     );
@@ -2595,6 +2630,12 @@ function Homepage() {
                 <p>Loading project details...</p>
               ) : (
                 <>
+                  {isPublicFacingView && (
+                    <p className="muted">
+                      Public view is active. Edit controls are hidden and only read-only project details are shown.
+                    </p>
+                  )}
+
                   <div className="stack-block">
                     <h3>Analysis Status</h3>
                     {selectedProjectStatus && (
@@ -2612,148 +2653,150 @@ function Homepage() {
                     )}
                   </div>
 
-                  <div className="stack-block">
-                    <h3>Project Thumbnail</h3>
-                    {selectedProjectThumbnail?.loading ? (
-                      <p>Loading thumbnail...</p>
-                    ) : selectedProjectThumbnail?.hasImage ? (
-                      <img
-                        className="project-thumbnail project-thumbnail-detail"
-                        src={selectedProjectThumbnail.imageUrl}
-                        alt={`${selectedProject.name} thumbnail`}
-                      />
-                    ) : (
-                      <div className="project-thumbnail project-thumbnail-placeholder project-thumbnail-detail">
-                        No thumbnail uploaded yet.
-                      </div>
-                    )}
-                    {selectedProjectThumbnail?.error && (
-                      <p className="error-banner inline-error">{selectedProjectThumbnail.error}</p>
-                    )}
-                    <label className="field">
-                      Upload or replace thumbnail
-                      <input
-                        type="file"
-                        accept="image/*"
-                        onChange={(event) => {
-                          setThumbnailActionError('');
-                          setThumbnailUploadFile(event.target.files?.[0] || null);
-                        }}
-                      />
-                    </label>
-                    {thumbnailUploadFile && <p className="muted">Selected image: {thumbnailUploadFile.name}</p>}
-                    <div className="card-actions">
-                      <button
-                        className="primary-btn"
-                        type="button"
-                        onClick={saveProjectThumbnail}
-                        disabled={!thumbnailUploadFile || thumbnailActionProjectId === selectedProject.id}
-                      >
-                        {thumbnailActionProjectId === selectedProject.id ? 'Saving thumbnail...' : 'Save Thumbnail'}
-                      </button>
-                      <button
-                        className="secondary-btn"
-                        type="button"
-                        onClick={removeProjectThumbnail}
-                        disabled={!selectedProjectThumbnail?.hasImage || thumbnailActionProjectId === selectedProject.id}
-                      >
-                        {thumbnailActionProjectId === selectedProject.id ? 'Removing thumbnail...' : 'Remove Thumbnail'}
-                      </button>
-                    </div>
-                    {thumbnailActionError && <p className="error-banner inline-error">{thumbnailActionError}</p>}
-                  </div>
-
-                  <div className="stack-block">
-                    <h3>Key Role</h3>
-                    <label className="field">
-                      Your role in this project
-                      <textarea
-                        value={projectRoleDraft}
-                        maxLength={128}
-                        rows={3}
-                        placeholder="e.g. Technical Lead, Full-Stack Developer"
-                        onChange={(event) => setProjectRoleDraft(event.target.value)}
-                      />
-                    </label>
-                    <p className="muted">
-                      Saved role text is included in resume and portfolio generation for this project.
-                    </p>
-                    <button
-                      className="primary-btn"
-                      type="button"
-                      onClick={saveProjectRole}
-                      disabled={loading || savingProjectRole || !projectRoleChanged}
-                    >
-                      {savingProjectRole ? 'Saving role...' : 'Save Role'}
-                    </button>
-                  </div>
-
-                  <div className="stack-block">
-                    <h3>Portfolio Showcase</h3>
-                    <p className="muted">
-                      The title and summary shown for this project in your portfolio. Generate to create AI-drafted
-                      wording, then edit and save your changes.
-                    </p>
-                    {showcaseError && <p className="error-banner inline-error">{showcaseError}</p>}
-                    {!selectedShowcase ? (
-                      <button
-                        className="secondary-btn"
-                        type="button"
-                        onClick={generateShowcase}
-                        disabled={showcaseGenerating}
-                      >
-                        {showcaseGenerating ? 'Generating...' : 'Generate Showcase Text'}
-                      </button>
-                    ) : (
-                      <>
+                  {!isPublicFacingView && (
+                    <>
+                      <div className="stack-block">
+                        <h3>Project Thumbnail</h3>
+                        {selectedProjectThumbnail?.loading ? (
+                          <p>Loading thumbnail...</p>
+                        ) : selectedProjectThumbnail?.hasImage ? (
+                          <img
+                            className="project-thumbnail project-thumbnail-detail"
+                            src={selectedProjectThumbnail.imageUrl}
+                            alt={`${selectedProject.name} thumbnail`}
+                          />
+                        ) : (
+                          <div className="project-thumbnail project-thumbnail-placeholder project-thumbnail-detail">
+                            No thumbnail uploaded yet.
+                          </div>
+                        )}
+                        {selectedProjectThumbnail?.error && (
+                          <p className="error-banner inline-error">{selectedProjectThumbnail.error}</p>
+                        )}
                         <label className="field">
-                          Title
+                          Upload or replace thumbnail
                           <input
-                            type="text"
-                            value={showcaseDraft.title}
-                            maxLength={200}
-                            placeholder="Showcase title"
-                            onChange={(e) => setShowcaseDraft((prev) => ({ ...prev, title: e.target.value }))}
+                            type="file"
+                            accept="image/*"
+                            onChange={(event) => {
+                              setThumbnailActionError('');
+                              setThumbnailUploadFile(event.target.files?.[0] || null);
+                            }}
                           />
                         </label>
-                        <label className="field">
-                          Summary
-                          <textarea
-                            value={showcaseDraft.summary_text}
-                            rows={5}
-                            placeholder="Portfolio showcase summary"
-                            onChange={(e) => setShowcaseDraft((prev) => ({ ...prev, summary_text: e.target.value }))}
-                          />
-                        </label>
+                        {thumbnailUploadFile && <p className="muted">Selected image: {thumbnailUploadFile.name}</p>}
                         <div className="card-actions">
                           <button
                             className="primary-btn"
                             type="button"
-                            onClick={saveShowcase}
-                            disabled={showcaseSaving || !showcaseChanged}
+                            onClick={saveProjectThumbnail}
+                            disabled={!thumbnailUploadFile || thumbnailActionProjectId === selectedProject.id}
                           >
-                            {showcaseSaving ? 'Saving...' : 'Save Showcase'}
+                            {thumbnailActionProjectId === selectedProject.id ? 'Saving thumbnail...' : 'Save Thumbnail'}
                           </button>
+                          <button
+                            className="secondary-btn"
+                            type="button"
+                            onClick={removeProjectThumbnail}
+                            disabled={!selectedProjectThumbnail?.hasImage || thumbnailActionProjectId === selectedProject.id}
+                          >
+                            {thumbnailActionProjectId === selectedProject.id ? 'Removing thumbnail...' : 'Remove Thumbnail'}
+                          </button>
+                        </div>
+                        {thumbnailActionError && <p className="error-banner inline-error">{thumbnailActionError}</p>}
+                      </div>
+
+                      <div className="stack-block">
+                        <h3>Key Role</h3>
+                        <label className="field">
+                          Your role in this project
+                          <textarea
+                            value={projectRoleDraft}
+                            maxLength={128}
+                            rows={3}
+                            placeholder="e.g. Technical Lead, Full-Stack Developer"
+                            onChange={(event) => setProjectRoleDraft(event.target.value)}
+                          />
+                        </label>
+                        <p className="muted">
+                          Saved role text is included in resume and portfolio generation for this project.
+                        </p>
+                        <button
+                          className="primary-btn"
+                          type="button"
+                          onClick={saveProjectRole}
+                          disabled={loading || savingProjectRole || !projectRoleChanged}
+                        >
+                          {savingProjectRole ? 'Saving role...' : 'Save Role'}
+                        </button>
+                      </div>
+
+                      <div className="stack-block">
+                        <h3>Portfolio Showcase</h3>
+                        <p className="muted">
+                          The title and summary shown for this project in your portfolio. Generate to create AI-drafted
+                          wording, then edit and save your changes.
+                        </p>
+                        {showcaseError && <p className="error-banner inline-error">{showcaseError}</p>}
+                        {!selectedShowcase ? (
                           <button
                             className="secondary-btn"
                             type="button"
                             onClick={generateShowcase}
                             disabled={showcaseGenerating}
                           >
-                            {showcaseGenerating ? 'Regenerating...' : 'Regenerate'}
+                            {showcaseGenerating ? 'Generating...' : 'Generate Showcase Text'}
                           </button>
-                        </div>
-                      </>
-                    )}
-                  </div>
+                        ) : (
+                          <>
+                            <label className="field">
+                              Title
+                              <input
+                                type="text"
+                                value={showcaseDraft.title}
+                                maxLength={200}
+                                placeholder="Showcase title"
+                                onChange={(e) => setShowcaseDraft((prev) => ({ ...prev, title: e.target.value }))}
+                              />
+                            </label>
+                            <label className="field">
+                              Summary
+                              <textarea
+                                value={showcaseDraft.summary_text}
+                                rows={5}
+                                placeholder="Portfolio showcase summary"
+                                onChange={(e) => setShowcaseDraft((prev) => ({ ...prev, summary_text: e.target.value }))}
+                              />
+                            </label>
+                            <div className="card-actions">
+                              <button
+                                className="primary-btn"
+                                type="button"
+                                onClick={saveShowcase}
+                                disabled={showcaseSaving || !showcaseChanged}
+                              >
+                                {showcaseSaving ? 'Saving...' : 'Save Showcase'}
+                              </button>
+                              <button
+                                className="secondary-btn"
+                                type="button"
+                                onClick={generateShowcase}
+                                disabled={showcaseGenerating}
+                              >
+                                {showcaseGenerating ? 'Regenerating...' : 'Regenerate'}
+                              </button>
+                            </div>
+                          </>
+                        )}
+                      </div>
 
-                  <div className="stack-block">
-                    <h3>Evidence of Success</h3>
-                    <p className="muted">
-                      Add metrics, feedback, and evaluation notes for this project. Numeric values (for example
-                      <code> 42 </code>) and JSON values (for example <code>{'{"grade":"A"}'}</code>) are saved as
-                      structured evidence.
-                    </p>
+                      <div className="stack-block">
+                        <h3>Evidence of Success</h3>
+                        <p className="muted">
+                          Add metrics, feedback, and evaluation notes for this project. Numeric values (for example
+                          <code> 42 </code>) and JSON values (for example <code>{'{"grade":"A"}'}</code>) are saved as
+                          structured evidence.
+                        </p>
 
                     <div className="evidence-section">
                       <div className="panel-title-row">
@@ -2922,17 +2965,19 @@ function Homepage() {
                       )}
                     </div>
 
-                    {projectEvidenceError && <p className="error-banner inline-error">{projectEvidenceError}</p>}
+                        {projectEvidenceError && <p className="error-banner inline-error">{projectEvidenceError}</p>}
 
-                    <button
-                      className="primary-btn"
-                      type="button"
-                      onClick={saveProjectEvidence}
-                      disabled={loading || savingProjectEvidence}
-                    >
-                      {savingProjectEvidence ? 'Saving evidence...' : 'Save Evidence'}
-                    </button>
-                  </div>
+                        <button
+                          className="primary-btn"
+                          type="button"
+                          onClick={saveProjectEvidence}
+                          disabled={loading || savingProjectEvidence}
+                        >
+                          {savingProjectEvidence ? 'Saving evidence...' : 'Save Evidence'}
+                        </button>
+                      </div>
+                    </>
+                  )}
 
                   {projectReport && (
                     <div className="stack-block">
@@ -3003,72 +3048,74 @@ function Homepage() {
                     </div>
                   )}
 
-                  <div className="stack-block">
-                    <h3>Resume Editing</h3>
-                    {!activeResumeId ? (
-                      <>
-                        <p className="muted">No resume generated yet. Generate one from the projects list, or:</p>
-                        <button
-                          className="primary-btn"
-                          type="button"
-                          disabled={loading}
-                          onClick={handleGenerateResume}
-                        >
-                          {loading ? 'Generating...' : 'Generate Resume'}
-                        </button>
-                      </>
-                    ) : (
-                      <>
-                        <label className="field">
-                          Summary
-                          <textarea
-                            rows={4}
-                            value={resumeWording.summary_text}
-                            onChange={(e) => setResumeWording((prev) => ({ ...prev, summary_text: e.target.value }))}
-                          />
-                        </label>
+                  {!isPublicFacingView && (
+                    <div className="stack-block">
+                      <h3>Resume Editing</h3>
+                      {!activeResumeId ? (
+                        <>
+                          <p className="muted">No resume generated yet. Generate one from the projects list, or:</p>
+                          <button
+                            className="primary-btn"
+                            type="button"
+                            disabled={loading}
+                            onClick={handleGenerateResume}
+                          >
+                            {loading ? 'Generating...' : 'Generate Resume'}
+                          </button>
+                        </>
+                      ) : (
+                        <>
+                          <label className="field">
+                            Summary
+                            <textarea
+                              rows={4}
+                              value={resumeWording.summary_text}
+                              onChange={(e) => setResumeWording((prev) => ({ ...prev, summary_text: e.target.value }))}
+                            />
+                          </label>
 
-                        {resumeWording.resume_bullets.length > 0 && (
-                          <>
-                            <h4>Bullet Points</h4>
-                            {resumeWording.resume_bullets.map((bullet, index) => (
-                              <label className="field" key={index}>
-                                Bullet {index + 1}
-                                <textarea
-                                  rows={2}
-                                  value={bullet}
-                                  onChange={(e) => {
-                                    const updated = [...resumeWording.resume_bullets];
-                                    updated[index] = e.target.value;
-                                    setResumeWording((prev) => ({ ...prev, resume_bullets: updated }));
-                                  }}
-                                />
-                              </label>
-                            ))}
-                          </>
-                        )}
+                          {resumeWording.resume_bullets.length > 0 && (
+                            <>
+                              <h4>Bullet Points</h4>
+                              {resumeWording.resume_bullets.map((bullet, index) => (
+                                <label className="field" key={index}>
+                                  Bullet {index + 1}
+                                  <textarea
+                                    rows={2}
+                                    value={bullet}
+                                    onChange={(e) => {
+                                      const updated = [...resumeWording.resume_bullets];
+                                      updated[index] = e.target.value;
+                                      setResumeWording((prev) => ({ ...prev, resume_bullets: updated }));
+                                    }}
+                                  />
+                                </label>
+                              ))}
+                            </>
+                          )}
 
-                        <button
-                          className="primary-btn"
-                          type="button"
-                          onClick={saveResumeWording}
-                          disabled={savingResume}
-                        >
-                          {savingResume ? 'Saving...' : 'Save Resume Edits'}
-                        </button>
+                          <button
+                            className="primary-btn"
+                            type="button"
+                            onClick={saveResumeWording}
+                            disabled={savingResume}
+                          >
+                            {savingResume ? 'Saving...' : 'Save Resume Edits'}
+                          </button>
 
-                        <button
-                          className="secondary-btn"
-                          type="button"
-                          onClick={() => window.open(`${API_BASE_URL}/resume/${activeResumeId}/pdf`, '_blank', 'noopener,noreferrer')}
-                        >
-                          Download Resume PDF
-                        </button>
+                          <button
+                            className="secondary-btn"
+                            type="button"
+                            onClick={() => window.open(`${API_BASE_URL}/resume/${activeResumeId}/pdf`, '_blank', 'noopener,noreferrer')}
+                          >
+                            Download Resume PDF
+                          </button>
 
-                        {resumeSaveStatus && <p className="muted">{resumeSaveStatus}</p>}
-                      </>
-                    )}
-                  </div>
+                          {resumeSaveStatus && <p className="muted">{resumeSaveStatus}</p>}
+                        </>
+                      )}
+                    </div>
+                  )}
                 </>
               )}
             </section>
