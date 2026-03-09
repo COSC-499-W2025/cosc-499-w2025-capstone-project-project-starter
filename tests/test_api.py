@@ -2098,3 +2098,154 @@ def test_portfolio_showcase_upsert_logic(engine):
         if isinstance(final_content, str):
             final_content = json.loads(final_content)
         assert final_content["description"] == "Updated Version"
+
+# ---------------------------------------------------------------------------
+# Education CRUD  (integration tests)
+# ---------------------------------------------------------------------------
+
+def test_education_create_and_list(client, engine):
+    info = _register_user(client, email="edu_test@example.com")
+    user_id = info["user_id"]
+
+    # Create
+    r = client.post(
+        f"/users/{user_id}/education",
+        json={
+            "institution": "MIT",
+            "degree": "B.Sc.",
+            "field_of_study": "Computer Science",
+            "start_year": 2018,
+            "end_year": 2022,
+            "is_current": False,
+            "description": "Focused on distributed systems.",
+        },
+    )
+    assert r.status_code == 200
+    body = r.json()
+    assert body["institution"] == "MIT"
+    assert body["degree"] == "B.Sc."
+    entry_id = body["id"]
+
+    # List
+    r2 = client.get(f"/users/{user_id}/education")
+    assert r2.status_code == 200
+    entries = r2.json()["education"]
+    assert any(e["id"] == entry_id for e in entries)
+
+def test_education_update(client, engine):
+    info = _register_user(client, email="edu_update@example.com")
+    user_id = info["user_id"]
+
+    r = client.post(
+        f"/users/{user_id}/education",
+        json={"institution": "Old University", "degree": "B.A."},
+    )
+    entry_id = r.json()["id"]
+
+    r2 = client.put(
+        f"/users/{user_id}/education/{entry_id}",
+        json={"institution": "New University", "degree": "M.Sc.", "is_current": True},
+    )
+    assert r2.status_code == 200
+    updated = r2.json()
+    assert updated["institution"] == "New University"
+    assert updated["degree"] == "M.Sc."
+    assert updated["is_current"] is True
+
+def test_education_delete(client, engine):
+    info = _register_user(client, email="edu_delete@example.com")
+    user_id = info["user_id"]
+
+    r = client.post(
+        f"/users/{user_id}/education",
+        json={"institution": "Delete Me University"},
+    )
+    entry_id = r.json()["id"]
+
+    r2 = client.delete(f"/users/{user_id}/education/{entry_id}")
+    assert r2.status_code == 200
+    assert r2.json()["deleted"] is True
+
+    # Confirm gone
+    r3 = client.get(f"/users/{user_id}/education")
+    ids = [e["id"] for e in r3.json()["education"]]
+    assert entry_id not in ids
+
+def test_education_delete_wrong_user_returns_404(client, engine):
+    info_a = _register_user(client, email="edu_a@example.com")
+    info_b = _register_user(client, email="edu_b@example.com")
+
+    r = client.post(
+        f"/users/{info_a['user_id']}/education",
+        json={"institution": "Belongs to A"},
+    )
+    entry_id = r.json()["id"]
+
+    r2 = client.delete(f"/users/{info_b['user_id']}/education/{entry_id}")
+    assert r2.status_code == 404
+
+# ---------------------------------------------------------------------------
+# Awards CRUD  (integration tests)
+# ---------------------------------------------------------------------------
+
+def test_awards_create_and_list(client, engine):
+    info = _register_user(client, email="award_test@example.com")
+    user_id = info["user_id"]
+
+    r = client.post(
+        f"/users/{user_id}/awards",
+        json={
+            "title": "Best Paper Award",
+            "issuer": "ICSE 2023",
+            "awarded_year": 2023,
+            "description": "Top submission in software engineering track.",
+        },
+    )
+    assert r.status_code == 200
+    body = r.json()
+    assert body["title"] == "Best Paper Award"
+    entry_id = body["id"]
+
+    r2 = client.get(f"/users/{user_id}/awards")
+    assert r2.status_code == 200
+    assert any(a["id"] == entry_id for a in r2.json()["awards"])
+
+def test_awards_update(client, engine):
+    info = _register_user(client, email="award_update@example.com")
+    user_id = info["user_id"]
+
+    r = client.post(f"/users/{user_id}/awards", json={"title": "Old Award"})
+    entry_id = r.json()["id"]
+
+    r2 = client.put(
+        f"/users/{user_id}/awards/{entry_id}",
+        json={"title": "Updated Award", "issuer": "New Org", "awarded_year": 2024},
+    )
+    assert r2.status_code == 200
+    assert r2.json()["title"] == "Updated Award"
+    assert r2.json()["issuer"] == "New Org"
+
+def test_awards_delete(client, engine):
+    info = _register_user(client, email="award_delete@example.com")
+    user_id = info["user_id"]
+
+    r = client.post(f"/users/{user_id}/awards", json={"title": "Temporary Award"})
+    entry_id = r.json()["id"]
+
+    r2 = client.delete(f"/users/{user_id}/awards/{entry_id}")
+    assert r2.status_code == 200
+    assert r2.json()["deleted"] is True
+
+    r3 = client.get(f"/users/{user_id}/awards")
+    ids = [a["id"] for a in r3.json()["awards"]]
+    assert entry_id not in ids
+
+def test_awards_delete_wrong_user_returns_404(client, engine):
+    info_a = _register_user(client, email="award_a@example.com")
+    info_b = _register_user(client, email="award_b@example.com")
+
+    r = client.post(f"/users/{info_a['user_id']}/awards", json={"title": "Belongs to A"})
+    entry_id = r.json()["id"]
+
+    r2 = client.delete(f"/users/{info_b['user_id']}/awards/{entry_id}")
+    assert r2.status_code == 404

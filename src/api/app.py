@@ -2978,3 +2978,279 @@ async def echo_upload(file: UploadFile = File(...)):
         "size": len(data),
         "sha256": hashlib.sha256(data).hexdigest(),
     }
+
+class EducationIn(BaseModel):
+    institution: str = Field(..., max_length=255)
+    degree: Optional[str] = Field(default=None, max_length=255)
+    field_of_study: Optional[str] = Field(default=None, max_length=255)
+    start_year: Optional[int] = None
+    end_year: Optional[int] = None
+    is_current: bool = False
+    description: Optional[str] = None
+
+
+class EducationOut(BaseModel):
+    id: str
+    user_id: str
+    institution: str
+    degree: Optional[str]
+    field_of_study: Optional[str]
+    start_year: Optional[int]
+    end_year: Optional[int]
+    is_current: bool
+    description: Optional[str]
+    created_at: str
+    updated_at: str
+
+
+class AwardIn(BaseModel):
+    title: str = Field(..., max_length=255)
+    issuer: Optional[str] = Field(default=None, max_length=255)
+    awarded_year: Optional[int] = None
+    description: Optional[str] = None
+
+
+class AwardOut(BaseModel):
+    id: str
+    user_id: str
+    title: str
+    issuer: Optional[str]
+    awarded_year: Optional[int]
+    description: Optional[str]
+    created_at: str
+    updated_at: str
+
+# ---------------------------------------------------------------------------
+# Education CRUD
+# ---------------------------------------------------------------------------
+
+@app.post("/users/{user_id}/education", response_model=EducationOut)
+def create_education(user_id: str, body: EducationIn, db: Session = Depends(get_db)):
+    row = db.execute(
+        text("SELECT 1 FROM users WHERE id = :uid"),
+        {"uid": user_id},
+    ).scalar()
+    if not row:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    result = db.execute(
+        text(
+            """
+            INSERT INTO education_entries
+                (user_id, institution, degree, field_of_study,
+                 start_year, end_year, is_current, description)
+            VALUES
+                (:uid, :institution, :degree, :field_of_study,
+                 :start_year, :end_year, :is_current, :description)
+            RETURNING id, user_id, institution, degree, field_of_study,
+                      start_year, end_year, is_current, description,
+                      created_at, updated_at
+            """
+        ),
+        {
+            "uid": user_id,
+            "institution": body.institution,
+            "degree": body.degree,
+            "field_of_study": body.field_of_study,
+            "start_year": body.start_year,
+            "end_year": body.end_year,
+            "is_current": body.is_current,
+            "description": body.description,
+        },
+    ).mappings().one()
+    db.commit()
+    return _education_row_to_out(result)
+
+
+@app.get("/users/{user_id}/education")
+def list_education(user_id: str, db: Session = Depends(get_db)):
+    rows = db.execute(
+        text(
+            """
+            SELECT id, user_id, institution, degree, field_of_study,
+                   start_year, end_year, is_current, description,
+                   created_at, updated_at
+            FROM education_entries
+            WHERE user_id = :uid
+            ORDER BY start_year DESC NULLS LAST, created_at DESC
+            """
+        ),
+        {"uid": user_id},
+    ).mappings().all()
+    return {"user_id": user_id, "education": [_education_row_to_out(r) for r in rows]}
+
+
+@app.put("/users/{user_id}/education/{entry_id}", response_model=EducationOut)
+def update_education(user_id: str, entry_id: str, body: EducationIn, db: Session = Depends(get_db)):
+    result = db.execute(
+        text(
+            """
+            UPDATE education_entries
+            SET institution    = :institution,
+                degree         = :degree,
+                field_of_study = :field_of_study,
+                start_year     = :start_year,
+                end_year       = :end_year,
+                is_current     = :is_current,
+                description    = :description,
+                updated_at     = NOW()
+            WHERE id = :eid AND user_id = :uid
+            RETURNING id, user_id, institution, degree, field_of_study,
+                      start_year, end_year, is_current, description,
+                      created_at, updated_at
+            """
+        ),
+        {
+            "uid": user_id,
+            "eid": entry_id,
+            "institution": body.institution,
+            "degree": body.degree,
+            "field_of_study": body.field_of_study,
+            "start_year": body.start_year,
+            "end_year": body.end_year,
+            "is_current": body.is_current,
+            "description": body.description,
+        },
+    ).mappings().one_or_none()
+    if not result:
+        raise HTTPException(status_code=404, detail="Education entry not found")
+    db.commit()
+    return _education_row_to_out(result)
+
+
+@app.delete("/users/{user_id}/education/{entry_id}")
+def delete_education(user_id: str, entry_id: str, db: Session = Depends(get_db)):
+    deleted = db.execute(
+        text(
+            "DELETE FROM education_entries WHERE id = :eid AND user_id = :uid RETURNING id"
+        ),
+        {"uid": user_id, "eid": entry_id},
+    ).scalar()
+    if not deleted:
+        raise HTTPException(status_code=404, detail="Education entry not found")
+    db.commit()
+    return {"deleted": True, "id": entry_id}
+
+
+def _education_row_to_out(row) -> Dict[str, Any]:
+    r = dict(row)
+    return {
+        "id": str(r["id"]),
+        "user_id": str(r["user_id"]),
+        "institution": r["institution"],
+        "degree": r.get("degree"),
+        "field_of_study": r.get("field_of_study"),
+        "start_year": r.get("start_year"),
+        "end_year": r.get("end_year"),
+        "is_current": bool(r.get("is_current", False)),
+        "description": r.get("description"),
+        "created_at": r["created_at"].isoformat() if hasattr(r["created_at"], "isoformat") else str(r["created_at"]),
+        "updated_at": r["updated_at"].isoformat() if hasattr(r["updated_at"], "isoformat") else str(r["updated_at"]),
+    }
+
+
+# ---------------------------------------------------------------------------
+# Awards CRUD
+# ---------------------------------------------------------------------------
+
+@app.post("/users/{user_id}/awards", response_model=AwardOut)
+def create_award(user_id: str, body: AwardIn, db: Session = Depends(get_db)):
+    row = db.execute(text("SELECT 1 FROM users WHERE id = :uid"), {"uid": user_id}).scalar()
+    if not row:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    result = db.execute(
+        text(
+            """
+            INSERT INTO award_entries
+                (user_id, title, issuer, awarded_year, description)
+            VALUES
+                (:uid, :title, :issuer, :awarded_year, :description)
+            RETURNING id, user_id, title, issuer, awarded_year, description,
+                      created_at, updated_at
+            """
+        ),
+        {
+            "uid": user_id,
+            "title": body.title,
+            "issuer": body.issuer,
+            "awarded_year": body.awarded_year,
+            "description": body.description,
+        },
+    ).mappings().one()
+    db.commit()
+    return _award_row_to_out(result)
+
+
+@app.get("/users/{user_id}/awards")
+def list_awards(user_id: str, db: Session = Depends(get_db)):
+    rows = db.execute(
+        text(
+            """
+            SELECT id, user_id, title, issuer, awarded_year, description,
+                   created_at, updated_at
+            FROM award_entries
+            WHERE user_id = :uid
+            ORDER BY awarded_year DESC NULLS LAST, created_at DESC
+            """
+        ),
+        {"uid": user_id},
+    ).mappings().all()
+    return {"user_id": user_id, "awards": [_award_row_to_out(r) for r in rows]}
+
+
+@app.put("/users/{user_id}/awards/{entry_id}", response_model=AwardOut)
+def update_award(user_id: str, entry_id: str, body: AwardIn, db: Session = Depends(get_db)):
+    result = db.execute(
+        text(
+            """
+            UPDATE award_entries
+            SET title        = :title,
+                issuer       = :issuer,
+                awarded_year = :awarded_year,
+                description  = :description,
+                updated_at   = NOW()
+            WHERE id = :eid AND user_id = :uid
+            RETURNING id, user_id, title, issuer, awarded_year, description,
+                    created_at, updated_at
+            """
+        ),
+        {
+            "uid": user_id,
+            "eid": entry_id,
+            "title": body.title,
+            "issuer": body.issuer,
+            "awarded_year": body.awarded_year,
+            "description": body.description,
+        },
+    ).mappings().one_or_none()
+    if not result:
+        raise HTTPException(status_code=404, detail="Award entry not found")
+    db.commit()
+    return _award_row_to_out(result)
+
+
+@app.delete("/users/{user_id}/awards/{entry_id}")
+def delete_award(user_id: str, entry_id: str, db: Session = Depends(get_db)):
+    deleted = db.execute(
+        text("DELETE FROM award_entries WHERE id = :eid AND user_id = :uid RETURNING id"),
+        {"uid": user_id, "eid": entry_id},
+    ).scalar()
+    if not deleted:
+        raise HTTPException(status_code=404, detail="Award entry not found")
+    db.commit()
+    return {"deleted": True, "id": entry_id}
+
+
+def _award_row_to_out(row) -> Dict[str, Any]:
+    r = dict(row)
+    return {
+        "id": str(r["id"]),
+        "user_id": str(r["user_id"]),
+        "title": r["title"],
+        "issuer": r.get("issuer"),
+        "awarded_year": r.get("awarded_year"),
+        "description": r.get("description"),
+        "created_at": r["created_at"].isoformat() if hasattr(r["created_at"], "isoformat") else str(r["created_at"]),
+        "updated_at": r["updated_at"].isoformat() if hasattr(r["updated_at"], "isoformat") else str(r["updated_at"]),
+    }
