@@ -3308,9 +3308,9 @@ function Homepage() {
                           <label className="field">Start Year<input type="number" value={eduForm.start_year || ''} onChange={(e) => setEduForm((f) => ({ ...f, start_year: e.target.value }))} placeholder="2018" /></label>
                           <label className="field">End Year<input type="number" value={eduForm.end_year || ''} onChange={(e) => setEduForm((f) => ({ ...f, end_year: e.target.value }))} placeholder="2022" disabled={eduForm.is_current} /></label>
                         </div>
-                        <label className="field" style={{ flexDirection: 'row', alignItems: 'center', gap: '8px' }}>
-                          <input type="checkbox" checked={eduForm.is_current || false} onChange={(e) => setEduForm((f) => ({ ...f, is_current: e.target.checked }))} />
+                        <label className="field" style={{ flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'flex-start', gap: '8px' }}>
                           Currently enrolled
+                          <input type="checkbox" checked={eduForm.is_current || false} onChange={(e) => setEduForm((f) => ({ ...f, is_current: e.target.checked }))} />
                         </label>
                         <label className="field">Notes<textarea value={eduForm.description || ''} onChange={(e) => setEduForm((f) => ({ ...f, description: e.target.value }))} rows={2} /></label>
                         <div style={{ display: 'flex', gap: '8px' }}>
@@ -3330,9 +3330,9 @@ function Homepage() {
                             <label className="field">Start Year<input type="number" value={eduForm.start_year || ''} onChange={(e) => setEduForm((f) => ({ ...f, start_year: e.target.value }))} /></label>
                             <label className="field">End Year<input type="number" value={eduForm.end_year || ''} onChange={(e) => setEduForm((f) => ({ ...f, end_year: e.target.value }))} disabled={eduForm.is_current} /></label>
                           </div>
-                          <label className="field" style={{ flexDirection: 'row', alignItems: 'center', gap: '8px' }}>
-                            <input type="checkbox" checked={eduForm.is_current || false} onChange={(e) => setEduForm((f) => ({ ...f, is_current: e.target.checked }))} />
+                          <label className="field" style={{ flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'flex-start', gap: '8px' }}>
                             Currently enrolled
+                            <input type="checkbox" checked={eduForm.is_current || false} onChange={(e) => setEduForm((f) => ({ ...f, is_current: e.target.checked }))} />
                           </label>
                           <label className="field">Notes<textarea value={eduForm.description || ''} onChange={(e) => setEduForm((f) => ({ ...f, description: e.target.value }))} rows={2} /></label>
                           <div style={{ display: 'flex', gap: '8px' }}>
