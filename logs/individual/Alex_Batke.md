@@ -1,5 +1,29 @@
 # Personal Log of Alex Batke
 
+# Term 2 Week 9
+
+## Applicable Date Range
+- Monday, March 2nd to Sunday, March March 8th
+
+## Peer Evaluation Screenshot
+![alt text](<imgs/alex_batke_T2W9.png>)
+
+
+### Recap On Your Weeks Goals
+- Which Features Were Yours in the Project Plan for this Milestone?
+  In addition to all my previously completed work, I was tasked with Added Education and Awards sections to the Resume for Milestone 3.
+- Which Tasks from the Project Board are Associated with these Features?
+   The Relevant task was Issue #290, and it was moved to in progress
+- Among these tasks, which have you completed/in progress in the last 2 weeks?
+  While i was able to implement the feature, I was forced to wait for dependent changes to be merged before i could start, which left me in a tough spot in a time crunch. This would mean i could lose marks unneccesarily.
+- Planning for next sprint: 
+  Flesh out the Education and Awards Implementation, and clean up some styling isses i noticed from an accessability perspective
+- Optional text: additional context that we should be aware of:
+  We need to be more prompt again, with reviews, i was hemmed in on my contributions y=by unmerged dependent changes, so i struggled to complete my ssignment on time
+
+
+# Personal Log of Alex Batke
+
 # Term 2 Week 8
 
 ## Applicable Date Range
