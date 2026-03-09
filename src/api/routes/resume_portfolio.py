@@ -1,6 +1,6 @@
 """Resume, portfolio, and skills endpoints."""
 from fastapi import APIRouter, HTTPException, Query, Depends
-from typing import Optional, Dict, Any
+from typing import Optional, Dict, Any, List
 from pydantic import BaseModel
 from resume.resume_manager import ResumeManager
 from portfolio.portfolio_manager import PortfolioManager
@@ -39,6 +39,15 @@ class PortfolioGenerateRequest(BaseModel):
 class PortfolioEditRequest(BaseModel):
     project_id: int
     custom_data: Optional[dict] = None
+
+
+class PortfolioSettingsRequest(BaseModel):
+    is_public: Optional[bool] = None
+    show_timeline: Optional[bool] = None
+    show_heatmap: Optional[bool] = None
+    show_top_projects: Optional[bool] = None
+    show_skills: Optional[bool] = None
+    show_stats: Optional[bool] = None
 
 @router.get("/resume/preview/{project_id}", response_model=ResumeItemResponse)
 async def get_resume_preview(project_id: int):
@@ -202,6 +211,86 @@ async def delete_resume(user_id: str):
         raise HTTPException(status_code=500, detail=f"Error deleting resume: {str(e)}")
 
 
+@router.get("/portfolio/public-users")
+async def list_public_portfolio_users():
+    """List all users who have public portfolios."""
+    try:
+        from database.user_informations import get_all_users
+        users = get_all_users()
+        public_users = []
+        for user in users:
+            settings = ResumeManager.get_portfolio_settings(user['user_name'])
+            if settings.get('is_public', False):
+                public_users.append({
+                    'user_name': user['user_name'],
+                    'user_id': user.get('user_id')
+                })
+        return {"success": True, "users": public_users}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error listing public portfolio users: {str(e)}")
+
+
+@router.get("/portfolio/public/{user_id}")
+async def get_public_portfolio(user_id: str, search: Optional[str] = Query(None), skill_filter: Optional[str] = Query(None)):
+    """Get public portfolio (read-only). Only available if user has set portfolio to public."""
+    try:
+        settings = ResumeManager.get_portfolio_settings(user_id)
+        if not settings.get('is_public', False):
+            raise HTTPException(status_code=403, detail="This portfolio is private")
+
+        manager = PortfolioManager(user_id)
+        result = {}
+
+        if settings.get('show_stats', True):
+            portfolio_data = manager.generate_portfolio_report()
+            if 'error' not in portfolio_data:
+                result['summary'] = portfolio_data.get('summary', {})
+                result['skills'] = portfolio_data.get('skills', {})
+                all_projects = portfolio_data.get('projects', [])
+
+                if search:
+                    search_lower = search.lower()
+                    all_projects = [p for p in all_projects
+                                    if search_lower in p.get('name', '').lower()
+                                    or search_lower in p.get('summary', '').lower()
+                                    or search_lower in p.get('primary_language', '').lower()
+                                    or any(search_lower in s.lower() for s in p.get('skills', []))
+                                    or any(search_lower in f.lower() for f in p.get('frameworks', []))]
+
+                if skill_filter:
+                    filter_lower = skill_filter.lower()
+                    all_projects = [p for p in all_projects
+                                    if any(filter_lower in s.lower() for s in p.get('skills', []))
+                                    or any(filter_lower in f.lower() for f in p.get('frameworks', []))
+                                    or filter_lower in p.get('primary_language', '').lower()]
+
+                result['projects'] = all_projects
+
+        if settings.get('show_timeline', True):
+            result['timeline'] = manager.get_skills_timeline()
+
+        if settings.get('show_heatmap', True):
+            result['heatmap'] = manager.get_activity_heatmap()
+
+        if settings.get('show_top_projects', True):
+            top_projects = manager.get_top3_showcase()
+            if search:
+                search_lower = search.lower()
+                top_projects = [p for p in top_projects
+                                if search_lower in p.get('name', '').lower()
+                                or search_lower in p.get('description', '').lower()]
+            result['top_projects'] = top_projects
+
+        result['settings'] = {k: v for k, v in settings.items() if k != 'updated_at'}
+        result['user_name'] = user_id
+
+        return {"success": True, "portfolio": result}
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error retrieving public portfolio: {str(e)}")
+
+
 @router.get("/portfolio/{user_id}")
 async def get_portfolio(user_id: str, top_n: Optional[int] = Query(None)):
     """Get user's portfolio by ID."""
@@ -325,3 +414,129 @@ async def clear_portfolio_customization(user_id: str, project_id: int):
         raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error clearing portfolio customization: {str(e)}")
+
+
+# ──────────────────────────────────────────────
+# Portfolio Dashboard Endpoints
+# ──────────────────────────────────────────────
+
+@router.get("/portfolio/{user_id}/settings")
+async def get_portfolio_settings(user_id: str):
+    """Get portfolio visibility and component settings."""
+    try:
+        settings = ResumeManager.get_portfolio_settings(user_id)
+        return {"success": True, "settings": settings}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error retrieving portfolio settings: {str(e)}")
+
+
+@router.post("/portfolio/{user_id}/settings")
+async def save_portfolio_settings(user_id: str, request: PortfolioSettingsRequest):
+    """Save portfolio visibility and component settings."""
+    try:
+        current = ResumeManager.get_portfolio_settings(user_id)
+        updated = {
+            'is_public': request.is_public if request.is_public is not None else current.get('is_public', False),
+            'show_timeline': request.show_timeline if request.show_timeline is not None else current.get('show_timeline', True),
+            'show_heatmap': request.show_heatmap if request.show_heatmap is not None else current.get('show_heatmap', True),
+            'show_top_projects': request.show_top_projects if request.show_top_projects is not None else current.get('show_top_projects', True),
+            'show_skills': request.show_skills if request.show_skills is not None else current.get('show_skills', True),
+            'show_stats': request.show_stats if request.show_stats is not None else current.get('show_stats', True),
+        }
+        if ResumeManager.save_portfolio_settings(user_id, updated):
+            return {"success": True, "settings": updated}
+        raise HTTPException(status_code=500, detail="Failed to save portfolio settings")
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error saving portfolio settings: {str(e)}")
+
+
+@router.get("/portfolio/{user_id}/timeline")
+async def get_skills_timeline(user_id: str):
+    """Get skills timeline showing learning progression and depth."""
+    try:
+        manager = PortfolioManager(user_id)
+        timeline_data = manager.get_skills_timeline()
+        return {"success": True, "data": timeline_data}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error retrieving skills timeline: {str(e)}")
+
+
+@router.get("/portfolio/{user_id}/heatmap")
+async def get_activity_heatmap(user_id: str):
+    """Get activity heatmap data showing productivity over time."""
+    try:
+        manager = PortfolioManager(user_id)
+        heatmap_data = manager.get_activity_heatmap()
+        return {"success": True, "data": heatmap_data}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error retrieving activity heatmap: {str(e)}")
+
+
+@router.get("/portfolio/{user_id}/top-projects")
+async def get_top_projects(user_id: str):
+    """Get top 3 projects showcase with evolution data."""
+    try:
+        manager = PortfolioManager(user_id)
+        showcase = manager.get_top3_showcase()
+        return {"success": True, "projects": showcase}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error retrieving top projects: {str(e)}")
+
+
+@router.get("/portfolio/{user_id}/stats")
+async def get_portfolio_stats(user_id: str):
+    """Lightweight portfolio stats from database. No ranking required."""
+    try:
+        from config.db_config import with_db_cursor
+        from common.constants import LANGUAGE_EXTENSIONS
+
+        with with_db_cursor() as cursor:
+            cursor.execute("""
+                SELECT COUNT(*) FROM uploaded_files WHERE user_name = %s
+            """, (user_id,))
+            total_projects = cursor.fetchone()[0]
+
+            cursor.execute("""
+                SELECT COUNT(fc.id),
+                       COALESCE(SUM(fc.file_size), 0)
+                FROM file_contents fc
+                JOIN uploaded_files uf ON uf.id = fc.uploaded_file_id
+                WHERE uf.user_name = %s
+            """, (user_id,))
+            row = cursor.fetchone()
+            total_files = row[0]
+            total_size = row[1]
+
+            cursor.execute("""
+                SELECT DISTINCT fc.file_extension
+                FROM file_contents fc
+                JOIN uploaded_files uf ON uf.id = fc.uploaded_file_id
+                WHERE uf.user_name = %s AND fc.file_extension IS NOT NULL
+                    AND fc.file_extension != ''
+            """, (user_id,))
+            extensions = [r[0].lower() for r in cursor.fetchall()]
+
+        languages = set()
+        skills = set()
+        for ext in extensions:
+            if ext in LANGUAGE_EXTENSIONS:
+                languages.add(LANGUAGE_EXTENSIONS[ext])
+                skills.add(LANGUAGE_EXTENSIONS[ext])
+
+        return {
+            "success": True,
+            "stats": {
+                "total_projects": total_projects,
+                "total_files": total_files,
+                "total_size_mb": round(total_size / (1024 * 1024), 2) if total_size else 0,
+                "unique_languages": len(languages),
+                "unique_skills": len(skills),
+                "languages": sorted(list(languages))
+            }
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error retrieving portfolio stats: {str(e)}")
+
+
