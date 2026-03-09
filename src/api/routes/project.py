@@ -381,24 +381,23 @@ async def get_project_by_id_endpoint(
                 detail=f"Project with ID {project_id} not found"
             )
         
-        # Convert datetime to ISO format string (handle both datetime objects and strings)
-        created_at = project.get('created_at')
-        if created_at:
-            if hasattr(created_at, 'isoformat'):
-                # datetime object
-                created_at_str = created_at.isoformat()
-            else:
-                # Already a string
-                created_at_str = str(created_at)
-        else:
-            created_at_str = None
+        # Extract data from nested structure (new format)
+        # project now has 'project_info' nested structure
+        project_info = project.get('project_info', {})
+        
+        # Get created_at from project_info (already ISO string from new version)
+        created_at_str = project_info.get('created_at')
+        
+        # Reconstruct the original metadata from the full analysis data
+        # Remove project_info to get back the original metadata content
+        metadata_content = {k: v for k, v in project.items() if k != 'project_info'}
         
         project_data = {
-            'id': project['id'],
-            'filename': project['filename'],
-            'filepath': project['filepath'],
-            'status': project['status'],
-            'metadata': project['metadata'],
+            'id': project_info.get('id'),
+            'filename': project_info.get('filename'),
+            'filepath': project_info.get('filepath', ''),
+            'status': project_info.get('status', 'unknown'),
+            'metadata': metadata_content if metadata_content else None,
             'created_at': created_at_str
         }
         
@@ -646,7 +645,10 @@ async def delete_project_data(
 
 
 @router.post("/preferences")
-async def update_preferences(request: dict, user_name: Optional[str] = Query(None)):
+async def update_preferences(
+    request: dict,
+    user_name: Optional[str] = Query(None, description="Username for preferences")
+):
     """Update user preferences."""
     if not user_name:
         raise HTTPException(status_code=400, detail="user_name is required")

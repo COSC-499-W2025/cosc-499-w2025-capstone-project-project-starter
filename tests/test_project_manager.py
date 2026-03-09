@@ -107,12 +107,15 @@ class TestProjectManager:
         
         mock_cursor.execute.assert_called_once()
         assert result is not None
-        assert result['id'] == 1
-        assert result['filename'] == "test_project.zip"
-        assert result['filepath'] == "/path/to/test_project.zip"
-        assert result['status'] == "processed"
-        assert result['metadata'] == '{"files": ["file1.py"]}'
-        assert result['created_at'] == datetime(2024, 1, 1, 10, 0, 0)
+        # Check project_info structure (new format)
+        assert 'project_info' in result
+        assert result['project_info']['id'] == 1
+        assert result['project_info']['filename'] == "test_project.zip"
+        assert result['project_info']['filepath'] == "/path/to/test_project.zip"
+        assert result['project_info']['status'] == "processed"
+        assert result['project_info']['created_at'] == "2024-01-01T10:00:00"
+        # Check that metadata was parsed and merged into top level
+        assert result['files'] == ["file1.py"]
     
     @patch('src.project_manager.with_db_cursor')
     # this test will test the get_project_by_id function when the project does not exist

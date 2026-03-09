@@ -298,7 +298,9 @@ def _list_portfolio_customizations(user_name: str):
             customization = ResumeManager.get_portfolio_customization(user_name, project_id)
             
             if project and customization:
-                print(f"Project: {project.get('filename', 'Unknown')} (ID: {project_id})")
+                # Extract filename from nested project_info structure
+                filename = project.get('project_info', {}).get('filename', 'Unknown')
+                print(f"Project: {filename} (ID: {project_id})")
                 print(f"  Custom Title: {customization.get('custom_title') or '(not set)'}")
                 print(f"  Custom Description: {customization.get('custom_description', '')[:80] or '(not set)'}...")
                 print(f"  Custom Role: {customization.get('custom_role') or '(not set)'}")

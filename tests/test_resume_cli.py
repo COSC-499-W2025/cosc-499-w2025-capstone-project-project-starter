@@ -55,7 +55,7 @@ class TestHandleGenerateResume:
         
         # Verify calls
         mock_exists.assert_called_once_with("test_user")
-        mock_generate.assert_called_once_with("test_user", top_projects_count=5, interactive=True)
+        mock_generate.assert_called_once_with("test_user", top_projects_count=5)
         mock_store.assert_called_once_with("test_user", mock_resume_data)
     
     @patch('account.user_manager.AuthManager.get_current_user')
@@ -97,7 +97,7 @@ class TestHandleGenerateResume:
         handle_generate_resume()
         
         # Verify regeneration happened
-        mock_generate.assert_called_once_with("test_user", top_projects_count=3, interactive=True)
+        mock_generate.assert_called_once_with("test_user", top_projects_count=3)
     
     @patch('account.user_manager.AuthManager.get_current_user')
     @patch('account.user_manager.AuthManager.is_user_logged_in')
@@ -158,7 +158,7 @@ class TestHandleGenerateResume:
         handle_generate_resume()
         
         # Verify correct count was used
-        mock_generate.assert_called_once_with("test_user", top_projects_count=7, interactive=True)
+        mock_generate.assert_called_once_with("test_user", top_projects_count=7)
     
     @patch('account.user_manager.AuthManager.get_current_user')
     @patch('account.user_manager.AuthManager.is_user_logged_in')

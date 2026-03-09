@@ -1,13 +1,8 @@
 # tests/test_contributor_helpers.py
-import sys
-import os
 import builtins
 from typing import Dict, Set
 
 import pytest
-
-# Adjust the path to import from src
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'src')))
 
 import analysis.key_metrics as key_metrics
 
@@ -62,6 +57,10 @@ def test_choose_author_from_zip_select_specific_author(monkeypatch):
         lambda file_contents: set(),
     )
     monkeypatch.setattr(
+        "analysis.key_metrics.AuthManager.get_current_username",
+        lambda: "test_user",
+    )
+    monkeypatch.setattr(
         "analysis.key_metrics.get_user_git_username",
         lambda user_name: None,
     )
@@ -96,6 +95,10 @@ def test_choose_author_from_zip_not_collaborative(monkeypatch):
     monkeypatch.setattr(
         "analysis.key_metrics._extract_common_names_from_filenames",
         lambda file_contents: set(),
+    )
+    monkeypatch.setattr(
+        "analysis.key_metrics.AuthManager.get_current_username",
+        lambda: "test_user",
     )
     monkeypatch.setattr(
         "analysis.key_metrics.get_user_git_username",

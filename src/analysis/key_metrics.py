@@ -73,21 +73,9 @@ def choose_author_from_zip(uploaded_file_id: int):
     if not authors:
         return None
 
-    # Get user_name from uploaded_files table
-    user_name = None
-    try:
-        with get_connection() as conn, conn.cursor() as cur:
-            cur.execute("SELECT user_name FROM uploaded_files WHERE id = %s;", (uploaded_file_id,))
-            row = cur.fetchone()
-            if row and row[0]:
-                user_name = row[0]
-    except Exception:
-        pass
-    
-    git_username = None
-    if user_name:
-        git_username = get_user_git_username(user_name)
-    
+    # Get current user for git username lookup
+    current_user = AuthManager.get_current_username()
+    git_username = get_user_git_username(current_user) if current_user else None
     if git_username and git_username in authors:
         return git_username
 

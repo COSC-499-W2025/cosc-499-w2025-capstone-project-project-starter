@@ -60,34 +60,26 @@ class ProjectSummarizer:
                 return {"error": "No user is currently logged in"}
         
         # Data Isolation: Get project info with user verification via API
-        project_info = None
         try:
             client = get_api_client()
             api_response = client.get_project_by_id(project_id, user_name=user_name)
             project_data = api_response.get('project', {})
-            if project_data and project_data.get('id'):
-                # Convert API response to expected format - use .get() to avoid KeyError
-                project_info = {
-                    'id': project_data.get('id'),
-                    'filename': project_data.get('filename', ''),
-                    'filepath': project_data.get('filepath', ''),
-                    'status': project_data.get('status', 'unknown'),
-                    'metadata': project_data.get('metadata'),
-                    'created_at': project_data.get('created_at')  # Will be string from API
-                }
+            if not project_data:
+                return {"error": "Project not found or access denied"}
+            # Convert API response to expected format
+            project_info = {
+                'id': project_data['id'],
+                'filename': project_data['filename'],
+                'filepath': project_data.get('filepath', ''),
+                'status': project_data.get('status', 'unknown'),
+                'metadata': project_data.get('metadata'),
+                'created_at': project_data.get('created_at')  # Will be string from API
+            }
         except Exception as e:
-            # API call failed, will try direct database call below
-            pass
-        
-        # Fallback to direct call if API failed or returned incomplete data
-        if not project_info:
+            # Fallback to direct call if API fails
             project_info = get_project_by_id(project_id, user_name)
             if not project_info:
                 return {"error": "Project not found or access denied"}
-        
-        # Validate required fields
-        if not project_info.get('id') or not project_info.get('filename'):
-            return {"error": "Project data incomplete"}
         
         # Get file contents and statistics
         file_contents = get_file_contents_by_upload_id(project_id)
