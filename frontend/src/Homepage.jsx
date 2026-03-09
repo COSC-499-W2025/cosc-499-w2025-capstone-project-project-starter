@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { API_BASE_URL, authApi, dashboardApi, projectApi, userConfigApi } from './api';
+import { API_BASE_URL, authApi, dashboardApi, projectApi, resumeApi, userConfigApi } from './api';
 
 const TOKEN_STORAGE_KEY = 'artifactMiner.authToken';
 const ANALYSIS_POLL_INTERVAL_MS = 5000;
@@ -1710,6 +1710,124 @@ function Homepage() {
     }
   };
 
+  // ---------------------------------------------------------------------------
+  // Resume tab state
+  // ---------------------------------------------------------------------------
+  const [resumeEducation, setResumeEducation] = useState([]);
+  const [resumeAwards, setResumeAwards] = useState([]);
+  const [resumeProjects, setResumeProjects] = useState([]);
+  const [resumeLoading, setResumeLoading] = useState(false);
+  const [resumeSaving, setResumeSaving] = useState(false);
+  const [editingEduId, setEditingEduId] = useState(null);
+  const [editingAwardId, setEditingAwardId] = useState(null);
+  const [eduForm, setEduForm] = useState({});
+  const [awardForm, setAwardForm] = useState({});
+
+  const EMPTY_EDU = { institution: '', degree: '', field_of_study: '', start_year: '', end_year: '', is_current: false, description: '' };
+  const EMPTY_AWARD = { title: '', issuer: '', awarded_year: '', description: '' };
+
+  const fetchResumePayload = useCallback(async () => {
+    if (!token || !currentUser?.user_id) return;
+    setResumeLoading(true);
+    try {
+      const data = await resumeApi.getResumePayload(token, currentUser.user_id);
+      setResumeEducation(data.education || []);
+      setResumeAwards(data.awards || []);
+      setResumeProjects(data.projects || []);
+    } catch (err) {
+      setDashboardError(err.message || 'Unable to load resume data.');
+    } finally {
+      setResumeLoading(false);
+    }
+  }, [token, currentUser]);
+
+  useEffect(() => {
+    if (view === 'resume') fetchResumePayload();
+  }, [view, fetchResumePayload]);
+
+  const startAddEdu = () => { setEduForm(EMPTY_EDU); setEditingEduId('new'); };
+  const startEditEdu = (entry) => { setEduForm({ ...entry, start_year: entry.start_year || '', end_year: entry.end_year || '' }); setEditingEduId(entry.id); };
+  const cancelEdu = () => setEditingEduId(null);
+
+  const saveEdu = async () => {
+    setResumeSaving(true);
+    try {
+      const body = {
+        institution: eduForm.institution,
+        degree: eduForm.degree || null,
+        field_of_study: eduForm.field_of_study || null,
+        start_year: eduForm.start_year ? parseInt(eduForm.start_year, 10) : null,
+        end_year: eduForm.is_current ? null : (eduForm.end_year ? parseInt(eduForm.end_year, 10) : null),
+        is_current: eduForm.is_current || false,
+        description: eduForm.description || null,
+      };
+      if (editingEduId === 'new') {
+        await resumeApi.createEducation(token, currentUser.user_id, body);
+      } else {
+        await resumeApi.updateEducation(token, currentUser.user_id, editingEduId, body);
+      }
+      setEditingEduId(null);
+      await fetchResumePayload();
+    } catch (err) {
+      setDashboardError(err.message || 'Failed to save education entry.');
+    } finally {
+      setResumeSaving(false);
+    }
+  };
+
+  const deleteEdu = async (id) => {
+    if (!window.confirm('Delete this education entry?')) return;
+    setResumeSaving(true);
+    try {
+      await resumeApi.deleteEducation(token, currentUser.user_id, id);
+      await fetchResumePayload();
+    } catch (err) {
+      setDashboardError(err.message || 'Failed to delete.');
+    } finally {
+      setResumeSaving(false);
+    }
+  };
+
+  const startAddAward = () => { setAwardForm(EMPTY_AWARD); setEditingAwardId('new'); };
+  const startEditAward = (entry) => { setAwardForm({ ...entry, awarded_year: entry.awarded_year || '' }); setEditingAwardId(entry.id); };
+  const cancelAward = () => setEditingAwardId(null);
+
+  const saveAward = async () => {
+    setResumeSaving(true);
+    try {
+      const body = {
+        title: awardForm.title,
+        issuer: awardForm.issuer || null,
+        awarded_year: awardForm.awarded_year ? parseInt(awardForm.awarded_year, 10) : null,
+        description: awardForm.description || null,
+      };
+      if (editingAwardId === 'new') {
+        await resumeApi.createAward(token, currentUser.user_id, body);
+      } else {
+        await resumeApi.updateAward(token, currentUser.user_id, editingAwardId, body);
+      }
+      setEditingAwardId(null);
+      await fetchResumePayload();
+    } catch (err) {
+      setDashboardError(err.message || 'Failed to save award.');
+    } finally {
+      setResumeSaving(false);
+    }
+  };
+
+  const deleteAward = async (id) => {
+    if (!window.confirm('Delete this award?')) return;
+    setResumeSaving(true);
+    try {
+      await resumeApi.deleteAward(token, currentUser.user_id, id);
+      await fetchResumePayload();
+    } catch (err) {
+      setDashboardError(err.message || 'Failed to delete.');
+    } finally {
+      setResumeSaving(false);
+    }
+  };
+
   const navButtons = useMemo(
     () => [
       { id: 'projects', label: 'Projects' },
@@ -1719,6 +1837,7 @@ function Homepage() {
       { id: 'upload', label: 'Upload' },
       { id: 'skills', label: 'Skills Timeline' },
       { id: 'top', label: 'Top Projects' },
+      { id: 'resume', label: 'Resume' },
     ],
     []
   );
@@ -3170,6 +3289,149 @@ function Homepage() {
                 </div>
               )}
             </section>
+          )}
+          {view === 'resume' && (
+            <>
+              {resumeLoading ? <section className="panel"><p>Loading resume data...</p></section> : (
+                <>
+                  <section className="panel">
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <h2>Education</h2>
+                      {editingEduId !== 'new' && <button className="primary-btn" onClick={startAddEdu}>+ Add</button>}
+                    </div>
+                    {editingEduId === 'new' && (
+                      <div className="stack-block">
+                        <div className="summary-grid">
+                          <label className="field">Institution *<input value={eduForm.institution || ''} onChange={(e) => setEduForm((f) => ({ ...f, institution: e.target.value }))} placeholder="e.g. University of Waterloo" /></label>
+                          <label className="field">Degree<input value={eduForm.degree || ''} onChange={(e) => setEduForm((f) => ({ ...f, degree: e.target.value }))} placeholder="e.g. B.Sc." /></label>
+                          <label className="field">Field of Study<input value={eduForm.field_of_study || ''} onChange={(e) => setEduForm((f) => ({ ...f, field_of_study: e.target.value }))} placeholder="e.g. Computer Science" /></label>
+                          <label className="field">Start Year<input type="number" value={eduForm.start_year || ''} onChange={(e) => setEduForm((f) => ({ ...f, start_year: e.target.value }))} placeholder="2018" /></label>
+                          <label className="field">End Year<input type="number" value={eduForm.end_year || ''} onChange={(e) => setEduForm((f) => ({ ...f, end_year: e.target.value }))} placeholder="2022" disabled={eduForm.is_current} /></label>
+                        </div>
+                        <label className="field" style={{ flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'flex-start', gap: '8px' }}>
+                          Currently enrolled
+                          <input type="checkbox" checked={eduForm.is_current || false} onChange={(e) => setEduForm((f) => ({ ...f, is_current: e.target.checked }))} />
+                        </label>
+                        <label className="field">Notes<textarea value={eduForm.description || ''} onChange={(e) => setEduForm((f) => ({ ...f, description: e.target.value }))} rows={2} /></label>
+                        <div style={{ display: 'flex', gap: '8px' }}>
+                          <button className="primary-btn" disabled={!eduForm.institution?.trim() || resumeSaving} onClick={saveEdu}>{resumeSaving ? 'Saving...' : 'Save'}</button>
+                          <button className="ghost-btn" onClick={cancelEdu}>Cancel</button>
+                        </div>
+                      </div>
+                    )}
+                    {resumeEducation.length === 0 && editingEduId !== 'new' && <p className="muted">No education entries yet.</p>}
+                    {resumeEducation.map((entry) => (
+                      editingEduId === entry.id ? (
+                        <div key={entry.id} className="stack-block">
+                          <div className="summary-grid">
+                            <label className="field">Institution *<input value={eduForm.institution || ''} onChange={(e) => setEduForm((f) => ({ ...f, institution: e.target.value }))} /></label>
+                            <label className="field">Degree<input value={eduForm.degree || ''} onChange={(e) => setEduForm((f) => ({ ...f, degree: e.target.value }))} /></label>
+                            <label className="field">Field of Study<input value={eduForm.field_of_study || ''} onChange={(e) => setEduForm((f) => ({ ...f, field_of_study: e.target.value }))} /></label>
+                            <label className="field">Start Year<input type="number" value={eduForm.start_year || ''} onChange={(e) => setEduForm((f) => ({ ...f, start_year: e.target.value }))} /></label>
+                            <label className="field">End Year<input type="number" value={eduForm.end_year || ''} onChange={(e) => setEduForm((f) => ({ ...f, end_year: e.target.value }))} disabled={eduForm.is_current} /></label>
+                          </div>
+                          <label className="field" style={{ flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'flex-start', gap: '8px' }}>
+                            Currently enrolled
+                            <input type="checkbox" checked={eduForm.is_current || false} onChange={(e) => setEduForm((f) => ({ ...f, is_current: e.target.checked }))} />
+                          </label>
+                          <label className="field">Notes<textarea value={eduForm.description || ''} onChange={(e) => setEduForm((f) => ({ ...f, description: e.target.value }))} rows={2} /></label>
+                          <div style={{ display: 'flex', gap: '8px' }}>
+                            <button className="primary-btn" disabled={!eduForm.institution?.trim() || resumeSaving} onClick={saveEdu}>{resumeSaving ? 'Saving...' : 'Save'}</button>
+                            <button className="ghost-btn" onClick={cancelEdu}>Cancel</button>
+                          </div>
+                        </div>
+                      ) : (
+                        <div key={entry.id} className="resume-entry">
+                          <div className="resume-entry-main">
+                            <strong>{entry.institution}</strong>
+                            {entry.degree && <span> · {entry.degree}</span>}
+                            {entry.field_of_study && <span> in {entry.field_of_study}</span>}
+                            <p className="muted">{entry.start_year || '?'} – {entry.is_current ? 'Present' : (entry.end_year || '?')}</p>
+                            {entry.description && <p>{entry.description}</p>}
+                          </div>
+                          <div className="card-actions">
+                            <button className="ghost-btn" onClick={() => startEditEdu(entry)}>Edit</button>
+                            <button className="ghost-btn" onClick={() => deleteEdu(entry.id)}>Delete</button>
+                          </div>
+                        </div>
+                      )
+                    ))}
+                  </section>
+
+                  <section className="panel">
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <h2>Awards &amp; Honours</h2>
+                      {editingAwardId !== 'new' && <button className="primary-btn" onClick={startAddAward}>+ Add</button>}
+                    </div>
+                    {editingAwardId === 'new' && (
+                      <div className="stack-block">
+                        <div className="summary-grid">
+                          <label className="field">Title *<input value={awardForm.title || ''} onChange={(e) => setAwardForm((f) => ({ ...f, title: e.target.value }))} placeholder="e.g. Dean's List" /></label>
+                          <label className="field">Issuer<input value={awardForm.issuer || ''} onChange={(e) => setAwardForm((f) => ({ ...f, issuer: e.target.value }))} placeholder="e.g. MIT" /></label>
+                          <label className="field">Year<input type="number" value={awardForm.awarded_year || ''} onChange={(e) => setAwardForm((f) => ({ ...f, awarded_year: e.target.value }))} placeholder="2022" /></label>
+                        </div>
+                        <label className="field">Description<textarea value={awardForm.description || ''} onChange={(e) => setAwardForm((f) => ({ ...f, description: e.target.value }))} rows={2} /></label>
+                        <div style={{ display: 'flex', gap: '8px' }}>
+                          <button className="primary-btn" disabled={!awardForm.title?.trim() || resumeSaving} onClick={saveAward}>{resumeSaving ? 'Saving...' : 'Save'}</button>
+                          <button className="ghost-btn" onClick={cancelAward}>Cancel</button>
+                        </div>
+                      </div>
+                    )}
+                    {resumeAwards.length === 0 && editingAwardId !== 'new' && <p className="muted">No awards yet.</p>}
+                    {resumeAwards.map((entry) => (
+                      editingAwardId === entry.id ? (
+                        <div key={entry.id} className="stack-block">
+                          <div className="summary-grid">
+                            <label className="field">Title *<input value={awardForm.title || ''} onChange={(e) => setAwardForm((f) => ({ ...f, title: e.target.value }))} /></label>
+                            <label className="field">Issuer<input value={awardForm.issuer || ''} onChange={(e) => setAwardForm((f) => ({ ...f, issuer: e.target.value }))} /></label>
+                            <label className="field">Year<input type="number" value={awardForm.awarded_year || ''} onChange={(e) => setAwardForm((f) => ({ ...f, awarded_year: e.target.value }))} /></label>
+                          </div>
+                          <label className="field">Description<textarea value={awardForm.description || ''} onChange={(e) => setAwardForm((f) => ({ ...f, description: e.target.value }))} rows={2} /></label>
+                          <div style={{ display: 'flex', gap: '8px' }}>
+                            <button className="primary-btn" disabled={!awardForm.title?.trim() || resumeSaving} onClick={saveAward}>{resumeSaving ? 'Saving...' : 'Save'}</button>
+                            <button className="ghost-btn" onClick={cancelAward}>Cancel</button>
+                          </div>
+                        </div>
+                      ) : (
+                        <div key={entry.id} className="resume-entry">
+                          <div className="resume-entry-main">
+                            <strong>{entry.title}</strong>
+                            {entry.issuer && <span> · {entry.issuer}</span>}
+                            {entry.awarded_year && <span className="muted"> ({entry.awarded_year})</span>}
+                            {entry.description && <p>{entry.description}</p>}
+                          </div>
+                          <div className="card-actions">
+                            <button className="ghost-btn" onClick={() => startEditAward(entry)}>Edit</button>
+                            <button className="ghost-btn" onClick={() => deleteAward(entry.id)}>Delete</button>
+                          </div>
+                        </div>
+                      )
+                    ))}
+                  </section>
+
+                  {resumeProjects.some((p) => p.skills.length > 0) && (
+                    <section className="panel">
+                      <h2>Skills by Project</h2>
+                      <p className="muted">Derived from your project analyses. Included when generating your resume PDF.</p>
+                      <div className="stack-block">
+                        {resumeProjects.map((p) => (
+                          p.skills.length > 0 && (
+                            <div key={p.project_id}>
+                              <h3>{p.project_name || p.project_id}</h3>
+                              <div className="badge-row">
+                                {p.skills.map((s, i) => (
+                                  <span key={i} className="skill-badge">{s.name} <span className="muted">· {s.expertise}</span></span>
+                                ))}
+                              </div>
+                            </div>
+                          )
+                        ))}
+                      </div>
+                    </section>
+                  )}
+                </>
+              )}
+            </>
           )}
         </main>
       </div>

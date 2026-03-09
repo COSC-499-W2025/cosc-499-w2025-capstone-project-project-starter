@@ -278,3 +278,57 @@ export const dashboardApi = {
 };
 
 export { API_BASE_URL };
+
+export const resumeApi = {
+  // Education
+  listEducation: (token, userId) =>
+    apiRequest(`/users/${userId}/education`, { token }),
+
+  createEducation: (token, userId, body) =>
+    apiRequest(`/users/${userId}/education`, {
+      method: 'POST',
+      token,
+      body,
+    }),
+
+  updateEducation: (token, userId, entryId, body) =>
+    apiRequest(`/users/${userId}/education/${entryId}`, {
+      method: 'PUT',
+      token,
+      body,
+    }),
+
+  deleteEducation: (token, userId, entryId) =>
+    apiRequest(`/users/${userId}/education/${entryId}`, {
+      method: 'DELETE',
+      token,
+    }),
+
+  // Awards
+  listAwards: (token, userId) =>
+    apiRequest(`/users/${userId}/awards`, { token }),
+
+  createAward: (token, userId, body) =>
+    apiRequest(`/users/${userId}/awards`, {
+      method: 'POST',
+      token,
+      body,
+    }),
+
+  updateAward: (token, userId, entryId, body) =>
+    apiRequest(`/users/${userId}/awards/${entryId}`, {
+      method: 'PUT',
+      token,
+      body,
+    }),
+
+  deleteAward: (token, userId, entryId) =>
+    apiRequest(`/users/${userId}/awards/${entryId}`, {
+      method: 'DELETE',
+      token,
+    }),
+
+  // Composite resume payload
+  getResumePayload: (token, userId) =>
+    apiRequest(`/users/${userId}/resume-payload`, { token }),
+};
