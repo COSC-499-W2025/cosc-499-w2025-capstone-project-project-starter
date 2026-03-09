@@ -25,7 +25,6 @@
     
     <div id="messageBox" class="message" style="display: none;"></div>
     
-    <!-- Customization Modal -->
     <div id="customizeModal" class="modal">
         <div class="modal-content">
             <div class="modal-header">
@@ -108,8 +107,18 @@
         </nav>
         <div class="nav-dropdown-slot" id="navDropdownSlot" aria-hidden="true"></div>
     </div>
-
     <div id="viewContainer"></div>
+
+    <div id="error-toast" class="toast hidden">
+        <div class="toast-header">
+            <strong class="mr-auto">Server Error</strong>
+            <button type="button" class="close-toast-btn" onclick="closeErrorToast()">&times;</button>
+        </div>
+        <div class="toast-body">
+            <span id="toast-message">An unexpected error occurred.</span><br>
+            <small class="text-muted" style="color: gray;">Request ID: <span id="toast-request-id"></span></small>
+        </div>
+    </div>
 
     <script>
         const API_BASE_URL = window.location.origin;
@@ -202,6 +211,26 @@
             msg.style.display = 'block';
             setTimeout(() => msg.style.display = 'none', 5000);
         }
+        // --- Global Error Toast Functions ---
+        function showErrorToast(message, requestId) {
+            const toast = document.getElementById('error-toast');
+            document.getElementById('toast-message').innerText = message;
+            
+            // Display the specific X-Request-ID or a fallback
+            document.getElementById('toast-request-id').innerText = requestId || "N/A";
+            
+            toast.classList.add('show');
+            toast.classList.remove('hidden');
+
+            setTimeout(() => {
+                closeErrorToast();
+            }, 8000);
+        }
+
+        function closeErrorToast() {
+            const toast = document.getElementById('error-toast');
+            toast.classList.remove('show');
+        }
 
         async function apiCall(endpoint, options = {}) {
             try {
@@ -209,12 +238,18 @@
                 const data = await response.json().catch(() => ({}));
 
                 if (!response.ok) {
-                const msg = data.detail || data.message || `Request failed (${response.status})`;
-                return { ok: false, error: msg, status: response.status, data };
+
+                    const msg = data.detail || data.message || `Request failed (${response.status})`;
+                    const reqId = data.request_id || "unknown-id"; 
+                    showErrorToast(msg, reqId);
+                    
+                    return { ok: false, error: msg, status: response.status, data };
                 }
                 return { ok: true, data, status: response.status };
             } catch (e) {
-                return { ok: false, error: e.message || "Network error", status: 0, data: null };
+                const errorMsg = e.message || "Network error";
+                showErrorToast(errorMsg, "offline");
+                return { ok: false, error: errorMsg, status: 0, data: null };
             }
         }
 
@@ -1969,6 +2004,7 @@
             document.documentElement.setAttribute('data-theme', savedTheme);
             updateThemeUI(savedTheme);
         })();
+
     </script>
 </body>
 </html>
