@@ -3338,3 +3338,123 @@ def _award_row_to_out(row) -> Dict[str, Any]:
         "created_at": r["created_at"].isoformat() if hasattr(r["created_at"], "isoformat") else str(r["created_at"]),
         "updated_at": r["updated_at"].isoformat() if hasattr(r["updated_at"], "isoformat") else str(r["updated_at"]),
     }
+
+# ---------------------------------------------------------------------------
+# Resume composite payload
+# GET /users/{user_id}/resume-payload
+# ---------------------------------------------------------------------------
+
+@app.get("/users/{user_id}/resume-payload")
+def get_resume_payload(user_id: str, db: Session = Depends(get_db)):
+    """
+    Returns the full one-page resume data contract:
+      - education entries
+      - awards entries
+      - bucketed skills (derived from latest analysis per project)
+      - normalized contribution/impact evidence per project
+    """
+    # 1. Verify user exists
+    row = db.execute(text("SELECT 1 FROM users WHERE id = :uid"), {"uid": user_id}).scalar()
+    if not row:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    # 2. Education
+    edu_rows = db.execute(
+        text(
+            """
+            SELECT id, user_id, institution, degree, field_of_study,
+                   start_year, end_year, is_current, description,
+                   created_at, updated_at
+            FROM education_entries WHERE user_id = :uid
+            ORDER BY start_year DESC NULLS LAST, created_at DESC
+            """
+        ),
+        {"uid": user_id},
+    ).mappings().all()
+
+    # 3. Awards
+    award_rows = db.execute(
+        text(
+            """
+            SELECT id, user_id, title, issuer, awarded_year, description,
+                   created_at, updated_at
+            FROM award_entries WHERE user_id = :uid
+            ORDER BY awarded_year DESC NULLS LAST, created_at DESC
+            """
+        ),
+        {"uid": user_id},
+    ).mappings().all()
+
+    # 4. Projects with their evidence payloads
+    project_rows = db.execute(
+        text(
+            """
+            SELECT
+                p.id          AS project_id,
+                p.name        AS project_name,
+                p.user_role,
+                p.evidence_json
+            FROM projects p
+            JOIN portfolios pf ON pf.id = p.portfolio_id
+            WHERE pf.user_id = :uid
+            ORDER BY p.created_at DESC
+            """
+        ),
+        {"uid": user_id},
+    ).mappings().all()
+
+    # 5. Skills via normalized tables: latest analysis per project → analysis_skills → skills
+    skill_rows = db.execute(
+        text(
+            """
+            SELECT
+                p.id        AS project_id,
+                sk.skill_name,
+                ask.confidence
+            FROM projects p
+            JOIN portfolios pf ON pf.id = p.portfolio_id
+            JOIN snapshots sn ON sn.project_id = p.id
+            JOIN LATERAL (
+                SELECT id
+                FROM analyses
+                WHERE snapshot_id IN (
+                    SELECT id FROM snapshots WHERE project_id = p.id
+                )
+                ORDER BY created_at DESC
+                LIMIT 1
+            ) latest_a ON true
+            JOIN analysis_skills ask ON ask.analysis_id = latest_a.id
+            JOIN skills sk ON sk.id = ask.skill_id
+            WHERE pf.user_id = :uid
+            """
+        ),
+        {"uid": user_id},
+    ).mappings().all()
+
+    # Group skills by project_id for O(1) lookup below
+    from collections import defaultdict
+    skills_by_project: Dict[str, list] = defaultdict(list)
+    for sr in skill_rows:
+        skills_by_project[str(sr["project_id"])].append(sr)
+
+    projects_out = []
+    for pr in project_rows:
+        pid = str(pr["project_id"])
+        evidence_json = pr.get("evidence_json") or {}
+        if isinstance(evidence_json, str):
+            evidence_json = json.loads(evidence_json)
+
+        projects_out.append({
+            "project_id": pid,
+            "project_name": pr.get("project_name"),
+            "user_role": pr.get("user_role"),
+            "skills": _bucket_skills_from_rows(skills_by_project[pid]),
+            "evidence": _normalize_evidence(evidence_json),
+        })
+
+    return {
+        "user_id": user_id,
+        "education": [_education_row_to_out(r) for r in edu_rows],
+        "awards": [_award_row_to_out(r) for r in award_rows],
+        "projects": projects_out,
+    }

@@ -2099,6 +2099,124 @@ def test_portfolio_showcase_upsert_logic(engine):
             final_content = json.loads(final_content)
         assert final_content["description"] == "Updated Version"
 
+
+from src.api.app import bucket_skill_expertise, _normalize_evidence, _bucket_skills_from_rows
+
+
+# ---------------------------------------------------------------------------
+# Skill expertise bucketing  (pure unit tests — no DB needed)
+# ---------------------------------------------------------------------------
+
+def test_bucket_skill_expertise_expert():
+    assert bucket_skill_expertise(0.80) == "expert"
+    assert bucket_skill_expertise(1.00) == "expert"
+    assert bucket_skill_expertise(0.95) == "expert"
+
+
+def test_bucket_skill_expertise_proficient():
+    assert bucket_skill_expertise(0.55) == "proficient"
+    assert bucket_skill_expertise(0.70) == "proficient"
+    assert bucket_skill_expertise(0.799) == "proficient"
+
+
+def test_bucket_skill_expertise_familiar():
+    assert bucket_skill_expertise(0.30) == "familiar"
+    assert bucket_skill_expertise(0.45) == "familiar"
+    assert bucket_skill_expertise(0.549) == "familiar"
+
+
+def test_bucket_skill_expertise_exposure():
+    assert bucket_skill_expertise(0.00) == "exposure"
+    assert bucket_skill_expertise(0.10) == "exposure"
+    assert bucket_skill_expertise(0.299) == "exposure"
+
+
+def test_bucket_skill_expertise_boundary_exact():
+    # Boundaries must be deterministic and inclusive at the threshold
+    assert bucket_skill_expertise(0.80) == "expert"
+    assert bucket_skill_expertise(0.55) == "proficient"
+    assert bucket_skill_expertise(0.30) == "familiar"
+
+
+def test_bucket_skill_expertise_invalid_range():
+    import pytest
+    with pytest.raises(ValueError):
+        bucket_skill_expertise(1.01)
+    with pytest.raises(ValueError):
+        bucket_skill_expertise(-0.01)
+
+
+def test_bucket_skill_expertise_invalid_type():
+    import pytest
+    with pytest.raises((ValueError, TypeError)):
+        bucket_skill_expertise("high")
+
+
+# ---------------------------------------------------------------------------
+# Evidence normalisation  (pure unit tests)
+# ---------------------------------------------------------------------------
+
+def test_normalize_evidence_empty():
+    result = _normalize_evidence(None)
+    assert result == {"contributions": [], "impact": [], "extra": {}}
+
+
+def test_normalize_evidence_full():
+    raw = {
+        "contributions": ["Designed API", "Led migration"],
+        "impact": ["Reduced latency by 30%"],
+        "custom_field": "preserved",
+    }
+    result = _normalize_evidence(raw)
+    assert result["contributions"] == ["Designed API", "Led migration"]
+    assert result["impact"] == ["Reduced latency by 30%"]
+    assert result["extra"]["custom_field"] == "preserved"
+
+
+def test_normalize_evidence_scalar_coercion():
+    # Scalars should be coerced to single-element lists
+    raw = {"contributions": "Single contribution", "impact": "Single impact"}
+    result = _normalize_evidence(raw)
+    assert result["contributions"] == ["Single contribution"]
+    assert result["impact"] == ["Single impact"]
+
+
+def test_normalize_evidence_missing_keys():
+    result = _normalize_evidence({"impact": ["shipped feature"]})
+    assert result["contributions"] == []
+    assert result["impact"] == ["shipped feature"]
+
+
+# ---------------------------------------------------------------------------
+# Bucketed skill extraction from normalized analysis_skills rows
+# ---------------------------------------------------------------------------
+
+def test_bucket_skills_from_rows_sorted():
+    rows = [
+        {"skill_name": "Python", "confidence": 0.60},
+        {"skill_name": "Rust",   "confidence": 0.90},
+        {"skill_name": "Bash",   "confidence": 0.20},
+    ]
+    result = _bucket_skills_from_rows(rows)
+    assert result[0]["name"] == "Rust"
+    assert result[0]["expertise"] == "expert"
+    assert result[1]["name"] == "Python"
+    assert result[1]["expertise"] == "proficient"
+    assert result[2]["name"] == "Bash"
+    assert result[2]["expertise"] == "exposure"
+
+
+def test_bucket_skills_from_rows_empty():
+    assert _bucket_skills_from_rows([]) == []
+
+
+def test_bucket_skills_from_rows_null_confidence():
+    # None confidence should default to 0.0 → exposure
+    rows = [{"skill_name": "Go", "confidence": None}]
+    result = _bucket_skills_from_rows(rows)
+    assert result[0]["expertise"] == "exposure"
+
+
 # ---------------------------------------------------------------------------
 # Education CRUD  (integration tests)
 # ---------------------------------------------------------------------------
@@ -2249,3 +2367,75 @@ def test_awards_delete_wrong_user_returns_404(client, engine):
 
     r2 = client.delete(f"/users/{info_b['user_id']}/awards/{entry_id}")
     assert r2.status_code == 404
+
+
+# ---------------------------------------------------------------------------
+# Resume composite payload
+# ---------------------------------------------------------------------------
+
+def test_resume_payload_shape(client, engine):
+    info = _register_user(client, email="resume_payload@example.com")
+    user_id = info["user_id"]
+
+    # Seed education + award
+    client.post(
+        f"/users/{user_id}/education",
+        json={"institution": "State University", "degree": "B.Sc.", "start_year": 2019, "end_year": 2023},
+    )
+    client.post(
+        f"/users/{user_id}/awards",
+        json={"title": "Dean's List", "awarded_year": 2021},
+    )
+
+    r = client.get(f"/users/{user_id}/resume-payload")
+    assert r.status_code == 200
+    payload = r.json()
+
+    # Top-level keys
+    assert "user_id" in payload
+    assert "education" in payload
+    assert "awards" in payload
+    assert "projects" in payload
+
+    # Education present
+    assert any(e["institution"] == "State University" for e in payload["education"])
+
+    # Award present
+    assert any(a["title"] == "Dean's List" for a in payload["awards"])
+
+    # Projects list is always an array
+    assert isinstance(payload["projects"], list)
+
+
+def test_resume_payload_project_evidence_schema(client, engine):
+    """Each project in the payload must have stable evidence/skills keys."""
+    info = _register_user(client, email="resume_proj@example.com")
+    user_id = info["user_id"]
+    portfolio_id = info["portfolio_id"]
+
+    # Insert a project directly for speed
+    project_id = _u()
+    with engine.begin() as conn:
+        conn.execute(
+            text("INSERT INTO projects (id, portfolio_id, name) VALUES (:id, :pf, 'TestProj')"),
+            {"id": project_id, "pf": portfolio_id},
+        )
+
+    r = client.get(f"/users/{user_id}/resume-payload")
+    assert r.status_code == 200
+    projects = r.json()["projects"]
+    assert any(p["project_id"] == project_id for p in projects)
+
+    for p in projects:
+        assert "skills" in p
+        assert "evidence" in p
+        assert isinstance(p["skills"], list)
+        evidence = p["evidence"]
+        assert "contributions" in evidence
+        assert "impact" in evidence
+        assert "extra" in evidence
+
+
+def test_resume_payload_unknown_user_returns_404(client):
+    r = client.get(f"/users/{_u()}/resume-payload")
+    assert r.status_code == 404
