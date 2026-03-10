@@ -304,7 +304,15 @@ async def get_portfolio_customization(user_id: str, project_id: int):
                 created_at=customization['created_at'].isoformat() if customization['created_at'] else None,
                 updated_at=customization['updated_at'].isoformat() if customization['updated_at'] else None
             )
-        raise HTTPException(status_code=404, detail="Portfolio customization not found")
+
+        return PortfolioCustomizationResponse(
+            project_id=project_id,
+            custom_title=None,
+            custom_description=None,
+            custom_role=None,
+            created_at=None,
+            updated_at=None
+        )
     except HTTPException:
         raise
     except Exception as e:
