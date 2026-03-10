@@ -99,7 +99,7 @@
                         <button type="button" class="menu-btn submenu-btn" data-view="resume-delete" onclick="showView('resume-delete')">Delete Resume</button>
                     </div>
                 </div>
-                <button type="button" class="menu-btn nav-tab" data-view="portfolio" onclick="showView('portfolio')">View Portfolio</button>
+                <button type="button" class="menu-btn nav-tab" data-view="portfolio-dashboard" onclick="showView('portfolio-dashboard')">Portfolio</button>
                 <button type="button" class="menu-btn nav-tab" data-view="customize-portfolio" onclick="showView('customize-portfolio')">Customize Portfolio</button>
                 <button type="button" class="menu-btn nav-tab" onclick="window.location.href='public-dashboard.html'">Public Dashboard</button>
                 <button type="button" class="menu-btn nav-tab" data-view="llm-summary" onclick="showView('llm-summary')">LLM Summary</button>
@@ -502,9 +502,9 @@
                             <strong>Resume Tools</strong>
                             <span>Generate, update, and export professional resumes tailored to your project history and skills.</span>
                         </button>
-                        <button type="button" class="dashboard-quick-action" onclick="showView('portfolio')">
+                        <button type="button" class="dashboard-quick-action" onclick="showView('portfolio-dashboard')">
                             <strong>Portfolio</strong>
-                            <span>Create and customize a beautiful portfolio website to showcase your best work to potential employers.</span>
+                            <span>View your portfolio dashboard with skills timeline, activity heatmap, and top project showcase.</span>
                         </button>
                         <button type="button" class="dashboard-quick-action" onclick="showView('preferences')">
                             <strong>Settings</strong>
@@ -557,6 +557,65 @@
                 'resume-gen': `<div class="view-panel"><h3>Generate Resume</h3><button class="btn" onclick="generateResume()">Generate</button><div id="resumeGenResult" class="result"></div></div>`,
                 'resume-view': `<div class="view-panel"><h3>View Resume</h3><button class="btn" onclick="viewResume()">Load Resume</button><div id="resumeViewResult" class="result"></div></div>`,
                 'resume-delete': `<div class="view-panel"><h3>Delete Resume</h3><button class="btn" onclick="deleteResume()">Delete</button><div id="resumeDeleteResult" class="result"></div></div>`,
+                'portfolio-dashboard': `<div class="portfolio-dashboard-wrapper">
+                    <div class="pd-header">
+                        <div class="pd-header-left">
+                            <h2>Portfolio Dashboard</h2>
+                            <p class="text-muted">Your professional portfolio with skills timeline, activity heatmap, and top projects.</p>
+                        </div>
+                        <div class="pd-header-actions">
+                            <div class="pd-mode-toggle" id="pdModeToggle">
+                                <button type="button" class="pd-mode-btn active" id="pdPrivateBtn" onclick="setPortfolioMode('private')">
+                                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0110 0v4"/></svg>
+                                    Private
+                                </button>
+                                <button type="button" class="pd-mode-btn" id="pdPublicBtn" onclick="setPortfolioMode('public')">
+                                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 014 10 15.3 15.3 0 01-4 10 15.3 15.3 0 01-4-10 15.3 15.3 0 014-10z"/></svg>
+                                    Public
+                                </button>
+                            </div>
+                            <button type="button" class="btn" onclick="loadPortfolioDashboard()">Refresh</button>
+                            <button type="button" class="btn btn-secondary" onclick="generatePortfolio()">Generate Data</button>
+                        </div>
+                    </div>
+
+                    <div class="pd-visibility-controls" id="pdVisibilityControls">
+                        <span class="pd-vis-label">Show components:</span>
+                        <label class="pd-vis-toggle"><input type="checkbox" id="togTimeline" checked onchange="toggleComponent('show_timeline')"> Skills Timeline</label>
+                        <label class="pd-vis-toggle"><input type="checkbox" id="togHeatmap" checked onchange="toggleComponent('show_heatmap')"> Activity Heatmap</label>
+                        <label class="pd-vis-toggle"><input type="checkbox" id="togTopProjects" checked onchange="toggleComponent('show_top_projects')"> Top Projects</label>
+                        <label class="pd-vis-toggle"><input type="checkbox" id="togSkills" checked onchange="toggleComponent('show_skills')"> Skills</label>
+                        <label class="pd-vis-toggle"><input type="checkbox" id="togStats" checked onchange="toggleComponent('show_stats')"> Statistics</label>
+                    </div>
+
+                    <div class="pd-stats-row" id="pdStatsRow">
+                        <div class="pd-stat-card"><div class="pd-stat-value" id="pdTotalProjects">-</div><div class="pd-stat-label">Projects</div></div>
+                        <div class="pd-stat-card"><div class="pd-stat-value" id="pdTotalLOC">-</div><div class="pd-stat-label">Total Files</div></div>
+                        <div class="pd-stat-card"><div class="pd-stat-value" id="pdTotalSkills">-</div><div class="pd-stat-label">Skills</div></div>
+                        <div class="pd-stat-card"><div class="pd-stat-value" id="pdTotalLangs">-</div><div class="pd-stat-label">Languages</div></div>
+                        <div class="pd-stat-card"><div class="pd-stat-value" id="pdActiveDays">-</div><div class="pd-stat-label">Active Days</div></div>
+                    </div>
+
+                    <div class="pd-section" id="pdTimelineSection">
+                        <div class="pd-section-header"><h3>Skills Timeline</h3><p class="text-muted">Learning progression and expertise depth</p></div>
+                        <div id="pdTimeline" class="pd-timeline-container"><div class="pd-loading">Loading timeline...</div></div>
+                    </div>
+
+                    <div class="pd-section" id="pdHeatmapSection">
+                        <div class="pd-section-header"><h3>Activity Heatmap</h3><p class="text-muted">Productivity over time</p></div>
+                        <div id="pdHeatmap" class="pd-heatmap-container"><div class="pd-loading">Loading heatmap...</div></div>
+                    </div>
+
+                    <div class="pd-section" id="pdTopProjectsSection">
+                        <div class="pd-section-header"><h3>Top 3 Projects</h3><p class="text-muted">Best work showcasing evolution and quality</p></div>
+                        <div id="pdTopProjects" class="pd-top-projects"><div class="pd-loading">Loading top projects...</div></div>
+                    </div>
+
+                    <div class="pd-section" id="pdSkillsSection">
+                        <div class="pd-section-header"><h3>Skills Overview</h3><p class="text-muted">Categorized skill proficiency</p></div>
+                        <div id="pdSkills" class="pd-skills-grid"><div class="pd-loading">Loading skills...</div></div>
+                    </div>
+                </div>`,
                 'portfolio': `<div class="view-panel"><h3>View Portfolio</h3><button class="btn" onclick="viewPortfolio()">Load Portfolio</button><button class="btn btn-secondary" onclick="generatePortfolio()">Generate New</button><div id="portfolioResult" class="result"></div></div>`,
                 'customize-portfolio': `<div class="view-panel"><h3>Customize Portfolio Projects</h3><p class="text-muted" style="margin-bottom: 15px;">Add custom titles, descriptions, and roles to your portfolio projects to better showcase your work.</p><button class="btn" onclick="loadCustomizedProjects()">Refresh List</button><div id="customizeProjectsList" class="project-list"></div></div>`,
                 'thumbnail': `<div class="view-panel"><h3>Add Thumbnail to Project</h3><div id="thumbnailProjectsList" class="project-list"></div><input type="file" id="thumbnailFile" accept="image/*" /><button class="btn" onclick="addThumbnail()">Upload Thumbnail</button><div id="thumbnailResult" class="result"></div></div>`,
@@ -600,6 +659,9 @@
                 }
             }
             
+            if (viewName === 'portfolio-dashboard') {
+                setTimeout(() => loadPortfolioDashboard(), 100);
+            }
             if (viewName === 'customize-portfolio') {
                 setTimeout(() => {
                     loadCustomizedProjects();
@@ -1652,21 +1714,34 @@
 
         async function generatePortfolio() {
             const resultDiv = document.getElementById('portfolioResult');
-            resultDiv.innerHTML = 'Generating portfolio...';
+            if (resultDiv) resultDiv.innerHTML = 'Generating portfolio...';
+            showMessage('Generating portfolio data...', 'success');
             try {
                 const res = await apiCall(`/api/portfolio/generate?user_name=${currentUser.user_name}`, {
                     method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ top_n: null })
                 });
-                if (!res.ok) { renderError(resultDiv, res.error || 'Failed to generate portfolio'); return; }
+                if (!res.ok) {
+                    const msg = res.error || 'Failed to generate portfolio';
+                    if (resultDiv) renderError(resultDiv, msg);
+                    showMessage(msg, 'error');
+                    return;
+                }
                 const data = res.data;
                 if (data.success) {
                     const p = data.portfolio;
-                    resultDiv.innerHTML = `Portfolio Generated!\nProjects: ${p.summary?.total_projects || 0}\nTotal LOC: ${p.summary?.total_lines_of_code || 0}\nLanguages: ${p.summary?.unique_languages || 0}`;
-                    renderSuccess(resultDiv, 'Portfolio generated successfully');
+                    if (resultDiv) {
+                        resultDiv.innerHTML = `Portfolio Generated!\nProjects: ${p.summary?.total_projects || 0}\nTotal LOC: ${p.summary?.total_lines_of_code || 0}\nLanguages: ${p.summary?.unique_languages || 0}`;
+                    }
+                    showMessage('Portfolio generated successfully', 'success');
+                    if (document.getElementById('pdTimeline')) {
+                        loadPortfolioDashboard();
+                    }
                 }
             } catch (e) {
-                resultDiv.innerHTML = `Error: ${e.message}`;
+                if (resultDiv) resultDiv.innerHTML = `Error: ${e.message}`;
+                showMessage('Error generating portfolio: ' + e.message, 'error');
             }
         }
 
@@ -1809,6 +1884,441 @@
                 localStorage.removeItem('user');
                 window.location.href = 'index.html';
             }
+        }
+
+        // ─── Portfolio Dashboard Functions ───
+
+        let portfolioSettings = {
+            is_public: false,
+            show_timeline: true,
+            show_heatmap: true,
+            show_top_projects: true,
+            show_skills: true,
+            show_stats: true
+        };
+
+        async function loadPortfolioDashboard() {
+            try {
+                const settingsRes = await apiCall(`/api/portfolio/${currentUser.user_name}/settings`);
+                if (settingsRes.ok && settingsRes.data.settings) {
+                    portfolioSettings = settingsRes.data.settings;
+                    syncSettingsUI();
+                }
+            } catch (e) { /* use defaults */ }
+
+            loadPdStats();
+            loadPdTimeline();
+            loadPdHeatmap();
+            loadPdTopProjects();
+            loadPdSkills();
+        }
+
+        function syncSettingsUI() {
+            const s = portfolioSettings;
+            const priv = document.getElementById('pdPrivateBtn');
+            const pub = document.getElementById('pdPublicBtn');
+            if (priv && pub) {
+                priv.classList.toggle('active', !s.is_public);
+                pub.classList.toggle('active', s.is_public);
+            }
+            const toggleMap = {
+                'togTimeline': 'show_timeline',
+                'togHeatmap': 'show_heatmap',
+                'togTopProjects': 'show_top_projects',
+                'togSkills': 'show_skills',
+                'togStats': 'show_stats'
+            };
+            for (const [elId, key] of Object.entries(toggleMap)) {
+                const el = document.getElementById(elId);
+                if (el) el.checked = s[key] !== false;
+            }
+            applySectionVisibility();
+        }
+
+        function applySectionVisibility() {
+            const s = portfolioSettings;
+            const map = {
+                'pdStatsRow': s.show_stats,
+                'pdTimelineSection': s.show_timeline,
+                'pdHeatmapSection': s.show_heatmap,
+                'pdTopProjectsSection': s.show_top_projects,
+                'pdSkillsSection': s.show_skills
+            };
+            for (const [id, visible] of Object.entries(map)) {
+                const el = document.getElementById(id);
+                if (el) el.style.display = visible !== false ? '' : 'none';
+            }
+        }
+
+        async function setPortfolioMode(mode) {
+            portfolioSettings.is_public = (mode === 'public');
+            syncSettingsUI();
+            await savePortfolioSettings();
+        }
+
+        async function toggleComponent(key) {
+            const toggleMap = {
+                'show_timeline': 'togTimeline',
+                'show_heatmap': 'togHeatmap',
+                'show_top_projects': 'togTopProjects',
+                'show_skills': 'togSkills',
+                'show_stats': 'togStats'
+            };
+            const el = document.getElementById(toggleMap[key]);
+            if (el) portfolioSettings[key] = el.checked;
+            applySectionVisibility();
+            await savePortfolioSettings();
+        }
+
+        async function savePortfolioSettings() {
+            try {
+                await apiCall(`/api/portfolio/${currentUser.user_name}/settings`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(portfolioSettings)
+                });
+            } catch (e) {
+                console.error('Failed to save portfolio settings:', e);
+            }
+        }
+
+        async function loadPdStats() {
+            try {
+                const res = await apiCall(`/api/portfolio/${currentUser.user_name}/stats`);
+                if (!res.ok) return;
+                const s = res.data.stats || {};
+                setTextSafe('pdTotalProjects', s.total_projects ?? 0);
+                setTextSafe('pdTotalLOC', (s.total_files ?? 0).toLocaleString());
+                setTextSafe('pdTotalSkills', s.unique_skills ?? 0);
+                setTextSafe('pdTotalLangs', s.unique_languages ?? 0);
+            } catch (e) { console.error('Stats load error:', e); }
+        }
+
+        function setTextSafe(id, val) {
+            const el = document.getElementById(id);
+            if (el) el.textContent = val;
+        }
+
+        async function loadPdTimeline() {
+            const container = document.getElementById('pdTimeline');
+            if (!container) return;
+            container.innerHTML = '<div class="pd-loading"><div class="spinner"></div><p>Loading timeline...</p></div>';
+            try {
+                const res = await apiCall(`/api/portfolio/${currentUser.user_name}/timeline`);
+                if (!res.ok) {
+                    container.innerHTML = '<p class="text-muted">Could not load timeline. Upload projects first.</p>';
+                    return;
+                }
+                const data = res.data.data;
+                if (!data || !data.timeline || data.timeline.length === 0) {
+                    container.innerHTML = '<p class="text-muted">No timeline data yet. Upload projects to see your skills timeline.</p>';
+                    return;
+                }
+                renderTimeline(container, data);
+                setTextSafe('pdTotalSkills', data.total_skills ?? 0);
+            } catch (e) {
+                container.innerHTML = '<p class="text-muted">Error loading timeline.</p>';
+                console.error('Timeline error:', e);
+            }
+        }
+
+        function renderTimeline(container, data) {
+            const { timeline, skill_summary } = data;
+
+            let html = '<div class="pd-timeline">';
+            timeline.forEach((entry, idx) => {
+                const dateStr = new Date(entry.date).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
+                const isLast = idx === timeline.length - 1;
+                html += `<div class="pd-tl-entry${isLast ? ' pd-tl-last' : ''}">
+                    <div class="pd-tl-dot"></div>
+                    <div class="pd-tl-content">
+                        <div class="pd-tl-date">${dateStr}</div>
+                        <div class="pd-tl-project">${escapeHtml(entry.project)}</div>
+                        <div class="pd-tl-skills-row">`;
+                if (entry.new_skills.length > 0) {
+                    html += '<div class="pd-tl-new-label">New skills:</div>';
+                    entry.new_skills.forEach(s => {
+                        html += `<span class="badge badge-success">${escapeHtml(s)}</span>`;
+                    });
+                }
+                if (entry.growing_skills.length > 0) {
+                    entry.growing_skills.forEach(gs => {
+                        const lvl = gs.depth >= 4 ? 'expert' : gs.depth >= 3 ? 'advanced' : 'intermediate';
+                        html += `<span class="badge pd-depth-${lvl}" title="Used in ${gs.depth} projects">${escapeHtml(gs.skill)} (${gs.depth}x)</span>`;
+                    });
+                }
+                html += `</div>
+                        <div class="pd-tl-total">${entry.total_skills_at_point} total skills</div>
+                    </div>
+                </div>`;
+            });
+            html += '</div>';
+
+            if (skill_summary && skill_summary.length > 0) {
+                html += '<div class="pd-skill-summary"><h4>Skill Proficiency</h4><div class="pd-proficiency-grid">';
+                skill_summary.slice(0, 20).forEach(s => {
+                    const pctWidth = Math.min(100, (s.project_count / Math.max(1, skill_summary[0].project_count)) * 100);
+                    const levelClass = s.proficiency.toLowerCase();
+                    html += `<div class="pd-prof-item">
+                        <div class="pd-prof-label">${escapeHtml(s.skill)}</div>
+                        <div class="pd-prof-bar-track"><div class="pd-prof-bar pd-prof-${levelClass}" style="width:${pctWidth}%"></div></div>
+                        <div class="pd-prof-level">${s.proficiency}</div>
+                    </div>`;
+                });
+                html += '</div></div>';
+            }
+
+            container.innerHTML = html;
+        }
+
+        async function loadPdHeatmap() {
+            const container = document.getElementById('pdHeatmap');
+            if (!container) return;
+            container.innerHTML = '<div class="pd-loading"><div class="spinner"></div><p>Loading heatmap...</p></div>';
+            try {
+                const res = await apiCall(`/api/portfolio/${currentUser.user_name}/heatmap`);
+                if (!res.ok) {
+                    container.innerHTML = '<p class="text-muted">Could not load heatmap. Upload projects first.</p>';
+                    return;
+                }
+                const data = res.data.data;
+                if (!data || !data.activity_data || Object.keys(data.activity_data).length === 0) {
+                    container.innerHTML = '<p class="text-muted">No activity data yet. Upload projects to see your heatmap.</p>';
+                    return;
+                }
+                renderHeatmap(container, data);
+                setTextSafe('pdActiveDays', data.total_days ?? 0);
+            } catch (e) {
+                container.innerHTML = '<p class="text-muted">Error loading heatmap.</p>';
+                console.error('Heatmap error:', e);
+            }
+        }
+
+        function renderHeatmap(container, data) {
+            const { activity_data, max_activity } = data;
+            const dates = Object.keys(activity_data).sort();
+            if (dates.length === 0) { container.innerHTML = '<p class="text-muted">No activity data.</p>'; return; }
+
+            const firstDate = new Date(dates[0]);
+            const lastDate = new Date(dates[dates.length - 1]);
+            const today = new Date();
+            const endDate = lastDate > today ? lastDate : today;
+
+            const startDate = new Date(endDate);
+            startDate.setFullYear(startDate.getFullYear() - 1);
+            if (firstDate < startDate) startDate.setTime(firstDate.getTime());
+
+            const dayMs = 86400000;
+            const start = new Date(startDate);
+            start.setDate(start.getDate() - start.getDay());
+
+            let html = '<div class="pd-heatmap-grid">';
+            const months = [];
+            let currentMonth = -1;
+            let weekCount = 0;
+
+            const cursor = new Date(start);
+            while (cursor <= endDate) {
+                const weekStart = new Date(cursor);
+                html += '<div class="pd-hm-week">';
+                for (let d = 0; d < 7; d++) {
+                    const dayDate = new Date(cursor);
+                    const key = dayDate.toISOString().slice(0, 10);
+                    const act = activity_data[key];
+                    let level = 0;
+                    let tooltip = key;
+                    if (act) {
+                        const score = act.score || 0;
+                        if (max_activity > 0) {
+                            const ratio = score / max_activity;
+                            level = ratio > 0.75 ? 4 : ratio > 0.5 ? 3 : ratio > 0.25 ? 2 : 1;
+                        } else {
+                            level = 1;
+                        }
+                        tooltip = `${key}: ${act.count} project(s), ${act.files} files, ${act.lines} lines`;
+                    }
+                    html += `<div class="pd-hm-cell pd-hm-l${level}" title="${escapeHtml(tooltip)}"></div>`;
+                    cursor.setDate(cursor.getDate() + 1);
+                }
+                html += '</div>';
+
+                if (weekStart.getMonth() !== currentMonth) {
+                    currentMonth = weekStart.getMonth();
+                    months.push({ month: weekStart.toLocaleDateString('en-US', { month: 'short' }), week: weekCount });
+                }
+                weekCount++;
+            }
+            html += '</div>';
+
+            html += '<div class="pd-hm-months">';
+            months.forEach(m => {
+                html += `<span style="grid-column:${m.week + 1}">${m.month}</span>`;
+            });
+            html += '</div>';
+
+            html += `<div class="pd-hm-legend">
+                <span class="text-muted">Less</span>
+                <div class="pd-hm-cell pd-hm-l0"></div>
+                <div class="pd-hm-cell pd-hm-l1"></div>
+                <div class="pd-hm-cell pd-hm-l2"></div>
+                <div class="pd-hm-cell pd-hm-l3"></div>
+                <div class="pd-hm-cell pd-hm-l4"></div>
+                <span class="text-muted">More</span>
+            </div>`;
+
+            container.innerHTML = html;
+        }
+
+        async function loadPdTopProjects() {
+            const container = document.getElementById('pdTopProjects');
+            if (!container) return;
+            container.innerHTML = '<div class="pd-loading"><div class="spinner"></div><p>Loading top projects...</p></div>';
+            try {
+                const res = await apiCall(`/api/portfolio/${currentUser.user_name}/top-projects`);
+                if (!res.ok) {
+                    container.innerHTML = '<p class="text-muted">Could not load top projects. Upload projects first.</p>';
+                    return;
+                }
+                const projects = res.data.projects;
+                if (!projects || projects.length === 0) {
+                    container.innerHTML = '<p class="text-muted">No projects found. Upload ZIP files to see your top projects showcase.</p>';
+                    return;
+                }
+                renderTopProjects(container, projects);
+            } catch (e) {
+                container.innerHTML = '<p class="text-muted">Error loading top projects.</p>';
+                console.error('Top projects error:', e);
+            }
+        }
+
+        function renderTopProjects(container, projects) {
+            let html = '<div class="pd-showcase-grid">';
+            projects.forEach(p => {
+                const medalColors = { 1: '#f59e0b', 2: '#94a3b8', 3: '#cd7c32' };
+                const medalColor = medalColors[p.rank] || '#6b7280';
+                const qualityPct = Math.min(100, p.quality_score || 0);
+                const badges = [];
+                if (p.has_tests) badges.push('<span class="badge badge-success">Tests</span>');
+                if (p.has_docs) badges.push('<span class="badge badge-info">Docs</span>');
+                if (p.oop_principles > 0) badges.push('<span class="badge badge-purple">OOP</span>');
+
+                html += `<div class="pd-showcase-card">
+                    <div class="pd-showcase-rank" style="background:${medalColor}">#${p.rank}</div>
+                    <div class="pd-showcase-header">
+                        <h4>${escapeHtml(p.name)}</h4>
+                        <span class="pd-showcase-role">${escapeHtml(p.role)}</span>
+                    </div>
+                    <p class="pd-showcase-desc">${escapeHtml(p.description || '').substring(0, 200)}${(p.description||'').length > 200 ? '...' : ''}</p>
+                    <div class="pd-showcase-meta">
+                        <div><strong>${(p.lines_of_code||0).toLocaleString()}</strong> <span>lines</span></div>
+                        <div><strong>${p.file_count||0}</strong> <span>files</span></div>
+                        <div><strong>${p.duration_days||0}</strong> <span>days</span></div>
+                        <div><strong>${p.size_mb||0}</strong> <span>MB</span></div>
+                    </div>
+                    <div class="pd-showcase-quality">
+                        <div class="pd-showcase-quality-label">Quality Score</div>
+                        <div class="pd-quality-bar-track"><div class="pd-quality-bar" style="width:${qualityPct}%"></div></div>
+                        <span>${qualityPct}%</span>
+                    </div>
+                    <div class="pd-showcase-tech">
+                        <span class="badge">${escapeHtml(p.primary_language || 'Unknown')}</span>
+                        ${(p.frameworks||[]).map(f => '<span class="badge badge-purple">' + escapeHtml(f) + '</span>').join('')}
+                        ${badges.join('')}
+                    </div>
+                    ${p.languages && p.languages.length > 0 ? `<div class="pd-lang-breakdown">
+                        ${p.languages.map(l => `<div class="pd-lang-item">
+                            <span>${escapeHtml(l.language)}</span>
+                            <div class="pd-lang-bar-track"><div class="pd-lang-bar" style="width:${l.percentage||0}%"></div></div>
+                            <span class="text-muted">${l.percentage||0}%</span>
+                        </div>`).join('')}
+                    </div>` : ''}
+                </div>`;
+            });
+            html += '</div>';
+            container.innerHTML = html;
+        }
+
+        async function loadPdSkills() {
+            const container = document.getElementById('pdSkills');
+            if (!container) return;
+            container.innerHTML = '<div class="pd-loading"><div class="spinner"></div><p>Loading skills...</p></div>';
+            try {
+                const res = await apiCall(`/api/portfolio/${currentUser.user_name}/timeline`);
+                if (!res.ok) { container.innerHTML = '<p class="text-muted">Could not load skills.</p>'; return; }
+                const data = res.data.data;
+                if (!data || !data.skill_summary || data.skill_summary.length === 0) {
+                    container.innerHTML = '<p class="text-muted">No skills data yet. Upload projects to see skills.</p>';
+                    return;
+                }
+                renderSkillsFromTimeline(container, data.skill_summary);
+            } catch (e) {
+                container.innerHTML = '<p class="text-muted">Error loading skills.</p>';
+            }
+        }
+
+        function renderSkillsFromTimeline(container, skillSummary) {
+            const categories = {
+                'Programming Languages': [],
+                'Web Frameworks': [],
+                'Tools & DevOps': [],
+                'Practices': [],
+                'Other': []
+            };
+            const langKeywords = ['python', 'java', 'javascript', 'typescript', 'c++', 'c#', 'go', 'rust', 'ruby', 'php', 'swift', 'kotlin', 'html', 'css', 'sql', 'shell', 'r', 'dart', 'scala', 'lua', 'perl', 'c', 'react', 'vue', 'svelte', 'markdown', 'json', 'xml', 'yaml', 'toml', 'text', 'ini', 'config', 'batch', 'powershell', 'matlab'];
+            const fwKeywords = ['react', 'vue', 'angular', 'django', 'flask', 'express', 'spring', 'node.js', 'fastapi', 'postgresql', 'mongodb'];
+            const toolKeywords = ['docker', 'git', 'ci/cd', 'configuration'];
+            const practiceKeywords = ['testing', 'documentation'];
+
+            skillSummary.forEach(s => {
+                const lower = s.skill.toLowerCase();
+                if (fwKeywords.some(k => lower.includes(k))) {
+                    categories['Web Frameworks'].push(s);
+                } else if (toolKeywords.some(k => lower.includes(k))) {
+                    categories['Tools & DevOps'].push(s);
+                } else if (practiceKeywords.some(k => lower.includes(k))) {
+                    categories['Practices'].push(s);
+                } else if (langKeywords.some(k => lower.includes(k) || k.includes(lower))) {
+                    categories['Programming Languages'].push(s);
+                } else {
+                    categories['Other'].push(s);
+                }
+            });
+
+            let html = '<div class="pd-cat-grid">';
+            for (const [cat, skills] of Object.entries(categories)) {
+                if (skills.length === 0) continue;
+                html += `<div class="pd-cat-card">
+                    <h4>${escapeHtml(cat)}</h4>
+                    <div class="pd-cat-skills">
+                        ${skills.map(s => {
+                            const lvl = s.proficiency.toLowerCase();
+                            const badgeClass = lvl === 'expert' ? 'badge-purple' : lvl === 'advanced' ? 'badge-info' : lvl === 'intermediate' ? 'badge-success' : '';
+                            return `<span class="badge ${badgeClass}" title="${s.proficiency} — used in ${s.project_count} project(s)">${escapeHtml(s.skill)}</span>`;
+                        }).join('')}
+                    </div>
+                </div>`;
+            }
+            html += '</div>';
+            container.innerHTML = html;
+        }
+
+        function renderSkillsGrid(container, skills) {
+            const categorized = skills.categorized || {};
+            if (Object.keys(categorized).length === 0) {
+                container.innerHTML = '<p class="text-muted">No categorized skills found.</p>';
+                return;
+            }
+            let html = '<div class="pd-cat-grid">';
+            for (const [cat, catSkills] of Object.entries(categorized)) {
+                html += `<div class="pd-cat-card">
+                    <h4>${escapeHtml(cat)}</h4>
+                    <div class="pd-cat-skills">
+                        ${catSkills.map(s => `<span class="badge">${escapeHtml(s)}</span>`).join('')}
+                    </div>
+                </div>`;
+            }
+            html += '</div>';
+            container.innerHTML = html;
         }
 
         // Portfolio Customization Functions

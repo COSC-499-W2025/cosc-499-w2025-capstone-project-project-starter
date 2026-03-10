@@ -88,6 +88,107 @@ class ResumeManager:
             return False
     
     @staticmethod
+    def init_portfolio_settings_table():
+        """Initialize the portfolio_settings table for storing visibility and component settings."""
+        try:
+            with with_db_cursor() as cursor:
+                cursor.execute("""
+                    CREATE TABLE IF NOT EXISTS portfolio_settings (
+                        id SERIAL PRIMARY KEY,
+                        user_name VARCHAR(255) NOT NULL UNIQUE,
+                        is_public BOOLEAN DEFAULT FALSE,
+                        show_timeline BOOLEAN DEFAULT TRUE,
+                        show_heatmap BOOLEAN DEFAULT TRUE,
+                        show_top_projects BOOLEAN DEFAULT TRUE,
+                        show_skills BOOLEAN DEFAULT TRUE,
+                        show_stats BOOLEAN DEFAULT TRUE,
+                        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                    );
+                """)
+                cursor.execute("""
+                    CREATE INDEX IF NOT EXISTS idx_portfolio_settings_user_name
+                    ON portfolio_settings(user_name);
+                """)
+            print("[SUCCESS] Portfolio settings table initialized successfully")
+            return True
+        except Exception as e:
+            print(f"[ERROR] Error initializing portfolio settings table: {e}")
+            return False
+
+    @staticmethod
+    def get_portfolio_settings(user_name: str) -> dict:
+        """Get portfolio visibility and component settings for a user."""
+        try:
+            with with_db_cursor() as cursor:
+                cursor.execute("""
+                    SELECT is_public, show_timeline, show_heatmap, show_top_projects,
+                           show_skills, show_stats, updated_at
+                    FROM portfolio_settings
+                    WHERE user_name = %s
+                """, (user_name,))
+                result = cursor.fetchone()
+            if result:
+                return {
+                    'is_public': result[0],
+                    'show_timeline': result[1],
+                    'show_heatmap': result[2],
+                    'show_top_projects': result[3],
+                    'show_skills': result[4],
+                    'show_stats': result[5],
+                    'updated_at': result[6].isoformat() if result[6] else None
+                }
+            return {
+                'is_public': False,
+                'show_timeline': True,
+                'show_heatmap': True,
+                'show_top_projects': True,
+                'show_skills': True,
+                'show_stats': True,
+                'updated_at': None
+            }
+        except Exception as e:
+            print(f"[ERROR] Failed to get portfolio settings: {e}")
+            return {
+                'is_public': False, 'show_timeline': True, 'show_heatmap': True,
+                'show_top_projects': True, 'show_skills': True, 'show_stats': True,
+                'updated_at': None
+            }
+
+    @staticmethod
+    def save_portfolio_settings(user_name: str, settings: dict) -> bool:
+        """Save portfolio visibility and component settings."""
+        try:
+            with with_db_cursor() as cursor:
+                cursor.execute("""
+                    INSERT INTO portfolio_settings
+                        (user_name, is_public, show_timeline, show_heatmap,
+                         show_top_projects, show_skills, show_stats)
+                    VALUES (%s, %s, %s, %s, %s, %s, %s)
+                    ON CONFLICT (user_name)
+                    DO UPDATE SET
+                        is_public = EXCLUDED.is_public,
+                        show_timeline = EXCLUDED.show_timeline,
+                        show_heatmap = EXCLUDED.show_heatmap,
+                        show_top_projects = EXCLUDED.show_top_projects,
+                        show_skills = EXCLUDED.show_skills,
+                        show_stats = EXCLUDED.show_stats,
+                        updated_at = CURRENT_TIMESTAMP
+                """, (
+                    user_name,
+                    settings.get('is_public', False),
+                    settings.get('show_timeline', True),
+                    settings.get('show_heatmap', True),
+                    settings.get('show_top_projects', True),
+                    settings.get('show_skills', True),
+                    settings.get('show_stats', True)
+                ))
+            return True
+        except Exception as e:
+            print(f"[ERROR] Failed to save portfolio settings: {e}")
+            return False
+
+    @staticmethod
     def init_portfolio_customizations_table():
         """
         Initialize the portfolio_customizations table in the database.

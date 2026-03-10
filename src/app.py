@@ -38,6 +38,7 @@ def initialize_database():
         init_ranking_storage_table()
         ResumeManager.init_resume_table()
         ResumeManager.init_portfolio_customizations_table()
+        ResumeManager.init_portfolio_settings_table()
     except Exception as e:
         print(f"Failed to initialize database tables: {e}")
         return False

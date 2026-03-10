@@ -434,6 +434,318 @@ class PortfolioManager:
         
         return "".join(parts)
     
+    def get_skills_timeline(self) -> Dict[str, Any]:
+        """
+        Build a skills timeline showing learning progression and depth.
+        Uses file_contents directly (file extensions and names) to extract
+        skills per project chronologically. No expensive analysis calls.
+        """
+        try:
+            projects = list_projects_chronologically(user_name=self.user_name)
+            if not projects:
+                return {'timeline': [], 'skill_summary': [], 'total_skills': 0}
+
+            project_analyzer = ProjectAnalyzer(self.user_name)
+            skill_tracker = {}
+            timeline_entries = []
+
+            for project in projects:
+                project_id = project['id']
+                project_date = project['created_at']
+                project_name = project['filename']
+
+                try:
+                    file_contents = get_file_contents_by_upload_id(project_id)
+                    if not file_contents:
+                        continue
+
+                    all_skills = set()
+                    all_skills.update(project_analyzer._extract_skills_from_files(file_contents))
+
+                    if not all_skills:
+                        continue
+
+                    new_skills = []
+                    growing_skills = []
+
+                    for skill in all_skills:
+                        if skill not in skill_tracker:
+                            skill_tracker[skill] = {
+                                'count': 1,
+                                'first_date': project_date,
+                                'first_project': project_name
+                            }
+                            new_skills.append(skill)
+                        else:
+                            skill_tracker[skill]['count'] += 1
+                            growing_skills.append({
+                                'skill': skill,
+                                'depth': skill_tracker[skill]['count']
+                            })
+
+                    if new_skills or growing_skills:
+                        date_str = project_date.isoformat() if hasattr(project_date, 'isoformat') else str(project_date)
+
+                        timeline_entries.append({
+                            'date': date_str,
+                            'project': project_name,
+                            'project_id': project_id,
+                            'new_skills': sorted(new_skills),
+                            'growing_skills': sorted(growing_skills, key=lambda x: x['skill']),
+                            'total_skills_at_point': len(skill_tracker)
+                        })
+                except Exception as e:
+                    print(f"[TIMELINE] Skipping project {project_id}: {e}")
+                    continue
+
+            skill_summary = []
+            for skill, data in skill_tracker.items():
+                count = data['count']
+                if count >= 4:
+                    level = 'Expert'
+                elif count >= 3:
+                    level = 'Advanced'
+                elif count >= 2:
+                    level = 'Intermediate'
+                else:
+                    level = 'Beginner'
+                skill_summary.append({
+                    'skill': skill,
+                    'proficiency': level,
+                    'project_count': count,
+                    'first_used': data['first_date'].isoformat() if hasattr(data['first_date'], 'isoformat') else str(data['first_date']),
+                    'first_project': data['first_project']
+                })
+
+            skill_summary.sort(key=lambda x: x['project_count'], reverse=True)
+
+            return {
+                'timeline': timeline_entries,
+                'skill_summary': skill_summary,
+                'total_skills': len(skill_tracker)
+            }
+        except Exception as e:
+            print(f"Error generating skills timeline: {e}")
+            return {'timeline': [], 'skill_summary': [], 'total_skills': 0}
+
+    def get_activity_heatmap(self) -> Dict[str, Any]:
+        """
+        Generate activity heatmap data from uploaded_files and file_contents.
+        Uses a single bulk SQL query for file counts per project instead
+        of calling analyze_project_from_db per project.
+        """
+        try:
+            from config.db_config import with_db_cursor
+
+            with with_db_cursor() as cursor:
+                cursor.execute("""
+                    SELECT uf.id, uf.filename, uf.created_at,
+                           COUNT(fc.id) AS file_count,
+                           COALESCE(SUM(fc.file_size), 0) AS total_size
+                    FROM uploaded_files uf
+                    LEFT JOIN file_contents fc ON fc.uploaded_file_id = uf.id
+                    WHERE uf.user_name = %s
+                    GROUP BY uf.id, uf.filename, uf.created_at
+                    ORDER BY uf.created_at ASC
+                """, (self.user_name,))
+                rows = cursor.fetchall()
+
+            if not rows:
+                return {'activity_data': {}, 'max_activity': 0, 'total_days': 0, 'total_projects': 0}
+
+            activity_by_date = defaultdict(lambda: {'count': 0, 'files': 0, 'lines': 0, 'projects': []})
+
+            for row in rows:
+                project_id, filename, created_at, file_count, total_size = row
+                date_key = created_at.strftime('%Y-%m-%d') if hasattr(created_at, 'strftime') else str(created_at)[:10]
+
+                activity_by_date[date_key]['count'] += 1
+                activity_by_date[date_key]['files'] += file_count
+                activity_by_date[date_key]['lines'] += int(total_size // 100)
+                if filename not in activity_by_date[date_key]['projects']:
+                    activity_by_date[date_key]['projects'].append(filename)
+
+            serializable = {}
+            max_activity = 0
+            for date, data in activity_by_date.items():
+                activity_score = data['count'] + (data['files'] // 5)
+                if activity_score < 1:
+                    activity_score = 1
+                if activity_score > max_activity:
+                    max_activity = activity_score
+                serializable[date] = {
+                    'count': data['count'],
+                    'files': data['files'],
+                    'lines': data['lines'],
+                    'projects': data['projects'],
+                    'score': activity_score
+                }
+
+            return {
+                'activity_data': serializable,
+                'max_activity': max_activity,
+                'total_days': len(serializable),
+                'total_projects': len(rows)
+            }
+        except Exception as e:
+            print(f"Error generating activity heatmap: {e}")
+            return {'activity_data': {}, 'max_activity': 0, 'total_days': 0, 'total_projects': 0}
+
+    def get_top3_showcase(self) -> List[Dict[str, Any]]:
+        """
+        Get top 3 projects with showcase data. Uses stored rankings if
+        available, otherwise falls back to projects sorted by file count.
+        Builds data directly from file_contents without requiring
+        the full portfolio report generation.
+        """
+        try:
+            from config.db_config import with_db_cursor
+            from common.constants import LANGUAGE_EXTENSIONS
+
+            ranked = []
+            try:
+                with with_db_cursor() as cursor:
+                    cursor.execute("""
+                        SELECT pr.project_id, uf.filename, pr.score
+                        FROM project_rankings pr
+                        JOIN uploaded_files uf ON uf.id = pr.project_id
+                        WHERE pr.user_name = %s
+                        ORDER BY pr.rank_position ASC
+                        LIMIT 3
+                    """, (self.user_name,))
+                    for row in cursor.fetchall():
+                        ranked.append({
+                            'project_id': row[0],
+                            'filename': row[1],
+                            'score': float(row[2]) if row[2] else 0
+                        })
+            except Exception:
+                pass
+
+            if not ranked:
+                with with_db_cursor() as cursor:
+                    cursor.execute("""
+                        SELECT uf.id, uf.filename, uf.created_at,
+                               COUNT(fc.id) AS file_count,
+                               COALESCE(SUM(fc.file_size), 0) AS total_size
+                        FROM uploaded_files uf
+                        LEFT JOIN file_contents fc ON fc.uploaded_file_id = uf.id
+                        WHERE uf.user_name = %s
+                        GROUP BY uf.id, uf.filename, uf.created_at
+                        ORDER BY file_count DESC, total_size DESC
+                        LIMIT 3
+                    """, (self.user_name,))
+                    rows = cursor.fetchall()
+
+                if not rows:
+                    return []
+
+                for idx, row in enumerate(rows):
+                    ranked.append({
+                        'project_id': row[0],
+                        'filename': row[1],
+                        'score': 0
+                    })
+
+            showcase = []
+            for rank_idx, rp in enumerate(ranked, 1):
+                project_id = rp['project_id']
+                project_name = rp['filename']
+                project_score = rp.get('score', 0)
+
+                try:
+                    file_contents = get_file_contents_by_upload_id(project_id)
+                    file_stats = get_file_statistics(project_id)
+
+                    if not file_contents:
+                        file_contents = []
+
+                    lang_counts = defaultdict(int)
+                    for fc in file_contents:
+                        ext = (fc.get('file_extension', '') or '').lower()
+                        if ext in LANGUAGE_EXTENSIONS:
+                            lang_counts[LANGUAGE_EXTENSIONS[ext]] += 1
+
+                    total_lang_files = sum(lang_counts.values())
+                    primary_language = 'Unknown'
+                    if lang_counts:
+                        primary_language = max(lang_counts, key=lang_counts.get)
+
+                    lang_breakdown = []
+                    for lang, cnt in sorted(lang_counts.items(), key=lambda x: x[1], reverse=True):
+                        pct = round((cnt / total_lang_files) * 100, 1) if total_lang_files > 0 else 0
+                        lang_breakdown.append({
+                            'language': lang,
+                            'files': cnt,
+                            'lines': 0,
+                            'percentage': pct
+                        })
+
+                    frameworks = self.project_analyzer._detect_frameworks_from_files(file_contents)
+
+                    has_tests = any(
+                        'test' in fc.get('file_path', '').lower() or
+                        'test' in fc.get('file_name', '').lower()
+                        for fc in file_contents
+                    )
+                    has_docs = any(
+                        (fc.get('file_extension', '') or '').lower() in ['.md', '.rst', '.txt']
+                        for fc in file_contents
+                    )
+
+                    total_files = file_stats.get('total_files', len(file_contents))
+                    total_size = file_stats.get('total_size_bytes', 0)
+                    size_mb = round(total_size / (1024 * 1024), 2)
+
+                    with with_db_cursor() as cursor:
+                        cursor.execute("""
+                            SELECT created_at FROM uploaded_files WHERE id = %s
+                        """, (project_id,))
+                        row = cursor.fetchone()
+                    created_at = row[0].isoformat() if row and row[0] else 'Unknown'
+
+                    description = f"A {primary_language} project with {total_files} files"
+                    if frameworks:
+                        description += f" using {', '.join(frameworks[:3])}"
+                    description += f", totalling {size_mb} MB."
+
+                    customization = None
+                    try:
+                        customization = ResumeManager.get_portfolio_customization(self.user_name, project_id)
+                    except Exception:
+                        pass
+
+                    showcase.append({
+                        'rank': rank_idx,
+                        'project_id': project_id,
+                        'name': (customization.get('custom_title') or project_name) if customization else project_name,
+                        'description': (customization.get('custom_description') or description) if customization else description,
+                        'role': (customization.get('custom_role') or 'Developer') if customization else 'Developer',
+                        'score': project_score,
+                        'primary_language': primary_language,
+                        'languages': lang_breakdown,
+                        'frameworks': frameworks,
+                        'file_count': total_files,
+                        'lines_of_code': 0,
+                        'size_mb': size_mb,
+                        'quality_score': min(100, int(project_score)) if project_score else 0,
+                        'oop_principles': 0,
+                        'has_tests': has_tests,
+                        'has_docs': has_docs,
+                        'duration_days': 0,
+                        'intensity': 'Unknown',
+                        'file_type_breakdown': {},
+                        'created_at': created_at
+                    })
+                except Exception as e:
+                    print(f"[TOP3] Skipping project {project_id}: {e}")
+                    continue
+
+            return showcase
+        except Exception as e:
+            print(f"Error generating top 3 showcase: {e}")
+            return []
+
     def get_chronological_skills(self) -> List[Dict[str, Any]]:
         """
         Produce a chronological list of skills exercised.

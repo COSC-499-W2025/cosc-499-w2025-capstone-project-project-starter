@@ -25,19 +25,70 @@
 
     <div id="messageBox" class="message" style="display: none;"></div>
 
-    <section class="view-panel public-dashboard">
-        <div class="public-dashboard-header">
-            <div class="public-dashboard-title">
-                <h2>Registered Users</h2>
-                <p>Each card shows a user record pulled from the database.</p>
+    <div id="mainContent">
+        <section class="view-panel public-dashboard" id="userListSection">
+            <div class="public-dashboard-header">
+                <div class="public-dashboard-title">
+                    <h2>Public Portfolios</h2>
+                    <p>Browse public portfolios from registered users.</p>
+                </div>
+                <div class="badge user-status" id="userStatus">Loading...</div>
             </div>
-            <div class="badge user-status" id="userStatus">Loading...</div>
-        </div>
-        <div class="user-grid" id="userGrid"></div>
-    </section>
+            <div class="user-grid" id="userGrid"></div>
+        </section>
+
+        <section id="portfolioSection" style="display:none;">
+            <div class="portfolio-dashboard-wrapper">
+                <div class="pd-header">
+                    <div class="pd-header-left">
+                        <h2 id="pubPortfolioTitle">Portfolio</h2>
+                        <p class="text-muted">Public portfolio — read-only view</p>
+                    </div>
+                    <div class="pd-header-actions">
+                        <button type="button" class="btn btn-secondary" onclick="showUserList()">Back to Users</button>
+                    </div>
+                </div>
+
+                <div class="public-portfolio-search">
+                    <input type="text" id="pubSearchInput" placeholder="Search projects, skills, languages..." oninput="debouncePublicSearch()" />
+                    <input type="text" id="pubFilterInput" placeholder="Filter by skill or language..." oninput="debouncePublicSearch()" />
+                    <button type="button" class="btn btn-secondary" onclick="clearPublicFilters()">Clear</button>
+                </div>
+
+                <div class="pd-stats-row" id="pubStatsRow">
+                    <div class="pd-stat-card"><div class="pd-stat-value" id="pubTotalProjects">-</div><div class="pd-stat-label">Projects</div></div>
+                    <div class="pd-stat-card"><div class="pd-stat-value" id="pubTotalLOC">-</div><div class="pd-stat-label">Total Files</div></div>
+                    <div class="pd-stat-card"><div class="pd-stat-value" id="pubTotalSkills">-</div><div class="pd-stat-label">Skills</div></div>
+                    <div class="pd-stat-card"><div class="pd-stat-value" id="pubTotalLangs">-</div><div class="pd-stat-label">Languages</div></div>
+                </div>
+
+                <div class="pd-section" id="pubTimelineSection">
+                    <div class="pd-section-header"><h3>Skills Timeline</h3><p class="text-muted">Learning progression</p></div>
+                    <div id="pubTimeline" class="pd-timeline-container"><div class="pd-loading">Loading...</div></div>
+                </div>
+
+                <div class="pd-section" id="pubHeatmapSection">
+                    <div class="pd-section-header"><h3>Activity Heatmap</h3><p class="text-muted">Productivity over time</p></div>
+                    <div id="pubHeatmap" class="pd-heatmap-container"><div class="pd-loading">Loading...</div></div>
+                </div>
+
+                <div class="pd-section" id="pubTopProjectsSection">
+                    <div class="pd-section-header"><h3>Top Projects</h3><p class="text-muted">Best work showcase</p></div>
+                    <div id="pubTopProjects" class="pd-top-projects"><div class="pd-loading">Loading...</div></div>
+                </div>
+
+                <div class="pd-section" id="pubSkillsSection">
+                    <div class="pd-section-header"><h3>Skills Overview</h3></div>
+                    <div id="pubSkills" class="pd-skills-grid"><div class="pd-loading">Loading...</div></div>
+                </div>
+            </div>
+        </section>
+    </div>
 
     <script>
         const API_BASE_URL = window.location.origin;
+        let pubSearchTimer = null;
+        let currentPublicUser = null;
 
         document.addEventListener('DOMContentLoaded', () => {
             loadUsers();
@@ -60,36 +111,15 @@
                 .replaceAll("'", "&#039;");
         }
 
-        function formatDate(value) {
-            if (!value) return 'Never';
-            const date = new Date(value);
-            if (Number.isNaN(date.getTime())) return String(value);
-            return date.toLocaleString();
+        function showUserList() {
+            document.getElementById('userListSection').style.display = '';
+            document.getElementById('portfolioSection').style.display = 'none';
+            currentPublicUser = null;
         }
 
-        function renderUsers(users) {
-            const container = document.getElementById('userGrid');
-            if (!users.length) {
-                container.innerHTML = '<div class="message">No users found.</div>';
-                return;
-            }
-
-            container.innerHTML = users.map(user => {
-                const name = escapeHtml(user.user_name || 'Unknown');
-                const statusBadge = user.is_login ? 'badge-success' : 'badge-warning';
-                const statusText = user.is_login ? 'Logged In' : 'Logged Out';
-                return `
-                    <article class="user-card">
-                        <h4>${name}</h4>
-                        <div class="user-meta">
-                            <div><span>User ID:</span> ${escapeHtml(user.user_id ?? '—')}</div>
-                            <div><span>Created:</span> ${escapeHtml(formatDate(user.create_time))}</div>
-                            <div><span>Last Login:</span> ${escapeHtml(formatDate(user.last_login_time))}</div>
-                        </div>
-                        <div class="badge ${statusBadge}">${statusText}</div>
-                    </article>
-                `;
-            }).join('');
+        function showPortfolioView() {
+            document.getElementById('userListSection').style.display = 'none';
+            document.getElementById('portfolioSection').style.display = '';
         }
 
         async function loadUsers() {
@@ -99,22 +129,285 @@
             status.textContent = 'Loading...';
 
             try {
-                const response = await fetch(`${API_BASE_URL}/api/users`);
+                const response = await fetch(`${API_BASE_URL}/api/portfolio/public-users`);
                 const data = await response.json().catch(() => ({}));
 
                 if (!response.ok || !data.success) {
-                    const msg = data.message || data.detail || `Request failed (${response.status})`;
-                    throw new Error(msg);
+                    throw new Error(data.message || data.detail || 'Failed to load');
                 }
 
                 const users = Array.isArray(data.users) ? data.users : [];
-                status.textContent = `${users.length} users`;
-                renderUsers(users);
+
+                if (users.length === 0) {
+                    status.textContent = 'No public portfolios';
+                    container.innerHTML = '<div class="message">No users have made their portfolios public yet.</div>';
+                    return;
+                }
+
+                status.textContent = `${users.length} public portfolio(s)`;
+                container.innerHTML = users.map(user => {
+                    const name = escapeHtml(user.user_name || 'Unknown');
+                    return `<article class="user-card" style="cursor:pointer" onclick="viewPublicPortfolio('${escapeHtml(user.user_name)}')">
+                        <h4>${name}</h4>
+                        <div class="user-meta">
+                            <div><span>Click to view portfolio</span></div>
+                        </div>
+                        <div class="badge badge-success">Public</div>
+                    </article>`;
+                }).join('');
             } catch (e) {
                 status.textContent = 'Unavailable';
                 container.innerHTML = `<div class="message error">${escapeHtml(e.message || 'Failed to load users')}</div>`;
-                showMessage('Failed to load users', 'error');
             }
+        }
+
+        async function viewPublicPortfolio(userName) {
+            currentPublicUser = userName;
+            document.getElementById('pubPortfolioTitle').textContent = `${userName}'s Portfolio`;
+            showPortfolioView();
+            await loadPublicPortfolio();
+        }
+
+        function debouncePublicSearch() {
+            clearTimeout(pubSearchTimer);
+            pubSearchTimer = setTimeout(() => loadPublicPortfolio(), 400);
+        }
+
+        function clearPublicFilters() {
+            document.getElementById('pubSearchInput').value = '';
+            document.getElementById('pubFilterInput').value = '';
+            loadPublicPortfolio();
+        }
+
+        async function loadPublicPortfolio() {
+            if (!currentPublicUser) return;
+            const search = document.getElementById('pubSearchInput').value.trim();
+            const filter = document.getElementById('pubFilterInput').value.trim();
+
+            let url = `/api/portfolio/public/${currentPublicUser}`;
+            const params = new URLSearchParams();
+            if (search) params.set('search', search);
+            if (filter) params.set('skill_filter', filter);
+            if (params.toString()) url += '?' + params.toString();
+
+            try {
+                const response = await fetch(`${API_BASE_URL}${url}`);
+                const data = await response.json().catch(() => ({}));
+
+                if (!response.ok || !data.success) {
+                    const msg = data.detail || data.message || 'Portfolio is private or not available';
+                    showMessage(msg, 'error');
+                    return;
+                }
+
+                const portfolio = data.portfolio;
+                const settings = portfolio.settings || {};
+
+                // Stats
+                const summary = portfolio.summary || {};
+                setText('pubTotalProjects', summary.total_projects ?? '-');
+                setText('pubTotalLOC', (summary.total_files ?? summary.total_lines_of_code ?? 0).toLocaleString());
+                setText('pubTotalSkills', summary.unique_skills ?? '-');
+                setText('pubTotalLangs', summary.unique_languages ?? '-');
+                toggle('pubStatsRow', settings.show_stats !== false);
+
+                // Timeline
+                toggle('pubTimelineSection', settings.show_timeline !== false);
+                if (settings.show_timeline !== false && portfolio.timeline) {
+                    const container = document.getElementById('pubTimeline');
+                    if (portfolio.timeline.timeline && portfolio.timeline.timeline.length > 0) {
+                        renderPublicTimeline(container, portfolio.timeline);
+                    } else {
+                        container.innerHTML = '<p class="text-muted">No timeline data.</p>';
+                    }
+                }
+
+                // Heatmap
+                toggle('pubHeatmapSection', settings.show_heatmap !== false);
+                if (settings.show_heatmap !== false && portfolio.heatmap) {
+                    const container = document.getElementById('pubHeatmap');
+                    if (portfolio.heatmap.activity_data && Object.keys(portfolio.heatmap.activity_data).length > 0) {
+                        renderPublicHeatmap(container, portfolio.heatmap);
+                    } else {
+                        container.innerHTML = '<p class="text-muted">No activity data.</p>';
+                    }
+                }
+
+                // Top Projects
+                toggle('pubTopProjectsSection', settings.show_top_projects !== false);
+                if (settings.show_top_projects !== false && portfolio.top_projects) {
+                    const container = document.getElementById('pubTopProjects');
+                    if (portfolio.top_projects.length > 0) {
+                        renderPublicTopProjects(container, portfolio.top_projects);
+                    } else {
+                        container.innerHTML = '<p class="text-muted">No top projects.</p>';
+                    }
+                }
+
+                // Skills
+                toggle('pubSkillsSection', settings.show_skills !== false || settings.show_stats !== false);
+                if (portfolio.skills) {
+                    const container = document.getElementById('pubSkills');
+                    const categorized = portfolio.skills.categorized || {};
+                    if (Object.keys(categorized).length > 0) {
+                        renderPublicSkills(container, categorized);
+                    } else {
+                        container.innerHTML = '<p class="text-muted">No skills data.</p>';
+                    }
+                }
+
+            } catch (e) {
+                showMessage('Failed to load portfolio: ' + e.message, 'error');
+            }
+        }
+
+        function setText(id, val) {
+            const el = document.getElementById(id);
+            if (el) el.textContent = val;
+        }
+
+        function toggle(id, show) {
+            const el = document.getElementById(id);
+            if (el) el.style.display = show ? '' : 'none';
+        }
+
+        function renderPublicTimeline(container, data) {
+            const { timeline, skill_summary } = data;
+            let html = '<div class="pd-timeline">';
+            timeline.forEach((entry, idx) => {
+                const dateStr = new Date(entry.date).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
+                html += `<div class="pd-tl-entry${idx === timeline.length - 1 ? ' pd-tl-last' : ''}">
+                    <div class="pd-tl-dot"></div>
+                    <div class="pd-tl-content">
+                        <div class="pd-tl-date">${dateStr}</div>
+                        <div class="pd-tl-project">${escapeHtml(entry.project)}</div>
+                        <div class="pd-tl-skills-row">`;
+                if (entry.new_skills && entry.new_skills.length > 0) {
+                    html += '<div class="pd-tl-new-label">New:</div>';
+                    entry.new_skills.forEach(s => { html += `<span class="badge badge-success">${escapeHtml(s)}</span>`; });
+                }
+                if (entry.growing_skills && entry.growing_skills.length > 0) {
+                    entry.growing_skills.forEach(gs => {
+                        const lvl = gs.depth >= 4 ? 'expert' : gs.depth >= 3 ? 'advanced' : 'intermediate';
+                        html += `<span class="badge pd-depth-${lvl}">${escapeHtml(gs.skill)} (${gs.depth}x)</span>`;
+                    });
+                }
+                html += `</div><div class="pd-tl-total">${entry.total_skills_at_point} total skills</div>
+                    </div></div>`;
+            });
+            html += '</div>';
+
+            if (skill_summary && skill_summary.length > 0) {
+                html += '<div class="pd-skill-summary"><h4>Skill Proficiency</h4><div class="pd-proficiency-grid">';
+                skill_summary.slice(0, 15).forEach(s => {
+                    const pctWidth = Math.min(100, (s.project_count / Math.max(1, skill_summary[0].project_count)) * 100);
+                    const levelClass = s.proficiency.toLowerCase();
+                    html += `<div class="pd-prof-item">
+                        <div class="pd-prof-label">${escapeHtml(s.skill)}</div>
+                        <div class="pd-prof-bar-track"><div class="pd-prof-bar pd-prof-${levelClass}" style="width:${pctWidth}%"></div></div>
+                        <div class="pd-prof-level">${s.proficiency}</div>
+                    </div>`;
+                });
+                html += '</div></div>';
+            }
+            container.innerHTML = html;
+        }
+
+        function renderPublicHeatmap(container, data) {
+            const { activity_data, max_activity } = data;
+            const dates = Object.keys(activity_data).sort();
+            if (dates.length === 0) { container.innerHTML = '<p class="text-muted">No data.</p>'; return; }
+
+            const lastDate = new Date(dates[dates.length - 1]);
+            const today = new Date();
+            const endDate = lastDate > today ? lastDate : today;
+            const startDate = new Date(endDate);
+            startDate.setFullYear(startDate.getFullYear() - 1);
+            const firstDate = new Date(dates[0]);
+            if (firstDate < startDate) startDate.setTime(firstDate.getTime());
+
+            const start = new Date(startDate);
+            start.setDate(start.getDate() - start.getDay());
+
+            let html = '<div class="pd-heatmap-grid">';
+            const cursor = new Date(start);
+            while (cursor <= endDate) {
+                html += '<div class="pd-hm-week">';
+                for (let d = 0; d < 7; d++) {
+                    const key = cursor.toISOString().slice(0, 10);
+                    const act = activity_data[key];
+                    let level = 0;
+                    let tooltip = key;
+                    if (act) {
+                        const score = act.score || 0;
+                        if (max_activity > 0) {
+                            const ratio = score / max_activity;
+                            level = ratio > 0.75 ? 4 : ratio > 0.5 ? 3 : ratio > 0.25 ? 2 : 1;
+                        } else { level = 1; }
+                        tooltip = `${key}: ${act.count} project(s), ${act.files} files`;
+                    }
+                    html += `<div class="pd-hm-cell pd-hm-l${level}" title="${escapeHtml(tooltip)}"></div>`;
+                    cursor.setDate(cursor.getDate() + 1);
+                }
+                html += '</div>';
+            }
+            html += '</div>';
+            html += `<div class="pd-hm-legend"><span class="text-muted">Less</span>
+                <div class="pd-hm-cell pd-hm-l0"></div><div class="pd-hm-cell pd-hm-l1"></div>
+                <div class="pd-hm-cell pd-hm-l2"></div><div class="pd-hm-cell pd-hm-l3"></div>
+                <div class="pd-hm-cell pd-hm-l4"></div><span class="text-muted">More</span></div>`;
+            container.innerHTML = html;
+        }
+
+        function renderPublicTopProjects(container, projects) {
+            let html = '<div class="pd-showcase-grid">';
+            projects.forEach(p => {
+                const medalColors = { 1: '#f59e0b', 2: '#94a3b8', 3: '#cd7c32' };
+                const medalColor = medalColors[p.rank] || '#6b7280';
+                const qualityPct = Math.min(100, p.quality_score || 0);
+                const badges = [];
+                if (p.has_tests) badges.push('<span class="badge badge-success">Tests</span>');
+                if (p.has_docs) badges.push('<span class="badge badge-info">Docs</span>');
+
+                html += `<div class="pd-showcase-card">
+                    <div class="pd-showcase-rank" style="background:${medalColor}">#${p.rank}</div>
+                    <div class="pd-showcase-header">
+                        <h4>${escapeHtml(p.name)}</h4>
+                        <span class="pd-showcase-role">${escapeHtml(p.role || '')}</span>
+                    </div>
+                    <p class="pd-showcase-desc">${escapeHtml((p.description||'').substring(0, 200))}</p>
+                    <div class="pd-showcase-meta">
+                        <div><strong>${(p.lines_of_code||0).toLocaleString()}</strong> <span>lines</span></div>
+                        <div><strong>${p.file_count||0}</strong> <span>files</span></div>
+                        <div><strong>${p.duration_days||0}</strong> <span>days</span></div>
+                        <div><strong>${p.size_mb||0}</strong> <span>MB</span></div>
+                    </div>
+                    <div class="pd-showcase-quality">
+                        <div class="pd-showcase-quality-label">Quality</div>
+                        <div class="pd-quality-bar-track"><div class="pd-quality-bar" style="width:${qualityPct}%"></div></div>
+                        <span>${qualityPct}%</span>
+                    </div>
+                    <div class="pd-showcase-tech">
+                        <span class="badge">${escapeHtml(p.primary_language || '')}</span>
+                        ${(p.frameworks||[]).map(f => '<span class="badge badge-purple">' + escapeHtml(f) + '</span>').join('')}
+                        ${badges.join('')}
+                    </div>
+                </div>`;
+            });
+            html += '</div>';
+            container.innerHTML = html;
+        }
+
+        function renderPublicSkills(container, categorized) {
+            let html = '<div class="pd-cat-grid">';
+            for (const [cat, skills] of Object.entries(categorized)) {
+                html += `<div class="pd-cat-card">
+                    <h4>${escapeHtml(cat)}</h4>
+                    <div class="pd-cat-skills">${skills.map(s => `<span class="badge">${escapeHtml(s)}</span>`).join('')}</div>
+                </div>`;
+            }
+            html += '</div>';
+            container.innerHTML = html;
         }
 
         function toggleTheme() {
@@ -127,7 +420,9 @@
         }
 
         function goBack() {
-            if (window.history.length > 1) {
+            if (currentPublicUser) {
+                showUserList();
+            } else if (window.history.length > 1) {
                 window.history.back();
             } else {
                 window.location.href = 'index.html';
@@ -137,7 +432,6 @@
         function updateThemeUI(theme) {
             const themeIcon = document.getElementById('themeIcon');
             const themeLabel = document.getElementById('themeLabel');
-
             if (theme === 'dark') {
                 themeIcon.innerHTML = '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z" />';
                 themeLabel.textContent = 'Light';
