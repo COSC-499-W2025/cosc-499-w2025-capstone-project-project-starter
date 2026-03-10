@@ -189,6 +189,83 @@ class ResumeManager:
             return False
 
     @staticmethod
+    def init_portfolio_timeline_overrides_table():
+        """Initialize the portfolio_timeline_overrides table for per-project skill edits."""
+        try:
+            with with_db_cursor() as cursor:
+                cursor.execute("""
+                    CREATE TABLE IF NOT EXISTS portfolio_timeline_overrides (
+                        id SERIAL PRIMARY KEY,
+                        user_name VARCHAR(255) NOT NULL,
+                        project_id INTEGER NOT NULL,
+                        hidden_skills JSONB DEFAULT '[]'::jsonb,
+                        added_skills JSONB DEFAULT '[]'::jsonb,
+                        custom_date DATE,
+                        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                        UNIQUE(user_name, project_id)
+                    );
+                """)
+                cursor.execute("""
+                    CREATE INDEX IF NOT EXISTS idx_portfolio_tl_overrides_user
+                    ON portfolio_timeline_overrides(user_name);
+                """)
+            print("[SUCCESS] portfolio_timeline_overrides table initialized")
+            return True
+        except Exception as e:
+            print(f"[ERROR] Error initializing portfolio_timeline_overrides table: {e}")
+            return False
+
+    @staticmethod
+    def save_timeline_override(user_name: str, project_id: int, override_data: dict) -> bool:
+        """Save or update timeline overrides for a specific project."""
+        try:
+            hidden = json.dumps(override_data.get('hidden_skills', []))
+            added = json.dumps(override_data.get('added_skills', []))
+            custom_date = override_data.get('custom_date') or None
+
+            with with_db_cursor() as cursor:
+                cursor.execute("""
+                    INSERT INTO portfolio_timeline_overrides
+                        (user_name, project_id, hidden_skills, added_skills, custom_date)
+                    VALUES (%s, %s, %s::jsonb, %s::jsonb, %s)
+                    ON CONFLICT (user_name, project_id)
+                    DO UPDATE SET
+                        hidden_skills = EXCLUDED.hidden_skills,
+                        added_skills  = EXCLUDED.added_skills,
+                        custom_date   = EXCLUDED.custom_date,
+                        updated_at    = CURRENT_TIMESTAMP
+                """, (user_name, project_id, hidden, added, custom_date))
+            return True
+        except Exception as e:
+            print(f"[ERROR] Failed to save timeline override: {e}")
+            return False
+
+    @staticmethod
+    def get_timeline_overrides(user_name: str) -> dict:
+        """Get all timeline overrides for a user, keyed by project_id."""
+        try:
+            with with_db_cursor() as cursor:
+                cursor.execute("""
+                    SELECT project_id, hidden_skills, added_skills, custom_date
+                    FROM portfolio_timeline_overrides
+                    WHERE user_name = %s
+                """, (user_name,))
+                rows = cursor.fetchall()
+            result = {}
+            for row in rows:
+                pid = row[0]
+                result[pid] = {
+                    'hidden_skills': row[1] if row[1] else [],
+                    'added_skills': row[2] if row[2] else [],
+                    'custom_date': row[3].isoformat() if row[3] else None
+                }
+            return result
+        except Exception as e:
+            print(f"[ERROR] Failed to get timeline overrides: {e}")
+            return {}
+
+    @staticmethod
     def init_portfolio_customizations_table():
         """
         Initialize the portfolio_customizations table in the database.

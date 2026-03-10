@@ -47,6 +47,9 @@ def initialize_database_tables():
         
         ResumeManager.init_portfolio_settings_table()
         print("portfolio_settings table initialized")
+
+        ResumeManager.init_portfolio_timeline_overrides_table()
+        print("portfolio_timeline_overrides table initialized")
         
         ConsentStorage.initialize_consent_table()
         
