@@ -2261,13 +2261,13 @@
                 if (p.has_docs) badges.push('<span class="badge badge-info">Docs</span>');
                 if (p.oop_principles > 0) badges.push('<span class="badge badge-purple">OOP</span>');
 
-                html += `<div class="pd-showcase-card">
+                html += `<div class="pd-showcase-card" data-project-id="${p.project_id}">
                     <div class="pd-showcase-rank" style="background:${medalColor}">#${p.rank}</div>
                     <div class="pd-showcase-header">
-                        <h4>${escapeHtml(p.name)}</h4>
-                        <span class="pd-showcase-role">${escapeHtml(p.role)}</span>
+                        <h4 contenteditable="true" class="pd-editable" data-field="name">${escapeHtml(p.name)}</h4>
+                        <span class="pd-showcase-role pd-editable" contenteditable="true" data-field="role">${escapeHtml(p.role)}</span>
                     </div>
-                    <p class="pd-showcase-desc">${escapeHtml(p.description || '').substring(0, 200)}${(p.description||'').length > 200 ? '...' : ''}</p>
+                    <p class="pd-showcase-desc pd-editable" contenteditable="true" data-field="description">${escapeHtml(p.description || '')}</p>
                     <div class="pd-showcase-meta">
                         <div><strong>${(p.lines_of_code||0).toLocaleString()}</strong> <span>lines</span></div>
                         <div><strong>${p.file_count||0}</strong> <span>files</span></div>
@@ -2295,6 +2295,69 @@
             });
             html += '</div>';
             container.innerHTML = html;
+        }
+
+        async function saveAllPortfolioEdits() {
+            const cards = document.querySelectorAll('.pd-showcase-card[data-project-id]');
+            if (!cards.length) {
+                showMessage('No projects to save. Generate portfolio data first.', 'error');
+                return;
+            }
+
+            const saveBtn = document.querySelector('.btn-save-portfolio');
+            if (saveBtn) {
+                saveBtn.disabled = true;
+                saveBtn.textContent = 'Saving...';
+            }
+
+            let saved = 0;
+            let errors = 0;
+
+            for (const card of cards) {
+                const projectId = parseInt(card.dataset.projectId);
+                if (!projectId) continue;
+
+                const nameEl = card.querySelector('[data-field="name"]');
+                const roleEl = card.querySelector('[data-field="role"]');
+                const descEl = card.querySelector('[data-field="description"]');
+
+                const customTitle = nameEl ? nameEl.textContent.trim() : '';
+                const customRole = roleEl ? roleEl.textContent.trim() : '';
+                const customDescription = descEl ? descEl.textContent.trim() : '';
+
+                try {
+                    const result = await apiCall(`/api/portfolio/${currentUser.user_name}/custom-data`, {
+                        method: 'POST',
+                        body: JSON.stringify({
+                            project_id: projectId,
+                            custom_title: customTitle,
+                            custom_description: customDescription,
+                            custom_role: customRole
+                        })
+                    });
+
+                    if (result.ok) {
+                        saved++;
+                    } else {
+                        errors++;
+                        console.error(`Failed to save project ${projectId}:`, result.error);
+                    }
+                } catch (e) {
+                    errors++;
+                    console.error(`Error saving project ${projectId}:`, e);
+                }
+            }
+
+            if (saveBtn) {
+                saveBtn.disabled = false;
+                saveBtn.textContent = 'Save Portfolio';
+            }
+
+            if (errors === 0) {
+                showMessage(`Portfolio saved successfully (${saved} project${saved !== 1 ? 's' : ''} updated)`, 'success');
+            } else {
+                showMessage(`Saved ${saved} project(s) with ${errors} error(s)`, 'error');
+            }
         }
 
         async function loadPdSkills() {
