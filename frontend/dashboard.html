@@ -278,8 +278,10 @@
 
                 return { ok: true, data, status: response.status };
             } catch (e) {
-                const errorMsg = e.message || 'Network error';
-                showErrorToast(errorMsg, 'offline');
+                if (e.name === 'AbortError') throw e;
+                const errorMsg = e.message || "Network error";
+                showErrorToast(errorMsg, "offline");
+
                 return { ok: false, error: errorMsg, status: 0, data: null };
             }
         }
@@ -676,17 +678,20 @@
 
                 const state = loadDashboardState();
                 const restoreId = state?.selectedProjectId;
-                if (restoreId) {
-                    // restore selection based on saved project ID
+                const idInList = Array.isArray(projects) && projects.some(p => p.id === restoreId);
+                if (restoreId && idInList) {
+                    // restore selection only if this project is in the current list (same user)
                     const containerEl = document.getElementById(listId);
                     const items = containerEl?.querySelectorAll?.('.project-item') || [];
                     items.forEach(el => el.classList.remove('selected'));
 
-                    // find the item with matching project ID in its onclick attribute
                     const match = Array.from(items).find(el => (el.getAttribute('onclick') || '').includes(`, ${restoreId},`));
                     if (match) match.classList.add('selected');
 
                     selectedProjectId = restoreId;
+                } else if (restoreId && !idInList) {
+                    selectedProjectId = null;
+                    saveDashboardState({ selectedProjectId: null });
                 }
             }
             
@@ -1118,6 +1123,25 @@
             });
         }
 
+        const ANALYZE_LOCAL_TIMEOUT_MS = 90000;
+        const ANALYZE_GEMINI_TIMEOUT_MS = 120000;
+
+        async function apiCallWithTimeout(endpoint, options, timeoutMs) {
+            const controller = new AbortController();
+            const id = setTimeout(() => controller.abort(), timeoutMs);
+            try {
+                const res = await apiCall(endpoint, { ...options, signal: controller.signal });
+                clearTimeout(id);
+                return res;
+            } catch (e) {
+                clearTimeout(id);
+                if (e.name === 'AbortError') {
+                    return { ok: false, error: 'Request timed out. Try again or use a smaller project.', data: null };
+                }
+                throw e;
+            }
+        }
+
         async function analyzeProject() {
             if (!selectedProjectId) {
                 showMessage('Please select a project', 'error');
@@ -1128,14 +1152,18 @@
             resultDiv.innerHTML = '<div class="analyze-loading"><div class="spinner"></div><p>Analyzing locally...</p></div>';
             switchAnalyzeTab('local');
             try {
-                const res = await apiCall(`/api/projects/${selectedProjectId}/analyze?user_name=${currentUser.user_name}`, { method: 'POST' });
+                const res = await apiCallWithTimeout(
+                    `/api/projects/${selectedProjectId}/analyze?user_name=${encodeURIComponent(currentUser.user_name || '')}`,
+                    { method: 'POST' },
+                    ANALYZE_LOCAL_TIMEOUT_MS
+                );
                 if (!res.ok) { renderError(resultDiv, res.error || 'Local analysis failed'); return; }
                 const data = res.data;
-                if (data.success) {
+                if (data && data.success) {
                     resultDiv.innerHTML = formatAnalysisResults(data.analysis);
                     renderSuccess(resultDiv, 'Local analysis complete');
                 } else {
-                    renderError(resultDiv, data.error || 'Analysis failed');
+                    renderError(resultDiv, (data && data.error) || 'Analysis failed');
                 }
             } catch (e) {
                 renderError(resultDiv, e.message || 'Analysis failed');
@@ -1152,14 +1180,18 @@
             resultDiv.innerHTML = '<div class="analyze-loading"><div class="spinner"></div><p>Running AI-powered deep analysis with Gemini...</p><p class="text-muted">This may take 15–30 seconds</p></div>';
             switchAnalyzeTab('ai');
             try {
-                const res = await apiCall(`/api/projects/${selectedProjectId}/analyze-gemini?user_name=${currentUser.user_name}`, { method: 'POST' });
+                const res = await apiCallWithTimeout(
+                    `/api/projects/${selectedProjectId}/analyze-gemini?user_name=${encodeURIComponent(currentUser.user_name || '')}`,
+                    { method: 'POST' },
+                    ANALYZE_GEMINI_TIMEOUT_MS
+                );
                 if (!res.ok) { renderError(resultDiv, res.error || 'Gemini analysis failed'); return; }
                 const data = res.data;
-                if (data.success && data.analysis) {
+                if (data && data.success && data.analysis) {
                     resultDiv.innerHTML = formatGeminiAnalysis(data.analysis);
                     renderSuccess(resultDiv, 'AI analysis complete');
                 } else {
-                    renderError(resultDiv, data.error || 'Gemini analysis failed');
+                    renderError(resultDiv, (data && data.error) || 'Gemini analysis failed');
                 }
             } catch (e) {
                 renderError(resultDiv, e.message || 'Gemini analysis failed');
