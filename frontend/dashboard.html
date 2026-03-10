@@ -103,7 +103,6 @@
                     </div>
                 </div>
                 <button type="button" class="menu-btn nav-tab" data-view="portfolio-dashboard" onclick="showView('portfolio-dashboard')">Portfolio</button>
-                <button type="button" class="menu-btn nav-tab" data-view="customize-portfolio" onclick="showView('customize-portfolio')">Customize Portfolio</button>
                 <button type="button" class="menu-btn nav-tab" onclick="window.location.href='public-dashboard.html'">Public Dashboard</button>
                 <button type="button" class="menu-btn nav-tab" data-view="llm-summary" onclick="showView('llm-summary')">LLM Summary</button>
             </div>
@@ -609,6 +608,7 @@
                             </div>
                             <button type="button" class="btn" onclick="loadPortfolioDashboard()">Refresh</button>
                             <button type="button" class="btn btn-secondary" onclick="generatePortfolio()">Generate Data</button>
+                            <button type="button" class="btn btn-save-portfolio" onclick="saveAllPortfolioEdits()">Save Portfolio</button>
                         </div>
                     </div>
 
@@ -650,7 +650,7 @@
                     </div>
                 </div>`,
                 'portfolio': `<div class="view-panel"><h3>View Portfolio</h3><button class="btn" onclick="viewPortfolio()">Load Portfolio</button><button class="btn btn-secondary" onclick="generatePortfolio()">Generate New</button><div id="portfolioResult" class="result"></div></div>`,
-                'customize-portfolio': `<div class="view-panel"><h3>Customize Portfolio Projects</h3><p class="text-muted" style="margin-bottom: 15px;">Add custom titles, descriptions, and roles to your portfolio projects to better showcase your work.</p><button class="btn" onclick="loadCustomizedProjects()">Refresh List</button><div id="customizeProjectsList" class="project-list"></div></div>`,
+                
                 'thumbnail': `<div class="view-panel"><h3>Add Thumbnail to Project</h3><div id="thumbnailProjectsList" class="project-list"></div><input type="file" id="thumbnailFile" accept="image/*" /><button class="btn" onclick="addThumbnail()">Upload Thumbnail</button><div id="thumbnailResult" class="result"></div></div>`,
                 'llm-summary': `<div class="view-panel"><h3>Run LLM Summary</h3><div id="llmProjectsList" class="project-list"></div><button class="btn" onclick="runLLMSummary()">Run Summary</button><div id="llmSummaryResult" class="result"></div></div>`,
                 'merge': `<div class="view-panel"><h3>Merge ZIP into Existing Project</h3><p class="text-muted" style="margin-bottom: 15px;">Add new files from another ZIP archive to an existing project. This allows incremental additions to your portfolio or résumé. Duplicate files (same path) will be automatically skipped.</p><div id="mergeProjectsList" class="project-list"></div><input type="file" id="mergeZipFile" accept=".zip" style="margin-top: 10px;" /><button class="btn" onclick="mergeZipToProject()">Merge Files</button><div id="mergeResult" class="result"></div></div>`
@@ -698,11 +698,7 @@
             if (viewName === 'portfolio-dashboard') {
                 setTimeout(() => loadPortfolioDashboard(), 100);
             }
-            if (viewName === 'customize-portfolio') {
-                setTimeout(() => {
-                    loadCustomizedProjects();
-                }, 100);
-            }
+            
             if (viewName === 'rank') {
                 const rankSaveBtn = document.getElementById('rankSaveBtn');
                 if (rankSaveBtn) rankSaveBtn.disabled = !lastRankedProjects || lastRankedProjects.length === 0;
