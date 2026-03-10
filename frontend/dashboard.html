@@ -6,10 +6,12 @@
     <title>Artifact - Dashboard</title>
     <link rel="stylesheet" href="css/styles.css">
     <link rel="stylesheet" href="css/dashboard.css">
+    <link rel="stylesheet" href="css/responsive.css">
 </head>
 <body>
     <header class="header">
         <div class="header-left">
+            <button type="button" class="nav-mobile-toggle" id="navMobileToggle" aria-label="Open menu" aria-expanded="false">≡</button>
             <h1>Artifact Dashboard <span id="username"></span></h1>
         </div>
         <div class="header-actions">
@@ -60,6 +62,7 @@
     </div>
     
     <div class="nav-wrapper" id="navWrapper">
+        <div class="nav-overlay" id="navOverlay" onclick="document.body.classList.remove('nav-open')" aria-hidden="true"></div>
         <nav class="nav-bar" aria-label="Main navigation">
             <div class="nav-tabs">
                 <button type="button" class="menu-btn nav-tab" data-view="overview" onclick="showView('overview')">Overview</button>
@@ -193,6 +196,11 @@
             }
         });
         
+        document.getElementById('navMobileToggle').addEventListener('click', function() {
+            document.body.classList.toggle('nav-open');
+            this.setAttribute('aria-expanded', document.body.classList.contains('nav-open'));
+        });
+
         document.addEventListener('click', (e) => {
             const item = e.target.closest('.project-item');
             if (!item) return;
@@ -479,7 +487,7 @@
             const { preserveSelection = false } = options;
             const container = document.getElementById('viewContainer');
 
-            // Close all dropdowns and collapse the reserved slot
+            document.body.classList.remove('nav-open');
             document.querySelectorAll('.submenu-grid.open').forEach(s => s.classList.remove('open'));
             document.querySelectorAll('.menu-btn.caret.open').forEach(t => t.classList.remove('open'));
             if (typeof updateNavDropdownSlot === 'function') updateNavDropdownSlot();
