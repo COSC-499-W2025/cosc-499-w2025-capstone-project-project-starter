@@ -79,7 +79,15 @@ class TestPortfolioCustomizationAPI:
         mock_get.return_value = None
 
         r = client.get("/api/portfolio/test_user/custom-data/999")
-        assert r.status_code == 404
+        assert r.status_code == 200
+
+        data = r.json()
+        assert data["project_id"] == 999
+        assert data["custom_title"] is None
+        assert data["custom_description"] is None
+        assert data["custom_role"] is None
+        assert data["created_at"] is None
+        assert data["updated_at"] is None
 
     @patch('api.routes.resume_portfolio.ResumeManager.clear_portfolio_customization')
     def test_clear_portfolio_customization(self, mock_clear):
