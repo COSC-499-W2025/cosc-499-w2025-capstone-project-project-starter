@@ -460,6 +460,17 @@ async def save_portfolio_settings(user_id: str, request: PortfolioSettingsReques
         raise HTTPException(status_code=500, detail=f"Error saving portfolio settings: {str(e)}")
 
 
+class TimelineOverrideEntry(BaseModel):
+    project_id: int
+    hidden_skills: Optional[List[str]] = []
+    added_skills: Optional[List[str]] = []
+    custom_date: Optional[str] = None
+
+
+class TimelineOverridesRequest(BaseModel):
+    overrides: List[TimelineOverrideEntry]
+
+
 @router.get("/portfolio/{user_id}/timeline")
 async def get_skills_timeline(user_id: str):
     """Get skills timeline showing learning progression and depth."""
@@ -469,6 +480,39 @@ async def get_skills_timeline(user_id: str):
         return {"success": True, "data": timeline_data}
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error retrieving skills timeline: {str(e)}")
+
+
+@router.post("/portfolio/{user_id}/timeline/overrides")
+async def save_timeline_overrides(user_id: str, request: TimelineOverridesRequest):
+    """Save timeline skill overrides (hidden/added skills, custom dates) for multiple projects."""
+    try:
+        saved = 0
+        for entry in request.overrides:
+            if entry.project_id <= 0:
+                continue
+            data = {
+                'hidden_skills': entry.hidden_skills or [],
+                'added_skills': entry.added_skills or [],
+                'custom_date': entry.custom_date
+            }
+            if ResumeManager.save_timeline_override(user_id, entry.project_id, data):
+                saved += 1
+        return {"success": True, "message": f"Saved {saved} timeline override(s)"}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error saving timeline overrides: {str(e)}")
+
+
+@router.get("/portfolio/{user_id}/timeline/overrides")
+async def get_timeline_overrides(user_id: str):
+    """Get all timeline overrides for a user."""
+    try:
+        overrides = ResumeManager.get_timeline_overrides(user_id)
+        serializable = {}
+        for pid, data in overrides.items():
+            serializable[str(pid)] = data
+        return {"success": True, "overrides": serializable}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error retrieving timeline overrides: {str(e)}")
 
 
 @router.get("/portfolio/{user_id}/heatmap")

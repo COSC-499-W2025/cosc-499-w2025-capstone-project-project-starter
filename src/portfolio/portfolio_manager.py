@@ -519,6 +519,36 @@ class PortfolioManager:
 
             skill_summary.sort(key=lambda x: x['project_count'], reverse=True)
 
+            try:
+                overrides = ResumeManager.get_timeline_overrides(self.user_name)
+            except Exception:
+                overrides = {}
+
+            if overrides:
+                for entry in timeline_entries:
+                    pid = entry.get('project_id')
+                    ov = overrides.get(pid)
+                    if not ov:
+                        continue
+
+                    hidden = set(ov.get('hidden_skills', []))
+                    added = ov.get('added_skills', [])
+                    custom_date = ov.get('custom_date')
+
+                    if hidden:
+                        entry['new_skills'] = [s for s in entry['new_skills'] if s not in hidden]
+                        entry['growing_skills'] = [gs for gs in entry['growing_skills'] if gs['skill'] not in hidden]
+
+                    if added:
+                        existing = set(entry['new_skills'])
+                        existing.update(gs['skill'] for gs in entry['growing_skills'])
+                        for s in added:
+                            if s not in existing:
+                                entry['new_skills'].append(s)
+
+                    if custom_date:
+                        entry['date'] = custom_date
+
             return {
                 'timeline': timeline_entries,
                 'skill_summary': skill_summary,

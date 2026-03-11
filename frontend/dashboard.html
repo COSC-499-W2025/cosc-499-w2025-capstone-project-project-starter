@@ -103,7 +103,6 @@
                     </div>
                 </div>
                 <button type="button" class="menu-btn nav-tab" data-view="portfolio-dashboard" onclick="showView('portfolio-dashboard')">Portfolio</button>
-                <button type="button" class="menu-btn nav-tab" data-view="customize-portfolio" onclick="showView('customize-portfolio')">Customize Portfolio</button>
                 <button type="button" class="menu-btn nav-tab" onclick="window.location.href='public-dashboard.html'">Public Dashboard</button>
                 <button type="button" class="menu-btn nav-tab" data-view="llm-summary" onclick="showView('llm-summary')">LLM Summary</button>
             </div>
@@ -607,7 +606,8 @@
                                     Public
                                 </button>
                             </div>
-                            <button type="button" class="btn" onclick="loadPortfolioDashboard()">Refresh</button>
+                            <button type="button" class="btn" onclick="loadPortfolioDashboard()">Refresh</button>                            
+                            <button type="button" class="btn btn-save-portfolio" onclick="saveAllPortfolioEdits()">Save Portfolio</button>
                         </div>
                     </div>
 
@@ -649,7 +649,7 @@
                     </div>
                 </div>`,
                 'portfolio': `<div class="view-panel"><h3>View Portfolio</h3><button class="btn" onclick="viewPortfolio()">Load Portfolio</button><button class="btn btn-secondary" onclick="generatePortfolio()">Generate New</button><div id="portfolioResult" class="result"></div></div>`,
-                'customize-portfolio': `<div class="view-panel"><h3>Customize Portfolio Projects</h3><p class="text-muted" style="margin-bottom: 15px;">Add custom titles, descriptions, and roles to your portfolio projects to better showcase your work.</p><button class="btn" onclick="loadCustomizedProjects()">Refresh List</button><div id="customizeProjectsList" class="project-list"></div></div>`,
+                
                 'thumbnail': `<div class="view-panel"><h3>Add Thumbnail to Project</h3><div id="thumbnailProjectsList" class="project-list"></div><input type="file" id="thumbnailFile" accept="image/*" /><button class="btn" onclick="addThumbnail()">Upload Thumbnail</button><div id="thumbnailResult" class="result"></div></div>`,
                 'llm-summary': `<div class="view-panel"><h3>Run LLM Summary</h3><div id="llmProjectsList" class="project-list"></div><button class="btn" onclick="runLLMSummary()">Run Summary</button><div id="llmSummaryResult" class="result"></div></div>`,
                 'merge': `<div class="view-panel"><h3>Merge ZIP into Existing Project</h3><p class="text-muted" style="margin-bottom: 15px;">Add new files from another ZIP archive to an existing project. This allows incremental additions to your portfolio or résumé. Duplicate files (same path) will be automatically skipped.</p><div id="mergeProjectsList" class="project-list"></div><input type="file" id="mergeZipFile" accept=".zip" style="margin-top: 10px;" /><button class="btn" onclick="mergeZipToProject()">Merge Files</button><div id="mergeResult" class="result"></div></div>`
@@ -697,11 +697,7 @@
             if (viewName === 'portfolio-dashboard') {
                 setTimeout(() => loadPortfolioDashboard(), 100);
             }
-            if (viewName === 'customize-portfolio') {
-                setTimeout(() => {
-                    loadCustomizedProjects();
-                }, 100);
-            }
+            
             if (viewName === 'rank') {
                 const rankSaveBtn = document.getElementById('rankSaveBtn');
                 if (rankSaveBtn) rankSaveBtn.disabled = !lastRankedProjects || lastRankedProjects.length === 0;
@@ -2061,10 +2057,13 @@
             if (el) el.textContent = val;
         }
 
+        let timelineEdits = {};
+
         async function loadPdTimeline() {
             const container = document.getElementById('pdTimeline');
             if (!container) return;
             container.innerHTML = '<div class="pd-loading"><div class="spinner"></div><p>Loading timeline...</p></div>';
+            timelineEdits = {};
             try {
                 const res = await apiCall(`/api/portfolio/${currentUser.user_name}/timeline`);
                 if (!res.ok) {
@@ -2076,6 +2075,16 @@
                     container.innerHTML = '<p class="text-muted">No timeline data yet. Upload projects to see your skills timeline.</p>';
                     return;
                 }
+                data.timeline.forEach(entry => {
+                    timelineEdits[entry.project_id] = {
+                        hidden_skills: [],
+                        added_skills: [],
+                        custom_date: null,
+                        original_date: entry.date,
+                        current_new_skills: [...entry.new_skills],
+                        current_growing_skills: entry.growing_skills.map(gs => ({...gs}))
+                    };
+                });
                 renderTimeline(container, data);
                 setTextSafe('pdTotalSkills', data.total_skills ?? 0);
             } catch (e) {
@@ -2084,31 +2093,124 @@
             }
         }
 
+        function removeTimelineSkill(projectId, skillName) {
+            const edit = timelineEdits[projectId];
+            if (!edit) return;
+
+            const addedIdx = edit.added_skills.indexOf(skillName);
+            if (addedIdx >= 0) {
+                edit.added_skills.splice(addedIdx, 1);
+            } else {
+                if (!edit.hidden_skills.includes(skillName)) {
+                    edit.hidden_skills.push(skillName);
+                }
+            }
+
+            edit.current_new_skills = edit.current_new_skills.filter(s => s !== skillName);
+            edit.current_growing_skills = edit.current_growing_skills.filter(gs => gs.skill !== skillName);
+
+            rerenderTimelineEntry(projectId);
+        }
+
+        function addTimelineSkill(projectId) {
+            const input = document.getElementById(`tl-add-input-${projectId}`);
+            if (!input) return;
+            const skill = input.value.trim();
+            if (!skill) return;
+
+            const edit = timelineEdits[projectId];
+            if (!edit) return;
+
+            const allCurrent = new Set(edit.current_new_skills);
+            edit.current_growing_skills.forEach(gs => allCurrent.add(gs.skill));
+            if (allCurrent.has(skill)) {
+                showMessage(`"${skill}" is already in this entry`, 'error');
+                return;
+            }
+
+            const hiddenIdx = edit.hidden_skills.indexOf(skill);
+            if (hiddenIdx >= 0) {
+                edit.hidden_skills.splice(hiddenIdx, 1);
+            } else {
+                edit.added_skills.push(skill);
+            }
+
+            edit.current_new_skills.push(skill);
+            input.value = '';
+            rerenderTimelineEntry(projectId);
+        }
+
+        function changeTimelineDate(projectId, newDate) {
+            const edit = timelineEdits[projectId];
+            if (!edit) return;
+            edit.custom_date = newDate || null;
+        }
+
+        function rerenderTimelineEntry(projectId) {
+            const entryEl = document.querySelector(`.pd-tl-entry[data-project-id="${projectId}"]`);
+            if (!entryEl) return;
+            const edit = timelineEdits[projectId];
+            if (!edit) return;
+
+            const skillsRow = entryEl.querySelector('.pd-tl-skills-row');
+            if (!skillsRow) return;
+
+            let html = '';
+            if (edit.current_new_skills.length > 0) {
+                html += '<div class="pd-tl-new-label">New skills:</div>';
+                edit.current_new_skills.forEach(s => {
+                    html += `<span class="badge badge-success pd-tl-skill-badge">${escapeHtml(s)}<button type="button" class="pd-tl-skill-remove" onclick="removeTimelineSkill(${projectId}, '${s.replace(/'/g, "\\'")}')" title="Remove skill">&times;</button></span>`;
+                });
+            }
+            if (edit.current_growing_skills.length > 0) {
+                edit.current_growing_skills.forEach(gs => {
+                    const lvl = gs.depth >= 4 ? 'expert' : gs.depth >= 3 ? 'advanced' : 'intermediate';
+                    html += `<span class="badge pd-depth-${lvl} pd-tl-skill-badge" title="Used in ${gs.depth} projects">${escapeHtml(gs.skill)} (${gs.depth}x)<button type="button" class="pd-tl-skill-remove" onclick="removeTimelineSkill(${projectId}, '${gs.skill.replace(/'/g, "\\'")}')" title="Remove skill">&times;</button></span>`;
+                });
+            }
+            html += `<div class="pd-tl-add-skill">
+                <input type="text" id="tl-add-input-${projectId}" class="pd-tl-add-input" placeholder="Add skill..." onkeydown="if(event.key==='Enter'){event.preventDefault();addTimelineSkill(${projectId})}" />
+                <button type="button" class="pd-tl-add-btn" onclick="addTimelineSkill(${projectId})">+</button>
+            </div>`;
+
+            skillsRow.innerHTML = html;
+
+            const totalEl = entryEl.querySelector('.pd-tl-total');
+            if (totalEl) {
+                const count = edit.current_new_skills.length + edit.current_growing_skills.length;
+                totalEl.textContent = `${count} skill${count !== 1 ? 's' : ''} in this entry`;
+            }
+        }
+
         function renderTimeline(container, data) {
             const { timeline, skill_summary } = data;
 
             let html = '<div class="pd-timeline">';
             timeline.forEach((entry, idx) => {
-                const dateStr = new Date(entry.date).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
+                const dateVal = entry.date ? entry.date.substring(0, 10) : '';
                 const isLast = idx === timeline.length - 1;
-                html += `<div class="pd-tl-entry${isLast ? ' pd-tl-last' : ''}">
+                html += `<div class="pd-tl-entry${isLast ? ' pd-tl-last' : ''}" data-project-id="${entry.project_id}">
                     <div class="pd-tl-dot"></div>
                     <div class="pd-tl-content">
-                        <div class="pd-tl-date">${dateStr}</div>
+                        <input type="date" class="pd-tl-date-input" value="${dateVal}" onchange="changeTimelineDate(${entry.project_id}, this.value)" title="Change date" />
                         <div class="pd-tl-project">${escapeHtml(entry.project)}</div>
                         <div class="pd-tl-skills-row">`;
                 if (entry.new_skills.length > 0) {
                     html += '<div class="pd-tl-new-label">New skills:</div>';
                     entry.new_skills.forEach(s => {
-                        html += `<span class="badge badge-success">${escapeHtml(s)}</span>`;
+                        html += `<span class="badge badge-success pd-tl-skill-badge">${escapeHtml(s)}<button type="button" class="pd-tl-skill-remove" onclick="removeTimelineSkill(${entry.project_id}, '${s.replace(/'/g, "\\'")}')" title="Remove skill">&times;</button></span>`;
                     });
                 }
                 if (entry.growing_skills.length > 0) {
                     entry.growing_skills.forEach(gs => {
                         const lvl = gs.depth >= 4 ? 'expert' : gs.depth >= 3 ? 'advanced' : 'intermediate';
-                        html += `<span class="badge pd-depth-${lvl}" title="Used in ${gs.depth} projects">${escapeHtml(gs.skill)} (${gs.depth}x)</span>`;
+                        html += `<span class="badge pd-depth-${lvl} pd-tl-skill-badge" title="Used in ${gs.depth} projects">${escapeHtml(gs.skill)} (${gs.depth}x)<button type="button" class="pd-tl-skill-remove" onclick="removeTimelineSkill(${entry.project_id}, '${gs.skill.replace(/'/g, "\\'")}')" title="Remove skill">&times;</button></span>`;
                     });
                 }
+                html += `<div class="pd-tl-add-skill">
+                    <input type="text" id="tl-add-input-${entry.project_id}" class="pd-tl-add-input" placeholder="Add skill..." onkeydown="if(event.key==='Enter'){event.preventDefault();addTimelineSkill(${entry.project_id})}" />
+                    <button type="button" class="pd-tl-add-btn" onclick="addTimelineSkill(${entry.project_id})">+</button>
+                </div>`;
                 html += `</div>
                         <div class="pd-tl-total">${entry.total_skills_at_point} total skills</div>
                     </div>
@@ -2264,13 +2366,13 @@
                 if (p.has_docs) badges.push('<span class="badge badge-info">Docs</span>');
                 if (p.oop_principles > 0) badges.push('<span class="badge badge-purple">OOP</span>');
 
-                html += `<div class="pd-showcase-card">
+                html += `<div class="pd-showcase-card" data-project-id="${p.project_id}">
                     <div class="pd-showcase-rank" style="background:${medalColor}">#${p.rank}</div>
                     <div class="pd-showcase-header">
-                        <h4>${escapeHtml(p.name)}</h4>
-                        <span class="pd-showcase-role">${escapeHtml(p.role)}</span>
+                        <h4 contenteditable="true" class="pd-editable" data-field="name">${escapeHtml(p.name)}</h4>
+                        <span class="pd-showcase-role pd-editable" contenteditable="true" data-field="role">${escapeHtml(p.role)}</span>
                     </div>
-                    <p class="pd-showcase-desc">${escapeHtml(p.description || '').substring(0, 200)}${(p.description||'').length > 200 ? '...' : ''}</p>
+                    <p class="pd-showcase-desc pd-editable" contenteditable="true" data-field="description">${escapeHtml(p.description || '')}</p>
                     <div class="pd-showcase-meta">
                         <div><strong>${(p.lines_of_code||0).toLocaleString()}</strong> <span>lines</span></div>
                         <div><strong>${p.file_count||0}</strong> <span>files</span></div>
@@ -2298,6 +2400,89 @@
             });
             html += '</div>';
             container.innerHTML = html;
+        }
+
+        async function saveAllPortfolioEdits() {
+            const saveBtn = document.querySelector('.btn-save-portfolio');
+            if (saveBtn) {
+                saveBtn.disabled = true;
+                saveBtn.textContent = 'Saving...';
+            }
+
+            let saved = 0;
+            let errors = 0;
+
+            const cards = document.querySelectorAll('.pd-showcase-card[data-project-id]');
+            for (const card of cards) {
+                const projectId = parseInt(card.dataset.projectId);
+                if (!projectId) continue;
+
+                const nameEl = card.querySelector('[data-field="name"]');
+                const roleEl = card.querySelector('[data-field="role"]');
+                const descEl = card.querySelector('[data-field="description"]');
+
+                const customTitle = nameEl ? nameEl.textContent.trim() : '';
+                const customRole = roleEl ? roleEl.textContent.trim() : '';
+                const customDescription = descEl ? descEl.textContent.trim() : '';
+
+                try {
+                    const result = await apiCall(`/api/portfolio/${currentUser.user_name}/custom-data`, {
+                        method: 'POST',
+                        body: JSON.stringify({
+                            project_id: projectId,
+                            custom_title: customTitle,
+                            custom_description: customDescription,
+                            custom_role: customRole
+                        })
+                    });
+                    if (result.ok) saved++;
+                    else { errors++; console.error(`Failed to save project ${projectId}:`, result.error); }
+                } catch (e) {
+                    errors++;
+                    console.error(`Error saving project ${projectId}:`, e);
+                }
+            }
+
+            const overrides = [];
+            for (const [pid, edit] of Object.entries(timelineEdits)) {
+                const hasChanges = edit.hidden_skills.length > 0 || edit.added_skills.length > 0 || edit.custom_date;
+                if (hasChanges) {
+                    overrides.push({
+                        project_id: parseInt(pid),
+                        hidden_skills: edit.hidden_skills,
+                        added_skills: edit.added_skills,
+                        custom_date: edit.custom_date || null
+                    });
+                }
+            }
+
+            if (overrides.length > 0) {
+                try {
+                    const tlResult = await apiCall(`/api/portfolio/${currentUser.user_name}/timeline/overrides`, {
+                        method: 'POST',
+                        body: JSON.stringify({ overrides })
+                    });
+                    if (tlResult.ok) saved += overrides.length;
+                    else { errors++; console.error('Failed to save timeline overrides:', tlResult.error); }
+                } catch (e) {
+                    errors++;
+                    console.error('Error saving timeline overrides:', e);
+                }
+            }
+
+            if (saveBtn) {
+                saveBtn.disabled = false;
+                saveBtn.textContent = 'Save Portfolio';
+            }
+
+            const totalItems = cards.length + overrides.length;
+            if (totalItems === 0) {
+                showMessage('No changes to save. Generate portfolio data first.', 'error');
+            } else if (errors === 0) {
+                showMessage('Portfolio saved successfully', 'success');
+            } else {
+                showMessage(`Saved with ${errors} error(s)`, 'error');
+            }
         }
 
         async function loadPdSkills() {
