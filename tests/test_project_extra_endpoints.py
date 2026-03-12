@@ -107,19 +107,22 @@ class TestProjectAnalysisEndpoints:
         data = response.json()
         assert data["error_type"] == "HTTP_ERROR"
 
+    @patch("api.routes.project._ensure_llm_allowed")
     @patch('project_manager.get_project_by_id')
-    def test_analyze_gemini_project_not_found(self, mock_get_project):
+    def test_analyze_gemini_project_not_found(self, mock_get_project, mock_llm_guard):
         mock_get_project.return_value = None
+        mock_llm_guard.return_value = "test_user"
 
         response = client.post("/api/projects/123/analyze-gemini")
 
         assert response.status_code == 404
 
+    @patch("api.routes.project._ensure_llm_allowed")
     @patch('analysis.gemini_analyzer.GeminiAnalyzer')
     @patch('project_analyzer.ProjectAnalyzer')
     @patch('config.db_config.with_db_cursor')
     @patch('project_manager.get_project_by_id')
-    def test_analyze_gemini_success(self, mock_get_project, mock_with_cursor, mock_pa_cls, mock_ga_cls):
+    def test_analyze_gemini_success(self, mock_get_project, mock_with_cursor, mock_pa_cls, mock_ga_cls, mock_llm_guard):
         mock_get_project.return_value = {"project_info": {"filename": "proj.zip"}}
 
         mock_cursor = MagicMock()
@@ -134,6 +137,7 @@ class TestProjectAnalysisEndpoints:
 
         ga_instance = mock_ga_cls.return_value
         ga_instance.analyze_project.return_value = {"success": True, "summary": "ok"}
+        mock_llm_guard.return_value = "test_user"
 
         response = client.post("/api/projects/123/analyze-gemini?user_name=test_user")
 
@@ -144,10 +148,11 @@ class TestProjectAnalysisEndpoints:
 
 
 class TestProjectQuickSummaryEndpoint:
+    @patch("api.routes.project._ensure_llm_allowed")
     @patch('analysis.gemini_analyzer.GeminiAnalyzer')
     @patch('config.db_config.with_db_cursor')
     @patch('project_manager.get_project_by_id')
-    def test_quick_summary_success(self, mock_get_project, mock_with_cursor, mock_ga_cls):
+    def test_quick_summary_success(self, mock_get_project, mock_with_cursor, mock_ga_cls, mock_llm_guard):
         mock_get_project.return_value = {"project_info": {"filename": "proj.zip"}}
         mock_cursor = MagicMock()
         mock_cursor.fetchall.return_value = [
@@ -157,19 +162,22 @@ class TestProjectQuickSummaryEndpoint:
 
         ga_instance = mock_ga_cls.return_value
         ga_instance.get_quick_summary.return_value = "summary"
+        mock_llm_guard.return_value = "test_user"
 
-        response = client.post("/api/projects/123/quick-summary")
+        response = client.post("/api/projects/123/quick-summary?user_name=test_user")
 
         assert response.status_code == 200
         data = response.json()
         assert data["success"] is True
         assert data["summary"] == "summary"
 
+    @patch("api.routes.project._ensure_llm_allowed")
     @patch('project_manager.get_project_by_id')
-    def test_quick_summary_project_not_found(self, mock_get_project):
+    def test_quick_summary_project_not_found(self, mock_get_project, mock_llm_guard):
         mock_get_project.return_value = None
+        mock_llm_guard.return_value = "test_user"
 
-        response = client.post("/api/projects/123/quick-summary")
+        response = client.post("/api/projects/123/quick-summary?user_name=test_user")
 
         assert response.status_code == 404
 
@@ -226,9 +234,11 @@ class TestProjectRankingEndpoints:
         assert data["success"] is True
         assert data["rankings"] == [{"project_id": 1, "rank": 1}]
 
+    @patch("api.routes.project._ensure_llm_allowed")
     @patch('api.routes.project.rank_projects_with_gemini')
-    def test_rank_projects_gemini(self, mock_rank_gemini):
+    def test_rank_projects_gemini(self, mock_rank_gemini, mock_llm_guard):
         mock_rank_gemini.return_value = {"success": True, "ranked": [1, 2, 3]}
+        mock_llm_guard.return_value = "test_user"
 
         response = client.post("/api/projects/rank-gemini?user_name=test_user")
 

@@ -52,12 +52,17 @@ def test_get_portfolio_customization_returns_data(monkeypatch):
     mock_context.__exit__ = Mock(return_value=False)
     
     # Mock fetchone to return customization data
+    # Columns in order:
+    # custom_title, custom_description, custom_role,
+    # display_order, highlight, created_at, updated_at
     mock_cursor.fetchone.return_value = (
         'Custom Title',
         'Custom Description',
         'Custom Role',
+        5,               # display_order
+        True,            # highlight
         datetime(2026, 2, 14, 10, 0, 0),
-        datetime(2026, 2, 14, 11, 0, 0)
+        datetime(2026, 2, 14, 11, 0, 0),
     )
     
     def mock_with_db_cursor():
@@ -72,6 +77,8 @@ def test_get_portfolio_customization_returns_data(monkeypatch):
     assert result['custom_title'] == 'Custom Title'
     assert result['custom_description'] == 'Custom Description'
     assert result['custom_role'] == 'Custom Role'
+    assert result['display_order'] == 5
+    assert result['highlight'] is True
     assert result['created_at'] is not None
     assert result['updated_at'] is not None
 
