@@ -35,6 +35,16 @@
                 </div>
                 <div class="badge user-status" id="userStatus">Loading...</div>
             </div>
+            <div class="public-portfolio-search">
+                <input type="text" id="userSearchInput" placeholder="Search username..." oninput="debounceUserFilters()" />
+                <input type="number" id="minProjects" placeholder="Min projects" oninput="debounceUserFilters()" />
+                <input type="number" id="maxProjects" placeholder="Max projects" oninput="debounceUserFilters()" />
+                <input type="number" id="minLangs" placeholder="Min languages" oninput="debounceUserFilters()" />
+                <input type="number" id="maxLangs" placeholder="Max languages" oninput="debounceUserFilters()" />
+                <input type="number" id="minSkills" placeholder="Min skills" oninput="debounceUserFilters()" />
+                <input type="number" id="maxSkills" placeholder="Max skills" oninput="debounceUserFilters()" />
+                <button type="button" class="btn btn-secondary" onclick="clearUserFilters()">Clear</button>
+            </div>
             <div class="user-grid" id="userGrid"></div>
         </section>
 
@@ -89,7 +99,9 @@
     <script>
         const API_BASE_URL = window.location.origin;
         let pubSearchTimer = null;
+        let userFilterTimer = null;
         let currentPublicUser = null;
+        let publicUsersWithStats = [];
 
         document.addEventListener('DOMContentLoaded', () => {
             loadUsers();
@@ -146,20 +158,108 @@
                 }
 
                 status.textContent = `${users.length} public portfolio(s)`;
-                container.innerHTML = users.map(user => {
-                    const name = escapeHtml(user.user_name || 'Unknown');
-                    return `<article class="user-card" style="cursor:pointer" onclick="viewPublicPortfolio('${escapeHtml(user.user_name)}')">
-                        <h4>${name}</h4>
-                        <div class="user-meta">
-                            <div><span>Click to view portfolio</span></div>
-                        </div>
-                        <div class="badge badge-success">Public</div>
-                    </article>`;
-                }).join('');
+                publicUsersWithStats = await fetchUserStats(users);
+                renderUserCards(publicUsersWithStats);
             } catch (e) {
                 status.textContent = 'Unavailable';
                 container.innerHTML = `<div class="message error">${escapeHtml(e.message || 'Failed to load users')}</div>`;
             }
+        }
+
+        async function fetchUserStats(users) {
+            const list = Array.isArray(users) ? users : [];
+            const requests = list.map(async user => {
+                const userName = user.user_name || '';
+                if (!userName) return { user, stats: null };
+                try {
+                    const response = await fetch(`${API_BASE_URL}/api/portfolio/public/${encodeURIComponent(userName)}/stats`);
+                    const data = await response.json().catch(() => ({}));
+                    if (!response.ok || !data.success) return { user, stats: null };
+                    return { user, stats: data.stats || {} };
+                } catch (e) {
+                    return { user, stats: null };
+                }
+            });
+            return Promise.all(requests);
+        }
+
+        function renderUserCards(entries) {
+            const container = document.getElementById('userGrid');
+            const filtered = filterUsers(entries);
+            if (filtered.length === 0) {
+                container.innerHTML = '<div class="message">No users match the current filters.</div>';
+                return;
+            }
+            container.innerHTML = filtered.map(entry => {
+                const user = entry.user || {};
+                const s = entry.stats || {};
+                const name = escapeHtml(user.user_name || 'Unknown');
+                return `<article class="user-card" style="cursor:pointer" onclick="viewPublicPortfolio('${escapeHtml(user.user_name)}')">
+                    <h4>${name}</h4>
+                    <div class="user-meta">
+                        <div><span>Click to view portfolio</span></div>
+                    </div>
+                    <div class="pd-stat-inline">
+                        <span>${s.total_projects ?? 0} projects</span>
+                        <span>•</span>
+                        <span>${s.unique_languages ?? 0} langs</span>
+                        <span>•</span>
+                        <span>${s.unique_skills ?? 0} skills</span>
+                    </div>
+                    <div class="badge badge-success">Public</div>
+                </article>`;
+            }).join('');
+        }
+
+        function parseNum(id) {
+            const el = document.getElementById(id);
+            if (!el || el.value === '') return null;
+            const n = Number(el.value);
+            return Number.isFinite(n) ? n : null;
+        }
+
+        function filterUsers(entries) {
+            const q = (document.getElementById('userSearchInput')?.value || '').trim().toLowerCase();
+            const minProjects = parseNum('minProjects');
+            const maxProjects = parseNum('maxProjects');
+            const minLangs = parseNum('minLangs');
+            const maxLangs = parseNum('maxLangs');
+            const minSkills = parseNum('minSkills');
+            const maxSkills = parseNum('maxSkills');
+
+            return entries.filter(entry => {
+                const userName = (entry.user?.user_name || '').toLowerCase();
+                if (q && !userName.includes(q)) return false;
+
+                const s = entry.stats || {};
+                const projects = s.total_projects ?? 0;
+                const langs = s.unique_languages ?? 0;
+                const skills = s.unique_skills ?? 0;
+
+                if (minProjects !== null && projects < minProjects) return false;
+                if (maxProjects !== null && projects > maxProjects) return false;
+                if (minLangs !== null && langs < minLangs) return false;
+                if (maxLangs !== null && langs > maxLangs) return false;
+                if (minSkills !== null && skills < minSkills) return false;
+                if (maxSkills !== null && skills > maxSkills) return false;
+                return true;
+            });
+        }
+
+        function debounceUserFilters() {
+            clearTimeout(userFilterTimer);
+            userFilterTimer = setTimeout(() => renderUserCards(publicUsersWithStats), 200);
+        }
+
+        function clearUserFilters() {
+            document.getElementById('userSearchInput').value = '';
+            document.getElementById('minProjects').value = '';
+            document.getElementById('maxProjects').value = '';
+            document.getElementById('minLangs').value = '';
+            document.getElementById('maxLangs').value = '';
+            document.getElementById('minSkills').value = '';
+            document.getElementById('maxSkills').value = '';
+            renderUserCards(publicUsersWithStats);
         }
 
         async function viewPublicPortfolio(userName) {
