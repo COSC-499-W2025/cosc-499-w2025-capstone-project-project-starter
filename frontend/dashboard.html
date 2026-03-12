@@ -519,7 +519,7 @@
                     method: 'POST',
                     body: JSON.stringify({
                         consent_given: consentGiven,
-                        user_id: currentUser.user_id || currentUser.user_name
+                        user_name: currentUser.user_name || currentUser.user_id
                     })
                 });
                 if (!res.ok) { showMessage(res.error, "error"); return; }
@@ -1329,7 +1329,9 @@
 
         async function initializeLlmConsent() {
             try {
-                const res = await apiCall('/api/settings/llm');
+                const username = (currentUser && currentUser.user_name) ? encodeURIComponent(currentUser.user_name) : '';
+                if (!username) { console.warn('No user for LLM settings'); return; }
+                const res = await apiCall(`/api/settings/llm?username=${username}`);
                 if (!res.ok) {
                     console.warn('Failed to load LLM settings:', res.error);
                     return;
@@ -1347,7 +1349,9 @@
 
         async function setLlmConsent(enabled) {
             try {
-                const res = await apiCall('/api/settings/llm', {
+                const username = (currentUser && currentUser.user_name) ? encodeURIComponent(currentUser.user_name) : '';
+                if (!username) { showMessage('Not logged in', 'error'); return; }
+                const res = await apiCall(`/api/settings/llm?username=${username}`, {
                     method: 'POST',
                     body: JSON.stringify({ llm_enabled: !!enabled })
                 });
@@ -1855,7 +1859,7 @@
             const resultDiv = document.getElementById('cleanupResult');
             resultDiv.innerHTML = 'Cleaning up...';
             try {
-                const res = await apiCall(`/api/projects/${selectedProjectId}/insights`, { method: 'DELETE' });
+                const res = await apiCall(`/api/projects/${selectedProjectId}/data?user_name=${encodeURIComponent(currentUser.user_name || '')}`, { method: 'DELETE' });
                 if (!res.ok) { renderError(resultDiv, res.error || 'Failed to clean up insights'); return; }
                 const data = res.data;
                 if (data.success) {
