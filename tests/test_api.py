@@ -1739,19 +1739,10 @@ def test_projects_compare_endpoint_attribute_precedence_and_highlights(client, e
     assert body2["attributes"] == ["meta"]
     assert all(("meta" in p and "skills_top" not in p) for p in body2["projects"])
     
-import os
-import uuid
-import tempfile
-
-from fastapi.testclient import TestClient
-from src.api.app import app
-
-client = TestClient(app)
-
 TEST_DATA_DIR = "tests/data"
 
 
-def test_incremental_project_upload():
+def test_incremental_project_upload(client):
     """
     Req #21:
     The system must allow incremental information by adding another
@@ -1827,7 +1818,7 @@ def test_incremental_project_upload():
         # Optional: ensure only one project was created, others are skipped
         assert len([p for p in created_projects if p["project_id"] == project_id]) <= 1
 
-def test_resume_edit(client: TestClient):
+def test_resume_edit(client):
     # 1. Consent
     r = client.post("/privacy-consent", json={
         "user_id": None,
