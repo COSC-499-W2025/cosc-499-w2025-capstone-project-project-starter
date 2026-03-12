@@ -42,6 +42,11 @@ class GeneralSettingsRequest(BaseModel):
     git_username: Optional[str] = None
 
 
+class LLMSettingsRequest(BaseModel):
+    """Request model for LLM/external AI consent."""
+    llm_enabled: bool
+
+
 class AccountUpdateRequest(BaseModel):
     """Request model for account updates (placeholder for future use)."""
     pass
@@ -269,4 +274,71 @@ async def update_general_settings(
         raise HTTPException(
             status_code=500,
             detail=f"Error updating general settings: {str(e)}"
+        )
+
+
+@router.get("/llm")
+async def get_llm_settings(
+    current_user: dict = Depends(get_authenticated_user),
+):
+    """
+    Get LLM / external AI permission state for the authenticated user.
+    This is a thin wrapper over the external_service_permissions table.
+    """
+    try:
+        from external_services.permission_manager import ExternalServicePermission
+
+        username = current_user["user_name"]
+        permission_manager = ExternalServicePermission(username)
+        llm_enabled = permission_manager.has_permission("LLM")
+
+        return {
+            "success": True,
+            "llm_enabled": llm_enabled,
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Error retrieving LLM settings: {str(e)}",
+        )
+
+
+@router.post("/llm")
+async def update_llm_settings(
+    request: LLMSettingsRequest,
+    current_user: dict = Depends(get_authenticated_user),
+):
+    """
+    Update LLM / external AI permission for the authenticated user.
+    This writes to the same backing store used by CLI flows, so both
+    paths stay in sync.
+    """
+    try:
+        from external_services.external_service_prompt import ExternalServicePrompt
+
+        username = current_user["user_name"]
+        ok = ExternalServicePrompt.store_permission(
+            username,
+            "LLM",
+            request.llm_enabled,
+        )
+        if not ok:
+            raise HTTPException(
+                status_code=500,
+                detail="Failed to store LLM permission in database",
+            )
+
+        return {
+            "success": True,
+            "message": "LLM settings updated successfully",
+            "llm_enabled": request.llm_enabled,
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Error updating LLM settings: {str(e)}",
         )

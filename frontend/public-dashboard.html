@@ -92,7 +92,14 @@
         let currentPublicUser = null;
 
         document.addEventListener('DOMContentLoaded', () => {
-            loadUsers();
+            const params = new URLSearchParams(window.location.search || '');
+            const user = params.get('user') || params.get('id');
+            if (user) {
+                // Direct-link into a specific public portfolio
+                viewPublicPortfolio(user);
+            } else {
+                loadUsers();
+            }
         });
 
         function showMessage(text, type) {
@@ -165,6 +172,16 @@
         async function viewPublicPortfolio(userName) {
             currentPublicUser = userName;
             document.getElementById('pubPortfolioTitle').textContent = `${userName}'s Portfolio`;
+
+            // Keep URL in sync for shareable links
+            try {
+                const url = new URL(window.location.href);
+                url.searchParams.set('user', userName);
+                window.history.replaceState({}, '', url.toString());
+            } catch (e) {
+                // ignore URL issues in older browsers
+            }
+
             showPortfolioView();
             await loadPublicPortfolio();
         }

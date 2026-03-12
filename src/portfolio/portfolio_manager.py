@@ -98,7 +98,6 @@ class PortfolioManager:
             
             # Process each project using existing functions
             projects_data = {}
-            ordered_project_names = []
             top_summaries = []
             
             for rank_idx, ranked_project in enumerate(ranked_projects, 1):
@@ -223,23 +222,45 @@ class PortfolioManager:
                     
                     # Get code analysis from summary
                     code_analysis = summary.get('code_analysis', {})
+
+                    # Derive evaluation insights from code analysis where possible
+                    evaluation_insights = []
+                    quality_summary = (code_analysis or {}).get('code_quality_summary', {})
+                    avg_quality = quality_summary.get('average_quality_score', 0)
+                    strengths = quality_summary.get('strengths', []) or []
+                    weaknesses = quality_summary.get('weaknesses', []) or []
+                    if avg_quality:
+                        evaluation_insights.append(f"Average code quality score: {int(avg_quality)}")
+                    if strengths:
+                        evaluation_insights.append(f"Strengths: {', '.join(strengths[:2])}")
+                    if weaknesses:
+                        evaluation_insights.append(f"Improvements: {', '.join(weaknesses[:2])}")
                     
                     # Generate humanized project summary
                     project_summary_text = self._generate_project_summary_text(
                         summary, code_analysis, key_metrics, frameworks
                     )
+
+                    # Derive a coarse-grained score tier from the normalized score
+                    score_tier = "developing"
+                    if project_score >= 80:
+                        score_tier = "top"
+                    elif project_score >= 60:
+                        score_tier = "strong"
                     
                     # Build project data structure
-                    projects_data[project_name] = {
+                    project_entry = {
+                        # Stable identifiers
+                        'project_id': project_id,
                         'name': project_info.get('filename', 'Unknown'),
                         'created_at': project_info.get('created_at', 'Unknown'),
+                        # Verified technical data
                         'primary_language': languages_data.get('primary_language', 'Unknown'),
                         'languages': languages_data.get('languages', []),
                         'file_count': key_metrics.get('totals', {}).get('files', 0),
                         'lines_of_code': key_metrics.get('totals', {}).get('lines', 0),
                         'size_mb': round(file_stats.get('total_size_bytes', 0) / (1024 * 1024), 2),
                         'skills': sorted(list(extracted_skills)),
-                        'summary': project_summary_text,  # Humanized summary
                         'frameworks': frameworks,
                         'has_tests': contribution_metrics.get('test_files', 0) > 0,
                         'has_docs': contribution_metrics.get('documentation_files', 0) > 0,
@@ -248,23 +269,40 @@ class PortfolioManager:
                         'duration_days': project_duration_days,
                         'intensity': intensity,
                         'code_quality_score': code_analysis.get('code_quality_summary', {}).get('average_quality_score', 0) if code_analysis else 0,
-                        'oop_principles_count': sum(code_analysis.get('oop_principles_summary', {}).get(k, {}).get('count', 0) 
-                                                   for k in ['abstraction', 'encapsulation', 'polymorphism', 'inheritance']) if code_analysis else 0,
+                        'oop_principles_count': sum(
+                            (code_analysis.get('oop_principles_summary', {}) or {}).get(k, {}).get('count', 0)
+                            for k in ['abstraction', 'encapsulation', 'polymorphism', 'inheritance']
+                        ) if code_analysis else 0,
                         'optimization_count': len(code_analysis.get('optimization_summary', [])) if code_analysis else 0,
-                        'rank_score': project_score
+                        # Ranking / evaluation
+                        'rank_score': project_score,
+                        'score_tier': score_tier,
+                        'evaluation_insights': evaluation_insights,
+                        # Narrative summary (user can customize via portfolio customizations)
+                        'summary': project_summary_text,
+                        # Layout / presentation defaults (can be customized per user)
+                        'display_order': rank_idx,
+                        'highlight': False,
+                        # Role/title separate from underlying collaboration metrics
+                        'role_title': 'Individual contributor' if not is_collaborative else 'Collaborator',
                     }
-                    
-                    # Apply portfolio customizations if they exist (custom data takes priority)
+
+                    # Apply portfolio customizations if they exist (custom data takes priority for narrative/layout only)
                     if project_id in portfolio_customizations:
                         customization = portfolio_customizations[project_id]
                         if customization.get('custom_title'):
-                            projects_data[project_name]['name'] = customization['custom_title']
+                            project_entry['name'] = customization['custom_title']
                         if customization.get('custom_description'):
-                            projects_data[project_name]['summary'] = customization['custom_description']
+                            project_entry['summary'] = customization['custom_description']
                         if customization.get('custom_role'):
-                            projects_data[project_name]['collaboration_level'] = customization['custom_role']
-                    
-                    ordered_project_names.append(project_name)
+                            # Map custom role into role_title, keep collaboration_level as verified data
+                            project_entry['role_title'] = customization['custom_role']
+                        if customization.get('display_order') is not None:
+                            project_entry['display_order'] = customization['display_order']
+                        if customization.get('highlight') is not None:
+                            project_entry['highlight'] = bool(customization['highlight'])
+
+                    projects_data[project_name] = project_entry
                     
                     # Get summary for top projects using existing summarize_project function
                     if rank_idx <= 3:  # Top 3 projects
@@ -302,6 +340,10 @@ class PortfolioManager:
             categorized_skills = skill_mapper.categorize_skills(all_skills_set)
             
             # Build portfolio report in humanized format
+            projects_list = list(projects_data.values())
+            # Respect user-defined display order when present; fall back to rank order
+            projects_list.sort(key=lambda p: (p.get('display_order') if p.get('display_order') is not None else 10**9))
+
             portfolio_report = {
                 'user_name': self.user_name,
                 'generated_at': timestamp,
@@ -320,7 +362,7 @@ class PortfolioManager:
                     'languages': sorted(list(all_languages_set)),
                     'frameworks': sorted(list(all_frameworks_set)),
                 },
-                'projects': list(projects_data.values()),
+                'projects': projects_list,
             }
             
             return portfolio_report
