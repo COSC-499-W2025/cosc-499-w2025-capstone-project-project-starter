@@ -18,6 +18,8 @@ from tools.cleanup_insights import delete_insights
 from database.user_preferences import update_user_git_username, get_user_git_username
 from config.db_config import with_db_cursor
 from common.logger import setup_logger
+from consent.consent_storage import ConsentStorage
+from external_services.permission_manager import ExternalServicePermission
 
 router = APIRouter()
 logger = setup_logger(__name__)
@@ -40,6 +42,33 @@ def _detect_image_type(image_bytes: bytes) -> Optional[str]:
     if len(image_bytes) >= 12 and image_bytes[0:4] == b"RIFF" and image_bytes[8:12] == b"WEBP":
         return "webp"
     return None
+
+
+def _ensure_llm_allowed(user_name: Optional[str]) -> str:
+    """
+    Ensure that LLM / external AI usage is allowed for the given user.
+    Raises HTTPException(403) when not permitted.
+    Returns the resolved username for downstream use.
+    """
+    if not user_name:
+        raise HTTPException(
+            status_code=400,
+            detail="user_name is required for LLM-powered operations",
+        )
+
+    consent = ConsentStorage.get_consent_status(user_name) or {}
+    consent_given = consent.get("consent_given", False)
+
+    permission_manager = ExternalServicePermission(user_name)
+    llm_permission = permission_manager.has_permission("LLM")
+
+    if not consent_given or not llm_permission:
+        raise HTTPException(
+            status_code=403,
+            detail="LLM features are disabled for this user. Enable AI features in settings to use Gemini analysis.",
+        )
+
+    return user_name
 
 
 @router.post("/projects/upload")
@@ -467,12 +496,14 @@ async def analyze_project_gemini(project_id: int, user_name: Optional[str] = Que
     and actionable recommendations.
     """
     try:
+        # Enforce explicit LLM consent + external permission
+        resolved_user = _ensure_llm_allowed(user_name)
         from project_manager import get_project_by_id
         from analysis.gemini_analyzer import GeminiAnalyzer
         from config.db_config import with_db_cursor
         
         # Get project info
-        project = get_project_by_id(project_id, user_name=user_name)
+        project = get_project_by_id(project_id, user_name=resolved_user)
         if not project:
             raise HTTPException(status_code=404, detail=f"Project {project_id} not found")
         
@@ -503,7 +534,7 @@ async def analyze_project_gemini(project_id: int, user_name: Optional[str] = Que
         
         # Get basic context from local analysis for Gemini
         from project_analyzer import ProjectAnalyzer
-        local_analyzer = ProjectAnalyzer(user_name or 'default_user', interactive=False)
+        local_analyzer = ProjectAnalyzer(resolved_user or "default_user", interactive=False)
         languages = local_analyzer._analyze_languages_from_files(file_contents)
         frameworks = local_analyzer._detect_frameworks_from_files(file_contents)
         
@@ -549,12 +580,14 @@ async def get_project_quick_summary(project_id: int, user_name: Optional[str] = 
     Useful for resume/portfolio descriptions.
     """
     try:
+        # Enforce explicit LLM consent + external permission
+        resolved_user = _ensure_llm_allowed(user_name)
         from project_manager import get_project_by_id
         from analysis.gemini_analyzer import GeminiAnalyzer
         from config.db_config import with_db_cursor
         
         # Get project info
-        project = get_project_by_id(project_id, user_name=user_name)
+        project = get_project_by_id(project_id, user_name=resolved_user)
         if not project:
             raise HTTPException(status_code=404, detail=f"Project {project_id} not found")
         
@@ -639,7 +672,9 @@ async def rank_top3(user_name: Optional[str] = Query(None)):
 async def rank_projects_gemini(user_name: Optional[str] = Query(None)):
     """Rank all projects using Gemini AI comparison."""
     try:
-        result = rank_projects_with_gemini(user_name=user_name)
+        # Enforce explicit LLM consent + external permission
+        resolved_user = _ensure_llm_allowed(user_name)
+        result = rank_projects_with_gemini(user_name=resolved_user)
         if not result.get("success"):
             raise HTTPException(status_code=400, detail=result.get("error", "Gemini ranking failed"))
         return result

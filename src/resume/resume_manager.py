@@ -283,6 +283,10 @@ class ResumeManager:
                         custom_title TEXT,
                         custom_description TEXT,
                         custom_role TEXT,
+                        -- Layout / presentation-only controls. These MUST NOT
+                        -- change underlying verified analysis data.
+                        display_order INTEGER,
+                        highlight BOOLEAN,
                         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                         updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                         UNIQUE(user_name, project_id)
@@ -300,7 +304,33 @@ class ResumeManager:
                     CREATE INDEX IF NOT EXISTS idx_portfolio_customizations_project_id 
                     ON portfolio_customizations(project_id);
                 """)
-                
+
+                # Migrations for older schemas: add missing columns if necessary
+                cursor.execute("""
+                    DO $$
+                    BEGIN
+                        -- Ensure display_order exists
+                        IF NOT EXISTS (
+                            SELECT 1 FROM information_schema.columns
+                            WHERE table_name = 'portfolio_customizations'
+                              AND column_name = 'display_order'
+                        ) THEN
+                            ALTER TABLE portfolio_customizations
+                            ADD COLUMN display_order INTEGER;
+                        END IF;
+
+                        -- Ensure highlight exists
+                        IF NOT EXISTS (
+                            SELECT 1 FROM information_schema.columns
+                            WHERE table_name = 'portfolio_customizations'
+                              AND column_name = 'highlight'
+                        ) THEN
+                            ALTER TABLE portfolio_customizations
+                            ADD COLUMN highlight BOOLEAN;
+                        END IF;
+                    END $$;
+                """)
+
                 # Add foreign key constraint to user_informations
                 cursor.execute("""
                     DO $$
@@ -453,22 +483,34 @@ class ResumeManager:
             bool: True if save successful, False otherwise
         """
         try:
-            custom_title = custom_data.get('custom_title', '').strip()
-            custom_description = custom_data.get('custom_description', '').strip()
-            custom_role = custom_data.get('custom_role', '').strip()
+            custom_title = (custom_data.get('custom_title') or "").strip()
+            custom_description = (custom_data.get('custom_description') or "").strip()
+            custom_role = (custom_data.get('custom_role') or "").strip()
+            display_order = custom_data.get('display_order')
+            highlight = custom_data.get('highlight')
             
             with with_db_cursor() as cursor:
                 cursor.execute("""
                     INSERT INTO portfolio_customizations 
-                        (user_name, project_id, custom_title, custom_description, custom_role)
-                    VALUES (%s, %s, %s, %s, %s)
+                        (user_name, project_id, custom_title, custom_description, custom_role, display_order, highlight)
+                    VALUES (%s, %s, %s, %s, %s, %s, %s)
                     ON CONFLICT (user_name, project_id)
                     DO UPDATE SET 
                         custom_title = EXCLUDED.custom_title,
                         custom_description = EXCLUDED.custom_description,
                         custom_role = EXCLUDED.custom_role,
+                        display_order = EXCLUDED.display_order,
+                        highlight = EXCLUDED.highlight,
                         updated_at = CURRENT_TIMESTAMP
-                """, (user_name, project_id, custom_title or None, custom_description or None, custom_role or None))
+                """, (
+                    user_name,
+                    project_id,
+                    custom_title or None,
+                    custom_description or None,
+                    custom_role or None,
+                    display_order,
+                    highlight,
+                ))
             
             return True
             
@@ -492,7 +534,13 @@ class ResumeManager:
         try:
             with with_db_cursor() as cursor:
                 cursor.execute("""
-                    SELECT custom_title, custom_description, custom_role, created_at, updated_at
+                    SELECT custom_title,
+                           custom_description,
+                           custom_role,
+                           display_order,
+                           highlight,
+                           created_at,
+                           updated_at
                     FROM portfolio_customizations
                     WHERE user_name = %s AND project_id = %s
                 """, (user_name, project_id))
@@ -505,8 +553,10 @@ class ResumeManager:
                     'custom_title': result[0],
                     'custom_description': result[1],
                     'custom_role': result[2],
-                    'created_at': result[3],
-                    'updated_at': result[4]
+                    'display_order': result[3],
+                    'highlight': result[4],
+                    'created_at': result[5],
+                    'updated_at': result[6],
                 }
             return None
             

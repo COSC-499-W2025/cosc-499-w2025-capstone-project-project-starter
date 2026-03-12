@@ -291,6 +291,20 @@ async def get_public_portfolio(user_id: str, search: Optional[str] = Query(None)
         raise HTTPException(status_code=500, detail=f"Error retrieving public portfolio: {str(e)}")
 
 
+@router.get("/portfolio/public/by-username/{user_name}")
+async def get_public_portfolio_by_username(
+    user_name: str,
+    search: Optional[str] = Query(None),
+    skill_filter: Optional[str] = Query(None),
+):
+    """
+    Alias endpoint for public portfolio retrieval keyed explicitly by user_name.
+    This mirrors /portfolio/public/{user_id} but makes the intent clearer for
+    shareable links and future hosted deployments.
+    """
+    return await get_public_portfolio(user_name, search=search, skill_filter=skill_filter)
+
+
 @router.get("/portfolio/{user_id}")
 async def get_portfolio(user_id: str, top_n: Optional[int] = Query(None)):
     """Get user's portfolio by ID."""
@@ -344,7 +358,11 @@ async def save_portfolio_customization(user_id: str, request: PortfolioCustomiza
         custom_data = {
             'custom_title': request.custom_title,
             'custom_description': request.custom_description,
-            'custom_role': request.custom_role
+            'custom_role': request.custom_role,
+            # Layout / presentation-only controls; backend will persist these
+            # but they do NOT alter any verified analysis data.
+            'display_order': request.display_order,
+            'highlight': request.highlight,
         }
         
         if ResumeManager.save_portfolio_customization(user_id, request.project_id, custom_data):
@@ -356,8 +374,10 @@ async def save_portfolio_customization(user_id: str, request: PortfolioCustomiza
                     custom_title=saved['custom_title'],
                     custom_description=saved['custom_description'],
                     custom_role=saved['custom_role'],
+                    display_order=saved.get('display_order'),
+                    highlight=saved.get('highlight'),
                     created_at=saved['created_at'].isoformat() if saved['created_at'] else None,
-                    updated_at=saved['updated_at'].isoformat() if saved['updated_at'] else None
+                    updated_at=saved['updated_at'].isoformat() if saved['updated_at'] else None,
                 )
         raise HTTPException(status_code=500, detail="Failed to save portfolio customization")
     except HTTPException:
@@ -390,8 +410,10 @@ async def get_portfolio_customization(user_id: str, project_id: int):
                 custom_title=customization['custom_title'],
                 custom_description=customization['custom_description'],
                 custom_role=customization['custom_role'],
+                display_order=customization.get('display_order'),
+                highlight=customization.get('highlight'),
                 created_at=customization['created_at'].isoformat() if customization['created_at'] else None,
-                updated_at=customization['updated_at'].isoformat() if customization['updated_at'] else None
+                updated_at=customization['updated_at'].isoformat() if customization['updated_at'] else None,
             )
 
         return PortfolioCustomizationResponse(
