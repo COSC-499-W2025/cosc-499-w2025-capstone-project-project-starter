@@ -2,7 +2,7 @@
 from fastapi import FastAPI, Request, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
-from fastapi.responses import FileResponse, JSONResponse
+from fastapi.responses import FileResponse, JSONResponse, Response
 from contextlib import asynccontextmanager
 from api.routes import health
 from api.routes import project
@@ -194,6 +194,12 @@ async def api_test_page():
     if path:
         return FileResponse(path)
     raise HTTPException(status_code=404, detail="API test page not found")
+
+
+@app.get("/favicon.ico")
+async def favicon():
+    """Avoid 404 when browser requests favicon. No icon file required."""
+    return Response(status_code=204)
 
 @app.exception_handler(HTTPException)
 async def http_exception_handler(request: Request, exc: HTTPException):
