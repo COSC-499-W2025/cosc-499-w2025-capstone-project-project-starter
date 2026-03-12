@@ -66,6 +66,7 @@ from src.api.generation import (
     list_portfolio_showcases,
     get_resume_item,
 )
+from src.api.portfolio_analytics import build_portfolio_analytics
 
 from src.db.deletion import (
     delete_snapshot_and_gc,
@@ -513,11 +514,12 @@ def _build_activity_heatmap(engine, portfolio_id: str) -> List[Dict[str, Any]]:
 def _build_dashboard_snapshot(engine, portfolio_id: str) -> Dict[str, Any]:
     projects_payload = list_projects(portfolio_id=portfolio_id, user_id=None, credentials=None)
     top_payload = top_projects(portfolio_id=portfolio_id, limit=3, credentials=None)
-    timeline_payload = list_portfolio_skills_chronological(
+    analytics_payload = build_portfolio_analytics(
+        engine=engine,
         portfolio_id=portfolio_id,
-        direction="asc",
-        limit=500,
-        credentials=None,
+        timeline_limit=2000,
+        heatmap_bucket="day",
+        top_limit=3,
     )
     showcases_payload = list_portfolio_showcases(engine=engine, portfolio_id=portfolio_id, limit=200)
 
@@ -526,8 +528,9 @@ def _build_dashboard_snapshot(engine, portfolio_id: str) -> Dict[str, Any]:
         "portfolio_id": portfolio_id,
         "projects": projects_payload.get("projects") or [],
         "top_projects": top_payload.get("top_projects") or [],
-        "skills_timeline": timeline_payload.get("skill_events") or [],
-        "activity_heatmap": _build_activity_heatmap(engine, portfolio_id),
+        "skills_timeline": ((analytics_payload.get("skills_timeline") or {}).get("events") or []),
+        "activity_heatmap": ((analytics_payload.get("activity_heatmap") or {}).get("buckets") or []),
+        "top_project_evolution": ((analytics_payload.get("top_project_evolution") or {}).get("projects") or []),
         "showcases": showcases_payload.get("items") or [],
     }
 
@@ -1752,6 +1755,39 @@ def top_projects(
             )
 
     return {"portfolio_id": portfolio_id, "limit": int(limit), "top_projects": summaries}
+
+
+@app.get("/portfolio/{portfolio_id}/analytics")
+def get_portfolio_analytics(
+    portfolio_id: str,
+    timeline_limit: int = Query(default=1000, ge=1, le=10_000),
+    heatmap_bucket: str = Query(default="day", pattern="^(day|week|hour)$"),
+    top_limit: int = Query(default=3, ge=1, le=10),
+    credentials: Optional[HTTPAuthorizationCredentials] = Depends(auth_bearer),
+):
+    """
+    Returns in-depth portfolio analytics payloads used by public dashboard visualizations:
+      - skills timeline with progression signals
+      - activity heatmap bucketed by day/week/hour
+      - top project evolution milestones
+    """
+    engine = get_engine()
+    auth = _resolve_auth_context(credentials, required=False)
+    with engine.connect() as conn:
+        if auth:
+            _assert_portfolio_owned_by(conn, portfolio_id=portfolio_id, user_id=auth["user_id"])
+        exists = conn.execute(text("SELECT 1 FROM portfolios WHERE id = :pid"), {"pid": portfolio_id}).scalar()
+        if not exists:
+            raise HTTPException(status_code=404, detail="Portfolio not found")
+
+    return build_portfolio_analytics(
+        engine=engine,
+        portfolio_id=portfolio_id,
+        timeline_limit=int(timeline_limit),
+        heatmap_bucket=heatmap_bucket,
+        top_limit=int(top_limit),
+    )
+
 
 @app.get("/portfolio/{portfolio_id}")
 def get_portfolio(
