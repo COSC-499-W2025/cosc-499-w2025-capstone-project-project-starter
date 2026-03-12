@@ -254,14 +254,6 @@ def _build_skills_timeline(conn, *, portfolio_id: str, limit: int) -> Dict[str, 
                 }
             )
 
-    events.sort(
-        key=lambda e: (
-            str(e.get("observed_at") or ""),
-            str(e.get("skill") or "").casefold(),
-            str(e.get("project_id") or ""),
-            str(e.get("snapshot_id") or ""),
-        )
-    )
     return {"limit": int(limit), "total_events": len(events), "events": events[: int(limit)]}
 
 
