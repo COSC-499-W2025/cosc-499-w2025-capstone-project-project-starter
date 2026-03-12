@@ -166,100 +166,191 @@
             currentPublicUser = userName;
             document.getElementById('pubPortfolioTitle').textContent = `${userName}'s Portfolio`;
             showPortfolioView();
-            await loadPublicPortfolio();
+            await loadPortfolioDashboard();
         }
 
         function debouncePublicSearch() {
             clearTimeout(pubSearchTimer);
-            pubSearchTimer = setTimeout(() => loadPublicPortfolio(), 400);
+            pubSearchTimer = setTimeout(() => loadPortfolioDashboard(), 400);
         }
 
         function clearPublicFilters() {
             document.getElementById('pubSearchInput').value = '';
             document.getElementById('pubFilterInput').value = '';
-            loadPublicPortfolio();
+            loadPortfolioDashboard();
         }
 
-        async function loadPublicPortfolio() {
-            if (!currentPublicUser) return;
-            const search = document.getElementById('pubSearchInput').value.trim();
-            const filter = document.getElementById('pubFilterInput').value.trim();
+        let portfolioSettings = {
+            is_public: true,
+            show_timeline: true,
+            show_heatmap: true,
+            show_top_projects: true,
+            show_skills: true,
+            show_stats: true
+        };
 
-            let url = `/api/portfolio/public/${currentPublicUser}`;
-            const params = new URLSearchParams();
-            if (search) params.set('search', search);
-            if (filter) params.set('skill_filter', filter);
-            if (params.toString()) url += '?' + params.toString();
-
-            try {
-                const response = await fetch(`${API_BASE_URL}${url}`);
-                const data = await response.json().catch(() => ({}));
-
-                if (!response.ok || !data.success) {
-                    const msg = data.detail || data.message || 'Portfolio is private or not available';
-                    showMessage(msg, 'error');
-                    return;
-                }
-
-                const portfolio = data.portfolio;
-                const settings = portfolio.settings || {};
-
-                // Stats
-                const summary = portfolio.summary || {};
-                setText('pubTotalProjects', summary.total_projects ?? '-');
-                setText('pubTotalLOC', (summary.total_files ?? summary.total_lines_of_code ?? 0).toLocaleString());
-                setText('pubTotalSkills', summary.unique_skills ?? '-');
-                setText('pubTotalLangs', summary.unique_languages ?? '-');
-                toggle('pubStatsRow', settings.show_stats !== false);
-
-                // Timeline
-                toggle('pubTimelineSection', settings.show_timeline !== false);
-                if (settings.show_timeline !== false && portfolio.timeline) {
-                    const container = document.getElementById('pubTimeline');
-                    if (portfolio.timeline.timeline && portfolio.timeline.timeline.length > 0) {
-                        renderPublicTimeline(container, portfolio.timeline);
-                    } else {
-                        container.innerHTML = '<p class="text-muted">No timeline data.</p>';
-                    }
-                }
-
-                // Heatmap
-                toggle('pubHeatmapSection', settings.show_heatmap !== false);
-                if (settings.show_heatmap !== false && portfolio.heatmap) {
-                    const container = document.getElementById('pubHeatmap');
-                    if (portfolio.heatmap.activity_data && Object.keys(portfolio.heatmap.activity_data).length > 0) {
-                        renderPublicHeatmap(container, portfolio.heatmap);
-                    } else {
-                        container.innerHTML = '<p class="text-muted">No activity data.</p>';
-                    }
-                }
-
-                // Top Projects
-                toggle('pubTopProjectsSection', settings.show_top_projects !== false);
-                if (settings.show_top_projects !== false && portfolio.top_projects) {
-                    const container = document.getElementById('pubTopProjects');
-                    if (portfolio.top_projects.length > 0) {
-                        renderPublicTopProjects(container, portfolio.top_projects);
-                    } else {
-                        container.innerHTML = '<p class="text-muted">No top projects.</p>';
-                    }
-                }
-
-                // Skills
-                toggle('pubSkillsSection', settings.show_skills !== false || settings.show_stats !== false);
-                if (portfolio.skills) {
-                    const container = document.getElementById('pubSkills');
-                    const categorized = portfolio.skills.categorized || {};
-                    if (Object.keys(categorized).length > 0) {
-                        renderPublicSkills(container, categorized);
-                    } else {
-                        container.innerHTML = '<p class="text-muted">No skills data.</p>';
-                    }
-                }
-
-            } catch (e) {
-                showMessage('Failed to load portfolio: ' + e.message, 'error');
+        async function fetchPublicSettings() {
+            if (!currentPublicUser) return null;
+            const response = await fetch(`${API_BASE_URL}/api/portfolio/public/${currentPublicUser}/settings`);
+            const data = await response.json().catch(() => ({}));
+            if (!response.ok || !data.success) {
+                const msg = data.detail || data.message || 'Portfolio is private or not available';
+                showMessage(msg, 'error');
+                return null;
             }
+            return data.settings || null;
+        }
+
+        function applySectionVisibility() {
+            const s = portfolioSettings;
+            toggle('pubStatsRow', s.show_stats !== false);
+            toggle('pubTimelineSection', s.show_timeline !== false);
+            toggle('pubHeatmapSection', s.show_heatmap !== false);
+            toggle('pubTopProjectsSection', s.show_top_projects !== false);
+            toggle('pubSkillsSection', s.show_skills !== false || s.show_stats !== false);
+        }
+
+        async function loadPortfolioDashboard() {
+            try {
+                // Assume public visibility; merge component settings if provided.
+                portfolioSettings = {
+                    is_public: true,
+                    show_timeline: true,
+                    show_heatmap: true,
+                    show_top_projects: true,
+                    show_skills: true,
+                    show_stats: true
+                };
+
+                const settings = await fetchPublicSettings();
+                if (settings) portfolioSettings = { ...portfolioSettings, ...settings };
+                applySectionVisibility();
+            } catch (e) { /* use defaults */ }
+
+            loadPdStats();
+            loadPdTimeline();
+            loadPdHeatmap();
+            loadPdTopProjects();
+            loadPdSkills();
+        }
+
+        async function loadPdStats() {
+            if (!currentPublicUser || portfolioSettings.show_stats === false) return;
+            const response = await fetch(`${API_BASE_URL}/api/portfolio/public/${currentPublicUser}/stats`);
+            const data = await response.json().catch(() => ({}));
+            if (!response.ok || !data.success) return;
+            const stats = data.stats || {};
+            setText('pubTotalProjects', stats.total_projects ?? '-');
+            setText('pubTotalLOC', (stats.total_files ?? 0).toLocaleString());
+            setText('pubTotalSkills', stats.unique_skills ?? '-');
+            setText('pubTotalLangs', stats.unique_languages ?? '-');
+        }
+
+        async function loadPdTimeline() {
+            const container = document.getElementById('pubTimeline');
+            if (!container || !currentPublicUser) return;
+            if (portfolioSettings.show_timeline === false) return;
+
+            const response = await fetch(`${API_BASE_URL}/api/portfolio/public/${currentPublicUser}/timeline`);
+            const data = await response.json().catch(() => ({}));
+            if (!response.ok || !data.success) return;
+            const timeline = data.data;
+            if (timeline && timeline.timeline && timeline.timeline.length > 0) {
+                renderPublicTimeline(container, timeline);
+            } else {
+                container.innerHTML = '<p class="text-muted">No timeline data.</p>';
+            }
+        }
+
+        async function loadPdHeatmap() {
+            const container = document.getElementById('pubHeatmap');
+            if (!container || !currentPublicUser) return;
+            if (portfolioSettings.show_heatmap === false) return;
+
+            const response = await fetch(`${API_BASE_URL}/api/portfolio/public/${currentPublicUser}/heatmap`);
+            const data = await response.json().catch(() => ({}));
+            if (!response.ok || !data.success) return;
+            const heatmap = data.data;
+            if (heatmap && heatmap.activity_data && Object.keys(heatmap.activity_data).length > 0) {
+                renderPublicHeatmap(container, heatmap);
+            } else {
+                container.innerHTML = '<p class="text-muted">No activity data.</p>';
+            }
+        }
+
+        async function loadPdTopProjects() {
+            const container = document.getElementById('pubTopProjects');
+            if (!container || !currentPublicUser) return;
+            if (portfolioSettings.show_top_projects === false) return;
+
+            const search = document.getElementById('pubSearchInput').value.trim();
+            let url = `/api/portfolio/public/${currentPublicUser}/top-projects`;
+            if (search) url += `?search=${encodeURIComponent(search)}`;
+            const response = await fetch(`${API_BASE_URL}${url}`);
+            const data = await response.json().catch(() => ({}));
+            if (!response.ok || !data.success) return;
+            const projects = data.projects || [];
+            if (projects.length > 0) {
+                renderPublicTopProjects(container, projects);
+            } else {
+                container.innerHTML = '<p class="text-muted">No top projects.</p>';
+            }
+        }
+
+        async function loadPdSkills() {
+            const container = document.getElementById('pubSkills');
+            if (!container || !currentPublicUser) return;
+            if (portfolioSettings.show_skills === false && portfolioSettings.show_stats === false) return;
+
+            const response = await fetch(`${API_BASE_URL}/api/portfolio/public/${currentPublicUser}/timeline`);
+            const data = await response.json().catch(() => ({}));
+            if (!response.ok || !data.success) return;
+            let skillSummary = data.data && data.data.skill_summary ? data.data.skill_summary : [];
+            const filter = document.getElementById('pubFilterInput').value.trim().toLowerCase();
+            if (filter) {
+                skillSummary = skillSummary.filter(s => s.skill.toLowerCase().includes(filter));
+            }
+            const categorized = categorizeSkillsFromTimeline(skillSummary);
+            if (Object.keys(categorized).length > 0) {
+                renderPublicSkills(container, categorized);
+            } else {
+                container.innerHTML = '<p class="text-muted">No skills data.</p>';
+            }
+        }
+
+        function categorizeSkillsFromTimeline(skillSummary) {
+            const categories = {
+                'Programming Languages': [],
+                'Web Frameworks': [],
+                'Tools & DevOps': [],
+                'Practices': [],
+                'Other': []
+            };
+            const langKeywords = ['python', 'java', 'javascript', 'typescript', 'c++', 'c#', 'go', 'rust', 'ruby', 'php', 'swift', 'kotlin', 'html', 'css', 'sql', 'shell', 'r', 'dart', 'scala', 'lua', 'perl', 'c', 'react', 'vue', 'svelte', 'markdown', 'json', 'xml', 'yaml', 'toml', 'text', 'ini', 'config', 'batch', 'powershell', 'matlab'];
+            const fwKeywords = ['react', 'vue', 'angular', 'django', 'flask', 'express', 'spring', 'node.js', 'fastapi', 'postgresql', 'mongodb'];
+            const toolKeywords = ['docker', 'git', 'ci/cd', 'configuration'];
+            const practiceKeywords = ['testing', 'documentation'];
+
+            skillSummary.forEach(s => {
+                const lower = s.skill.toLowerCase();
+                if (fwKeywords.some(k => lower.includes(k))) {
+                    categories['Web Frameworks'].push(s.skill);
+                } else if (toolKeywords.some(k => lower.includes(k))) {
+                    categories['Tools & DevOps'].push(s.skill);
+                } else if (practiceKeywords.some(k => lower.includes(k))) {
+                    categories['Practices'].push(s.skill);
+                } else if (langKeywords.some(k => lower.includes(k) || k.includes(lower))) {
+                    categories['Programming Languages'].push(s.skill);
+                } else {
+                    categories['Other'].push(s.skill);
+                }
+            });
+
+            const pruned = {};
+            for (const [cat, skills] of Object.entries(categories)) {
+                if (skills.length > 0) pruned[cat] = skills;
+            }
+            return pruned;
         }
 
         function setText(id, val) {

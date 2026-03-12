@@ -290,6 +290,133 @@ async def get_public_portfolio(user_id: str, search: Optional[str] = Query(None)
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error retrieving public portfolio: {str(e)}")
 
+def _get_public_settings_or_403(user_id: str) -> dict:
+    settings = ResumeManager.get_portfolio_settings(user_id)
+    if not settings.get('is_public', False):
+        raise HTTPException(status_code=403, detail="This portfolio is private")
+    return settings
+
+def _compute_portfolio_stats(user_id: str) -> dict:
+    from config.db_config import with_db_cursor
+    from common.constants import LANGUAGE_EXTENSIONS
+
+    with with_db_cursor() as cursor:
+        cursor.execute("""
+            SELECT COUNT(*) FROM uploaded_files WHERE user_name = %s
+        """, (user_id,))
+        total_projects = cursor.fetchone()[0]
+
+        cursor.execute("""
+            SELECT COUNT(fc.id),
+                   COALESCE(SUM(fc.file_size), 0)
+            FROM file_contents fc
+            JOIN uploaded_files uf ON uf.id = fc.uploaded_file_id
+            WHERE uf.user_name = %s
+        """, (user_id,))
+        row = cursor.fetchone()
+        total_files = row[0]
+        total_size = row[1]
+
+        cursor.execute("""
+            SELECT DISTINCT fc.file_extension
+            FROM file_contents fc
+            JOIN uploaded_files uf ON uf.id = fc.uploaded_file_id
+            WHERE uf.user_name = %s AND fc.file_extension IS NOT NULL
+                AND fc.file_extension != ''
+        """, (user_id,))
+        extensions = [r[0].lower() for r in cursor.fetchall()]
+
+    languages = set()
+    skills = set()
+    for ext in extensions:
+        if ext in LANGUAGE_EXTENSIONS:
+            languages.add(LANGUAGE_EXTENSIONS[ext])
+            skills.add(LANGUAGE_EXTENSIONS[ext])
+
+    return {
+        "total_projects": total_projects,
+        "total_files": total_files,
+        "total_size_mb": round(total_size / (1024 * 1024), 2) if total_size else 0,
+        "unique_languages": len(languages),
+        "unique_skills": len(skills),
+        "languages": sorted(list(languages))
+    }
+
+@router.get("/portfolio/public/{user_id}/settings")
+async def get_public_portfolio_settings(user_id: str):
+    """Get public portfolio settings (read-only)."""
+    try:
+        settings = _get_public_settings_or_403(user_id)
+        return {"success": True, "settings": {k: v for k, v in settings.items() if k != 'updated_at'}}
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error retrieving portfolio settings: {str(e)}")
+
+@router.get("/portfolio/public/{user_id}/stats")
+async def get_public_portfolio_stats(user_id: str):
+    """Public portfolio stats."""
+    try:
+        settings = _get_public_settings_or_403(user_id)
+        if settings.get('show_stats', True) is False:
+            return {"success": True, "stats": {}}
+        stats = _compute_portfolio_stats(user_id)
+        return {"success": True, "stats": stats}
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error retrieving portfolio stats: {str(e)}")
+
+@router.get("/portfolio/public/{user_id}/timeline")
+async def get_public_skills_timeline(user_id: str):
+    """Public skills timeline."""
+    try:
+        settings = _get_public_settings_or_403(user_id)
+        if settings.get('show_timeline', True) is False:
+            return {"success": True, "data": {}}
+        manager = PortfolioManager(user_id)
+        timeline_data = manager.get_skills_timeline()
+        return {"success": True, "data": timeline_data}
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error retrieving skills timeline: {str(e)}")
+
+@router.get("/portfolio/public/{user_id}/heatmap")
+async def get_public_activity_heatmap(user_id: str):
+    """Public activity heatmap."""
+    try:
+        settings = _get_public_settings_or_403(user_id)
+        if settings.get('show_heatmap', True) is False:
+            return {"success": True, "data": {}}
+        manager = PortfolioManager(user_id)
+        heatmap_data = manager.get_activity_heatmap()
+        return {"success": True, "data": heatmap_data}
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error retrieving activity heatmap: {str(e)}")
+
+@router.get("/portfolio/public/{user_id}/top-projects")
+async def get_public_top_projects(user_id: str, search: Optional[str] = Query(None)):
+    """Public top projects showcase."""
+    try:
+        settings = _get_public_settings_or_403(user_id)
+        if settings.get('show_top_projects', True) is False:
+            return {"success": True, "projects": []}
+        manager = PortfolioManager(user_id)
+        top_projects = manager.get_top3_showcase()
+        if search:
+            search_lower = search.lower()
+            top_projects = [p for p in top_projects
+                            if search_lower in p.get('name', '').lower()
+                            or search_lower in p.get('description', '').lower()]
+        return {"success": True, "projects": top_projects}
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error retrieving top projects: {str(e)}")
+
 
 @router.get("/portfolio/{user_id}")
 async def get_portfolio(user_id: str, top_n: Optional[int] = Query(None)):
@@ -541,54 +668,7 @@ async def get_top_projects(user_id: str):
 async def get_portfolio_stats(user_id: str):
     """Lightweight portfolio stats from database. No ranking required."""
     try:
-        from config.db_config import with_db_cursor
-        from common.constants import LANGUAGE_EXTENSIONS
-
-        with with_db_cursor() as cursor:
-            cursor.execute("""
-                SELECT COUNT(*) FROM uploaded_files WHERE user_name = %s
-            """, (user_id,))
-            total_projects = cursor.fetchone()[0]
-
-            cursor.execute("""
-                SELECT COUNT(fc.id),
-                       COALESCE(SUM(fc.file_size), 0)
-                FROM file_contents fc
-                JOIN uploaded_files uf ON uf.id = fc.uploaded_file_id
-                WHERE uf.user_name = %s
-            """, (user_id,))
-            row = cursor.fetchone()
-            total_files = row[0]
-            total_size = row[1]
-
-            cursor.execute("""
-                SELECT DISTINCT fc.file_extension
-                FROM file_contents fc
-                JOIN uploaded_files uf ON uf.id = fc.uploaded_file_id
-                WHERE uf.user_name = %s AND fc.file_extension IS NOT NULL
-                    AND fc.file_extension != ''
-            """, (user_id,))
-            extensions = [r[0].lower() for r in cursor.fetchall()]
-
-        languages = set()
-        skills = set()
-        for ext in extensions:
-            if ext in LANGUAGE_EXTENSIONS:
-                languages.add(LANGUAGE_EXTENSIONS[ext])
-                skills.add(LANGUAGE_EXTENSIONS[ext])
-
-        return {
-            "success": True,
-            "stats": {
-                "total_projects": total_projects,
-                "total_files": total_files,
-                "total_size_mb": round(total_size / (1024 * 1024), 2) if total_size else 0,
-                "unique_languages": len(languages),
-                "unique_skills": len(skills),
-                "languages": sorted(list(languages))
-            }
-        }
+        stats = _compute_portfolio_stats(user_id)
+        return {"success": True, "stats": stats}
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error retrieving portfolio stats: {str(e)}")
-
-
