@@ -480,6 +480,39 @@ body > #viewContainer {
     font-size: 13px;
 }
 
+.resume-pdf-render {
+    position: absolute;
+    left: -10000px;
+    top: 0;
+    width: 8.5in;
+    padding: 0.75in;
+    background: #ffffff;
+    color: #111111;
+    font-family: "Georgia", "Times New Roman", serif;
+    line-height: 1.5;
+}
+
+.resume-pdf-render h1,
+.resume-pdf-render h2,
+.resume-pdf-render h3 {
+    margin: 0 0 0.35in 0;
+    color: #111111;
+}
+
+.resume-pdf-render p {
+    margin: 0 0 0.18in 0;
+}
+
+.resume-pdf-render ul,
+.resume-pdf-render ol {
+    padding-left: 0.3in;
+    margin: 0 0 0.18in 0;
+}
+
+.resume-pdf-render li {
+    margin-bottom: 0.08in;
+}
+
 .analysis-section {
     margin: 16px 0;
     padding: 20px;

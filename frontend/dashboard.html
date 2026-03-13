@@ -738,7 +738,7 @@
                 'preferences': `<div class="view-panel"><h3>User Preferences</h3><label>Privacy Consent:</label><button class="btn" onclick="submitPrivacyConsent(true)">Grant</button><button class="btn btn-secondary" onclick="submitPrivacyConsent(false)">Deny</button><label>Git Username:</label><input type="text" id="gitUsername" /><button class="btn" onclick="savePreferences()">Save</button><div id="preferencesResult" class="result"></div></div>`,
                 'account': `<div class="view-panel"><h3>User Account</h3><p>Username: ${currentUser?.user_name || ''}</p><p>User ID: ${currentUser?.user_id || ''}</p><p>Last Login: ${new Date(currentUser?.last_login_time).toLocaleString()}</p></div>`,
                 'resume-gen': `<div class="view-panel"><h3>Generate Resume</h3><button class="btn" onclick="generateResume()">Generate</button><div id="resumeGenResult" class="result"></div></div>`,
-                'resume-view': `<div class="view-panel resume-view-panel"><div class="resume-header"><h3>Resume</h3><div class="resume-actions"><button type="button" class="btn" id="resumeSaveBtn" onclick="saveResume()" disabled>Save</button><button type="button" class="btn btn-secondary" id="resumeRegenerateBtn" onclick="regenerateResume()" disabled>Regenerate from Projects</button><select id="resumeExportFormat" class="resume-export-select" aria-label="Export format"><option value="pdf">.pdf</option><option value="md" selected>.md</option><option value="txt">.txt</option><option value="json">.json</option></select><button type="button" class="btn" id="resumeExportBtn" onclick="exportResume()" disabled>Export</button></div></div><textarea id="resumeTextBox" class="resume-textbox" rows="18" disabled aria-live="polite">Loading resume...</textarea></div>`,
+                'resume-view': `<div class="view-panel resume-view-panel"><div class="resume-header"><h3>Resume</h3><div class="resume-actions"><button type="button" class="btn" id="resumeSaveBtn" onclick="saveResume()" disabled>Save</button><button type="button" class="btn btn-secondary" id="resumeRegenerateBtn" onclick="regenerateResume()" disabled>Regenerate from Projects</button><select id="resumeExportFormat" class="resume-export-select" aria-label="Export format"><option value="pdf">.pdf</option><option value="md" selected>.md</option><option value="txt">.txt</option><option value="json">.json</option></select><button type="button" class="btn" id="resumeExportBtn" onclick="exportResume()" disabled>Export</button></div></div><textarea id="resumeTextBox" class="resume-textbox" rows="18" disabled aria-live="polite">Loading resume...</textarea><div id="resumePdfRender" class="resume-pdf-render" aria-hidden="true"></div></div>`,
                 'resume-delete': `<div class="view-panel"><h3>Delete Resume</h3><button class="btn" onclick="deleteResume()">Delete</button><div id="resumeDeleteResult" class="result"></div></div>`,
                 'portfolio-dashboard': `<div class="portfolio-dashboard-wrapper">
                     <div class="pd-header">
@@ -2267,7 +2267,7 @@
             return new Blob([pdf], { type: 'application/pdf' });
         }
 
-        function exportResume() {
+        async function exportResume() {
             const textbox = document.getElementById('resumeTextBox');
             const formatSelect = document.getElementById('resumeExportFormat');
             if (!textbox || !formatSelect) return;
@@ -2282,8 +2282,12 @@
             const format = formatSelect.value;
 
             if (format === 'pdf') {
-                const blob = createSimplePdf(markdown);
-                downloadBlob(`${baseName}.pdf`, blob);
+                const filename = `${baseName}.pdf`;
+                const ok = await exportMarkdownPdf(markdown, filename);
+                if (!ok) {
+                    const blob = createSimplePdf(markdown);
+                    downloadBlob(filename, blob);
+                }
                 return;
             }
 
@@ -2302,6 +2306,40 @@
             const mime = format === 'txt' ? 'text/plain' : 'text/markdown';
             const blob = new Blob([markdown], { type: `${mime};charset=utf-8` });
             downloadBlob(`${baseName}.${ext}`, blob);
+        }
+
+        async function exportMarkdownPdf(markdown, filename) {
+            if (typeof marked === 'undefined' || typeof html2pdf === 'undefined') {
+                showMessage('PDF export libraries not available, using text fallback.', 'error');
+                return false;
+            }
+
+            const renderTarget = document.getElementById('resumePdfRender');
+            if (!renderTarget) return false;
+
+            renderTarget.innerHTML = marked.parse(markdown);
+            await new Promise(resolve => setTimeout(resolve, 50));
+
+            if (!renderTarget.innerHTML.trim()) {
+                showMessage('PDF render failed, using text fallback.', 'error');
+                return false;
+            }
+
+            try {
+                await html2pdf()
+                    .from(renderTarget)
+                    .set({
+                        margin: [0.6, 0.6, 0.6, 0.6],
+                        filename,
+                        html2canvas: { scale: 2, useCORS: true },
+                        jsPDF: { unit: 'in', format: 'letter', orientation: 'portrait' }
+                    })
+                    .save();
+                return true;
+            } catch (e) {
+                showMessage('PDF export failed, using text fallback.', 'error');
+                return false;
+            }
         }
 
         async function deleteResume() {
@@ -3328,5 +3366,7 @@
         })();
 
     </script>
+    <script src="vendor/marked.min.js"></script>
+    <script src="vendor/html2pdf.bundle.min.js"></script>
 </body>
 </html>
