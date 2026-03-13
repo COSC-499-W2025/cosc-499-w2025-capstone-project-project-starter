@@ -14,6 +14,7 @@ from typing import Any, Dict, List, Optional, Tuple
 
 from fastapi import FastAPI, HTTPException, Path, Query, Request, UploadFile, File
 from fastapi.concurrency import run_in_threadpool
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, FileResponse
 from pydantic import BaseModel, Field
 
@@ -744,6 +745,13 @@ def create_app() -> FastAPI:
         title="Skill Scope API",
         version="0.2.0",
         description="FastAPI endpoints for project upload, portfolio, and resume workflows.",
+    )
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=["*"],
+        allow_credentials=True,
+        allow_methods=["*"],
+        allow_headers=["*"],
     )
 
     @app.exception_handler(HTTPException)
