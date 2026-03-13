@@ -5,48 +5,48 @@
 /* ============== CSS Variables ============== */
 
 :root {
-    --bg-primary: #f8f9fa;
-    --bg-secondary: #ffffff;
+    --bg-primary: #ffffff;
+    --bg-secondary: #fafafa;
     --bg-card: #ffffff;
     --bg-elevated: #ffffff;
     --accent-primary: #000000;
-    --accent-hover: #333333;
-    --accent-glow: rgba(0, 0, 0, 0.06);
-    --text-primary: #111111;
-    --text-secondary: #555555;
-    --text-muted: #6b7280;
-    --border-color: #e5e7eb;
+    --accent-hover: #1a1a1a;
+    --accent-glow: rgba(0, 0, 0, 0.08);
+    --text-primary: #000000;
+    --text-secondary: #333333;
+    --text-muted: #666666;
+    --border-color: #e0e0e0;
     --error-color: #dc2626;
     --success-color: #16a34a;
-    --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.04);
-    --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.06);
-    --shadow-lg: 0 10px 24px rgba(0, 0, 0, 0.08);
-    --radius-sm: 8px;
-    --radius-md: 12px;
-    --radius-lg: 16px;
-    --badge-bg: #111111;
+    --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.08);
+    --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.1);
+    --shadow-lg: 0 12px 32px rgba(0, 0, 0, 0.12);
+    --radius-sm: 10px;
+    --radius-md: 14px;
+    --radius-lg: 20px;
+    --badge-bg: #000000;
     --badge-text: #ffffff;
 }
 
 [data-theme="dark"] {
-    --bg-primary: #09090b;
-    --bg-secondary: #0f0f12;
-    --bg-card: #131316;
-    --bg-elevated: #18181b;
-    --accent-primary: #fafafa;
-    --accent-hover: #e4e4e7;
-    --accent-glow: rgba(255, 255, 255, 0.05);
-    --text-primary: #fafafa;
-    --text-secondary: #a1a1aa;
-    --text-muted: #71717a;
-    --border-color: #27272a;
+    --bg-primary: #000000;
+    --bg-secondary: #0a0a0a;
+    --bg-card: #111111;
+    --bg-elevated: #1a1a1a;
+    --accent-primary: #ffffff;
+    --accent-hover: #e5e5e5;
+    --accent-glow: rgba(255, 255, 255, 0.08);
+    --text-primary: #ffffff;
+    --text-secondary: #cccccc;
+    --text-muted: #888888;
+    --border-color: #2a2a2a;
     --error-color: #ef4444;
     --success-color: #22c55e;
-    --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.2);
-    --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.25);
-    --shadow-lg: 0 10px 24px rgba(0, 0, 0, 0.35);
-    --badge-bg: #fafafa;
-    --badge-text: #09090b;
+    --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.3);
+    --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.4);
+    --shadow-lg: 0 12px 32px rgba(0, 0, 0, 0.5);
+    --badge-bg: #ffffff;
+    --badge-text: #000000;
 }
 
 /* ============== Global Reset ============== */
@@ -228,8 +228,8 @@ input[type="file"] {
 
 .badge-success { background: #16a34a; color: #fff; }
 .badge-warning { background: #d97706; color: #fff; }
-.badge-info    { background: #0284c7; color: #fff; }
-.badge-purple  { background: #7c3aed; color: #fff; }
+.badge-info    { background: #000000; color: #fff; }
+.badge-purple  { background: #333333; color: #fff; }
 
 /* ============== Utility Classes ============== */
 

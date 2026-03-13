@@ -378,10 +378,17 @@ async def get_projects(
         )
 
 @router.get("/projects/rankings")
-async def get_rankings():
+async def get_rankings(user_name: Optional[str] = Query(None, description="Username for data isolation")):
     """Get stored rankings."""
     try:
-        rankings = get_stored_rankings()
+        from account.user_manager import AuthManager
+        
+        # If user_name provided, verify it matches current user or use current user
+        if not user_name:
+            user_name = AuthManager.get_current_username()
+        
+        rankings = get_stored_rankings(user_name=user_name)
+        
         return {"success": True, "rankings": rankings}
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error retrieving rankings: {str(e)}")
@@ -410,6 +417,50 @@ async def save_rankings(
         raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error saving rankings: {str(e)}")
+
+
+@router.post("/projects/rankings/summary")
+async def update_project_summary(
+    body: dict = Body(..., description="JSON with 'project_id' and 'summary'"),
+    user_name: Optional[str] = Query(None, description="Username for data isolation"),
+):
+    """Update the summary for a specific project."""
+    try:
+        from analysis.ranking_storage import update_ranking_summary, get_stored_ranking_by_project_id
+        from account.user_manager import AuthManager
+        
+        if not user_name:
+            user_name = AuthManager.get_current_username()
+        if not user_name:
+            raise HTTPException(status_code=401, detail="User authentication required")
+        
+        project_id = body.get("project_id")
+        summary = body.get("summary", "")
+        
+        if not project_id:
+            raise HTTPException(status_code=400, detail="project_id is required")
+        
+        # Check if ranking exists, if not create a basic one
+        existing = get_stored_ranking_by_project_id(project_id)
+        if not existing:
+            # Create a basic ranking entry with just the summary
+            from analysis.ranking_storage import save_rankings_to_db
+            save_rankings_to_db(
+                [{"project_id": project_id, "filename": "", "score": 0.0}],
+                summaries={project_id: summary},
+                user_name=user_name
+            )
+        else:
+            # Update existing summary
+            success = update_ranking_summary(project_id, summary, user_name=user_name)
+            if not success:
+                raise HTTPException(status_code=500, detail="Failed to update summary")
+        
+        return {"success": True, "message": "Summary updated successfully"}
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error updating summary: {str(e)}")
 
 
 @router.get("/projects/{project_id}")
@@ -722,6 +773,28 @@ async def delete_project_data(
         raise HTTPException(status_code=403, detail=str(e))
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error deleting project data: {str(e)}")
+
+
+@router.get("/preferences")
+async def get_preferences(
+    user_name: Optional[str] = Query(None, description="Username for preferences")
+):
+    """Get user preferences."""
+    if not user_name:
+        raise HTTPException(status_code=400, detail="user_name is required")
+    try:
+        from database.user_preferences import get_user_git_username
+        git_username = get_user_git_username(user_name)
+        return {
+            "success": True,
+            "preferences": {
+                "git_username": git_username
+            }
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error retrieving preferences: {str(e)}")
 
 
 @router.post("/preferences")
