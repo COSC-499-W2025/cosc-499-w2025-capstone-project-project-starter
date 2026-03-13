@@ -470,6 +470,16 @@ body > #viewContainer {
     margin-bottom: 0;
 }
 
+.resume-export-select {
+    padding: 8px 10px;
+    border-radius: var(--radius-sm);
+    border: 1px solid var(--border-color);
+    background: var(--bg-card);
+    color: var(--text-primary);
+    font-family: inherit;
+    font-size: 13px;
+}
+
 .analysis-section {
     margin: 16px 0;
     padding: 20px;
