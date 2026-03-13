@@ -106,14 +106,7 @@
                         <button type="button" class="menu-btn submenu-btn" data-view="account" onclick="showView('account')">Account</button>
                     </div>
                 </div>
-                <div class="menu-group nav-group">
-                    <button type="button" class="menu-btn nav-tab caret" id="resumeMenuToggle" onclick="toggleSubmenu('resumeSubmenu', 'resumeMenuToggle')">Resume Tools</button>
-                    <div class="submenu-grid" id="resumeSubmenu">
-                        <button type="button" class="menu-btn submenu-btn" data-view="resume-gen" onclick="showView('resume-gen')">Generate Resume</button>
-                        <button type="button" class="menu-btn submenu-btn" data-view="resume-view" onclick="showView('resume-view')">View Resume</button>
-                        <button type="button" class="menu-btn submenu-btn" data-view="resume-delete" onclick="showView('resume-delete')">Delete Resume</button>
-                    </div>
-                </div>
+                <button type="button" class="menu-btn nav-tab" data-view="resume-view" onclick="showView('resume-view')">Resume</button>
                 <button type="button" class="menu-btn nav-tab" data-view="portfolio-dashboard" onclick="showView('portfolio-dashboard')">Portfolio</button>
                 <button type="button" class="menu-btn nav-tab" onclick="window.location.href='public-dashboard.html'">Public Dashboard</button>
             </div>
@@ -659,9 +652,9 @@
                             <span>Deep dive into your project's structure, dependencies, complexity, and technical stack.</span>
                         </button>
                         
-                        <button type="button" class="dashboard-quick-action" onclick="showView('resume-gen')">
-                            <strong>Resume Tools</strong>
-                            <span>Generate, update, and export professional resumes tailored to your project history and skills.</span>
+                        <button type="button" class="dashboard-quick-action" onclick="showView('resume-view')">
+                            <strong>Resume</strong>
+                            <span>View and export your resume tailored to your project history and skills.</span>
                         </button>
                         <button type="button" class="dashboard-quick-action" onclick="showView('portfolio-dashboard')">
                             <strong>Portfolio</strong>
@@ -745,7 +738,7 @@
                 'preferences': `<div class="view-panel"><h3>User Preferences</h3><label>Privacy Consent:</label><button class="btn" onclick="submitPrivacyConsent(true)">Grant</button><button class="btn btn-secondary" onclick="submitPrivacyConsent(false)">Deny</button><label>Git Username:</label><input type="text" id="gitUsername" /><button class="btn" onclick="savePreferences()">Save</button><div id="preferencesResult" class="result"></div></div>`,
                 'account': `<div class="view-panel"><h3>User Account</h3><p>Username: ${currentUser?.user_name || ''}</p><p>User ID: ${currentUser?.user_id || ''}</p><p>Last Login: ${new Date(currentUser?.last_login_time).toLocaleString()}</p></div>`,
                 'resume-gen': `<div class="view-panel"><h3>Generate Resume</h3><button class="btn" onclick="generateResume()">Generate</button><div id="resumeGenResult" class="result"></div></div>`,
-                'resume-view': `<div class="view-panel"><h3>View Resume</h3><button class="btn" onclick="viewResume()">Load Resume</button><div id="resumeViewResult" class="result"></div></div>`,
+                'resume-view': `<div class="view-panel"><h3>Resume</h3><div id="resumeViewResult" class="result resume-markdown-box" aria-live="polite"></div></div>`,
                 'resume-delete': `<div class="view-panel"><h3>Delete Resume</h3><button class="btn" onclick="deleteResume()">Delete</button><div id="resumeDeleteResult" class="result"></div></div>`,
                 'portfolio-dashboard': `<div class="portfolio-dashboard-wrapper">
                     <div class="pd-header">
@@ -858,6 +851,9 @@
             }
             if (viewName === 'external') {
                 setTimeout(() => syncExternalServicesView(), 50);
+            }
+            if (viewName === 'resume-view') {
+                setTimeout(() => viewResume(), 0);
             }
         }
 
@@ -1943,19 +1939,118 @@
             }
         }
 
+        function formatResumeMarkdown(resumeData) {
+            const safeName = resumeData?.display_name || resumeData?.user_name || 'Your Name';
+            const lines = [];
+            lines.push(`# ${safeName}`);
+
+            const generatedAt = resumeData?.generated_at ? String(resumeData.generated_at).slice(0, 10) : 'Unknown';
+            lines.push('');
+            lines.push(`*Generated: ${generatedAt}*`);
+            lines.push('');
+
+            const total = resumeData?.total_projects_analyzed ?? 0;
+            const shown = resumeData?.top_projects_displayed ?? 0;
+            lines.push(`**Projects Analyzed:** ${total}`);
+            lines.push(`**Projects Shown:** ${shown}`);
+            lines.push('');
+
+            const categorized = resumeData?.categorized_skills || {};
+            const categories = Object.keys(categorized);
+            if (categories.length) {
+                lines.push('## Skills');
+                categories.forEach(category => {
+                    const skills = categorized[category] || [];
+                    if (!skills.length) return;
+                    lines.push(`### ${category}`);
+                    lines.push(skills.map(s => `- ${s}`).join('\n'));
+                    lines.push('');
+                });
+            } else if ((resumeData?.all_skills || []).length) {
+                lines.push('## Skills');
+                lines.push((resumeData.all_skills || []).map(s => `- ${s}`).join('\n'));
+                lines.push('');
+            }
+
+            if ((resumeData?.languages || []).length) {
+                lines.push('## Languages');
+                lines.push(resumeData.languages.map(l => `- ${l}`).join('\n'));
+                lines.push('');
+            }
+
+            if ((resumeData?.frameworks || []).length) {
+                lines.push('## Frameworks');
+                lines.push(resumeData.frameworks.map(f => `- ${f}`).join('\n'));
+                lines.push('');
+            }
+
+            const projects = resumeData?.top_projects || [];
+            if (projects.length) {
+                lines.push('## Top Projects');
+                projects.forEach(project => {
+                    const title = project?.project_name || project?.name || 'Project';
+                    lines.push(`### ${title}`);
+                    if (project?.summary) {
+                        lines.push(project.summary);
+                        lines.push('');
+                    }
+                    const tech = project?.technologies || project?.skills || [];
+                    if (tech.length) {
+                        lines.push(`**Tech:** ${tech.join(', ')}`);
+                    }
+                    const evidence = project?.evidence || [];
+                    if (evidence.length) {
+                        lines.push('**Highlights:**');
+                        lines.push(evidence.map(item => `- ${item}`).join('\n'));
+                    }
+                    lines.push('');
+                });
+            }
+
+            return lines.join('\n').trim() || 'No resume data available.';
+        }
+
+        function renderResumeMarkdown(resultDiv, markdown) {
+            if (!resultDiv) return;
+            resultDiv.innerHTML = '';
+            const pre = document.createElement('pre');
+            pre.className = 'resume-markdown';
+            pre.textContent = markdown;
+            resultDiv.appendChild(pre);
+        }
+
         async function viewResume() {
             const resultDiv = document.getElementById('resumeViewResult');
-            resultDiv.innerHTML = 'Loading resume...';
+            if (!resultDiv) return;
+            if (!currentUser?.user_name) {
+                renderError(resultDiv, 'User not loaded. Please sign in again.');
+                return;
+            }
+
+            resultDiv.textContent = 'Generating resume...';
             try {
-                const res = await apiCall(`/api/resume/${currentUser.user_name}`);
-                if (!res.ok) { renderError(resultDiv, res.error || 'Failed to load resume'); return; }
-                const data = res.data;
-                if (data.success) {
-                    const r = data.resume.resume_data;
-                    resultDiv.innerHTML = `Name: ${r.display_name}\nProjects: ${r.top_projects_displayed}/${r.total_projects_analyzed}\nSkills: ${r.all_skills?.length || 0}\nLanguages: ${r.languages?.join(', ') || 'None'}`;
+                const genRes = await apiCall(`/api/resume/generate?user_name=${currentUser.user_name}`, {
+                    method: 'POST',
+                    body: JSON.stringify({ top_projects_count: 5 })
+                });
+
+                let resumeData = null;
+                if (genRes.ok && genRes.data?.success) {
+                    resumeData = genRes.data.resume;
+                } else {
+                    const getRes = await apiCall(`/api/resume/${currentUser.user_name}`);
+                    if (getRes.ok && getRes.data?.success) {
+                        resumeData = getRes.data.resume?.resume_data;
+                    } else {
+                        renderError(resultDiv, genRes.error || getRes.error || 'Failed to load resume');
+                        return;
+                    }
                 }
+
+                const markdown = formatResumeMarkdown(resumeData);
+                renderResumeMarkdown(resultDiv, markdown);
             } catch (e) {
-                resultDiv.innerHTML = `Error: ${e.message}`;
+                renderError(resultDiv, e.message || 'Failed to load resume');
             }
         }
 

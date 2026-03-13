@@ -419,6 +419,24 @@ body > #viewContainer {
     font-size: 14px;
 }
 
+.resume-markdown-box {
+    padding: 0;
+    background: var(--bg-primary);
+}
+
+.resume-markdown {
+    margin: 0;
+    padding: 16px;
+    background: var(--bg-card);
+    border-radius: var(--radius-sm);
+    border: 1px solid var(--border-color);
+    white-space: pre-wrap;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+    font-size: 13px;
+    line-height: 1.5;
+    overflow-x: auto;
+}
+
 .analysis-section {
     margin: 16px 0;
     padding: 20px;
