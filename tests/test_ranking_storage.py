@@ -152,8 +152,8 @@ class TestGetStoredRankings:
         """Test successful retrieval of rankings"""
         mock_cursor = Mock()
         mock_results = [
-            (1, 10, 1, 85.5, "Summary 1", {"key": "value"}, datetime(2024, 1, 1), datetime(2024, 1, 2)),
-            (2, 20, 2, 72.3, "Summary 2", {"key2": "value2"}, datetime(2024, 1, 3), datetime(2024, 1, 4))
+            (1, 10, 1, 85.5, "Summary 1", {"key": "value"}, "test_user", datetime(2024, 1, 1), datetime(2024, 1, 2)),
+            (2, 20, 2, 72.3, "Summary 2", {"key2": "value2"}, "test_user", datetime(2024, 1, 3), datetime(2024, 1, 4))
         ]
         mock_cursor.fetchall.return_value = mock_results
         mock_context = MagicMock()
@@ -190,7 +190,7 @@ class TestGetStoredRankings:
         """Test retrieval when ranking_data is None"""
         mock_cursor = Mock()
         mock_results = [
-            (1, 10, 1, 85.5, "Summary", None, datetime(2024, 1, 1), datetime(2024, 1, 2))
+            (1, 10, 1, 85.5, "Summary", None, "test_user", datetime(2024, 1, 1), datetime(2024, 1, 2))
         ]
         mock_cursor.fetchall.return_value = mock_results
         mock_context = MagicMock()

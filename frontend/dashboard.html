@@ -857,6 +857,14 @@
             }
         }
 
+        function goToAnalyzePage() {
+            if (!selectedProjectId) {
+                showMessage('Please select a project first.', 'error');
+                return;
+            }
+            showView('analyze', { preserveSelection: true });
+        }
+
         function openThumbnailView() {
             if (!selectedProjectId) {
                 showMessage('Please select a project first.', 'error');
@@ -1015,8 +1023,8 @@
                         <h4 style="margin: 0 0 12px 0; font-size: 1.1rem; font-weight: 600;">Project Actions</h4>
                         <p class="text-muted" id="projectActionsHint" style="margin: 0 0 16px 0;">Select a project above to see available actions.</p>
                         <div style="display: flex; flex-wrap: wrap; gap: 10px;">
-                            <button type="button" class="btn" onclick="analyzeProject()" id="actionAnalyzeBtn">Analyze (Local)</button>
-                            <button type="button" class="btn btn-gemini" onclick="analyzeProjectGemini()" id="actionAnalyzeAiBtn">AI Deep Analysis</button>
+                            <button type="button" class="btn" onclick="goToAnalyzePage()" id="actionAnalyzeBtn">Analyze (Local)</button>
+                            <button type="button" class="btn btn-gemini" onclick="goToAnalyzePage()" id="actionAnalyzeAiBtn">Analyze (AI)</button>
                             <button type="button" class="btn btn-secondary" onclick="openThumbnailView()" id="actionThumbBtn">Set Thumbnail</button>
                             <button type="button" class="btn btn-secondary" onclick="openMergeView()" id="actionMergeBtn">Merge ZIP</button>
                             <button type="button" class="btn btn-secondary" onclick="openCleanupView()" id="actionCleanupBtn">Delete Insights</button>
