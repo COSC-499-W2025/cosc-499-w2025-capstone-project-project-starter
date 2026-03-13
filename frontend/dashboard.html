@@ -738,7 +738,7 @@
                 'preferences': `<div class="view-panel"><h3>User Preferences</h3><label>Privacy Consent:</label><button class="btn" onclick="submitPrivacyConsent(true)">Grant</button><button class="btn btn-secondary" onclick="submitPrivacyConsent(false)">Deny</button><label>Git Username:</label><input type="text" id="gitUsername" /><button class="btn" onclick="savePreferences()">Save</button><div id="preferencesResult" class="result"></div></div>`,
                 'account': `<div class="view-panel"><h3>User Account</h3><p>Username: ${currentUser?.user_name || ''}</p><p>User ID: ${currentUser?.user_id || ''}</p><p>Last Login: ${new Date(currentUser?.last_login_time).toLocaleString()}</p></div>`,
                 'resume-gen': `<div class="view-panel"><h3>Generate Resume</h3><button class="btn" onclick="generateResume()">Generate</button><div id="resumeGenResult" class="result"></div></div>`,
-                'resume-view': `<div class="view-panel resume-view-panel"><h3>Resume</h3><textarea id="resumeTextBox" class="resume-textbox" rows="18" disabled aria-live="polite">Loading resume...</textarea></div>`,
+                'resume-view': `<div class="view-panel resume-view-panel"><div class="resume-header"><h3>Resume</h3><div class="resume-actions"><button type="button" class="btn" id="resumeSaveBtn" onclick="saveResume()" disabled>Save</button><button type="button" class="btn btn-secondary" id="resumeRegenerateBtn" onclick="regenerateResume()" disabled>Regenerate from Projects</button></div></div><textarea id="resumeTextBox" class="resume-textbox" rows="18" disabled aria-live="polite">Loading resume...</textarea></div>`,
                 'resume-delete': `<div class="view-panel"><h3>Delete Resume</h3><button class="btn" onclick="deleteResume()">Delete</button><div id="resumeDeleteResult" class="result"></div></div>`,
                 'portfolio-dashboard': `<div class="portfolio-dashboard-wrapper">
                     <div class="pd-header">
@@ -2014,10 +2014,16 @@
             if (!textbox) return;
             textbox.value = markdown;
             textbox.disabled = false;
+            const saveBtn = document.getElementById('resumeSaveBtn');
+            if (saveBtn) saveBtn.disabled = false;
+            const regenBtn = document.getElementById('resumeRegenerateBtn');
+            if (regenBtn) regenBtn.disabled = false;
         }
 
         async function viewResume() {
             const textbox = document.getElementById('resumeTextBox');
+            const saveBtn = document.getElementById('resumeSaveBtn');
+            const regenBtn = document.getElementById('resumeRegenerateBtn');
             if (!textbox) return;
             if (!currentUser?.user_name) {
                 textbox.value = 'User not loaded. Please sign in again.';
@@ -2026,30 +2032,109 @@
 
             textbox.value = 'Generating resume...';
             textbox.disabled = true;
+            if (saveBtn) saveBtn.disabled = true;
+            if (regenBtn) regenBtn.disabled = true;
             try {
-                const genRes = await apiCall(`/api/resume/generate?user_name=${currentUser.user_name}`, {
-                    method: 'POST',
-                    body: JSON.stringify({ top_projects_count: 5 })
-                });
-
                 let resumeData = null;
-                if (genRes.ok && genRes.data?.success) {
-                    resumeData = genRes.data.resume;
-                } else {
-                    const getRes = await apiCall(`/api/resume/${currentUser.user_name}`);
-                    if (getRes.ok && getRes.data?.success) {
-                        resumeData = getRes.data.resume?.resume_data;
+                let getRes = await apiCall(`/api/resume/${currentUser.user_name}`);
+                if (getRes.ok && getRes.data?.success) {
+                    resumeData = getRes.data.resume?.resume_data;
+                } else if (getRes.status !== 404) {
+                    textbox.value = getRes.error || 'Failed to load resume';
+                    textbox.disabled = true;
+                    return;
+                }
+
+                if (!resumeData) {
+                    const genRes = await apiCall(`/api/resume/generate?user_name=${currentUser.user_name}`, {
+                        method: 'POST',
+                        body: JSON.stringify({ top_projects_count: 5 })
+                    });
+                    if (genRes.ok && genRes.data?.success) {
+                        resumeData = genRes.data.resume;
                     } else {
-                        textbox.value = genRes.error || getRes.error || 'Failed to load resume';
+                        textbox.value = genRes.error || 'Failed to generate resume';
                         textbox.disabled = true;
                         return;
                     }
                 }
 
-                const markdown = formatResumeMarkdown(resumeData);
+                const markdown = resumeData?.custom_markdown || formatResumeMarkdown(resumeData);
                 renderResumeMarkdown(textbox, markdown);
             } catch (e) {
                 textbox.value = e.message || 'Failed to load resume';
+                textbox.disabled = true;
+            }
+        }
+
+        async function saveResume() {
+            const textbox = document.getElementById('resumeTextBox');
+            const saveBtn = document.getElementById('resumeSaveBtn');
+            const regenBtn = document.getElementById('resumeRegenerateBtn');
+            if (!textbox || !currentUser?.user_name) return;
+
+            const markdown = textbox.value || '';
+            if (!markdown.trim()) {
+                showMessage('Resume is empty. Nothing to save.', 'error');
+                return;
+            }
+
+            if (saveBtn) saveBtn.disabled = true;
+            if (regenBtn) regenBtn.disabled = true;
+            textbox.disabled = true;
+            try {
+                const res = await apiCall(`/api/resume/${currentUser.user_name}/markdown`, {
+                    method: 'POST',
+                    body: JSON.stringify({ markdown })
+                });
+                if (!res.ok) {
+                    showMessage(res.error || 'Failed to save resume', 'error');
+                    return;
+                }
+                showMessage('Resume saved.', 'success');
+            } catch (e) {
+                showMessage(e.message || 'Failed to save resume', 'error');
+            } finally {
+                textbox.disabled = false;
+                if (saveBtn) saveBtn.disabled = false;
+                if (regenBtn) regenBtn.disabled = false;
+            }
+        }
+
+        async function regenerateResume() {
+            const textbox = document.getElementById('resumeTextBox');
+            const saveBtn = document.getElementById('resumeSaveBtn');
+            const regenBtn = document.getElementById('resumeRegenerateBtn');
+            if (!textbox || !currentUser?.user_name) return;
+
+            textbox.value = 'Regenerating resume from projects...';
+            textbox.disabled = true;
+            if (saveBtn) saveBtn.disabled = true;
+            if (regenBtn) regenBtn.disabled = true;
+
+            try {
+                const delRes = await apiCall(`/api/resume/${currentUser.user_name}`, { method: 'DELETE' });
+                if (!delRes.ok && delRes.status !== 404) {
+                    textbox.value = delRes.error || 'Failed to clear existing resume';
+                    textbox.disabled = true;
+                    return;
+                }
+
+                const genRes = await apiCall(`/api/resume/generate?user_name=${currentUser.user_name}`, {
+                    method: 'POST',
+                    body: JSON.stringify({ top_projects_count: 5 })
+                });
+
+                if (!genRes.ok || !genRes.data?.success) {
+                    textbox.value = genRes.error || 'Failed to regenerate resume';
+                    textbox.disabled = true;
+                    return;
+                }
+
+                const markdown = formatResumeMarkdown(genRes.data.resume);
+                renderResumeMarkdown(textbox, markdown);
+            } catch (e) {
+                textbox.value = e.message || 'Failed to regenerate resume';
                 textbox.disabled = true;
             }
         }

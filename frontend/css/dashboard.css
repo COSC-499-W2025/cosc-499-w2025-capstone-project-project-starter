@@ -452,6 +452,24 @@ body > #viewContainer {
     box-sizing: border-box;
 }
 
+.resume-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    flex-wrap: wrap;
+}
+
+.resume-actions {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+
+.resume-header h3 {
+    margin-bottom: 0;
+}
+
 .analysis-section {
     margin: 16px 0;
     padding: 20px;
