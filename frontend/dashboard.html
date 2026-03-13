@@ -738,7 +738,7 @@
                 'preferences': `<div class="view-panel"><h3>User Preferences</h3><label>Privacy Consent:</label><button class="btn" onclick="submitPrivacyConsent(true)">Grant</button><button class="btn btn-secondary" onclick="submitPrivacyConsent(false)">Deny</button><label>Git Username:</label><input type="text" id="gitUsername" /><button class="btn" onclick="savePreferences()">Save</button><div id="preferencesResult" class="result"></div></div>`,
                 'account': `<div class="view-panel"><h3>User Account</h3><p>Username: ${currentUser?.user_name || ''}</p><p>User ID: ${currentUser?.user_id || ''}</p><p>Last Login: ${new Date(currentUser?.last_login_time).toLocaleString()}</p></div>`,
                 'resume-gen': `<div class="view-panel"><h3>Generate Resume</h3><button class="btn" onclick="generateResume()">Generate</button><div id="resumeGenResult" class="result"></div></div>`,
-                'resume-view': `<div class="view-panel"><h3>Resume</h3><div id="resumeViewResult" class="result resume-markdown-box" aria-live="polite"></div></div>`,
+                'resume-view': `<div class="view-panel resume-view-panel"><h3>Resume</h3><textarea id="resumeTextBox" class="resume-textbox" rows="18" disabled aria-live="polite">Loading resume...</textarea></div>`,
                 'resume-delete': `<div class="view-panel"><h3>Delete Resume</h3><button class="btn" onclick="deleteResume()">Delete</button><div id="resumeDeleteResult" class="result"></div></div>`,
                 'portfolio-dashboard': `<div class="portfolio-dashboard-wrapper">
                     <div class="pd-header">
@@ -2010,24 +2010,22 @@
             return lines.join('\n').trim() || 'No resume data available.';
         }
 
-        function renderResumeMarkdown(resultDiv, markdown) {
-            if (!resultDiv) return;
-            resultDiv.innerHTML = '';
-            const pre = document.createElement('pre');
-            pre.className = 'resume-markdown';
-            pre.textContent = markdown;
-            resultDiv.appendChild(pre);
+        function renderResumeMarkdown(textbox, markdown) {
+            if (!textbox) return;
+            textbox.value = markdown;
+            textbox.disabled = false;
         }
 
         async function viewResume() {
-            const resultDiv = document.getElementById('resumeViewResult');
-            if (!resultDiv) return;
+            const textbox = document.getElementById('resumeTextBox');
+            if (!textbox) return;
             if (!currentUser?.user_name) {
-                renderError(resultDiv, 'User not loaded. Please sign in again.');
+                textbox.value = 'User not loaded. Please sign in again.';
                 return;
             }
 
-            resultDiv.textContent = 'Generating resume...';
+            textbox.value = 'Generating resume...';
+            textbox.disabled = true;
             try {
                 const genRes = await apiCall(`/api/resume/generate?user_name=${currentUser.user_name}`, {
                     method: 'POST',
@@ -2042,15 +2040,17 @@
                     if (getRes.ok && getRes.data?.success) {
                         resumeData = getRes.data.resume?.resume_data;
                     } else {
-                        renderError(resultDiv, genRes.error || getRes.error || 'Failed to load resume');
+                        textbox.value = genRes.error || getRes.error || 'Failed to load resume';
+                        textbox.disabled = true;
                         return;
                     }
                 }
 
                 const markdown = formatResumeMarkdown(resumeData);
-                renderResumeMarkdown(resultDiv, markdown);
+                renderResumeMarkdown(textbox, markdown);
             } catch (e) {
-                renderError(resultDiv, e.message || 'Failed to load resume');
+                textbox.value = e.message || 'Failed to load resume';
+                textbox.disabled = true;
             }
         }
 

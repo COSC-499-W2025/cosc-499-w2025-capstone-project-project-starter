@@ -419,22 +419,37 @@ body > #viewContainer {
     font-size: 14px;
 }
 
-.resume-markdown-box {
-    padding: 0;
-    background: var(--bg-primary);
-}
-
-.resume-markdown {
-    margin: 0;
+.resume-textbox {
+    display: block;
+    width: 100%;
+    max-width: 100%;
+    min-width: 100%;
+    min-height: 320px;
     padding: 16px;
-    background: var(--bg-card);
-    border-radius: var(--radius-sm);
+    margin-top: 16px;
     border: 1px solid var(--border-color);
-    white-space: pre-wrap;
+    border-radius: var(--radius-sm);
+    background: var(--bg-card);
+    color: var(--text-primary);
     font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
     font-size: 13px;
     line-height: 1.5;
-    overflow-x: auto;
+    resize: vertical;
+    white-space: pre-wrap;
+    box-sizing: border-box;
+    align-self: stretch;
+    margin-left: 0;
+    margin-right: 0;
+}
+
+.resume-textbox:disabled {
+    opacity: 0.7;
+    cursor: not-allowed;
+}
+
+.resume-view-panel {
+    width: 100%;
+    box-sizing: border-box;
 }
 
 .analysis-section {
