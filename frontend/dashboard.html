@@ -63,6 +63,27 @@
             </form>
         </div>
     </div>
+    <div id="llmConsentModal" class="modal" aria-modal="true" role="dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>AI Features & LLM Usage</h3>
+            </div>
+            <div class="modal-body">
+                <p>
+                    This dashboard can use external AI models to analyze your projects (e.g. deep code reviews and AI rankings).
+                    When enabled, relevant project data may be sent to an external LLM provider.
+                </p>
+                <p>
+                    If you prefer to keep analysis fully local, you can disable AI features. Local analysis will continue
+                    to work and no project data will be sent to external services.
+                </p>
+            </div>
+            <div class="modal-actions">
+                <button type="button" class="btn" onclick="setLlmConsent(true)">Enable AI features</button>
+                <button type="button" class="btn btn-secondary" onclick="setLlmConsent(false)">Disable AI features</button>
+            </div>
+        </div>
+    </div>
     
     <div class="nav-wrapper" id="navWrapper">
         <div class="nav-overlay" id="navOverlay" onclick="document.body.classList.remove('nav-open')" aria-hidden="true"></div>
@@ -77,15 +98,6 @@
                         <button type="button" class="menu-btn submenu-btn" data-view="analyze" onclick="showView('analyze')">Analyze Project</button>
                         <button type="button" class="menu-btn submenu-btn" data-view="thumbnail" onclick="showView('thumbnail')">Add Thumbnail</button>
                         <button type="button" class="menu-btn submenu-btn" data-view="merge" onclick="showView('merge')">Merge ZIP</button>
-                    </div>
-                </div>
-                <div class="menu-group nav-group">
-                    <button type="button" class="menu-btn nav-tab caret" id="rankingMenuToggle" onclick="toggleSubmenu('rankingSubmenu', 'rankingMenuToggle')">Ranking Tools</button>
-                    <div class="submenu-grid" id="rankingSubmenu">
-                        <button type="button" class="menu-btn submenu-btn" data-view="rank" onclick="showView('rank')">Rank Projects</button>
-                        <button type="button" class="menu-btn submenu-btn" data-view="rank-top3" onclick="showView('rank-top3')">Rank Top 3</button>
-                        <button type="button" class="menu-btn submenu-btn" data-view="rankings" onclick="showView('rankings')">View Rankings</button>
-                        <button type="button" class="menu-btn submenu-btn" data-view="rank-gemini" onclick="showView('rank-gemini')">AI Rank (Gemini)</button>
                     </div>
                 </div>
                 <div class="menu-group nav-group">
@@ -106,9 +118,7 @@
                     </div>
                 </div>
                 <button type="button" class="menu-btn nav-tab" data-view="portfolio-dashboard" onclick="showView('portfolio-dashboard')">Portfolio</button>
-                <button type="button" class="menu-btn nav-tab" data-view="customize-portfolio" onclick="showView('customize-portfolio')">Customize Portfolio</button>
                 <button type="button" class="menu-btn nav-tab" onclick="window.location.href='public-dashboard.html'">Public Dashboard</button>
-                <button type="button" class="menu-btn nav-tab" data-view="llm-summary" onclick="showView('llm-summary')">LLM Summary</button>
             </div>
         </nav>
         <div class="nav-dropdown-slot" id="navDropdownSlot" aria-hidden="true"></div>
@@ -132,6 +142,10 @@
         let projects = [];
         let lastRankedProjects = [];
         let selectedProjectId = null;
+        let llmEnabled = null; // null = no decision yet, bool when decided
+        let dirtyViews = {};
+        let activeView = null;
+        let pendingNavigation = null;
 
         // Dashboard State Persistence
         const DASHBOARD_STATE_KEY = 'dashboard_state_v1';
@@ -196,6 +210,8 @@
                 console.error('Show view failed:', e);
                 showView('overview');
             }
+
+            initializeLlmConsent();
         });
         
         document.getElementById('navMobileToggle').addEventListener('click', function() {
@@ -214,7 +230,217 @@
             selectProject(e, Number(projectId), containerId, onSelect);
         });
 
-        // Project management functions
+        document.addEventListener('input', (e) => {
+            if (e.target && e.target.classList && e.target.classList.contains('pd-editable')) {
+                markDirty('portfolio-dashboard');
+            }
+        });
+
+        window.addEventListener('beforeunload', (e) => {
+            if (Object.keys(dirtyViews).length > 0) {
+                e.preventDefault();
+                e.returnValue = 'You have unsaved changes that may be lost.';
+            }
+        });
+
+        function showMessage(text, type) {
+            const msg = document.getElementById('messageBox');
+            msg.textContent = text;
+            msg.className = `message ${type}`;
+            msg.style.display = 'block';
+            setTimeout(() => msg.style.display = 'none', 5000);
+        }
+        // --- Global Error Toast Functions ---
+        function showErrorToast(message, requestId) {
+            const toast = document.getElementById('error-toast');
+            document.getElementById('toast-message').innerText = message;
+            
+            // Display the specific X-Request-ID or a fallback
+            document.getElementById('toast-request-id').innerText = requestId || "N/A";
+            
+            toast.classList.add('show');
+            toast.classList.remove('hidden');
+
+            setTimeout(() => {
+                closeErrorToast();
+            }, 8000);
+        }
+
+        function closeErrorToast() {
+            const toast = document.getElementById('error-toast');
+            toast.classList.remove('show');
+        }
+
+        async function apiCall(endpoint, options = {}) {
+            try {
+                const finalOptions = { ...options };
+
+                if (finalOptions.body) {
+                    finalOptions.headers = {
+                        'Content-Type': 'application/json',
+                        ...(finalOptions.headers || {})
+                    };
+                }
+
+                const response = await fetch(`${API_BASE_URL}${endpoint}`, finalOptions);
+                const data = await response.json().catch(() => ({}));
+
+                if (!response.ok) {
+                    let msg;
+
+                    if (Array.isArray(data?.detail)) {
+                        msg = data.detail.map(e => e.msg).join(', ');
+                    } else {
+                        msg =
+                            data?.detail?.message ||
+                            data?.detail ||
+                            data?.message ||
+                            `Request failed (${response.status})`;
+                    }
+
+                    const reqId =
+                        data?.request_id ||
+                        response.headers.get('X-Request-Id') ||
+                        'unknown-id';
+
+                    showErrorToast(String(msg), reqId);
+                    return { ok: false, error: String(msg), status: response.status, data };
+                }
+
+                return { ok: true, data, status: response.status };
+            } catch (e) {
+                if (e.name === 'AbortError') throw e;
+                const errorMsg = e.message || "Network error";
+                showErrorToast(errorMsg, "offline");
+
+                return { ok: false, error: errorMsg, status: 0, data: null };
+            }
+        }
+
+        function markDirty(viewName) {
+            if (!viewName) return;
+            dirtyViews[viewName] = true;
+        }
+
+        function clearDirty(viewName) {
+            if (!viewName) return;
+            delete dirtyViews[viewName];
+        }
+
+        function openUnsavedChangesPrompt() {
+            // Simple confirm-based fallback if modal container is not defined
+            const modal = document.getElementById('unsavedChangesModal');
+            if (!modal) {
+                const shouldDiscard = window.confirm('You have unsaved changes. Discard them and continue?');
+                if (shouldDiscard) {
+                    if (activeView) clearDirty(activeView);
+                    proceedPendingNavigation();
+                } else {
+                    pendingNavigation = null;
+                }
+                return;
+            }
+            modal.style.display = 'block';
+        }
+
+        function closeUnsavedChangesModal() {
+            const modal = document.getElementById('unsavedChangesModal');
+            if (modal) modal.style.display = 'none';
+        }
+
+        async function handleUnsavedSave() {
+            if (activeView === 'portfolio-dashboard') {
+                try {
+                    await saveAllPortfolioEdits();
+                    clearDirty('portfolio-dashboard');
+                } catch (e) {
+                    // fall through; user can still decide to discard
+                }
+            }
+            proceedPendingNavigation();
+        }
+
+        function handleUnsavedDiscard() {
+            if (activeView) {
+                clearDirty(activeView);
+            }
+            proceedPendingNavigation();
+        }
+
+        function handleUnsavedCancel() {
+            pendingNavigation = null;
+            closeUnsavedChangesModal();
+        }
+
+        function proceedPendingNavigation() {
+            closeUnsavedChangesModal();
+            const nav = pendingNavigation;
+            pendingNavigation = null;
+            if (!nav) return;
+            showView(nav.viewName, { ...(nav.options || {}), bypassUnsavedCheck: true });
+        }
+
+        function renderResult(container, html) {
+            container.innerHTML = html;
+        }
+
+        function renderError(container, message) {
+            const safe = escapeHtml(message);
+            if (container) {
+                // Do not overwrite complex HTML and prepend a message block instead.
+                container.insertAdjacentHTML('afterbegin', `<div class="message error">${safe}</div>`);
+            }
+            showMessage(safe, "error");
+        }
+
+        function renderSuccess(container, message) {
+            const safe = escapeHtml(message);
+            if (container) {
+                // Do not overwrite complex HTML and prepend a message block instead.
+                container.insertAdjacentHTML('afterbegin', `<div class="message success">${safe}</div>`);
+            }
+            showMessage(safe, "success");
+        }
+
+        function escapeHtml(str) {
+            return String(str)
+                .replaceAll("&", "&amp;")
+                .replaceAll("<", "&lt;")
+                .replaceAll(">", "&gt;")
+                .replaceAll('"', "&quot;")
+                .replaceAll("'", "&#039;");
+        }
+
+        // Multipurpose API request function that can handle JSON and FormData bodies, and provides consistent error handling
+        async function apiRequest(endpoint, { method = 'GET', body = null, headers = {} } = {}) {
+            const opts = { method, headers: { ...headers } };
+
+            const isFormData = body instanceof FormData;
+
+            if (body) {
+                opts.body = body;
+                if (!isFormData) {
+                    opts.headers['Content-Type'] = 'application/json';
+                }
+            }
+
+            const response = await fetch(`${API_BASE_URL}${endpoint}`, opts);
+
+            // try to parse JSON, but fallback to text if not possible
+            const contentType = response.headers.get('content-type') || '';
+            const payload = contentType.includes('application/json') ? await response.json() : await response.text();
+
+            if (!response.ok) {
+                const msg =
+                    (payload && typeof payload === 'object' && (payload.detail || payload.message)) ||
+                    (typeof payload === 'string' ? payload : 'Request failed');
+                showMessage(msg, 'error');
+                throw new Error(msg);
+            }
+
+            return payload;
+        }
+
         async function loadProjectThumbnail(projectId, imgEl) {
             try {
                 const res = await apiCall(`/api/projects/${projectId}/thumbnail?user_name=${currentUser.user_name}`);
@@ -295,7 +521,7 @@
                     method: 'POST',
                     body: JSON.stringify({
                         consent_given: consentGiven,
-                        user_id: currentUser.user_id || currentUser.user_name
+                        user_name: currentUser.user_name || currentUser.user_id
                     })
                 });
                 if (!res.ok) { showMessage(res.error, "error"); return; }
@@ -351,10 +577,49 @@
             if (item) item.classList.add('selected');
 
             if (window[callback]) window[callback](id);
+
+            // Update project actions panel hint
+            const hint = document.getElementById('projectActionsHint');
+            if (hint) {
+                const proj = projects.find(p => p.id === id);
+                const name = proj ? proj.filename : `Project ${id}`;
+                hint.textContent = `Selected: ${name}. Use the actions on the right to analyze or manage this project.`;
+            }
+        }
+
+        function openThumbnailView() {
+            if (!selectedProjectId) {
+                showMessage('Please select a project first.', 'error');
+                return;
+            }
+            showView('thumbnail');
+        }
+
+        function openMergeView() {
+            if (!selectedProjectId) {
+                showMessage('Please select a project first.', 'error');
+                return;
+            }
+            showView('merge');
+        }
+
+        function openCleanupView() {
+            if (!selectedProjectId) {
+                showMessage('Please select a project first.', 'error');
+                return;
+            }
+            showView('cleanup');
         }
 
         function showView(viewName, options = {}) {
-            const { preserveSelection = false } = options;
+            const { preserveSelection = false, bypassUnsavedCheck = false } = options;
+            if (!bypassUnsavedCheck && activeView && activeView !== viewName && dirtyViews[activeView]) {
+                pendingNavigation = { viewName, options };
+                openUnsavedChangesPrompt();
+                return;
+            }
+
+            activeView = viewName;
             const container = document.getElementById('viewContainer');
 
             document.body.classList.remove('nav-open');
@@ -395,10 +660,7 @@
                             <strong>Analyze</strong>
                             <span>Deep dive into your project's structure, dependencies, complexity, and technical stack.</span>
                         </button>
-                        <button type="button" class="dashboard-quick-action" onclick="showView('rank-gemini')">
-                            <strong>AI Ranking</strong>
-                            <span>Use Gemini AI to intelligently rank your projects by quality, complexity, and technical skills.</span>
-                        </button>
+                        
                         <button type="button" class="dashboard-quick-action" onclick="showView('resume-gen')">
                             <strong>Resume Tools</strong>
                             <span>Generate, update, and export professional resumes tailored to your project history and skills.</span>
@@ -414,7 +676,24 @@
                     </div>
                 </div>`,
                 'upload': `<div class="view-panel"><h3>Upload ZIP File</h3><input type="file" id="zipFile" accept=".zip" /><button class="btn" onclick="uploadFile()">Upload</button><div id="uploadResult"></div></div>`,
-                'list': `<div class="view-panel"><h3>Stored Projects</h3><button class="btn" onclick="refreshProjects()">Refresh</button><button class="btn btn-secondary" onclick="loadSkills()">View Skills</button><div id="projectsList" class="project-list"></div><div id="skillsResult" class="result"></div></div>`,
+                'list': `<div class="view-panel view-panel-split">
+                    <div class="view-panel-main">
+                        <h3>Stored Projects</h3>
+                        <button class="btn" onclick="refreshProjects()">Refresh</button>
+                        <div id="projectsList" class="project-list"></div>
+                    </div>
+                    <aside class="view-panel-side" aria-label="Project actions" id="projectActionsPanel">
+                        <h4>Project Actions</h4>
+                        <p class="text-muted" id="projectActionsHint">Select a project to see available actions.</p>
+                        <div class="project-actions-toolbar">
+                            <button type="button" class="btn" onclick="analyzeProject()" id="actionAnalyzeBtn">Analyze (Local)</button>
+                            <button type="button" class="btn btn-gemini" onclick="analyzeProjectGemini()" id="actionAnalyzeAiBtn">AI Deep Analysis</button>
+                            <button type="button" class="btn btn-secondary" onclick="openThumbnailView()" id="actionThumbBtn">Set Thumbnail</button>
+                            <button type="button" class="btn btn-secondary" onclick="openMergeView()" id="actionMergeBtn">Merge ZIP</button>
+                            <button type="button" class="btn btn-secondary" onclick="openCleanupView()" id="actionCleanupBtn">Delete Insights</button>
+                        </div>
+                    </aside>
+                </div>`,
                 'analyze': `<div class="view-panel analyze-view">
                     <div class="analyze-header">
                         <h3>Analyze Project</h3>
@@ -426,13 +705,13 @@
                     </div>
                     <div class="analyze-actions">
                         <div class="analyze-action-card analyze-action-local">
-                            <div class="analyze-action-icon">⚡</div>
+                            <div class="analyze-action-icon">LOCAL</div>
                             <h4>Local Analysis</h4>
                             <p>Fast, private pattern-based analysis: languages, frameworks, structure, code quality, OOP, and file stats.</p>
                             <button type="button" class="btn" onclick="analyzeProject()">Run Local Analysis</button>
                         </div>
                         <div class="analyze-action-card analyze-action-gemini">
-                            <div class="analyze-action-icon">✦</div>
+                            <div class="analyze-action-icon">AI</div>
                             <h4>AI Deep Analysis (Gemini)</h4>
                             <p>Thorough semantic analysis: quality score, architecture, recommendations, security, and best practices. May take 15–30 seconds.</p>
                             <button type="button" class="btn btn-gemini" onclick="analyzeProjectGemini()">Run AI Analysis</button>
@@ -447,11 +726,23 @@
                         <div id="analyzeResultAi" class="analyze-tab-pane" role="tabpanel"></div>
                     </div>
                 </div>`,
-                'rank': `<div class="view-panel"><h3>Rank All Projects</h3><p class="text-muted" style="margin-bottom: 12px; font-size: 0.9em;">Rank your projects by score, then save the rankings to the database.</p><div class="rank-actions"><button type="button" class="btn" onclick="rankProjects()">Rank Projects</button><button type="button" class="btn btn-secondary" id="rankSaveBtn" onclick="saveRankingsToDb()" disabled>Save to database</button></div><div id="rankResult" class="result rank-result"></div></div>`,
-                'rank-top3': `<div class="view-panel"><h3>Rank and Summarize Top 3</h3><p class="text-muted" style="margin-bottom: 12px; font-size: 0.9em;">Rank all projects, summarize the top 3, then save rankings to the database (like the backend).</p><div class="rank-actions"><button type="button" class="btn" onclick="rankTop3()">Rank & Summarize</button><button type="button" class="btn btn-secondary" id="rankTop3SaveBtn" onclick="saveRankingsToDb()" disabled>Save to database</button></div><div id="rankTop3Result" class="result rank-result"></div></div>`,
-                'rankings': `<div class="view-panel"><h3>View and Edit Rankings</h3><p class="text-muted" style="margin-bottom: 12px; font-size: 0.9em;">Load and view rankings stored in the database.</p><button type="button" class="btn" onclick="loadRankings()">Load Rankings</button><div id="rankingsList" class="result rank-result"></div></div>`,
-                'rank-gemini': `<div class="view-panel"><h3>AI Rank Projects (Gemini)</h3><p class="text-muted" style="margin-bottom: 12px; font-size: 0.9em;">Uses Gemini AI to comparatively rank your projects by quality, complexity, and skills.</p><div class="rank-actions"><button type="button" class="btn" onclick="rankProjectsGemini()">Rank with Gemini</button><button type="button" class="btn btn-secondary" id="rankGeminiSaveBtn" onclick="saveRankingsToDb()" disabled>Save to database</button></div><div id="rankGeminiResult" class="result rank-result"></div></div>`,
-                'external': `<div class="view-panel"><h3>External Service Settings</h3><p>Manage external service permissions</p><div id="externalServicesResult" class="result"></div></div>`,
+                'external': `<div class="view-panel">
+                    <h3>External Service Settings</h3>
+                    <p>Manage which external services are allowed to process your project data.</p>
+                    <div class="ext-service-card" id="llmServiceCard">
+                        <div class="ext-service-info">
+                            <strong>AI / LLM Analysis</strong>
+                            <span class="text-muted">Allow project data to be sent to an external LLM provider (e.g. Gemini) for deep code reviews and AI-powered rankings. Unchecked means only local analysis is used.</span>
+                        </div>
+                        <div class="ext-service-control">
+                            <label class="toggle-label" for="llmToggle">
+                                <input type="checkbox" id="llmToggle" onchange="handleLlmToggle(this.checked)" />
+                                <span>Enable</span>
+                            </label>
+                        </div>
+                    </div>
+                    <div id="externalServicesResult" class="result"></div>
+                </div>`,
                 'cleanup': `<div class="view-panel"><h3>Cleanup Insights</h3><div id="cleanupProjectsList" class="project-list"></div><button class="btn" onclick="cleanupInsights()">Cleanup Selected</button><div id="cleanupResult" class="result"></div></div>`,
                 'preferences': `<div class="view-panel"><h3>User Preferences</h3><label>Privacy Consent:</label><button class="btn" onclick="submitPrivacyConsent(true)">Grant</button><button class="btn btn-secondary" onclick="submitPrivacyConsent(false)">Deny</button><label>Git Username:</label><input type="text" id="gitUsername" /><button class="btn" onclick="savePreferences()">Save</button><div id="preferencesResult" class="result"></div></div>`,
                 'account': `<div class="view-panel"><h3>User Account</h3><p>Username: ${currentUser?.user_name || ''}</p><p>User ID: ${currentUser?.user_id || ''}</p><p>Last Login: ${new Date(currentUser?.last_login_time).toLocaleString()}</p></div>`,
@@ -475,8 +766,8 @@
                                     Public
                                 </button>
                             </div>
-                            <button type="button" class="btn" onclick="loadPortfolioDashboard()">Refresh</button>
-                            <button type="button" class="btn btn-secondary" onclick="generatePortfolio()">Generate Data</button>
+                            <button type="button" class="btn" onclick="loadPortfolioDashboard()">Refresh</button>                            
+                            <button type="button" class="btn btn-save-portfolio" onclick="saveAllPortfolioEdits()">Save Portfolio</button>
                         </div>
                     </div>
 
@@ -518,9 +809,7 @@
                     </div>
                 </div>`,
                 'portfolio': `<div class="view-panel"><h3>View Portfolio</h3><button class="btn" onclick="viewPortfolio()">Load Portfolio</button><button class="btn btn-secondary" onclick="generatePortfolio()">Generate New</button><div id="portfolioResult" class="result"></div></div>`,
-                'customize-portfolio': `<div class="view-panel"><h3>Customize Portfolio Projects</h3><p class="text-muted" style="margin-bottom: 15px;">Add custom titles, descriptions, and roles to your portfolio projects to better showcase your work.</p><button class="btn" onclick="loadCustomizedProjects()">Refresh List</button><div id="customizeProjectsList" class="project-list"></div></div>`,
                 'thumbnail': `<div class="view-panel"><h3>Add Thumbnail to Project</h3><div id="thumbnailProjectsList" class="project-list"></div><input type="file" id="thumbnailFile" accept="image/*" /><button class="btn" onclick="addThumbnail()">Upload Thumbnail</button><div id="thumbnailResult" class="result"></div></div>`,
-                'llm-summary': `<div class="view-panel"><h3>Run LLM Summary</h3><div id="llmProjectsList" class="project-list"></div><button class="btn" onclick="runLLMSummary()">Run Summary</button><div id="llmSummaryResult" class="result"></div></div>`,
                 'merge': `<div class="view-panel"><h3>Merge ZIP into Existing Project</h3><p class="text-muted" style="margin-bottom: 15px;">Add new files from another ZIP archive to an existing project. This allows incremental additions to your portfolio or résumé. Duplicate files (same path) will be automatically skipped.</p><div id="mergeProjectsList" class="project-list"></div><input type="file" id="mergeZipFile" accept=".zip" style="margin-top: 10px;" /><button class="btn" onclick="mergeZipToProject()">Merge Files</button><div id="mergeResult" class="result"></div></div>`
             };
             
@@ -532,7 +821,7 @@
             if (activeBtn) activeBtn.classList.add('active');
 
             if (viewName === 'list' || viewName === 'analyze' || 
-                viewName === 'cleanup' || viewName === 'thumbnail' || viewName === 'llm-summary' || viewName === 'merge') {
+                viewName === 'cleanup' || viewName === 'thumbnail' || viewName === 'merge') {
                 setTimeout(() => {
                     let listId = null;
                     listId = viewName === 'list' ? 'projectsList' : 
@@ -566,22 +855,11 @@
             if (viewName === 'portfolio-dashboard') {
                 setTimeout(() => loadPortfolioDashboard(), 100);
             }
-            if (viewName === 'customize-portfolio') {
-                setTimeout(() => {
-                    loadCustomizedProjects();
-                }, 100);
+            if (viewName === 'analyze') {
+                setTimeout(() => updateAnalyzeLlmState(), 100);
             }
-            if (viewName === 'rank') {
-                const rankSaveBtn = document.getElementById('rankSaveBtn');
-                if (rankSaveBtn) rankSaveBtn.disabled = !lastRankedProjects || lastRankedProjects.length === 0;
-            }
-            if (viewName === 'rank-top3') {
-                const rankTop3SaveBtn = document.getElementById('rankTop3SaveBtn');
-                if (rankTop3SaveBtn) rankTop3SaveBtn.disabled = !lastRankedProjects || lastRankedProjects.length === 0;
-            }
-            if (viewName === 'rank-gemini') {
-                const rankGeminiSaveBtn = document.getElementById('rankGeminiSaveBtn');
-                if (rankGeminiSaveBtn) rankGeminiSaveBtn.disabled = !lastRankedProjects || lastRankedProjects.length === 0;
+            if (viewName === 'external') {
+                setTimeout(() => syncExternalServicesView(), 50);
             }
         }
 
@@ -1021,6 +1299,10 @@
         }
 
         async function analyzeProjectGemini() {
+            if (llmEnabled === false) {
+                showMessage('AI features are disabled. Enable them in settings to use Gemini analysis.', 'error');
+                return;
+            }
             if (!selectedProjectId) {
                 showMessage('Please select a project', 'error');
                 return;
@@ -1045,6 +1327,91 @@
                 }
             } catch (e) {
                 renderError(resultDiv, e.message || 'Gemini analysis failed');
+            }
+        }
+
+        async function initializeLlmConsent() {
+            try {
+                const username = (currentUser && currentUser.user_name) ? encodeURIComponent(currentUser.user_name) : '';
+                if (!username) { console.warn('No user for LLM settings'); return; }
+                const res = await apiCall(`/api/settings/llm?username=${username}`);
+                if (!res.ok) {
+                    console.warn('Failed to load LLM settings:', res.error);
+                    return;
+                }
+                llmEnabled = res.data.llm_enabled;
+                applyLlmConsentToUi();
+                if (llmEnabled === null || llmEnabled === undefined) {
+                    const modal = document.getElementById('llmConsentModal');
+                    if (modal) modal.classList.add('show');
+                }
+            } catch (e) {
+                console.warn('Error initializing LLM consent:', e);
+            }
+        }
+
+        async function setLlmConsent(enabled) {
+            try {
+                const username = (currentUser && currentUser.user_name) ? encodeURIComponent(currentUser.user_name) : '';
+                if (!username) { showMessage('Not logged in', 'error'); return; }
+                const res = await apiCall(`/api/settings/llm?username=${username}`, {
+
+                    method: 'POST',
+                    body: JSON.stringify({ llm_enabled: !!enabled })
+                });
+                if (!res.ok) {
+                    showMessage(res.error || 'Failed to update AI settings', 'error');
+                    return;
+                }
+                llmEnabled = !!enabled;
+                applyLlmConsentToUi();
+                const modal = document.getElementById('llmConsentModal');
+                if (modal) modal.classList.remove('show');
+                showMessage(
+                    llmEnabled ? 'AI features enabled. Gemini-based analysis is now available.' :
+                                 'AI features disabled. Using local analysis only.',
+                    'success'
+                );
+            } catch (e) {
+                showMessage(e.message || 'Failed to update AI settings', 'error');
+            }
+        }
+
+        function applyLlmConsentToUi() {
+            updateAnalyzeLlmState();
+            syncExternalServicesView();
+        }
+
+        function syncExternalServicesView() {
+            const toggle = document.getElementById('llmToggle');
+            if (!toggle) return;
+            toggle.checked = !!llmEnabled;
+        }
+
+        async function handleLlmToggle(checked) {
+            await setLlmConsent(checked);
+            syncExternalServicesView();
+        }
+
+        function updateAnalyzeLlmState() {
+            const aiCard = document.querySelector('.analyze-action-gemini');
+            const aiBtn = aiCard?.querySelector('button');
+            if (!aiCard || !aiBtn) return;
+
+            if (llmEnabled === false) {
+                aiCard.classList.add('disabled');
+                aiBtn.disabled = true;
+                if (!aiCard.querySelector('.analyze-note')) {
+                    const note = document.createElement('p');
+                    note.className = 'analyze-note text-muted';
+                    note.textContent = 'AI analysis is disabled. Enable AI features in settings to use this.';
+                    aiCard.appendChild(note);
+                }
+            } else {
+                aiCard.classList.remove('disabled');
+                aiBtn.disabled = false;
+                const note = aiCard.querySelector('.analyze-note');
+                if (note) note.remove();
             }
         }
 
@@ -1508,30 +1875,13 @@
             const resultDiv = document.getElementById('cleanupResult');
             resultDiv.innerHTML = 'Cleaning up...';
             try {
-                const res = await apiCall(`/api/projects/${selectedProjectId}/insights`, { method: 'DELETE' });
+                const res = await apiCall(`/api/projects/${selectedProjectId}/data?user_name=${encodeURIComponent(currentUser.user_name || '')}`, { method: 'DELETE' });
                 if (!res.ok) { renderError(resultDiv, res.error || 'Failed to clean up insights'); return; }
                 const data = res.data;
                 if (data.success) {
                     resultDiv.innerHTML = `Deleted: ${data.deleted.metrics} metrics, ${data.deleted.files} files, ${data.deleted.projects} projects`;
                     renderSuccess(resultDiv, 'Insights cleanup complete');
                     loadProjects();
-                }
-            } catch (e) {
-                resultDiv.innerHTML = `Error: ${e.message}`;
-            }
-        }
-
-        async function loadSkills() {
-            const resultDiv = document.getElementById('skillsResult');
-            resultDiv.innerHTML = 'Loading skills...';
-            try {
-                const res = await apiCall(`/api/skills?user_name=${currentUser.user_name}`);
-                if (!res.ok) { renderError(resultDiv, res.error || 'Failed to load skills'); return; }
-                const data = res.data;
-                if (data.success) {
-                    const skills = data.skills || [];
-                    const langs = data.languages || [];
-                    resultDiv.innerHTML = `Skills (${skills.length}): ${skills.slice(0, 10).join(', ')}${skills.length > 10 ? '...' : ''}\nLanguages: ${langs.join(', ') || 'None'}`;
                 }
             } catch (e) {
                 resultDiv.innerHTML = `Error: ${e.message}`;
@@ -1907,10 +2257,18 @@
             } catch (e) { console.error('Stats load error:', e); }
         }
 
+        function setTextSafe(id, val) {
+            const el = document.getElementById(id);
+            if (el) el.textContent = val;
+        }
+
+        let timelineEdits = {};
+
         async function loadPdTimeline() {
             const container = document.getElementById('pdTimeline');
             if (!container) return;
             container.innerHTML = '<div class="pd-loading"><div class="spinner"></div><p>Loading timeline...</p></div>';
+            timelineEdits = {};
             try {
                 const res = await apiCall(`/api/portfolio/${currentUser.user_name}/timeline`);
                 if (!res.ok) {
@@ -1922,6 +2280,16 @@
                     container.innerHTML = '<p class="text-muted">No timeline data yet. Upload projects to see your skills timeline.</p>';
                     return;
                 }
+                data.timeline.forEach(entry => {
+                    timelineEdits[entry.project_id] = {
+                        hidden_skills: [],
+                        added_skills: [],
+                        custom_date: null,
+                        original_date: entry.date,
+                        current_new_skills: [...entry.new_skills],
+                        current_growing_skills: entry.growing_skills.map(gs => ({...gs}))
+                    };
+                });
                 renderTimeline(container, data);
                 setTextSafe('pdTotalSkills', data.total_skills ?? 0);
             } catch (e) {
@@ -1930,31 +2298,127 @@
             }
         }
 
+        function removeTimelineSkill(projectId, skillName) {
+            const edit = timelineEdits[projectId];
+            if (!edit) return;
+
+            const addedIdx = edit.added_skills.indexOf(skillName);
+            if (addedIdx >= 0) {
+                edit.added_skills.splice(addedIdx, 1);
+            } else {
+                if (!edit.hidden_skills.includes(skillName)) {
+                    edit.hidden_skills.push(skillName);
+                }
+            }
+
+            edit.current_new_skills = edit.current_new_skills.filter(s => s !== skillName);
+            edit.current_growing_skills = edit.current_growing_skills.filter(gs => gs.skill !== skillName);
+
+            markDirty('portfolio-dashboard');
+            rerenderTimelineEntry(projectId);
+        }
+
+        function addTimelineSkill(projectId) {
+            const input = document.getElementById(`tl-add-input-${projectId}`);
+            if (!input) return;
+            const skill = input.value.trim();
+            if (!skill) return;
+
+            const edit = timelineEdits[projectId];
+            if (!edit) return;
+
+            const allCurrent = new Set(edit.current_new_skills);
+            edit.current_growing_skills.forEach(gs => allCurrent.add(gs.skill));
+            if (allCurrent.has(skill)) {
+                showMessage(`"${skill}" is already in this entry`, 'error');
+                return;
+            }
+
+            const hiddenIdx = edit.hidden_skills.indexOf(skill);
+            if (hiddenIdx >= 0) {
+                edit.hidden_skills.splice(hiddenIdx, 1);
+            } else {
+                edit.added_skills.push(skill);
+            }
+
+            edit.current_new_skills.push(skill);
+            input.value = '';
+            markDirty('portfolio-dashboard');
+            rerenderTimelineEntry(projectId);
+        }
+
+        function changeTimelineDate(projectId, newDate) {
+            const edit = timelineEdits[projectId];
+            if (!edit) return;
+            edit.custom_date = newDate || null;
+            markDirty('portfolio-dashboard');
+        }
+
+        function rerenderTimelineEntry(projectId) {
+            const entryEl = document.querySelector(`.pd-tl-entry[data-project-id="${projectId}"]`);
+            if (!entryEl) return;
+            const edit = timelineEdits[projectId];
+            if (!edit) return;
+
+            const skillsRow = entryEl.querySelector('.pd-tl-skills-row');
+            if (!skillsRow) return;
+
+            let html = '';
+            if (edit.current_new_skills.length > 0) {
+                html += '<div class="pd-tl-new-label">New skills:</div>';
+                edit.current_new_skills.forEach(s => {
+                    html += `<span class="badge badge-success pd-tl-skill-badge">${escapeHtml(s)}<button type="button" class="pd-tl-skill-remove" onclick="removeTimelineSkill(${projectId}, '${s.replace(/'/g, "\\'")}')" title="Remove skill">&times;</button></span>`;
+                });
+            }
+            if (edit.current_growing_skills.length > 0) {
+                edit.current_growing_skills.forEach(gs => {
+                    const lvl = gs.depth >= 4 ? 'expert' : gs.depth >= 3 ? 'advanced' : 'intermediate';
+                    html += `<span class="badge pd-depth-${lvl} pd-tl-skill-badge" title="Used in ${gs.depth} projects">${escapeHtml(gs.skill)} (${gs.depth}x)<button type="button" class="pd-tl-skill-remove" onclick="removeTimelineSkill(${projectId}, '${gs.skill.replace(/'/g, "\\'")}')" title="Remove skill">&times;</button></span>`;
+                });
+            }
+            html += `<div class="pd-tl-add-skill">
+                <input type="text" id="tl-add-input-${projectId}" class="pd-tl-add-input" placeholder="Add skill..." onkeydown="if(event.key==='Enter'){event.preventDefault();addTimelineSkill(${projectId})}" />
+                <button type="button" class="pd-tl-add-btn" onclick="addTimelineSkill(${projectId})">+</button>
+            </div>`;
+
+            skillsRow.innerHTML = html;
+
+            const totalEl = entryEl.querySelector('.pd-tl-total');
+            if (totalEl) {
+                const count = edit.current_new_skills.length + edit.current_growing_skills.length;
+                totalEl.textContent = `${count} skill${count !== 1 ? 's' : ''} in this entry`;
+            }
+        }
+
         function renderTimeline(container, data) {
             const { timeline, skill_summary } = data;
 
             let html = '<div class="pd-timeline">';
             timeline.forEach((entry, idx) => {
-                const dateStr = new Date(entry.date).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
+                const dateVal = entry.date ? entry.date.substring(0, 10) : '';
                 const isLast = idx === timeline.length - 1;
-                html += `<div class="pd-tl-entry${isLast ? ' pd-tl-last' : ''}">
+                html += `<div class="pd-tl-entry${isLast ? ' pd-tl-last' : ''}" data-project-id="${entry.project_id}">
                     <div class="pd-tl-dot"></div>
                     <div class="pd-tl-content">
-                        <div class="pd-tl-date">${dateStr}</div>
+                        <input type="date" class="pd-tl-date-input" value="${dateVal}" onchange="changeTimelineDate(${entry.project_id}, this.value)" title="Change date" />
                         <div class="pd-tl-project">${escapeHtml(entry.project)}</div>
                         <div class="pd-tl-skills-row">`;
                 if (entry.new_skills.length > 0) {
                     html += '<div class="pd-tl-new-label">New skills:</div>';
                     entry.new_skills.forEach(s => {
-                        html += `<span class="badge badge-success">${escapeHtml(s)}</span>`;
+                        html += `<span class="badge badge-success pd-tl-skill-badge">${escapeHtml(s)}<button type="button" class="pd-tl-skill-remove" onclick="removeTimelineSkill(${entry.project_id}, '${s.replace(/'/g, "\\'")}')" title="Remove skill">&times;</button></span>`;
                     });
                 }
                 if (entry.growing_skills.length > 0) {
                     entry.growing_skills.forEach(gs => {
                         const lvl = gs.depth >= 4 ? 'expert' : gs.depth >= 3 ? 'advanced' : 'intermediate';
-                        html += `<span class="badge pd-depth-${lvl}" title="Used in ${gs.depth} projects">${escapeHtml(gs.skill)} (${gs.depth}x)</span>`;
+                        html += `<span class="badge pd-depth-${lvl} pd-tl-skill-badge" title="Used in ${gs.depth} projects">${escapeHtml(gs.skill)} (${gs.depth}x)<button type="button" class="pd-tl-skill-remove" onclick="removeTimelineSkill(${entry.project_id}, '${gs.skill.replace(/'/g, "\\'")}')" title="Remove skill">&times;</button></span>`;
                     });
                 }
+                html += `<div class="pd-tl-add-skill">
+                    <input type="text" id="tl-add-input-${entry.project_id}" class="pd-tl-add-input" placeholder="Add skill..." onkeydown="if(event.key==='Enter'){event.preventDefault();addTimelineSkill(${entry.project_id})}" />
+                    <button type="button" class="pd-tl-add-btn" onclick="addTimelineSkill(${entry.project_id})">+</button>
+                </div>`;
                 html += `</div>
                         <div class="pd-tl-total">${entry.total_skills_at_point} total skills</div>
                     </div>
@@ -2110,13 +2574,13 @@
                 if (p.has_docs) badges.push('<span class="badge badge-info">Docs</span>');
                 if (p.oop_principles > 0) badges.push('<span class="badge badge-purple">OOP</span>');
 
-                html += `<div class="pd-showcase-card">
+                html += `<div class="pd-showcase-card" data-project-id="${p.project_id}">
                     <div class="pd-showcase-rank" style="background:${medalColor}">#${p.rank}</div>
                     <div class="pd-showcase-header">
-                        <h4>${escapeHtml(p.name)}</h4>
-                        <span class="pd-showcase-role">${escapeHtml(p.role)}</span>
+                        <h4 contenteditable="true" class="pd-editable" data-field="name">${escapeHtml(p.name)}</h4>
+                        <span class="pd-showcase-role pd-editable" contenteditable="true" data-field="role">${escapeHtml(p.role)}</span>
                     </div>
-                    <p class="pd-showcase-desc">${escapeHtml(p.description || '').substring(0, 200)}${(p.description||'').length > 200 ? '...' : ''}</p>
+                    <p class="pd-showcase-desc pd-editable" contenteditable="true" data-field="description">${escapeHtml(p.description || '')}</p>
                     <div class="pd-showcase-meta">
                         <div><strong>${(p.lines_of_code||0).toLocaleString()}</strong> <span>lines</span></div>
                         <div><strong>${p.file_count||0}</strong> <span>files</span></div>
@@ -2144,6 +2608,90 @@
             });
             html += '</div>';
             container.innerHTML = html;
+        }
+
+        async function saveAllPortfolioEdits() {
+            const saveBtn = document.querySelector('.btn-save-portfolio');
+            if (saveBtn) {
+                saveBtn.disabled = true;
+                saveBtn.textContent = 'Saving...';
+            }
+
+            let saved = 0;
+            let errors = 0;
+
+            const cards = document.querySelectorAll('.pd-showcase-card[data-project-id]');
+            for (const card of cards) {
+                const projectId = parseInt(card.dataset.projectId);
+                if (!projectId) continue;
+
+                const nameEl = card.querySelector('[data-field="name"]');
+                const roleEl = card.querySelector('[data-field="role"]');
+                const descEl = card.querySelector('[data-field="description"]');
+
+                const customTitle = nameEl ? nameEl.textContent.trim() : '';
+                const customRole = roleEl ? roleEl.textContent.trim() : '';
+                const customDescription = descEl ? descEl.textContent.trim() : '';
+
+                try {
+                    const result = await apiCall(`/api/portfolio/${currentUser.user_name}/custom-data`, {
+                        method: 'POST',
+                        body: JSON.stringify({
+                            project_id: projectId,
+                            custom_title: customTitle,
+                            custom_description: customDescription,
+                            custom_role: customRole
+                        })
+                    });
+                    if (result.ok) saved++;
+                    else { errors++; console.error(`Failed to save project ${projectId}:`, result.error); }
+                } catch (e) {
+                    errors++;
+                    console.error(`Error saving project ${projectId}:`, e);
+                }
+            }
+
+            const overrides = [];
+            for (const [pid, edit] of Object.entries(timelineEdits)) {
+                const hasChanges = edit.hidden_skills.length > 0 || edit.added_skills.length > 0 || edit.custom_date;
+                if (hasChanges) {
+                    overrides.push({
+                        project_id: parseInt(pid),
+                        hidden_skills: edit.hidden_skills,
+                        added_skills: edit.added_skills,
+                        custom_date: edit.custom_date || null
+                    });
+                }
+            }
+
+            if (overrides.length > 0) {
+                try {
+                    const tlResult = await apiCall(`/api/portfolio/${currentUser.user_name}/timeline/overrides`, {
+                        method: 'POST',
+                        body: JSON.stringify({ overrides })
+                    });
+                    if (tlResult.ok) saved += overrides.length;
+                    else { errors++; console.error('Failed to save timeline overrides:', tlResult.error); }
+                } catch (e) {
+                    errors++;
+                    console.error('Error saving timeline overrides:', e);
+                }
+            }
+
+            if (saveBtn) {
+                saveBtn.disabled = false;
+                saveBtn.textContent = 'Save Portfolio';
+            }
+
+            const totalItems = cards.length + overrides.length;
+            if (totalItems === 0) {
+                showMessage('No changes to save. Generate portfolio data first.', 'error');
+            } else if (errors === 0) {
+                showMessage('Portfolio saved successfully', 'success');
+            } else {
+                showMessage(`Saved with ${errors} error(s)`, 'error');
+            }
+            clearDirty('portfolio-dashboard');
         }
 
         async function loadPdSkills() {

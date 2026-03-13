@@ -119,6 +119,8 @@
             { section: "Settings", method: "POST", path: "/api/settings/privacy", pathParams: [], query: [{ name: "username", placeholder: "required" }], body: true, bodyPlaceholder: '{"consent_given":true}', file: false },
             { section: "Settings", method: "GET", path: "/api/settings/general", pathParams: [], query: [{ name: "username", placeholder: "required" }], body: false, file: false },
             { section: "Settings", method: "POST", path: "/api/settings/general", pathParams: [], query: [{ name: "username", placeholder: "required" }], body: true, bodyPlaceholder: '{"git_username":"my-gh"}', file: false },
+            { section: "Settings", method: "GET", path: "/api/settings/llm", pathParams: [], query: [{ name: "username", placeholder: "required" }], body: false, file: false },
+            { section: "Settings", method: "POST", path: "/api/settings/llm", pathParams: [], query: [{ name: "username", placeholder: "required" }], body: true, bodyPlaceholder: '{"llm_enabled":true}', file: false },
         ];
 
         const sections = [...new Set(endpoints.map(e => e.section))];

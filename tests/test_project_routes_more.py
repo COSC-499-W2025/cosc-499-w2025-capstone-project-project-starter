@@ -400,28 +400,31 @@ class TestSingleProjectRoutes:
 
 
 class TestGeminiAndQuickSummaryMore:
+    @patch("api.routes.project._ensure_llm_allowed")
     @patch("project_manager.get_project_by_id")
     @patch("config.db_config.with_db_cursor")
-    def test_analyze_gemini_no_file_contents(self, mock_with_cursor, mock_get_project):
+    def test_analyze_gemini_no_file_contents(self, mock_with_cursor, mock_get_project, mock_llm_guard):
         mock_get_project.return_value = {"project_info": {"filename": "proj.zip"}}
 
         mock_cursor = MagicMock()
         mock_cursor.fetchall.return_value = []
         mock_with_cursor.return_value.__enter__.return_value = mock_cursor
+        mock_llm_guard.return_value = "test_user"
 
-        response = client.post("/api/projects/123/analyze-gemini")
+        response = client.post("/api/projects/123/analyze-gemini?user_name=test_user")
 
         assert response.status_code == 400
         data = response.json()
         assert data["error_type"] == "HTTP_ERROR"
         assert "No file contents found" in data["message"]
 
+    @patch("api.routes.project._ensure_llm_allowed")
     @patch("analysis.gemini_analyzer.GeminiAnalyzer")
     @patch("project_analyzer.ProjectAnalyzer")
     @patch("config.db_config.with_db_cursor")
     @patch("project_manager.get_project_by_id")
     def test_analyze_gemini_analysis_failed(
-        self, mock_get_project, mock_with_cursor, mock_pa_cls, mock_ga_cls
+        self, mock_get_project, mock_with_cursor, mock_pa_cls, mock_ga_cls, mock_llm_guard
     ):
         mock_get_project.return_value = {"project_info": {"filename": "proj.zip"}}
 
@@ -443,24 +446,27 @@ class TestGeminiAndQuickSummaryMore:
             "success": False,
             "error": "Gemini failed"
         }
+        mock_llm_guard.return_value = "test_user"
 
-        response = client.post("/api/projects/123/analyze-gemini")
+        response = client.post("/api/projects/123/analyze-gemini?user_name=test_user")
 
         assert response.status_code == 400
         data = response.json()
         assert data["error_type"] == "HTTP_ERROR"
         assert "Gemini failed" in data["message"]
 
+    @patch("api.routes.project._ensure_llm_allowed")
     @patch("project_manager.get_project_by_id")
     @patch("config.db_config.with_db_cursor")
-    def test_quick_summary_no_file_contents(self, mock_with_cursor, mock_get_project):
+    def test_quick_summary_no_file_contents(self, mock_with_cursor, mock_get_project, mock_llm_guard):
         mock_get_project.return_value = {"project_info": {"filename": "proj.zip"}}
 
         mock_cursor = MagicMock()
         mock_cursor.fetchall.return_value = []
         mock_with_cursor.return_value.__enter__.return_value = mock_cursor
+        mock_llm_guard.return_value = "test_user"
 
-        response = client.post("/api/projects/123/quick-summary")
+        response = client.post("/api/projects/123/quick-summary?user_name=test_user")
 
         assert response.status_code == 400
         data = response.json()
@@ -491,14 +497,16 @@ class TestRankingRoutesMore:
         assert data["error_type"] == "HTTP_ERROR"
         assert "Error ranking top 3" in data["message"]
 
+    @patch("api.routes.project._ensure_llm_allowed")
     @patch("api.routes.project.rank_projects_with_gemini")
-    def test_rank_projects_gemini_failure(self, mock_rank_gemini):
+    def test_rank_projects_gemini_failure(self, mock_rank_gemini, mock_llm_guard):
         mock_rank_gemini.return_value = {
             "success": False,
             "error": "Gemini ranking failed"
         }
+        mock_llm_guard.return_value = "test_user"
 
-        response = client.post("/api/projects/rank-gemini")
+        response = client.post("/api/projects/rank-gemini?user_name=test_user")
 
         assert response.status_code == 400
         data = response.json()
