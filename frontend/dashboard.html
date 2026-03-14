@@ -7,6 +7,7 @@
     <link rel="stylesheet" href="css/styles.css">
     <link rel="stylesheet" href="css/dashboard.css">
     <link rel="stylesheet" href="css/responsive.css">
+    <script src="js/resume-formatter.js"></script>
 </head>
 <body>
     <header class="header">
@@ -745,7 +746,11 @@
                 'preferences': `<div class="view-panel"><h3>User Preferences</h3><label>Privacy Consent:</label><button class="btn" onclick="submitPrivacyConsent(true)">Grant</button><button class="btn btn-secondary" onclick="submitPrivacyConsent(false)">Deny</button><label>Git Username:</label><input type="text" id="gitUsername" /><button class="btn" onclick="savePreferences()">Save</button><div id="preferencesResult" class="result"></div></div>`,
                 'account': `<div class="view-panel"><h3>User Account</h3><p>Username: ${currentUser?.user_name || ''}</p><p>User ID: ${currentUser?.user_id || ''}</p><p>Last Login: ${new Date(currentUser?.last_login_time).toLocaleString()}</p></div>`,
                 'resume-gen': `<div class="view-panel"><h3>Generate Resume</h3><button class="btn" onclick="generateResume()">Generate</button><div id="resumeGenResult" class="result"></div></div>`,
-                'resume-view': `<div class="view-panel"><h3>View Resume</h3><button class="btn" onclick="viewResume()">Load Resume</button><div id="resumeViewResult" class="result"></div></div>`,
+                'resume-view': `<div class="view-panel">
+                    <h3>View Resume</h3>
+                    <button class="btn" onclick="viewResume()">Load Resume</button>
+                    <div id="resumeViewResult" class="result"></div>
+                </div>`,
                 'resume-delete': `<div class="view-panel"><h3>Delete Resume</h3><button class="btn" onclick="deleteResume()">Delete</button><div id="resumeDeleteResult" class="result"></div></div>`,
                 'portfolio-dashboard': `<div class="portfolio-dashboard-wrapper">
                     <div class="pd-header">
@@ -1952,7 +1957,7 @@
                 const data = res.data;
                 if (data.success) {
                     const r = data.resume.resume_data;
-                    resultDiv.innerHTML = `Name: ${r.display_name}\nProjects: ${r.top_projects_displayed}/${r.total_projects_analyzed}\nSkills: ${r.all_skills?.length || 0}\nLanguages: ${r.languages?.join(', ') || 'None'}`;
+                    resultDiv.innerHTML = formatResumeHTML(r);
                 }
             } catch (e) {
                 resultDiv.innerHTML = `Error: ${e.message}`;
