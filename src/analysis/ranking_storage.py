@@ -148,15 +148,19 @@ def save_rankings_to_db(ranked_projects: List[Dict[str, Any]], summaries: Option
         return False
 
 
-def get_stored_rankings() -> List[Dict[str, Any]]:
+def get_stored_rankings(user_name: Optional[str] = None) -> List[Dict[str, Any]]:
     """
     Retrieve all stored rankings from the database for the current logged-in user.
+    
+    Args:
+        user_name: Optional username. If not provided, uses current logged-in user.
     """
     try:
         # Get current user for data isolation
-        user_name = AuthManager.get_current_username()
+        if user_name is None:
+            user_name = AuthManager.get_current_username()
         if not user_name:
-            print("Warning: No user logged in")
+            print("Warning: No user logged in and no user_name provided")
             return []
         
         with with_db_cursor() as cursor:
@@ -168,6 +172,7 @@ def get_stored_rankings() -> List[Dict[str, Any]]:
                     score,
                     summary,
                     ranking_data,
+                    user_name,
                     created_at,
                     updated_at
                 FROM project_rankings
@@ -188,8 +193,9 @@ def get_stored_rankings() -> List[Dict[str, Any]]:
                 "score": float(row[3]),
                 "summary": row[4],
                 "ranking_data": ranking_data,
-                "created_at": row[6],
-                "updated_at": row[7]
+                "user_name": row[6],
+                "created_at": row[7],
+                "updated_at": row[8]
             })
         
         return rankings
@@ -198,16 +204,20 @@ def get_stored_rankings() -> List[Dict[str, Any]]:
         return []
 
 
-def get_stored_ranking_by_project_id(project_id: int) -> Optional[Dict[str, Any]]:
+def get_stored_ranking_by_project_id(project_id: int, user_name: Optional[str] = None) -> Optional[Dict[str, Any]]:
     """
-    Get stored ranking for a specific project for the current logged-in user.
-
+    Get stored ranking for a specific project for the specified user.
+    
+    Args:
+        project_id: The project ID to retrieve
+        user_name: Optional username. If not provided, uses current logged-in user.
     """
     try:
         # Get current user for data isolation
-        user_name = AuthManager.get_current_username()
+        if user_name is None:
+            user_name = AuthManager.get_current_username()
         if not user_name:
-            print("Warning: No user logged in")
+            print("Warning: No user logged in and no user_name provided")
             return None
         
         with with_db_cursor() as cursor:
@@ -289,16 +299,21 @@ def update_ranking_score(project_id: int, new_score: float) -> bool:
         return False
 
 
-def update_ranking_summary(project_id: int, new_summary: str) -> bool:
+def update_ranking_summary(project_id: int, new_summary: str, user_name: Optional[str] = None) -> bool:
     """
     Update the summary for a stored ranking for the current logged-in user.
     
+    Args:
+        project_id: The project ID to update
+        new_summary: The new summary text
+        user_name: Optional username. If not provided, uses current logged-in user.
     """
     try:
         # Get current user for data isolation
-        user_name = AuthManager.get_current_username()
+        if user_name is None:
+            user_name = AuthManager.get_current_username()
         if not user_name:
-            print("Error: No user logged in")
+            print("Error: No user logged in and no user_name provided")
             return False
         
         with with_db_cursor() as cursor:

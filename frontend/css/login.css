@@ -2,34 +2,59 @@
    Login Page Specific Styles
    ============================================ */
 
-/* Import DM Sans font for login page */
-@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&display=swap');
+/* Import Inter font for login page */
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
 
 /* ============== Layout ============== */
 
 body {
-    font-family: 'DM Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
     min-height: 100vh;
     display: flex;
     align-items: center;
     justify-content: center;
+    position: relative;
+    overflow: hidden;
+}
+
+body::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: 
+        radial-gradient(circle at 20% 50%, rgba(0, 0, 0, 0.03) 0%, transparent 50%),
+        radial-gradient(circle at 80% 80%, rgba(0, 0, 0, 0.03) 0%, transparent 50%);
+    pointer-events: none;
+    z-index: 0;
+}
+
+[data-theme="dark"] body::before {
+    background: 
+        radial-gradient(circle at 20% 50%, rgba(255, 255, 255, 0.02) 0%, transparent 50%),
+        radial-gradient(circle at 80% 80%, rgba(255, 255, 255, 0.02) 0%, transparent 50%);
 }
 
 /* ============== Login Container ============== */
 
 .login-container {
     width: 100%;
-    max-width: 420px;
-    padding: 20px;
+    max-width: 480px;
+    padding: 40px;
+    position: relative;
+    z-index: 1;
 }
 
 .login-card {
     background: var(--bg-card);
     border: 1px solid var(--border-color);
     border-radius: var(--radius-lg);
-    padding: 40px;
-    box-shadow: var(--shadow-sm), 0 25px 50px -12px var(--shadow-color);
+    padding: 48px 40px;
+    box-shadow: var(--shadow-lg);
     position: relative;
+    backdrop-filter: blur(10px);
 }
 
 /* ============== Theme Toggle (Login Page) ============== */
@@ -45,20 +70,37 @@ body {
 
 .logo {
     text-align: center;
-    margin-bottom: 32px;
+    margin-bottom: 48px;
+    position: relative;
+}
+
+.logo::after {
+    content: '';
+    position: absolute;
+    bottom: -24px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 60px;
+    height: 3px;
+    background: var(--accent-primary);
+    border-radius: 2px;
 }
 
 .logo h1 {
-    font-size: 28px;
-    font-weight: 700;
-    letter-spacing: -0.5px;
+    font-size: 42px;
+    font-weight: 800;
+    letter-spacing: -0.06em;
     color: var(--text-primary);
+    margin-bottom: 8px;
+    line-height: 1.1;
 }
 
 .logo p {
     color: var(--text-muted);
-    font-size: 14px;
-    margin-top: 8px;
+    font-size: 15px;
+    margin-top: 12px;
+    font-weight: 400;
+    letter-spacing: 0.01em;
 }
 
 /* ============== Form Input Wrapper ============== */
@@ -68,14 +110,18 @@ body {
 }
 
 .form-group input {
-    padding: 14px 16px;
+    padding: 16px 18px;
     background: var(--bg-secondary);
     border-radius: var(--radius-sm);
     font-size: 15px;
+    border: 2px solid var(--border-color);
+    transition: all 0.2s ease;
 }
 
 .form-group input:focus {
-    box-shadow: 0 0 0 3px var(--accent-glow);
+    border-color: var(--accent-primary);
+    box-shadow: 0 0 0 4px var(--accent-glow);
+    outline: none;
 }
 
 /* ============== Password Toggle ============== */
@@ -109,21 +155,25 @@ body {
 
 .btn-login {
     width: 100%;
-    padding: 14px 24px;
+    padding: 16px 24px;
     background: var(--accent-primary);
     border: none;
     border-radius: var(--radius-sm);
     color: var(--bg-primary);
-    font-size: 15px;
+    font-size: 16px;
     font-weight: 600;
     font-family: inherit;
     cursor: pointer;
     transition: all 0.2s ease;
-    margin-top: 8px;
+    margin-top: 12px;
+    letter-spacing: -0.01em;
+    box-shadow: var(--shadow-sm);
 }
 
 .btn-login:hover:not(:disabled) {
     background: var(--accent-hover);
+    box-shadow: var(--shadow-md);
+    transform: translateY(-1px);
 }
 
 .btn-login:disabled {

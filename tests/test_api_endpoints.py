@@ -297,9 +297,11 @@ class TestSettingsEndpoints:
 class TestDeleteProjectDataEndpoint:
     """Test DELETE /api/projects/{id}/data endpoint (renamed from /insights)."""
 
+    @patch('api.routes.project.AuthManager')
     @patch('api.routes.project.delete_insights')
-    def test_delete_project_data_success(self, mock_delete):
+    def test_delete_project_data_success(self, mock_delete, mock_auth_manager):
         """Test successfully deleting project data."""
+        mock_auth_manager.get_current_username.return_value = "testuser"
         mock_delete.return_value = (3, 5, 1)  # metrics, files, projects
 
         client = TestClient(app)
@@ -313,9 +315,11 @@ class TestDeleteProjectDataEndpoint:
         assert data["deleted"]["projects"] == 1
         mock_delete.assert_called_once_with(123, user_name='testuser')
 
+    @patch('api.routes.project.AuthManager')
     @patch('api.routes.project.delete_insights')
-    def test_delete_project_data_error(self, mock_delete):
+    def test_delete_project_data_error(self, mock_delete, mock_auth_manager):
         """Test error handling when deleting project data fails."""
+        mock_auth_manager.get_current_username.return_value = "testuser"
         mock_delete.side_effect = Exception("Database error")
 
         client = TestClient(app)
@@ -326,9 +330,11 @@ class TestDeleteProjectDataEndpoint:
         assert data["success"] is False
         assert "Error deleting project data" in data["message"]
 
+    @patch('api.routes.project.AuthManager')
     @patch('api.routes.project.delete_insights')
-    def test_delete_project_data_missing_user(self, mock_delete):
+    def test_delete_project_data_missing_user(self, mock_delete, mock_auth_manager):
         """Test that user_name is required."""
+        mock_auth_manager.get_current_username.return_value = "testuser"
         client = TestClient(app)
         response = client.delete("/api/projects/123/data")
 
@@ -337,9 +343,11 @@ class TestDeleteProjectDataEndpoint:
         assert data["success"] is False
         assert "user_name parameter is required" in data["message"]
 
+    @patch('api.routes.project.AuthManager')
     @patch('api.routes.project.delete_insights')
-    def test_delete_project_data_permission_denied(self, mock_delete):
+    def test_delete_project_data_permission_denied(self, mock_delete, mock_auth_manager):
         """Test permission denied error."""
+        mock_auth_manager.get_current_username.return_value = "testuser"
         mock_delete.side_effect = PermissionError("Project does not belong to user")
 
         client = TestClient(app)
@@ -413,10 +421,12 @@ class TestGetProjectsEndpoint:
 class TestGetProjectByIdEndpoint:
     """Test GET /api/projects/{id} endpoint."""
 
+    @patch('api.routes.project.AuthManager')
     @patch('api.routes.project.get_project_by_id')
-    def test_get_project_by_id_success(self, mock_get):
+    def test_get_project_by_id_success(self, mock_get, mock_auth_manager):
         """Test successfully retrieving a project by ID."""
         from datetime import datetime
+        mock_auth_manager.get_current_username.return_value = "test_user"
         # Mock should return nested structure with project_info
         mock_get.return_value = {
             'project_info': {
@@ -439,9 +449,11 @@ class TestGetProjectByIdEndpoint:
         assert data["project"]["filename"] == "test_project.zip"
         mock_get.assert_called_once_with(123, user_name="test_user")
 
+    @patch('api.routes.project.AuthManager')
     @patch('api.routes.project.get_project_by_id')
-    def test_get_project_by_id_not_found(self, mock_get):
+    def test_get_project_by_id_not_found(self, mock_get, mock_auth_manager):
         """Test retrieving a non-existent project."""
+        mock_auth_manager.get_current_username.return_value = "test_user"
         mock_get.return_value = None
 
         client = TestClient(app)
@@ -452,10 +464,12 @@ class TestGetProjectByIdEndpoint:
         assert data["success"] is False
         assert "not found" in data["message"].lower()
 
+    @patch('api.routes.project.AuthManager')
     @patch('api.routes.project.get_project_by_id')
-    def test_get_project_by_id_without_user(self, mock_get):
+    def test_get_project_by_id_without_user(self, mock_get, mock_auth_manager):
         """Test retrieving a project without user verification."""
         from datetime import datetime
+        mock_auth_manager.get_current_username.return_value = "test_user"
         # Mock should return nested structure with project_info
         mock_get.return_value = {
             'project_info': {
@@ -473,7 +487,7 @@ class TestGetProjectByIdEndpoint:
         assert response.status_code == 200
         data = response.json()
         assert data["project"]["id"] == 456
-        mock_get.assert_called_once_with(456, user_name=None)
+        mock_get.assert_called_once_with(456, user_name="test_user")
 
 
 class TestMergeProjectEndpoint:
