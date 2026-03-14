@@ -13,9 +13,13 @@ from sqlalchemy.exc import IntegrityError
 DASHBOARD_MODE_PRIVATE = "private"
 DASHBOARD_MODE_PUBLIC = "public"
 ALLOWED_DASHBOARD_MODES = {DASHBOARD_MODE_PRIVATE, DASHBOARD_MODE_PUBLIC}
-LINK_TYPE_PUBLIC = "public"
-LINK_TYPE_EDITOR = "editor"
-ALLOWED_LINK_TYPES = {LINK_TYPE_PUBLIC, LINK_TYPE_EDITOR}
+DEFAULT_PUBLIC_VISIBILITY = {
+    "projects": True,
+    "skills_timeline": True,
+    "top_projects": True,
+    "activity_heatmap": True,
+    "showcases": True,
+}
 
 PUBLIC_FILTER_ALLOWED_KEYS = {"q", "date_from", "date_to", "project_ids", "skills", "sort"}
 PUBLIC_FILTER_ALLOWED_SORTS = {
@@ -43,8 +47,7 @@ def _to_dashboard_out(row: Mapping[str, Any]) -> Dict[str, Any]:
         "portfolio_id": str(row.get("portfolio_id")),
         "mode": str(row.get("mode") or DASHBOARD_MODE_PRIVATE),
         "public_slug": str(row.get("public_slug") or ""),
-        "editor_slug": str(row.get("editor_slug") or ""),
-        "last_generated_link_type": str(row.get("last_generated_link_type") or LINK_TYPE_PUBLIC),
+        "visibility_config": normalize_public_visibility_config(row.get("visibility_config_json")),
         "active_publication_id": str(row["active_publication_id"]) if row.get("active_publication_id") else None,
         "published_at": row.get("published_at"),
         "created_at": row.get("created_at"),
@@ -68,7 +71,7 @@ def ensure_portfolio_dashboard(conn, portfolio_id: str) -> Dict[str, Any]:
     row = conn.execute(
         text(
             """
-            SELECT portfolio_id, mode, public_slug, editor_slug, last_generated_link_type,
+            SELECT portfolio_id, mode, public_slug, visibility_config_json,
                    active_publication_id, published_at, created_at, updated_at
             FROM portfolio_dashboards
             WHERE portfolio_id = :pid
@@ -84,9 +87,6 @@ def ensure_portfolio_dashboard(conn, portfolio_id: str) -> Dict[str, Any]:
 
     for _ in range(10):
         public_slug = _slug_candidate()
-        editor_slug = _slug_candidate()
-        if public_slug == editor_slug:
-            continue
         conn.execute(
             text(
                 """
@@ -94,10 +94,9 @@ def ensure_portfolio_dashboard(conn, portfolio_id: str) -> Dict[str, Any]:
                   portfolio_id,
                   mode,
                   public_slug,
-                  editor_slug,
-                  last_generated_link_type
+                  visibility_config_json
                 )
-                VALUES (:pid, :mode, :public_slug, :editor_slug, :link_type)
+                VALUES (:pid, :mode, :public_slug, CAST(:visibility AS jsonb))
                 ON CONFLICT DO NOTHING
                 """
             ),
@@ -105,14 +104,13 @@ def ensure_portfolio_dashboard(conn, portfolio_id: str) -> Dict[str, Any]:
                 "pid": portfolio_id,
                 "mode": DASHBOARD_MODE_PRIVATE,
                 "public_slug": public_slug,
-                "editor_slug": editor_slug,
-                "link_type": LINK_TYPE_PUBLIC,
+                "visibility": _json_dump(DEFAULT_PUBLIC_VISIBILITY),
             },
         )
         row = conn.execute(
             text(
                 """
-                SELECT portfolio_id, mode, public_slug, editor_slug, last_generated_link_type,
+                SELECT portfolio_id, mode, public_slug, visibility_config_json,
                        active_publication_id, published_at, created_at, updated_at
                 FROM portfolio_dashboards
                 WHERE portfolio_id = :pid
@@ -160,12 +158,7 @@ def set_portfolio_dashboard_mode(
     return ensure_portfolio_dashboard(conn, portfolio_id)
 
 
-def regenerate_portfolio_slug(conn, portfolio_id: str, *, link_type: str) -> Dict[str, Any]:
-    normalized_link_type = str(link_type or "").strip().lower()
-    if normalized_link_type not in ALLOWED_LINK_TYPES:
-        raise ValueError("Invalid link type")
-
-    target_col = "public_slug" if normalized_link_type == LINK_TYPE_PUBLIC else "editor_slug"
+def regenerate_portfolio_slug(conn, portfolio_id: str) -> Dict[str, Any]:
     ensure_portfolio_dashboard(conn, portfolio_id)
 
     for _ in range(10):
@@ -176,9 +169,7 @@ def regenerate_portfolio_slug(conn, portfolio_id: str, *, link_type: str) -> Dic
                     """
                     UPDATE portfolio_dashboards
                     SET
-                      public_slug = CASE WHEN :target_col = 'public_slug' THEN :slug ELSE public_slug END,
-                      editor_slug = CASE WHEN :target_col = 'editor_slug' THEN :slug ELSE editor_slug END,
-                      last_generated_link_type = :link_type,
+                                            public_slug = :slug,
                       updated_at = NOW()
                     WHERE portfolio_id = :pid
                     """
@@ -186,8 +177,6 @@ def regenerate_portfolio_slug(conn, portfolio_id: str, *, link_type: str) -> Dic
                 {
                     "pid": portfolio_id,
                     "slug": slug,
-                    "target_col": target_col,
-                    "link_type": normalized_link_type,
                 },
             )
             return ensure_portfolio_dashboard(conn, portfolio_id)
@@ -198,23 +187,26 @@ def regenerate_portfolio_slug(conn, portfolio_id: str, *, link_type: str) -> Dic
 
 
 def regenerate_portfolio_public_slug(conn, portfolio_id: str) -> Dict[str, Any]:
-    return regenerate_portfolio_slug(conn, portfolio_id, link_type=LINK_TYPE_PUBLIC)
+    return regenerate_portfolio_slug(conn, portfolio_id)
 
 
-def touch_last_generated_link_type(conn, portfolio_id: str, *, link_type: str) -> Dict[str, Any]:
-    normalized_link_type = str(link_type or "").strip().lower()
-    if normalized_link_type not in ALLOWED_LINK_TYPES:
-        raise ValueError("Invalid link type")
+def set_portfolio_dashboard_visibility(
+    conn,
+    *,
+    portfolio_id: str,
+    visibility_config: Mapping[str, Any] | None,
+) -> Dict[str, Any]:
     ensure_portfolio_dashboard(conn, portfolio_id)
+    normalized_visibility = normalize_public_visibility_config(visibility_config)
     conn.execute(
         text(
             """
             UPDATE portfolio_dashboards
-            SET last_generated_link_type = :link_type, updated_at = NOW()
+            SET visibility_config_json = CAST(:visibility AS jsonb), updated_at = NOW()
             WHERE portfolio_id = :pid
             """
         ),
-        {"pid": portfolio_id, "link_type": normalized_link_type},
+        {"pid": portfolio_id, "visibility": _json_dump(normalized_visibility)},
     )
     return ensure_portfolio_dashboard(conn, portfolio_id)
 
@@ -291,8 +283,7 @@ def get_public_dashboard_by_slug(conn, public_slug: str) -> Optional[Dict[str, A
               pd.portfolio_id,
               pd.mode,
               pd.public_slug,
-                            pd.editor_slug,
-                            pd.last_generated_link_type,
+                            pd.visibility_config_json,
               pd.active_publication_id,
               pd.published_at,
               p.user_id AS owner_user_id,
@@ -317,8 +308,7 @@ def get_public_dashboard_by_slug(conn, public_slug: str) -> Optional[Dict[str, A
         "portfolio_id": str(row["portfolio_id"]),
         "mode": str(row.get("mode") or DASHBOARD_MODE_PRIVATE),
         "public_slug": str(row.get("public_slug") or ""),
-        "editor_slug": str(row.get("editor_slug") or ""),
-        "last_generated_link_type": str(row.get("last_generated_link_type") or LINK_TYPE_PUBLIC),
+        "visibility_config": normalize_public_visibility_config(row.get("visibility_config_json")),
         "active_publication_id": str(row["active_publication_id"]) if row.get("active_publication_id") else None,
         "published_at": row.get("published_at"),
         "owner_user_id": str(row["owner_user_id"]) if row.get("owner_user_id") else None,
@@ -334,56 +324,33 @@ def get_public_dashboard_by_slug(conn, public_slug: str) -> Optional[Dict[str, A
     }
 
 
-def get_dashboard_by_editor_slug(conn, editor_slug: str) -> Optional[Dict[str, Any]]:
-    row = conn.execute(
-        text(
-            """
-            SELECT
-              pd.portfolio_id,
-              pd.mode,
-              pd.public_slug,
-              pd.editor_slug,
-              pd.last_generated_link_type,
-              pd.active_publication_id,
-              pd.published_at,
-              p.user_id AS owner_user_id,
-              aa.email AS owner_email,
-              aa.display_name AS owner_display_name,
-              pub.version,
-              pub.frozen_config_json,
-              pub.frozen_dashboard_json,
-              pub.filter_spec_json,
-              pub.created_at AS publication_created_at
-            FROM portfolio_dashboards pd
-            JOIN portfolios p ON p.id = pd.portfolio_id
-            LEFT JOIN auth_accounts aa ON aa.user_id = p.user_id
-            LEFT JOIN dashboard_publications pub ON pub.id = pd.active_publication_id
-            WHERE pd.editor_slug = :slug
-            """
-        ),
-        {"slug": editor_slug},
-    ).mappings().first()
-    if not row:
-        return None
-
+def normalize_public_visibility_config(config: Any) -> Dict[str, bool]:
+    source = config if isinstance(config, Mapping) else {}
     return {
-        "portfolio_id": str(row["portfolio_id"]),
-        "mode": str(row.get("mode") or DASHBOARD_MODE_PRIVATE),
-        "public_slug": str(row.get("public_slug") or ""),
-        "editor_slug": str(row.get("editor_slug") or ""),
-        "last_generated_link_type": str(row.get("last_generated_link_type") or LINK_TYPE_PUBLIC),
-        "active_publication_id": str(row["active_publication_id"]) if row.get("active_publication_id") else None,
-        "published_at": row.get("published_at"),
-        "owner_user_id": str(row["owner_user_id"]) if row.get("owner_user_id") else None,
-        "owner_email": str(row.get("owner_email") or "").strip() or None,
-        "owner_display_name": str(row.get("owner_display_name") or "").strip() or None,
-        "owner_username": _public_username(display_name=row.get("owner_display_name")),
-        "version": int(row["version"]) if row.get("version") is not None else None,
-        "frozen_config_json": _as_dict(row.get("frozen_config_json")),
-        "frozen_dashboard_json": _as_dict(row.get("frozen_dashboard_json")),
-        "filter_spec_json": _as_dict(row.get("filter_spec_json")),
-        "publication_created_at": row.get("publication_created_at"),
+        key: bool(source[key]) if key in source else bool(default_enabled)
+        for key, default_enabled in DEFAULT_PUBLIC_VISIBILITY.items()
     }
+
+
+def apply_public_visibility(
+    dashboard_json: Mapping[str, Any] | None,
+    visibility_config: Mapping[str, Any] | None,
+) -> Dict[str, Any]:
+    out = deepcopy(dict(dashboard_json or {}))
+    visibility = normalize_public_visibility_config(visibility_config)
+
+    section_to_key = {
+        "projects": "projects",
+        "skills_timeline": "skills_timeline",
+        "top_projects": "top_projects",
+        "activity_heatmap": "activity_heatmap",
+        "showcases": "showcases",
+    }
+    for section, key in section_to_key.items():
+        if not visibility.get(section, False):
+            out.pop(key, None)
+
+    return out
 
 
 def parse_public_filters(query_params: Any) -> Dict[str, Any]:

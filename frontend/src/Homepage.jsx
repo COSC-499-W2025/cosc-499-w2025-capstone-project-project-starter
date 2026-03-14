@@ -349,10 +349,9 @@ function getSnapshotStatus(snapshotId, snapshotAnalyses) {
   return summarizeSnapshotAnalyses(entry);
 }
 
-function Homepage({ sharedEditorSlug = '' }) {
+function Homepage() {
   const [token, setToken] = useState(() => localStorage.getItem(TOKEN_STORAGE_KEY) || '');
   const [currentUser, setCurrentUser] = useState(null);
-  const [isSharedEditorSession, setIsSharedEditorSession] = useState(Boolean(sharedEditorSlug));
   const [sessionLoading, setSessionLoading] = useState(true);
   const [authMode, setAuthMode] = useState('login');
   const [authBusy, setAuthBusy] = useState(false);
@@ -428,9 +427,14 @@ function Homepage({ sharedEditorSlug = '' }) {
   const [showcaseError, setShowcaseError] = useState('');
   const [dashboardMode, setDashboardMode] = useState('private');
   const [dashboardPublicSlug, setDashboardPublicSlug] = useState('');
-  const [dashboardEditorSlug, setDashboardEditorSlug] = useState('');
-  const [dashboardLastGeneratedLinkType, setDashboardLastGeneratedLinkType] = useState('public');
-  const [dashboardSelectedLinkType, setDashboardSelectedLinkType] = useState('public');
+  const [dashboardVisibilityConfig, setDashboardVisibilityConfig] = useState({
+    projects: true,
+    skills_timeline: true,
+    top_projects: true,
+    activity_heatmap: true,
+    showcases: true,
+  });
+  const [dashboardVisibilitySaving, setDashboardVisibilitySaving] = useState(false);
   const [dashboardModeLoading, setDashboardModeLoading] = useState(false);
   const [dashboardModeActionBusy, setDashboardModeActionBusy] = useState(false);
   const [dashboardModeError, setDashboardModeError] = useState('');
@@ -490,9 +494,14 @@ function Homepage({ sharedEditorSlug = '' }) {
     setShowcaseError('');
     setDashboardMode('private');
     setDashboardPublicSlug('');
-    setDashboardEditorSlug('');
-    setDashboardLastGeneratedLinkType('public');
-    setDashboardSelectedLinkType('public');
+    setDashboardVisibilityConfig({
+      projects: true,
+      skills_timeline: true,
+      top_projects: true,
+      activity_heatmap: true,
+      showcases: true,
+    });
+    setDashboardVisibilitySaving(false);
     setDashboardModeLoading(false);
     setDashboardModeActionBusy(false);
     setDashboardModeError('');
@@ -519,52 +528,6 @@ function Homepage({ sharedEditorSlug = '' }) {
   useEffect(() => {
     let cancelled = false;
     const bootstrapSession = async () => {
-      if (sharedEditorSlug) {
-        if (token && currentUser) {
-          setSessionLoading(false);
-          return;
-        }
-        try {
-          const response = await dashboardApi.createEditorSession(sharedEditorSlug);
-          if (!cancelled) {
-            setToken(response?.token || '');
-            setCurrentUser(response?.user || null);
-            setIsSharedEditorSession(true);
-            setAuthError('');
-          }
-        } catch (error) {
-          if (!cancelled && token) {
-            // Same-machine fallback: if exchange fails but a valid signed-in owner
-            // session exists, keep the user in an editable shared session.
-            try {
-              const me = await authApi.me(token);
-              if (!cancelled) {
-                setCurrentUser(me.user || null);
-                setIsSharedEditorSession(true);
-                setAuthError('');
-              }
-            } catch (fallbackError) {
-              if (!cancelled) {
-                setToken('');
-                setCurrentUser(null);
-                setIsSharedEditorSession(true);
-                setAuthError(error.message || fallbackError.message || 'This editor link is invalid or expired.');
-              }
-            }
-          } else if (!cancelled) {
-            setToken('');
-            setCurrentUser(null);
-            setIsSharedEditorSession(true);
-            setAuthError(error.message || 'This editor link is invalid or expired.');
-          }
-        } finally {
-          if (!cancelled) {
-            setSessionLoading(false);
-          }
-        }
-        return;
-      }
-
       if (!token) {
         setSessionLoading(false);
         return;
@@ -589,7 +552,7 @@ function Homepage({ sharedEditorSlug = '' }) {
     return () => {
       cancelled = true;
     };
-  }, [sharedEditorSlug, token, clearSession]);
+  }, [token, clearSession]);
 
   const fetchProjects = useCallback(async () => {
     if (!token) return;
@@ -677,10 +640,13 @@ function Homepage({ sharedEditorSlug = '' }) {
       const response = await dashboardApi.getMode(token, portfolioId);
       setDashboardMode(response?.mode || 'private');
       setDashboardPublicSlug(response?.public_slug || '');
-      setDashboardEditorSlug(response?.editor_slug || '');
-      const lastType = response?.last_generated_link_type === 'editor' ? 'editor' : 'public';
-      setDashboardLastGeneratedLinkType(lastType);
-      setDashboardSelectedLinkType(lastType);
+      setDashboardVisibilityConfig({
+        projects: Boolean(response?.visibility_config?.projects ?? true),
+        skills_timeline: Boolean(response?.visibility_config?.skills_timeline ?? true),
+        top_projects: Boolean(response?.visibility_config?.top_projects ?? true),
+        activity_heatmap: Boolean(response?.visibility_config?.activity_heatmap ?? true),
+        showcases: Boolean(response?.visibility_config?.showcases ?? true),
+      });
     } catch (error) {
       setDashboardModeError(error.message || 'Unable to load dashboard mode.');
     } finally {
@@ -1027,21 +993,33 @@ function Homepage({ sharedEditorSlug = '' }) {
     }
   };
 
-  const generateDashboardLink = async () => {
+  const makeDashboardPublic = async () => {
     if (!token || !portfolioId) return;
     setDashboardModeActionBusy(true);
     setDashboardModeError('');
     try {
-      const response = await dashboardApi.generateLink(token, portfolioId, dashboardSelectedLinkType);
+      const response = await dashboardApi.publish(token, portfolioId);
       setDashboardMode(response?.mode || 'private');
       setDashboardPublicSlug(response?.public_slug || '');
-      setDashboardEditorSlug(response?.editor_slug || '');
-      const generatedType = response?.link_type === 'editor' ? 'editor' : 'public';
-      setDashboardLastGeneratedLinkType(generatedType);
-      setDashboardSelectedLinkType(generatedType);
-      setFlashMessage(generatedType === 'editor' ? 'Editor link generated.' : 'Public link generated.');
+      setFlashMessage('Portfolio is now public.');
     } catch (error) {
-      setDashboardModeError(error.message || 'Unable to generate dashboard link.');
+      setDashboardModeError(error.message || 'Unable to make portfolio public.');
+    } finally {
+      setDashboardModeActionBusy(false);
+    }
+  };
+
+  const makeDashboardPrivate = async () => {
+    if (!token || !portfolioId) return;
+    setDashboardModeActionBusy(true);
+    setDashboardModeError('');
+    try {
+      const response = await dashboardApi.unpublish(token, portfolioId);
+      setDashboardMode(response?.mode || 'private');
+      setDashboardPublicSlug(response?.public_slug || '');
+      setFlashMessage('Portfolio is now private.');
+    } catch (error) {
+      setDashboardModeError(error.message || 'Unable to make portfolio private.');
     } finally {
       setDashboardModeActionBusy(false);
     }
@@ -1052,34 +1030,53 @@ function Homepage({ sharedEditorSlug = '' }) {
     setDashboardModeActionBusy(true);
     setDashboardModeError('');
     try {
-      const response = await dashboardApi.regenerateLink(token, portfolioId, dashboardSelectedLinkType);
+      const response = await dashboardApi.regeneratePublicLink(token, portfolioId);
       setDashboardMode(response?.mode || 'private');
       setDashboardPublicSlug(response?.public_slug || '');
-      setDashboardEditorSlug(response?.editor_slug || '');
-      const generatedType = response?.link_type === 'editor' ? 'editor' : 'public';
-      setDashboardLastGeneratedLinkType(generatedType);
-      setDashboardSelectedLinkType(generatedType);
-      setFlashMessage(generatedType === 'editor' ? 'Editor link regenerated.' : 'Public link regenerated.');
+      setFlashMessage('Public link regenerated.');
     } catch (error) {
-      setDashboardModeError(error.message || 'Unable to regenerate dashboard link.');
+      setDashboardModeError(error.message || 'Unable to regenerate public link.');
     } finally {
       setDashboardModeActionBusy(false);
     }
   };
 
   const copyLastGeneratedLink = async () => {
-    const activeLinkType = dashboardLastGeneratedLinkType === 'editor' ? 'editor' : 'public';
-    const slug = activeLinkType === 'editor' ? dashboardEditorSlug : dashboardPublicSlug;
-    if (!slug) return;
-    const url =
-      activeLinkType === 'editor'
-        ? `${window.location.origin}/portfolio/editor/${slug}`
-        : `${window.location.origin}/portfolio/${slug}`;
+    if (!dashboardPublicSlug) return;
+    const url = `${window.location.origin}/portfolio/${dashboardPublicSlug}`;
     try {
       await navigator.clipboard.writeText(url);
-      setFlashMessage(`${activeLinkType === 'editor' ? 'Editor' : 'Public'} URL copied to clipboard.`);
+      setFlashMessage('Public URL copied to clipboard.');
     } catch (error) {
       setDashboardModeError('Unable to copy link. Copy it manually from the URL shown below.');
+    }
+  };
+
+  const handleDashboardVisibilityToggle = (key) => {
+    setDashboardVisibilityConfig((current) => ({
+      ...current,
+      [key]: !Boolean(current[key]),
+    }));
+  };
+
+  const saveDashboardVisibility = async () => {
+    if (!token || !portfolioId) return;
+    setDashboardVisibilitySaving(true);
+    setDashboardModeError('');
+    try {
+      const response = await dashboardApi.setVisibility(token, portfolioId, dashboardVisibilityConfig);
+      setDashboardVisibilityConfig({
+        projects: Boolean(response?.visibility_config?.projects ?? true),
+        skills_timeline: Boolean(response?.visibility_config?.skills_timeline ?? true),
+        top_projects: Boolean(response?.visibility_config?.top_projects ?? true),
+        activity_heatmap: Boolean(response?.visibility_config?.activity_heatmap ?? true),
+        showcases: Boolean(response?.visibility_config?.showcases ?? true),
+      });
+      setFlashMessage('Public section visibility saved.');
+    } catch (error) {
+      setDashboardModeError(error.message || 'Unable to save public section visibility.');
+    } finally {
+      setDashboardVisibilitySaving(false);
     }
   };
 
@@ -1981,15 +1978,6 @@ function Homepage({ sharedEditorSlug = '' }) {
     return `${window.location.origin}/portfolio/${dashboardPublicSlug}`;
   }, [dashboardPublicSlug]);
 
-  const editorPortfolioUrl = useMemo(() => {
-    if (!dashboardEditorSlug) return '';
-    return `${window.location.origin}/portfolio/editor/${dashboardEditorSlug}`;
-  }, [dashboardEditorSlug]);
-
-  const lastGeneratedUrl = useMemo(() => {
-    return dashboardLastGeneratedLinkType === 'editor' ? editorPortfolioUrl : publicPortfolioUrl;
-  }, [dashboardLastGeneratedLinkType, editorPortfolioUrl, publicPortfolioUrl]);
-
   const uploadSnapshotHistory = useMemo(() => {
     const snapshots = Array.isArray(uploadTargetReport?.snapshots) ? uploadTargetReport.snapshots : [];
     const getTimestamp = (value) => {
@@ -2020,17 +2008,6 @@ function Homepage({ sharedEditorSlug = '' }) {
   }
 
   if (!isAuthenticated) {
-    if (sharedEditorSlug) {
-      return (
-        <div className="screen-shell">
-          <div className="loading-card">
-            <p>Unable to open shared editor session.</p>
-            {authError && <p className="error-banner inline-error">{authError}</p>}
-          </div>
-        </div>
-      );
-    }
-
     return (
       <div className="screen-shell">
         <div className="auth-layout">
@@ -2141,15 +2118,13 @@ function Homepage({ sharedEditorSlug = '' }) {
       <div className="dashboard-shell">
         <header className="dashboard-header">
           <div>
-            <p className="eyebrow">{isSharedEditorSession ? 'Shared editor session' : 'Signed in as'}</p>
+            <p className="eyebrow">Signed in as</p>
             <h1>{currentUser.display_name || currentUser.email}</h1>
           </div>
           <div className="dashboard-header-actions">
-            {!isSharedEditorSession && (
-              <button className="ghost-btn" type="button" onClick={handleLogout}>
-                Log Out
-              </button>
-            )}
+            <button className="ghost-btn" type="button" onClick={handleLogout}>
+              Log Out
+            </button>
           </div>
         </header>
 
@@ -2255,47 +2230,29 @@ function Homepage({ sharedEditorSlug = '' }) {
                       <strong>{dashboardModeLoading ? 'Loading...' : dashboardMode === 'public' ? 'Public' : 'Private'}</strong>
                     </p>
                     {publicPortfolioUrl && <p className="muted">Public URL: {publicPortfolioUrl}</p>}
-                    {editorPortfolioUrl && <p className="muted">Editor URL: {editorPortfolioUrl}</p>}
-                    {lastGeneratedUrl && (
-                      <p className="muted">
-                        Last generated ({dashboardLastGeneratedLinkType === 'editor' ? 'Editor' : 'Public'}): {lastGeneratedUrl}
-                      </p>
-                    )}
                   </div>
                   <div className="card-actions">
                     <button
-                      className={dashboardSelectedLinkType === 'editor' ? 'secondary-btn' : 'ghost-btn'}
+                      className={dashboardMode === 'public' ? 'ghost-btn' : 'primary-btn'}
                       type="button"
-                      onClick={() => setDashboardSelectedLinkType('editor')}
+                      onClick={makeDashboardPublic}
                       disabled={dashboardModeActionBusy || dashboardModeLoading}
                     >
-                      Editor Link
+                      {dashboardModeActionBusy && dashboardMode !== 'public' ? 'Working...' : 'Make Public'}
                     </button>
                     <button
-                      className={dashboardSelectedLinkType === 'public' ? 'secondary-btn' : 'ghost-btn'}
+                      className={dashboardMode === 'public' ? 'secondary-btn' : 'ghost-btn'}
                       type="button"
-                      onClick={() => setDashboardSelectedLinkType('public')}
+                      onClick={makeDashboardPrivate}
                       disabled={dashboardModeActionBusy || dashboardModeLoading}
                     >
-                      Public Link
-                    </button>
-                    <button
-                      className="primary-btn"
-                      type="button"
-                      onClick={generateDashboardLink}
-                      disabled={dashboardModeActionBusy || dashboardModeLoading}
-                    >
-                      {dashboardModeActionBusy
-                        ? 'Working...'
-                        : dashboardSelectedLinkType === 'editor'
-                          ? 'Generate Editor Link'
-                          : 'Generate Public Link'}
+                      {dashboardModeActionBusy && dashboardMode === 'public' ? 'Working...' : 'Make Private'}
                     </button>
                     <button
                       className="secondary-btn"
                       type="button"
                       onClick={regenerateDashboardLink}
-                      disabled={dashboardModeActionBusy || dashboardModeLoading}
+                      disabled={dashboardModeActionBusy || dashboardModeLoading || !publicPortfolioUrl}
                     >
                       Regenerate Link
                     </button>
@@ -2303,11 +2260,78 @@ function Homepage({ sharedEditorSlug = '' }) {
                       className="ghost-btn"
                       type="button"
                       onClick={copyLastGeneratedLink}
-                      disabled={!lastGeneratedUrl || dashboardModeLoading}
+                      disabled={!publicPortfolioUrl || dashboardModeLoading}
                     >
                       Copy URL
                     </button>
                   </div>
+                </div>
+                <div className="summary-grid">
+                  <label className="field">
+                    <span>
+                      <input
+                        type="checkbox"
+                        checked={dashboardVisibilityConfig.projects}
+                        onChange={() => handleDashboardVisibilityToggle('projects')}
+                        disabled={dashboardVisibilitySaving || dashboardModeLoading}
+                      />{' '}
+                      Projects
+                    </span>
+                  </label>
+                  <label className="field">
+                    <span>
+                      <input
+                        type="checkbox"
+                        checked={dashboardVisibilityConfig.skills_timeline}
+                        onChange={() => handleDashboardVisibilityToggle('skills_timeline')}
+                        disabled={dashboardVisibilitySaving || dashboardModeLoading}
+                      />{' '}
+                      Skills Timeline
+                    </span>
+                  </label>
+                  <label className="field">
+                    <span>
+                      <input
+                        type="checkbox"
+                        checked={dashboardVisibilityConfig.top_projects}
+                        onChange={() => handleDashboardVisibilityToggle('top_projects')}
+                        disabled={dashboardVisibilitySaving || dashboardModeLoading}
+                      />{' '}
+                      Top Projects
+                    </span>
+                  </label>
+                  <label className="field">
+                    <span>
+                      <input
+                        type="checkbox"
+                        checked={dashboardVisibilityConfig.activity_heatmap}
+                        onChange={() => handleDashboardVisibilityToggle('activity_heatmap')}
+                        disabled={dashboardVisibilitySaving || dashboardModeLoading}
+                      />{' '}
+                      Activity Heatmap
+                    </span>
+                  </label>
+                  <label className="field">
+                    <span>
+                      <input
+                        type="checkbox"
+                        checked={dashboardVisibilityConfig.showcases}
+                        onChange={() => handleDashboardVisibilityToggle('showcases')}
+                        disabled={dashboardVisibilitySaving || dashboardModeLoading}
+                      />{' '}
+                      Showcases
+                    </span>
+                  </label>
+                </div>
+                <div className="card-actions">
+                  <button
+                    className="secondary-btn"
+                    type="button"
+                    onClick={saveDashboardVisibility}
+                    disabled={dashboardVisibilitySaving || dashboardModeLoading}
+                  >
+                    {dashboardVisibilitySaving ? 'Saving...' : 'Save Visibility'}
+                  </button>
                 </div>
                 {dashboardModeError && <p className="error-banner inline-error">{dashboardModeError}</p>}
               </div>

@@ -621,46 +621,84 @@ def test_dashboard_public_link_keeps_owner_edits_available(client, engine):
     assert r_edit_resume.status_code == 200
 
 
-def test_dashboard_editor_link_session_allows_edit_endpoint_but_public_link_does_not(client):
-    account = _register_user(client, email="dashboard-editor-link@example.com")
+def test_dashboard_public_link_requires_owner_auth_and_supports_regeneration(client):
+    account = _register_user(client, email="dashboard-public-link@example.com")
     owner_headers = {"Authorization": f"Bearer {account['token']}"}
-
-    generated_editor = client.post(
-        f"/portfolio/{account['portfolio_id']}/dashboard/links/generate",
-        json={"link_type": "editor"},
-        headers=owner_headers,
-    )
-    assert generated_editor.status_code == 200
-    editor_slug = generated_editor.json()["editor_slug"]
 
     generated_public = client.post(
         f"/portfolio/{account['portfolio_id']}/dashboard/links/generate",
-        json={"link_type": "public"},
+        headers=owner_headers,
+    )
+    assert generated_public.status_code == 200
+    public_slug = generated_public.json()["public_slug"]
+    assert public_slug
+
+    public_view = client.get(f"/public/portfolio/{public_slug}")
+    assert public_view.status_code == 200
+
+    unauth_regenerate = client.post(f"/portfolio/{account['portfolio_id']}/dashboard/links/regenerate")
+    assert unauth_regenerate.status_code == 401
+
+    regenerate_public = client.post(
+        f"/portfolio/{account['portfolio_id']}/dashboard/public-link/regenerate",
+        headers=owner_headers,
+    )
+    assert regenerate_public.status_code == 200
+    regenerated_slug = regenerate_public.json()["public_slug"]
+    assert regenerated_slug
+    assert regenerated_slug != public_slug
+
+    old_public_view = client.get(f"/public/portfolio/{public_slug}")
+    assert old_public_view.status_code == 404
+
+    new_public_view = client.get(f"/public/portfolio/{regenerated_slug}")
+    assert new_public_view.status_code == 200
+
+
+def test_dashboard_visibility_controls_public_sections_and_private_mode_404(client):
+    account = _register_user(client, email="dashboard-visibility@example.com")
+    owner_headers = {"Authorization": f"Bearer {account['token']}"}
+
+    generated_public = client.post(
+        f"/portfolio/{account['portfolio_id']}/dashboard/links/generate",
         headers=owner_headers,
     )
     assert generated_public.status_code == 200
     public_slug = generated_public.json()["public_slug"]
 
+    set_visibility = client.post(
+        f"/portfolio/{account['portfolio_id']}/dashboard/visibility",
+        json={
+            "visibility_config": {
+                "projects": True,
+                "skills_timeline": False,
+                "top_projects": False,
+                "activity_heatmap": False,
+                "showcases": False,
+            }
+        },
+        headers=owner_headers,
+    )
+    assert set_visibility.status_code == 200
+    assert set_visibility.json()["visibility_config"]["projects"] is True
+    assert set_visibility.json()["visibility_config"]["skills_timeline"] is False
+
     public_view = client.get(f"/public/portfolio/{public_slug}")
     assert public_view.status_code == 200
+    public_dashboard = public_view.json()["dashboard"]
+    assert "projects" in public_dashboard
+    assert "skills_timeline" not in public_dashboard
+    assert "top_projects" not in public_dashboard
 
-    public_edit_attempt = client.post(
-        f"/portfolio/{account['portfolio_id']}/dashboard/links/regenerate",
-        json={"link_type": "public"},
+    unpublish = client.post(
+        f"/portfolio/{account['portfolio_id']}/dashboard/unpublish",
+        headers=owner_headers,
     )
-    assert public_edit_attempt.status_code == 401
+    assert unpublish.status_code == 200
+    assert unpublish.json()["mode"] == "private"
 
-    shared_editor_session = client.post(f"/editor/portfolio/{editor_slug}/session")
-    assert shared_editor_session.status_code == 200
-    editor_token = shared_editor_session.json()["token"]
-    editor_headers = {"Authorization": f"Bearer {editor_token}"}
-
-    editor_edit_attempt = client.post(
-        f"/portfolio/{account['portfolio_id']}/dashboard/links/regenerate",
-        json={"link_type": "editor"},
-        headers=editor_headers,
-    )
-    assert editor_edit_attempt.status_code == 200
+    private_view = client.get(f"/public/portfolio/{public_slug}")
+    assert private_view.status_code == 404
 
 
 def test_authenticated_user_scope_rejects_mismatched_user_id(client):

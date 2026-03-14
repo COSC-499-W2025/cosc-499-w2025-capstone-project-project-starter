@@ -10,6 +10,13 @@ jest.mock('./api', () => ({
 
 function mockDashboardPayload() {
   return {
+    visibility_config: {
+      projects: true,
+      skills_timeline: true,
+      top_projects: true,
+      activity_heatmap: true,
+      showcases: true,
+    },
     dashboard: {
       projects: [{ id: 'p1', name: 'Project One', created_at: '2024-01-01', metrics: { rank_score: 9.4 } }],
       top_projects: [{ project_id: 'p1', project_name: 'Project One', rank_score: 9.4 }],
@@ -73,5 +80,30 @@ describe('PublicPortfolioView', () => {
       q: 'react',
       skills: ['react', 'node'],
     });
+  });
+
+  test('hides disabled public sections', async () => {
+    dashboardApi.getPublicDashboard.mockResolvedValue({
+      visibility_config: {
+        projects: true,
+        skills_timeline: false,
+        top_projects: false,
+        activity_heatmap: false,
+        showcases: false,
+      },
+      dashboard: {
+        projects: [{ id: 'p1', name: 'Project One', created_at: '2024-01-01', metrics: { rank_score: 9.4 } }],
+      },
+    });
+
+    render(<PublicPortfolioView publicSlug="public-test-slug" />);
+
+    await waitFor(() => {
+      expect(dashboardApi.getPublicDashboard).toHaveBeenCalled();
+    });
+
+    expect(screen.getByRole('button', { name: /^projects$/i })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /skills timeline/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /top projects/i })).not.toBeInTheDocument();
   });
 });

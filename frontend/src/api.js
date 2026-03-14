@@ -238,22 +238,11 @@ export const userConfigApi = {
 
 export const dashboardApi = {
   getMode: (token, portfolioId) => apiRequest(`/portfolio/${portfolioId}/dashboard/mode`, { token }),
-  generateLink: (token, portfolioId, linkType) =>
-    apiRequest(`/portfolio/${portfolioId}/dashboard/links/generate`, {
+  setVisibility: (token, portfolioId, visibilityConfig) =>
+    apiRequest(`/portfolio/${portfolioId}/dashboard/visibility`, {
       method: 'POST',
       token,
-      body: { link_type: linkType },
-    }),
-  regenerateLink: (token, portfolioId, linkType) =>
-    apiRequest(`/portfolio/${portfolioId}/dashboard/links/regenerate`, {
-      method: 'POST',
-      token,
-      body: { link_type: linkType },
-    }),
-  createEditorSession: (editorSlug) =>
-    apiRequest(`/editor/portfolio/${editorSlug}/session`, {
-      method: 'POST',
-      token: null,
+      body: { visibility_config: visibilityConfig },
     }),
   setMode: (token, portfolioId, mode) =>
     apiRequest(`/portfolio/${portfolioId}/dashboard/mode`, {
@@ -272,10 +261,9 @@ export const dashboardApi = {
       token,
     }),
   regeneratePublicLink: (token, portfolioId) =>
-    apiRequest(`/portfolio/${portfolioId}/dashboard/links/regenerate`, {
+    apiRequest(`/portfolio/${portfolioId}/dashboard/public-link/regenerate`, {
       method: 'POST',
       token,
-      body: { link_type: 'public' },
     }),
   getPublicDashboard: (publicSlug, filters = {}) => {
     const params = new URLSearchParams();
