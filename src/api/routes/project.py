@@ -20,6 +20,7 @@ from config.db_config import with_db_cursor
 from common.logger import setup_logger
 from consent.consent_storage import ConsentStorage
 from external_services.permission_manager import ExternalServicePermission
+from account.user_manager import AuthManager
 
 router = APIRouter()
 logger = setup_logger(__name__)
@@ -381,8 +382,6 @@ async def get_projects(
 async def get_rankings(user_name: Optional[str] = Query(None, description="Username for data isolation")):
     """Get stored rankings."""
     try:
-        from account.user_manager import AuthManager
-        
         # Get authenticated user
         authenticated_user = AuthManager.get_current_username()
         if not authenticated_user:
@@ -412,8 +411,6 @@ async def save_rankings(
 ):
     """Save ranked projects to the database (same as backend save). Requires ranked_projects in body."""
     try:
-        from account.user_manager import AuthManager
-        
         if not isinstance(body.get("ranked_projects"), list):
             raise HTTPException(
                 status_code=400,
@@ -454,7 +451,6 @@ async def update_project_summary(
     """Update the summary for a specific project."""
     try:
         from analysis.ranking_storage import update_ranking_summary, get_stored_ranking_by_project_id
-        from account.user_manager import AuthManager
         
         # Get authenticated user
         authenticated_user = AuthManager.get_current_username()
@@ -516,8 +512,6 @@ async def get_project_by_id_endpoint(
         dict: Project information
     """
     try:
-        from account.user_manager import AuthManager
-        
         # Get authenticated user
         authenticated_user = AuthManager.get_current_username()
         if not authenticated_user:
@@ -804,8 +798,6 @@ async def delete_project_data(
     Raises:
         HTTPException: 400 if user_name not provided, 403 if permission denied, 500 on error
     """
-    from account.user_manager import AuthManager
-    
     # Get authenticated user
     authenticated_user = AuthManager.get_current_username()
     if not authenticated_user:
