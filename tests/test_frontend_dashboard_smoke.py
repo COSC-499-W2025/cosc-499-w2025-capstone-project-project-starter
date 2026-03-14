@@ -44,6 +44,14 @@ def _read_dashboard_html() -> str:
             return p.read_text(encoding="utf-8")
     raise AssertionError("dashboard.html not found in expected locations")
 
+def _read_frontend_js_modules() -> str:
+    """Read all frontend JavaScript modules (utils.js, api.js) and combine them"""
+    combined = ""
+    for p in (Path("frontend/js/utils.js"), Path("frontend/js/api.js")):
+        if p.exists():
+            combined += p.read_text(encoding="utf-8") + "\n"
+    return combined
+
 def _extract_function_body(text: str, name: str) -> str:
     # very lightweight extractor: find "function name" and take a chunk after it
     i = text.find(f"function {name}")
@@ -51,9 +59,15 @@ def _extract_function_body(text: str, name: str) -> str:
     return text[i:i+2500]  # enough to include the function body
 
 def test_dashboard_api_wrapper_uses_defined_base_url_and_helpers_do_not_overwrite():
-    text = _read_dashboard_html()
-
-    api_call_chunk = _extract_function_body(text, "apiCall")
+    # Read from modularized files
+    dashboard_html = _read_dashboard_html()
+    js_modules = _read_frontend_js_modules()
+    
+    # Check if apiCall is in modules or inline
+    if "function apiCall" in js_modules:
+        api_call_chunk = _extract_function_body(js_modules, "apiCall")
+    else:
+        api_call_chunk = _extract_function_body(dashboard_html, "apiCall")
 
     # 1) Guard: apiCall should build fetch URL from API_BASE_URL and endpoint (avoid undefined API_BASE)
     assert "fetch(" in api_call_chunk
@@ -61,5 +75,7 @@ def test_dashboard_api_wrapper_uses_defined_base_url_and_helpers_do_not_overwrit
     assert "endpoint" in api_call_chunk, "apiCall should reference endpoint when building URL"
 
     # 2) Guard: helpers should not overwrite container.innerHTML
-    assert "function renderSuccess" in text and "function renderError" in text
-    assert "insertAdjacentHTML" in text, "Expected helpers to use insertAdjacentHTML (no overwrite)"
+    # Check in both modules and dashboard.html
+    combined_text = dashboard_html + js_modules
+    assert "function renderSuccess" in combined_text and "function renderError" in combined_text
+    assert "insertAdjacentHTML" in combined_text, "Expected helpers to use insertAdjacentHTML (no overwrite)"

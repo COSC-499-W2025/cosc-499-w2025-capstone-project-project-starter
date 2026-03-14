@@ -7,6 +7,9 @@
     <link rel="stylesheet" href="css/styles.css">
     <link rel="stylesheet" href="css/dashboard.css">
     <link rel="stylesheet" href="css/responsive.css">
+    <!-- Core JavaScript Modules -->
+    <script src="js/utils.js"></script>
+    <script src="js/api.js"></script>
     <script src="js/resume-formatter.js"></script>
 </head>
 <body>
@@ -135,8 +138,7 @@
     </div>
 
     <script>
-        const API_BASE_URL = window.location.origin;
-        const API_BASE = API_BASE_URL;
+        // Global state variables
         let currentUser = null;
         let projects = [];
         let lastRankedProjects = [];
@@ -1272,25 +1274,7 @@
             });
         }
 
-        const ANALYZE_LOCAL_TIMEOUT_MS = 90000;
-        const ANALYZE_GEMINI_TIMEOUT_MS = 120000;
-
-        async function apiCallWithTimeout(endpoint, options, timeoutMs) {
-            const controller = new AbortController();
-            const id = setTimeout(() => controller.abort(), timeoutMs);
-            try {
-                const res = await apiCall(endpoint, { ...options, signal: controller.signal });
-                clearTimeout(id);
-                return res;
-            } catch (e) {
-                clearTimeout(id);
-                if (e.name === 'AbortError') {
-                    return { ok: false, error: 'Request timed out. Try again or use a smaller project.', data: null };
-                }
-                throw e;
-            }
-        }
-
+        // Analysis functions
         async function analyzeProject() {
             if (!selectedProjectId) {
                 showMessage('Please select a project', 'error');
