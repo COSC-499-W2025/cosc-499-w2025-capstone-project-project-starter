@@ -383,9 +383,20 @@ async def get_rankings(user_name: Optional[str] = Query(None, description="Usern
     try:
         from account.user_manager import AuthManager
         
-        # If user_name provided, verify it matches current user or use current user
-        if not user_name:
-            user_name = AuthManager.get_current_username()
+        # Get authenticated user
+        authenticated_user = AuthManager.get_current_username()
+        if not authenticated_user:
+            raise HTTPException(status_code=401, detail="User authentication required")
+        
+        # Validate user_name matches authenticated user if provided
+        if user_name and user_name != authenticated_user:
+            raise HTTPException(
+                status_code=403, 
+                detail="user_name parameter must match authenticated user"
+            )
+        
+        # Use authenticated user
+        user_name = authenticated_user
         
         rankings = get_stored_rankings(user_name=user_name)
         
@@ -401,13 +412,29 @@ async def save_rankings(
 ):
     """Save ranked projects to the database (same as backend save). Requires ranked_projects in body."""
     try:
+        from account.user_manager import AuthManager
+        
         if not isinstance(body.get("ranked_projects"), list):
             raise HTTPException(
                 status_code=400,
                 detail="Request body must include 'ranked_projects' (array of { project_id, filename, score, ... })",
             )
-        if not user_name:
-            raise HTTPException(status_code=400, detail="user_name query parameter is required")
+        
+        # Get authenticated user
+        authenticated_user = AuthManager.get_current_username()
+        if not authenticated_user:
+            raise HTTPException(status_code=401, detail="User authentication required")
+        
+        # Validate user_name matches authenticated user if provided
+        if user_name and user_name != authenticated_user:
+            raise HTTPException(
+                status_code=403, 
+                detail="user_name parameter must match authenticated user"
+            )
+        
+        # Use authenticated user
+        user_name = authenticated_user
+        
         ranked = body["ranked_projects"]
         success = save_rankings_to_db(ranked, summaries=None, user_name=user_name)
         if not success:
@@ -429,10 +456,20 @@ async def update_project_summary(
         from analysis.ranking_storage import update_ranking_summary, get_stored_ranking_by_project_id
         from account.user_manager import AuthManager
         
-        if not user_name:
-            user_name = AuthManager.get_current_username()
-        if not user_name:
+        # Get authenticated user
+        authenticated_user = AuthManager.get_current_username()
+        if not authenticated_user:
             raise HTTPException(status_code=401, detail="User authentication required")
+        
+        # Validate user_name matches authenticated user if provided
+        if user_name and user_name != authenticated_user:
+            raise HTTPException(
+                status_code=403, 
+                detail="user_name parameter must match authenticated user"
+            )
+        
+        # Use authenticated user
+        user_name = authenticated_user
         
         project_id = body.get("project_id")
         summary = body.get("summary", "")
@@ -441,7 +478,7 @@ async def update_project_summary(
             raise HTTPException(status_code=400, detail="project_id is required")
         
         # Check if ranking exists, if not create a basic one
-        existing = get_stored_ranking_by_project_id(project_id)
+        existing = get_stored_ranking_by_project_id(project_id, user_name=user_name)
         if not existing:
             # Create a basic ranking entry with just the summary
             from analysis.ranking_storage import save_rankings_to_db
@@ -479,7 +516,22 @@ async def get_project_by_id_endpoint(
         dict: Project information
     """
     try:
-        project = get_project_by_id(project_id, user_name=user_name)
+        from account.user_manager import AuthManager
+        
+        # Get authenticated user
+        authenticated_user = AuthManager.get_current_username()
+        if not authenticated_user:
+            raise HTTPException(status_code=401, detail="User authentication required")
+        
+        # Validate user_name matches authenticated user if provided
+        if user_name and user_name != authenticated_user:
+            raise HTTPException(
+                status_code=403, 
+                detail="user_name parameter must match authenticated user"
+            )
+        
+        # Use authenticated user for data isolation
+        project = get_project_by_id(project_id, user_name=authenticated_user)
         
         if not project:
             raise HTTPException(
@@ -752,11 +804,25 @@ async def delete_project_data(
     Raises:
         HTTPException: 400 if user_name not provided, 403 if permission denied, 500 on error
     """
+    from account.user_manager import AuthManager
+    
+    # Get authenticated user
+    authenticated_user = AuthManager.get_current_username()
+    if not authenticated_user:
+        raise HTTPException(status_code=401, detail="User authentication required")
+    
     # Require user_name for security
     if not user_name:
         raise HTTPException(
             status_code=400,
             detail="user_name parameter is required for data isolation"
+        )
+    
+    # Validate user_name matches authenticated user
+    if user_name != authenticated_user:
+        raise HTTPException(
+            status_code=403, 
+            detail="user_name parameter must match authenticated user"
         )
     
     try:
