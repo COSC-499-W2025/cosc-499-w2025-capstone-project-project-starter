@@ -598,7 +598,7 @@
                     </div>
                     <div class="pd-showcase-tech">
                         <span class="badge">${escapeHtml(p.primary_language || '')}</span>
-                        ${(p.frameworks||[]).map(f => '<span class="badge badge-purple">' + escapeHtml(f) + '</span>').join('')}
+                        ${(p.frameworks||[]).map(f => '<span class="badge">' + escapeHtml(f) + '</span>').join('')}
                         ${badges.join('')}
                     </div>
                 </div>`;

@@ -319,6 +319,8 @@ async def update_llm_settings(
         from external_services.external_service_prompt import ExternalServicePrompt
 
         username = current_user["user_name"]
+        # Sync consent so _ensure_llm_allowed (consent_given + LLM permission) is satisfied
+        ConsentStorage.store_consent(request.llm_enabled, username)
         ok = ExternalServicePrompt.store_permission(
             username,
             "LLM",

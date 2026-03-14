@@ -335,8 +335,10 @@ class TestProjectsListRoutes:
 
 
 class TestSingleProjectRoutes:
+    @patch("api.routes.project.AuthManager")
     @patch("api.routes.project.get_project_by_id")
-    def test_get_project_by_id_not_found(self, mock_get_project):
+    def test_get_project_by_id_not_found(self, mock_get_project, mock_auth_manager):
+        mock_auth_manager.get_current_username.return_value = "test_user"
         mock_get_project.return_value = None
 
         response = client.get("/api/projects/999")
@@ -346,8 +348,10 @@ class TestSingleProjectRoutes:
         assert data["error_type"] == "HTTP_ERROR"
         assert "not found" in data["message"].lower()
 
+    @patch("api.routes.project.AuthManager")
     @patch("api.routes.project.get_project_by_id")
-    def test_get_project_by_id_success_with_datetime(self, mock_get_project):
+    def test_get_project_by_id_success_with_datetime(self, mock_get_project, mock_auth_manager):
+        mock_auth_manager.get_current_username.return_value = "test_user"
         mock_get_project.return_value = {
             "project_info": {
                 "id": 1,
@@ -368,8 +372,10 @@ class TestSingleProjectRoutes:
         assert data["project"]["filename"] == "proj.zip"
         assert data["project"]["created_at"] == "2024-01-01T09:30:00"
 
+    @patch("api.routes.project.AuthManager")
     @patch("api.routes.project.get_project_by_id")
-    def test_get_project_by_id_success_with_string_datetime(self, mock_get_project):
+    def test_get_project_by_id_success_with_string_datetime(self, mock_get_project, mock_auth_manager):
+        mock_auth_manager.get_current_username.return_value = "test_user"
         mock_get_project.return_value = {
             "project_info": {
                 "id": 2,
@@ -387,8 +393,10 @@ class TestSingleProjectRoutes:
         assert data["success"] is True
         assert data["project"]["created_at"] == "2024-01-01T10:00:00"
 
+    @patch("api.routes.project.AuthManager")
     @patch("api.routes.project.get_project_by_id")
-    def test_get_project_by_id_unexpected_exception(self, mock_get_project):
+    def test_get_project_by_id_unexpected_exception(self, mock_get_project, mock_auth_manager):
+        mock_auth_manager.get_current_username.return_value = "test_user"
         mock_get_project.side_effect = Exception("lookup fail")
 
         response = client.get("/api/projects/1")
@@ -513,8 +521,10 @@ class TestRankingRoutesMore:
         assert data["error_type"] == "HTTP_ERROR"
         assert "Gemini ranking failed" in data["message"]
 
+    @patch("api.routes.project.AuthManager")
     @patch("api.routes.project.get_stored_rankings")
-    def test_get_rankings_failure(self, mock_get_rankings):
+    def test_get_rankings_failure(self, mock_get_rankings, mock_auth_manager):
+        mock_auth_manager.get_current_username.return_value = "test_user"
         mock_get_rankings.side_effect = Exception("read rankings failed")
 
         response = client.get("/api/projects/rankings")
@@ -526,7 +536,9 @@ class TestRankingRoutesMore:
 
 
 class TestDeleteProjectDataRoutes:
-    def test_delete_project_data_missing_user_name(self):
+    @patch("api.routes.project.AuthManager")
+    def test_delete_project_data_missing_user_name(self, mock_auth_manager):
+        mock_auth_manager.get_current_username.return_value = "test_user"
         response = client.delete("/api/projects/1/data")
 
         assert response.status_code == 400
@@ -534,8 +546,10 @@ class TestDeleteProjectDataRoutes:
         assert data["error_type"] == "HTTP_ERROR"
         assert "user_name parameter is required" in data["message"]
 
+    @patch("api.routes.project.AuthManager")
     @patch("api.routes.project.delete_insights")
-    def test_delete_project_data_success(self, mock_delete):
+    def test_delete_project_data_success(self, mock_delete, mock_auth_manager):
+        mock_auth_manager.get_current_username.return_value = "test_user"
         mock_delete.return_value = (5, 10, 1)
 
         response = client.delete("/api/projects/1/data?user_name=test_user")
@@ -547,8 +561,10 @@ class TestDeleteProjectDataRoutes:
         assert data["deleted"]["files"] == 10
         assert data["deleted"]["projects"] == 1
 
+    @patch("api.routes.project.AuthManager")
     @patch("api.routes.project.delete_insights")
-    def test_delete_project_data_permission_error(self, mock_delete):
+    def test_delete_project_data_permission_error(self, mock_delete, mock_auth_manager):
+        mock_auth_manager.get_current_username.return_value = "test_user"
         mock_delete.side_effect = PermissionError("forbidden")
 
         response = client.delete("/api/projects/1/data?user_name=test_user")
@@ -558,8 +574,10 @@ class TestDeleteProjectDataRoutes:
         assert data["error_type"] == "HTTP_ERROR"
         assert "forbidden" in data["message"]
 
+    @patch("api.routes.project.AuthManager")
     @patch("api.routes.project.delete_insights")
-    def test_delete_project_data_unexpected_exception(self, mock_delete):
+    def test_delete_project_data_unexpected_exception(self, mock_delete, mock_auth_manager):
+        mock_auth_manager.get_current_username.return_value = "test_user"
         mock_delete.side_effect = Exception("delete boom")
 
         response = client.delete("/api/projects/1/data?user_name=test_user")

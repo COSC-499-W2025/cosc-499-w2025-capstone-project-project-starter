@@ -223,8 +223,10 @@ class TestProjectRankingEndpoints:
             assert item["summary"] == "Generated summary text"
         assert mock_summarize.call_count == 3
 
+    @patch('api.routes.project.AuthManager')
     @patch('api.routes.project.get_stored_rankings')
-    def test_get_rankings(self, mock_get_rankings):
+    def test_get_rankings(self, mock_get_rankings, mock_auth_manager):
+        mock_auth_manager.get_current_username.return_value = "test_user"
         mock_get_rankings.return_value = [{"project_id": 1, "rank": 1}]
 
         response = client.get("/api/projects/rankings")
