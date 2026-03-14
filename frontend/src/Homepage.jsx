@@ -349,9 +349,10 @@ function getSnapshotStatus(snapshotId, snapshotAnalyses) {
   return summarizeSnapshotAnalyses(entry);
 }
 
-function Homepage() {
+function Homepage({ sharedEditorSlug = '' }) {
   const [token, setToken] = useState(() => localStorage.getItem(TOKEN_STORAGE_KEY) || '');
   const [currentUser, setCurrentUser] = useState(null);
+  const [isSharedEditorSession, setIsSharedEditorSession] = useState(Boolean(sharedEditorSlug));
   const [sessionLoading, setSessionLoading] = useState(true);
   const [authMode, setAuthMode] = useState('login');
   const [authBusy, setAuthBusy] = useState(false);
@@ -425,15 +426,17 @@ function Homepage() {
   const [showcaseSaving, setShowcaseSaving] = useState(false);
   const [showcaseGenerating, setShowcaseGenerating] = useState(false);
   const [showcaseError, setShowcaseError] = useState('');
-  const [dashboardViewMode, setDashboardViewMode] = useState('owner');
   const [dashboardMode, setDashboardMode] = useState('private');
   const [dashboardPublicSlug, setDashboardPublicSlug] = useState('');
-  const [publicPreviewVersion, setPublicPreviewVersion] = useState(0);
+  const [dashboardEditorSlug, setDashboardEditorSlug] = useState('');
+  const [dashboardLastGeneratedLinkType, setDashboardLastGeneratedLinkType] = useState('public');
+  const [dashboardSelectedLinkType, setDashboardSelectedLinkType] = useState('public');
   const [dashboardModeLoading, setDashboardModeLoading] = useState(false);
   const [dashboardModeActionBusy, setDashboardModeActionBusy] = useState(false);
   const [dashboardModeError, setDashboardModeError] = useState('');
 
   const isAuthenticated = Boolean(token && currentUser);
+  const currentUserId = currentUser?.user_id || null;
 
   const clearDashboardState = useCallback(() => {
     setPortfolioId(null);
@@ -485,10 +488,11 @@ function Homepage() {
     setShowcaseSaving(false);
     setShowcaseGenerating(false);
     setShowcaseError('');
-    setDashboardViewMode('owner');
     setDashboardMode('private');
     setDashboardPublicSlug('');
-    setPublicPreviewVersion(0);
+    setDashboardEditorSlug('');
+    setDashboardLastGeneratedLinkType('public');
+    setDashboardSelectedLinkType('public');
     setDashboardModeLoading(false);
     setDashboardModeActionBusy(false);
     setDashboardModeError('');
@@ -515,6 +519,52 @@ function Homepage() {
   useEffect(() => {
     let cancelled = false;
     const bootstrapSession = async () => {
+      if (sharedEditorSlug) {
+        if (token && currentUser) {
+          setSessionLoading(false);
+          return;
+        }
+        try {
+          const response = await dashboardApi.createEditorSession(sharedEditorSlug);
+          if (!cancelled) {
+            setToken(response?.token || '');
+            setCurrentUser(response?.user || null);
+            setIsSharedEditorSession(true);
+            setAuthError('');
+          }
+        } catch (error) {
+          if (!cancelled && token) {
+            // Same-machine fallback: if exchange fails but a valid signed-in owner
+            // session exists, keep the user in an editable shared session.
+            try {
+              const me = await authApi.me(token);
+              if (!cancelled) {
+                setCurrentUser(me.user || null);
+                setIsSharedEditorSession(true);
+                setAuthError('');
+              }
+            } catch (fallbackError) {
+              if (!cancelled) {
+                setToken('');
+                setCurrentUser(null);
+                setIsSharedEditorSession(true);
+                setAuthError(error.message || fallbackError.message || 'This editor link is invalid or expired.');
+              }
+            }
+          } else if (!cancelled) {
+            setToken('');
+            setCurrentUser(null);
+            setIsSharedEditorSession(true);
+            setAuthError(error.message || 'This editor link is invalid or expired.');
+          }
+        } finally {
+          if (!cancelled) {
+            setSessionLoading(false);
+          }
+        }
+        return;
+      }
+
       if (!token) {
         setSessionLoading(false);
         return;
@@ -539,7 +589,7 @@ function Homepage() {
     return () => {
       cancelled = true;
     };
-  }, [token, clearSession]);
+  }, [sharedEditorSlug, token, clearSession]);
 
   const fetchProjects = useCallback(async () => {
     if (!token) return;
@@ -605,10 +655,10 @@ function Homepage() {
   }, []);
 
   const fetchUserConfig = useCallback(async () => {
-    if (!token || !currentUser?.user_id) return;
+    if (!token || !currentUserId) return;
     setConfigLoading(true);
     try {
-      const response = await userConfigApi.getConfig(token, currentUser.user_id);
+      const response = await userConfigApi.getConfig(token, currentUserId);
       const config = response?.config || {};
       setUserConfig(config);
       applyRepresentationConfig(config);
@@ -617,7 +667,7 @@ function Homepage() {
     } finally {
       setConfigLoading(false);
     }
-  }, [token, currentUser, applyRepresentationConfig]);
+  }, [token, currentUserId, applyRepresentationConfig]);
 
   const fetchDashboardMode = useCallback(async () => {
     if (!token || !portfolioId) return;
@@ -627,6 +677,10 @@ function Homepage() {
       const response = await dashboardApi.getMode(token, portfolioId);
       setDashboardMode(response?.mode || 'private');
       setDashboardPublicSlug(response?.public_slug || '');
+      setDashboardEditorSlug(response?.editor_slug || '');
+      const lastType = response?.last_generated_link_type === 'editor' ? 'editor' : 'public';
+      setDashboardLastGeneratedLinkType(lastType);
+      setDashboardSelectedLinkType(lastType);
     } catch (error) {
       setDashboardModeError(error.message || 'Unable to load dashboard mode.');
     } finally {
@@ -973,77 +1027,61 @@ function Homepage() {
     }
   };
 
-  const publishDashboard = async () => {
-    if (!token || !portfolioId) return;
-    setDashboardModeActionBusy(true);
-    setDashboardModeError('');
-    setDashboardError('');
-    try {
-      const response = await dashboardApi.publish(token, portfolioId);
-      setDashboardMode(response?.mode || 'public');
-      setDashboardPublicSlug(response?.public_slug || '');
-      setPublicPreviewVersion((version) => version + 1);
-      setFlashMessage('Dashboard published. Public mode is now live.');
-    } catch (error) {
-      setDashboardModeError(error.message || 'Unable to publish dashboard.');
-    } finally {
-      setDashboardModeActionBusy(false);
-    }
-  };
-
-  const switchDashboardToPrivate = async () => {
+  const generateDashboardLink = async () => {
     if (!token || !portfolioId) return;
     setDashboardModeActionBusy(true);
     setDashboardModeError('');
     try {
-      const response = await dashboardApi.unpublish(token, portfolioId);
+      const response = await dashboardApi.generateLink(token, portfolioId, dashboardSelectedLinkType);
       setDashboardMode(response?.mode || 'private');
-      setDashboardPublicSlug(response?.public_slug || dashboardPublicSlug);
-      setPublicPreviewVersion((version) => version + 1);
-      setFlashMessage('Dashboard switched to private mode.');
+      setDashboardPublicSlug(response?.public_slug || '');
+      setDashboardEditorSlug(response?.editor_slug || '');
+      const generatedType = response?.link_type === 'editor' ? 'editor' : 'public';
+      setDashboardLastGeneratedLinkType(generatedType);
+      setDashboardSelectedLinkType(generatedType);
+      setFlashMessage(generatedType === 'editor' ? 'Editor link generated.' : 'Public link generated.');
     } catch (error) {
-      setDashboardModeError(error.message || 'Unable to switch dashboard to private mode.');
+      setDashboardModeError(error.message || 'Unable to generate dashboard link.');
     } finally {
       setDashboardModeActionBusy(false);
     }
   };
 
-  const regeneratePublicLink = async () => {
+  const regenerateDashboardLink = async () => {
     if (!token || !portfolioId) return;
     setDashboardModeActionBusy(true);
     setDashboardModeError('');
     try {
-      const response = await dashboardApi.regeneratePublicLink(token, portfolioId);
+      const response = await dashboardApi.regenerateLink(token, portfolioId, dashboardSelectedLinkType);
+      setDashboardMode(response?.mode || 'private');
       setDashboardPublicSlug(response?.public_slug || '');
-      setPublicPreviewVersion((version) => version + 1);
-      setFlashMessage('Public link regenerated.');
+      setDashboardEditorSlug(response?.editor_slug || '');
+      const generatedType = response?.link_type === 'editor' ? 'editor' : 'public';
+      setDashboardLastGeneratedLinkType(generatedType);
+      setDashboardSelectedLinkType(generatedType);
+      setFlashMessage(generatedType === 'editor' ? 'Editor link regenerated.' : 'Public link regenerated.');
     } catch (error) {
-      setDashboardModeError(error.message || 'Unable to regenerate public link.');
+      setDashboardModeError(error.message || 'Unable to regenerate dashboard link.');
     } finally {
       setDashboardModeActionBusy(false);
     }
   };
 
-  const copyPublicLink = async () => {
-    if (!dashboardPublicSlug) return;
-    const url = `${window.location.origin}/portfolio/${dashboardPublicSlug}`;
+  const copyLastGeneratedLink = async () => {
+    const activeLinkType = dashboardLastGeneratedLinkType === 'editor' ? 'editor' : 'public';
+    const slug = activeLinkType === 'editor' ? dashboardEditorSlug : dashboardPublicSlug;
+    if (!slug) return;
+    const url =
+      activeLinkType === 'editor'
+        ? `${window.location.origin}/portfolio/editor/${slug}`
+        : `${window.location.origin}/portfolio/${slug}`;
     try {
       await navigator.clipboard.writeText(url);
-      setFlashMessage('Public link copied to clipboard.');
+      setFlashMessage(`${activeLinkType === 'editor' ? 'Editor' : 'Public'} URL copied to clipboard.`);
     } catch (error) {
-      setDashboardModeError('Unable to copy public link. Copy it manually from the URL preview.');
+      setDashboardModeError('Unable to copy link. Copy it manually from the URL shown below.');
     }
   };
-
-  const toggleDashboardVisibility = async () => {
-    if (dashboardMode === 'public') {
-      await switchDashboardToPrivate();
-      return;
-    }
-    await publishDashboard();
-  };
-
-  const isPublicFacingView = dashboardViewMode === 'public';
 
   const handleUpload = async () => {
     if (!file) return;
@@ -1723,12 +1761,6 @@ function Homepage() {
     []
   );
 
-  const visibleNavButtons = useMemo(() => {
-    if (!isPublicFacingView) return navButtons;
-    const allowedInPublic = new Set(['projects', 'skills', 'top']);
-    return navButtons.filter((item) => allowedInPublic.has(item.id));
-  }, [isPublicFacingView, navButtons]);
-
   const reportStats = useMemo(() => {
     const toNumber = (value) => {
       if (value === null || value === undefined) return null;
@@ -1830,10 +1862,14 @@ function Homepage() {
     return `${window.location.origin}/portfolio/${dashboardPublicSlug}`;
   }, [dashboardPublicSlug]);
 
-  const publicPreviewUrl = useMemo(() => {
-    if (!publicPortfolioUrl) return '';
-    return `${publicPortfolioUrl}?preview=${publicPreviewVersion}`;
-  }, [publicPortfolioUrl, publicPreviewVersion]);
+  const editorPortfolioUrl = useMemo(() => {
+    if (!dashboardEditorSlug) return '';
+    return `${window.location.origin}/portfolio/editor/${dashboardEditorSlug}`;
+  }, [dashboardEditorSlug]);
+
+  const lastGeneratedUrl = useMemo(() => {
+    return dashboardLastGeneratedLinkType === 'editor' ? editorPortfolioUrl : publicPortfolioUrl;
+  }, [dashboardLastGeneratedLinkType, editorPortfolioUrl, publicPortfolioUrl]);
 
   const uploadSnapshotHistory = useMemo(() => {
     const snapshots = Array.isArray(uploadTargetReport?.snapshots) ? uploadTargetReport.snapshots : [];
@@ -1856,14 +1892,6 @@ function Homepage() {
     return asText.length >= 10 ? asText.slice(0, 10) : asText;
   }, []);
 
-  useEffect(() => {
-    if (!isPublicFacingView) return;
-    const allowedViews = new Set(['projects', 'skills', 'top', 'report']);
-    if (!allowedViews.has(view)) {
-      setView('projects');
-    }
-  }, [isPublicFacingView, view]);
-
   if (sessionLoading) {
     return (
       <div className="screen-shell">
@@ -1873,6 +1901,17 @@ function Homepage() {
   }
 
   if (!isAuthenticated) {
+    if (sharedEditorSlug) {
+      return (
+        <div className="screen-shell">
+          <div className="loading-card">
+            <p>Unable to open shared editor session.</p>
+            {authError && <p className="error-banner inline-error">{authError}</p>}
+          </div>
+        </div>
+      );
+    }
+
     return (
       <div className="screen-shell">
         <div className="auth-layout">
@@ -1983,29 +2022,20 @@ function Homepage() {
       <div className="dashboard-shell">
         <header className="dashboard-header">
           <div>
-            <p className="eyebrow">Signed in as</p>
+            <p className="eyebrow">{isSharedEditorSession ? 'Shared editor session' : 'Signed in as'}</p>
             <h1>{currentUser.display_name || currentUser.email}</h1>
           </div>
           <div className="dashboard-header-actions">
-            <fieldset className="mode-switch">
-              <legend className="mode-switch-label">Dashboard View</legend>
-              <select
-                className="mode-select"
-                value={dashboardViewMode}
-                onChange={(event) => setDashboardViewMode(event.target.value)}
-              >
-                <option value="owner">Owner</option>
-                <option value="public">Public</option>
-              </select>
-            </fieldset>
-            <button className="ghost-btn" type="button" onClick={handleLogout}>
-              Log Out
-            </button>
+            {!isSharedEditorSession && (
+              <button className="ghost-btn" type="button" onClick={handleLogout}>
+                Log Out
+              </button>
+            )}
           </div>
         </header>
 
         <nav className="dashboard-nav">
-          {visibleNavButtons.map((item) => (
+          {navButtons.map((item) => (
             <button
               key={item.id}
               type="button"
@@ -2073,23 +2103,19 @@ function Homepage() {
                         )}
                         <div className="card-actions">
                           <button className="primary-btn" type="button" onClick={() => viewProjectDetails(project)}>
-                            {isPublicFacingView ? 'View Public Details' : 'View Details'}
+                            View Details
                           </button>
-                          {!isPublicFacingView && (
-                            <>
-                              <button className="secondary-btn" type="button" onClick={() => generateResume(project.id)}>
-                                Generate Resume
-                              </button>
-                              <button
-                                className="secondary-btn"
-                                type="button"
-                                onClick={() => deleteProject(project)}
-                                disabled={deletingProjectId === project.id}
-                              >
-                                {deletingProjectId === project.id ? 'Deleting...' : 'Delete Project'}
-                              </button>
-                            </>
-                          )}
+                          <button className="secondary-btn" type="button" onClick={() => generateResume(project.id)}>
+                            Generate Resume
+                          </button>
+                          <button
+                            className="secondary-btn"
+                            type="button"
+                            onClick={() => deleteProject(project)}
+                            disabled={deletingProjectId === project.id}
+                          >
+                            {deletingProjectId === project.id ? 'Deleting...' : 'Delete Project'}
+                          </button>
                         </div>
                       </article>
                     );
@@ -2110,24 +2136,46 @@ function Homepage() {
                       <strong>{dashboardModeLoading ? 'Loading...' : dashboardMode === 'public' ? 'Public' : 'Private'}</strong>
                     </p>
                     {publicPortfolioUrl && <p className="muted">Public URL: {publicPortfolioUrl}</p>}
+                    {editorPortfolioUrl && <p className="muted">Editor URL: {editorPortfolioUrl}</p>}
+                    {lastGeneratedUrl && (
+                      <p className="muted">
+                        Last generated ({dashboardLastGeneratedLinkType === 'editor' ? 'Editor' : 'Public'}): {lastGeneratedUrl}
+                      </p>
+                    )}
                   </div>
                   <div className="card-actions">
                     <button
+                      className={dashboardSelectedLinkType === 'editor' ? 'secondary-btn' : 'ghost-btn'}
+                      type="button"
+                      onClick={() => setDashboardSelectedLinkType('editor')}
+                      disabled={dashboardModeActionBusy || dashboardModeLoading}
+                    >
+                      Editor Link
+                    </button>
+                    <button
+                      className={dashboardSelectedLinkType === 'public' ? 'secondary-btn' : 'ghost-btn'}
+                      type="button"
+                      onClick={() => setDashboardSelectedLinkType('public')}
+                      disabled={dashboardModeActionBusy || dashboardModeLoading}
+                    >
+                      Public Link
+                    </button>
+                    <button
                       className="primary-btn"
                       type="button"
-                      onClick={toggleDashboardVisibility}
+                      onClick={generateDashboardLink}
                       disabled={dashboardModeActionBusy || dashboardModeLoading}
                     >
                       {dashboardModeActionBusy
                         ? 'Working...'
-                        : dashboardMode === 'public'
-                          ? 'Make Private'
-                          : 'Make Public'}
+                        : dashboardSelectedLinkType === 'editor'
+                          ? 'Generate Editor Link'
+                          : 'Generate Public Link'}
                     </button>
                     <button
                       className="secondary-btn"
                       type="button"
-                      onClick={regeneratePublicLink}
+                      onClick={regenerateDashboardLink}
                       disabled={dashboardModeActionBusy || dashboardModeLoading}
                     >
                       Regenerate Link
@@ -2135,31 +2183,14 @@ function Homepage() {
                     <button
                       className="ghost-btn"
                       type="button"
-                      onClick={copyPublicLink}
-                      disabled={!dashboardPublicSlug || dashboardModeLoading}
+                      onClick={copyLastGeneratedLink}
+                      disabled={!lastGeneratedUrl || dashboardModeLoading}
                     >
-                      Copy Public URL
+                      Copy URL
                     </button>
                   </div>
                 </div>
                 {dashboardModeError && <p className="error-banner inline-error">{dashboardModeError}</p>}
-              </div>
-
-              <div className="stack-block">
-                <h3>Public Preview</h3>
-                <p className="muted">This is what others see at your public URL.</p>
-                {!publicPortfolioUrl ? (
-                  <p className="muted">Public URL not available yet.</p>
-                ) : dashboardMode !== 'public' ? (
-                  <p className="muted">Your profile is private. Switch to public mode to enable public viewing.</p>
-                ) : (
-                  <iframe
-                    key={`${dashboardMode}:${dashboardPublicSlug}:${publicPreviewVersion}`}
-                    className="public-preview-frame"
-                    src={publicPreviewUrl}
-                    title="Public portfolio preview"
-                  />
-                )}
               </div>
             </section>
           )}
@@ -2630,12 +2661,6 @@ function Homepage() {
                 <p>Loading project details...</p>
               ) : (
                 <>
-                  {isPublicFacingView && (
-                    <p className="muted">
-                      Public view is active. Edit controls are hidden and only read-only project details are shown.
-                    </p>
-                  )}
-
                   <div className="stack-block">
                     <h3>Analysis Status</h3>
                     {selectedProjectStatus && (
@@ -2653,8 +2678,7 @@ function Homepage() {
                     )}
                   </div>
 
-                  {!isPublicFacingView && (
-                    <>
+                  <>
                       <div className="stack-block">
                         <h3>Project Thumbnail</h3>
                         {selectedProjectThumbnail?.loading ? (
@@ -2977,7 +3001,6 @@ function Homepage() {
                         </button>
                       </div>
                     </>
-                  )}
 
                   {projectReport && (
                     <div className="stack-block">
@@ -3048,8 +3071,7 @@ function Homepage() {
                     </div>
                   )}
 
-                  {!isPublicFacingView && (
-                    <div className="stack-block">
+                  <div className="stack-block">
                       <h3>Resume Editing</h3>
                       {!activeResumeId ? (
                         <>
@@ -3115,7 +3137,6 @@ function Homepage() {
                         </>
                       )}
                     </div>
-                  )}
                 </>
               )}
             </section>

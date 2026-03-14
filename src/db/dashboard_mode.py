@@ -13,6 +13,9 @@ from sqlalchemy.exc import IntegrityError
 DASHBOARD_MODE_PRIVATE = "private"
 DASHBOARD_MODE_PUBLIC = "public"
 ALLOWED_DASHBOARD_MODES = {DASHBOARD_MODE_PRIVATE, DASHBOARD_MODE_PUBLIC}
+LINK_TYPE_PUBLIC = "public"
+LINK_TYPE_EDITOR = "editor"
+ALLOWED_LINK_TYPES = {LINK_TYPE_PUBLIC, LINK_TYPE_EDITOR}
 
 PUBLIC_FILTER_ALLOWED_KEYS = {"q", "date_from", "date_to", "project_ids", "skills", "sort"}
 PUBLIC_FILTER_ALLOWED_SORTS = {
@@ -40,6 +43,8 @@ def _to_dashboard_out(row: Mapping[str, Any]) -> Dict[str, Any]:
         "portfolio_id": str(row.get("portfolio_id")),
         "mode": str(row.get("mode") or DASHBOARD_MODE_PRIVATE),
         "public_slug": str(row.get("public_slug") or ""),
+        "editor_slug": str(row.get("editor_slug") or ""),
+        "last_generated_link_type": str(row.get("last_generated_link_type") or LINK_TYPE_PUBLIC),
         "active_publication_id": str(row["active_publication_id"]) if row.get("active_publication_id") else None,
         "published_at": row.get("published_at"),
         "created_at": row.get("created_at"),
@@ -63,7 +68,8 @@ def ensure_portfolio_dashboard(conn, portfolio_id: str) -> Dict[str, Any]:
     row = conn.execute(
         text(
             """
-            SELECT portfolio_id, mode, public_slug, active_publication_id, published_at, created_at, updated_at
+            SELECT portfolio_id, mode, public_slug, editor_slug, last_generated_link_type,
+                   active_publication_id, published_at, created_at, updated_at
             FROM portfolio_dashboards
             WHERE portfolio_id = :pid
             """
@@ -77,21 +83,37 @@ def ensure_portfolio_dashboard(conn, portfolio_id: str) -> Dict[str, Any]:
         raise KeyError("Portfolio not found")
 
     for _ in range(10):
-        slug = _slug_candidate()
+        public_slug = _slug_candidate()
+        editor_slug = _slug_candidate()
+        if public_slug == editor_slug:
+            continue
         conn.execute(
             text(
                 """
-                INSERT INTO portfolio_dashboards (portfolio_id, mode, public_slug)
-                VALUES (:pid, :mode, :slug)
+                INSERT INTO portfolio_dashboards (
+                  portfolio_id,
+                  mode,
+                  public_slug,
+                  editor_slug,
+                  last_generated_link_type
+                )
+                VALUES (:pid, :mode, :public_slug, :editor_slug, :link_type)
                 ON CONFLICT DO NOTHING
                 """
             ),
-            {"pid": portfolio_id, "mode": DASHBOARD_MODE_PRIVATE, "slug": slug},
+            {
+                "pid": portfolio_id,
+                "mode": DASHBOARD_MODE_PRIVATE,
+                "public_slug": public_slug,
+                "editor_slug": editor_slug,
+                "link_type": LINK_TYPE_PUBLIC,
+            },
         )
         row = conn.execute(
             text(
                 """
-                SELECT portfolio_id, mode, public_slug, active_publication_id, published_at, created_at, updated_at
+                SELECT portfolio_id, mode, public_slug, editor_slug, last_generated_link_type,
+                       active_publication_id, published_at, created_at, updated_at
                 FROM portfolio_dashboards
                 WHERE portfolio_id = :pid
                 """
@@ -138,7 +160,12 @@ def set_portfolio_dashboard_mode(
     return ensure_portfolio_dashboard(conn, portfolio_id)
 
 
-def regenerate_portfolio_public_slug(conn, portfolio_id: str) -> Dict[str, Any]:
+def regenerate_portfolio_slug(conn, portfolio_id: str, *, link_type: str) -> Dict[str, Any]:
+    normalized_link_type = str(link_type or "").strip().lower()
+    if normalized_link_type not in ALLOWED_LINK_TYPES:
+        raise ValueError("Invalid link type")
+
+    target_col = "public_slug" if normalized_link_type == LINK_TYPE_PUBLIC else "editor_slug"
     ensure_portfolio_dashboard(conn, portfolio_id)
 
     for _ in range(10):
@@ -148,17 +175,48 @@ def regenerate_portfolio_public_slug(conn, portfolio_id: str) -> Dict[str, Any]:
                 text(
                     """
                     UPDATE portfolio_dashboards
-                    SET public_slug = :slug, updated_at = NOW()
+                    SET
+                      public_slug = CASE WHEN :target_col = 'public_slug' THEN :slug ELSE public_slug END,
+                      editor_slug = CASE WHEN :target_col = 'editor_slug' THEN :slug ELSE editor_slug END,
+                      last_generated_link_type = :link_type,
+                      updated_at = NOW()
                     WHERE portfolio_id = :pid
                     """
                 ),
-                {"pid": portfolio_id, "slug": slug},
+                {
+                    "pid": portfolio_id,
+                    "slug": slug,
+                    "target_col": target_col,
+                    "link_type": normalized_link_type,
+                },
             )
             return ensure_portfolio_dashboard(conn, portfolio_id)
         except IntegrityError:
             continue
 
     raise RuntimeError("Unable to generate a unique public slug")
+
+
+def regenerate_portfolio_public_slug(conn, portfolio_id: str) -> Dict[str, Any]:
+    return regenerate_portfolio_slug(conn, portfolio_id, link_type=LINK_TYPE_PUBLIC)
+
+
+def touch_last_generated_link_type(conn, portfolio_id: str, *, link_type: str) -> Dict[str, Any]:
+    normalized_link_type = str(link_type or "").strip().lower()
+    if normalized_link_type not in ALLOWED_LINK_TYPES:
+        raise ValueError("Invalid link type")
+    ensure_portfolio_dashboard(conn, portfolio_id)
+    conn.execute(
+        text(
+            """
+            UPDATE portfolio_dashboards
+            SET last_generated_link_type = :link_type, updated_at = NOW()
+            WHERE portfolio_id = :pid
+            """
+        ),
+        {"pid": portfolio_id, "link_type": normalized_link_type},
+    )
+    return ensure_portfolio_dashboard(conn, portfolio_id)
 
 
 def _next_publication_version(conn, portfolio_id: str) -> int:
@@ -233,6 +291,8 @@ def get_public_dashboard_by_slug(conn, public_slug: str) -> Optional[Dict[str, A
               pd.portfolio_id,
               pd.mode,
               pd.public_slug,
+                            pd.editor_slug,
+                            pd.last_generated_link_type,
               pd.active_publication_id,
               pd.published_at,
               p.user_id AS owner_user_id,
@@ -257,6 +317,8 @@ def get_public_dashboard_by_slug(conn, public_slug: str) -> Optional[Dict[str, A
         "portfolio_id": str(row["portfolio_id"]),
         "mode": str(row.get("mode") or DASHBOARD_MODE_PRIVATE),
         "public_slug": str(row.get("public_slug") or ""),
+        "editor_slug": str(row.get("editor_slug") or ""),
+        "last_generated_link_type": str(row.get("last_generated_link_type") or LINK_TYPE_PUBLIC),
         "active_publication_id": str(row["active_publication_id"]) if row.get("active_publication_id") else None,
         "published_at": row.get("published_at"),
         "owner_user_id": str(row["owner_user_id"]) if row.get("owner_user_id") else None,
@@ -264,6 +326,58 @@ def get_public_dashboard_by_slug(conn, public_slug: str) -> Optional[Dict[str, A
         "owner_username": _public_username(
             display_name=row.get("owner_display_name"),
         ),
+        "version": int(row["version"]) if row.get("version") is not None else None,
+        "frozen_config_json": _as_dict(row.get("frozen_config_json")),
+        "frozen_dashboard_json": _as_dict(row.get("frozen_dashboard_json")),
+        "filter_spec_json": _as_dict(row.get("filter_spec_json")),
+        "publication_created_at": row.get("publication_created_at"),
+    }
+
+
+def get_dashboard_by_editor_slug(conn, editor_slug: str) -> Optional[Dict[str, Any]]:
+    row = conn.execute(
+        text(
+            """
+            SELECT
+              pd.portfolio_id,
+              pd.mode,
+              pd.public_slug,
+              pd.editor_slug,
+              pd.last_generated_link_type,
+              pd.active_publication_id,
+              pd.published_at,
+              p.user_id AS owner_user_id,
+              aa.email AS owner_email,
+              aa.display_name AS owner_display_name,
+              pub.version,
+              pub.frozen_config_json,
+              pub.frozen_dashboard_json,
+              pub.filter_spec_json,
+              pub.created_at AS publication_created_at
+            FROM portfolio_dashboards pd
+            JOIN portfolios p ON p.id = pd.portfolio_id
+            LEFT JOIN auth_accounts aa ON aa.user_id = p.user_id
+            LEFT JOIN dashboard_publications pub ON pub.id = pd.active_publication_id
+            WHERE pd.editor_slug = :slug
+            """
+        ),
+        {"slug": editor_slug},
+    ).mappings().first()
+    if not row:
+        return None
+
+    return {
+        "portfolio_id": str(row["portfolio_id"]),
+        "mode": str(row.get("mode") or DASHBOARD_MODE_PRIVATE),
+        "public_slug": str(row.get("public_slug") or ""),
+        "editor_slug": str(row.get("editor_slug") or ""),
+        "last_generated_link_type": str(row.get("last_generated_link_type") or LINK_TYPE_PUBLIC),
+        "active_publication_id": str(row["active_publication_id"]) if row.get("active_publication_id") else None,
+        "published_at": row.get("published_at"),
+        "owner_user_id": str(row["owner_user_id"]) if row.get("owner_user_id") else None,
+        "owner_email": str(row.get("owner_email") or "").strip() or None,
+        "owner_display_name": str(row.get("owner_display_name") or "").strip() or None,
+        "owner_username": _public_username(display_name=row.get("owner_display_name")),
         "version": int(row["version"]) if row.get("version") is not None else None,
         "frozen_config_json": _as_dict(row.get("frozen_config_json")),
         "frozen_dashboard_json": _as_dict(row.get("frozen_dashboard_json")),

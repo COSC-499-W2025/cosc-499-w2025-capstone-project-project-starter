@@ -238,6 +238,23 @@ export const userConfigApi = {
 
 export const dashboardApi = {
   getMode: (token, portfolioId) => apiRequest(`/portfolio/${portfolioId}/dashboard/mode`, { token }),
+  generateLink: (token, portfolioId, linkType) =>
+    apiRequest(`/portfolio/${portfolioId}/dashboard/links/generate`, {
+      method: 'POST',
+      token,
+      body: { link_type: linkType },
+    }),
+  regenerateLink: (token, portfolioId, linkType) =>
+    apiRequest(`/portfolio/${portfolioId}/dashboard/links/regenerate`, {
+      method: 'POST',
+      token,
+      body: { link_type: linkType },
+    }),
+  createEditorSession: (editorSlug) =>
+    apiRequest(`/editor/portfolio/${editorSlug}/session`, {
+      method: 'POST',
+      token: null,
+    }),
   setMode: (token, portfolioId, mode) =>
     apiRequest(`/portfolio/${portfolioId}/dashboard/mode`, {
       method: 'POST',
@@ -255,9 +272,10 @@ export const dashboardApi = {
       token,
     }),
   regeneratePublicLink: (token, portfolioId) =>
-    apiRequest(`/portfolio/${portfolioId}/dashboard/public-link/regenerate`, {
+    apiRequest(`/portfolio/${portfolioId}/dashboard/links/regenerate`, {
       method: 'POST',
       token,
+      body: { link_type: 'public' },
     }),
   getPublicDashboard: (publicSlug, filters = {}) => {
     const params = new URLSearchParams();

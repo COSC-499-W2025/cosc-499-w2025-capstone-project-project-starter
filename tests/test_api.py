@@ -548,7 +548,7 @@ def test_public_dashboard_filter_validation_and_application(client, engine):
     ]
 
 
-def test_dashboard_public_mode_blocks_dashboard_mutations(client, engine):
+def test_dashboard_public_link_keeps_owner_edits_available(client, engine):
     account = _register_user(client, email="dashboard-locks@example.com")
     headers = {"Authorization": f"Bearer {account['token']}"}
 
@@ -594,32 +594,73 @@ def test_dashboard_public_mode_blocks_dashboard_mutations(client, engine):
     assert r_publish.status_code == 200
 
     r_cfg = client.patch(f"/users/{account['user_id']}/config", json={"highlights": {"skills": ["python"]}})
-    assert r_cfg.status_code == 409
-    assert "public mode" in r_cfg.text.lower()
+    assert r_cfg.status_code == 200
 
     r_generate_pf = client.post("/portfolio/generate", json={"portfolio_id": account["portfolio_id"]})
-    assert r_generate_pf.status_code == 409
+    assert r_generate_pf.status_code == 200
 
     r_generate_showcase = client.post(f"/projects/{project_id}/showcase/generate")
-    assert r_generate_showcase.status_code == 409
+    assert r_generate_showcase.status_code == 200
 
     r_edit_project = client.patch(
         f"/projects/{project_id}",
         json={"user_role": "Lead Developer"},
     )
-    assert r_edit_project.status_code == 409
+    assert r_edit_project.status_code == 200
 
     r_edit_showcase = client.post(
         f"/portfolio/{showcase_id}/edit",
         json={"title": "new title"},
     )
-    assert r_edit_showcase.status_code == 409
+    assert r_edit_showcase.status_code == 200
 
     r_edit_resume = client.post(
         f"/resume/{resume_id}/edit",
         json={"summary_text": "new summary"},
     )
-    assert r_edit_resume.status_code == 409
+    assert r_edit_resume.status_code == 200
+
+
+def test_dashboard_editor_link_session_allows_edit_endpoint_but_public_link_does_not(client):
+    account = _register_user(client, email="dashboard-editor-link@example.com")
+    owner_headers = {"Authorization": f"Bearer {account['token']}"}
+
+    generated_editor = client.post(
+        f"/portfolio/{account['portfolio_id']}/dashboard/links/generate",
+        json={"link_type": "editor"},
+        headers=owner_headers,
+    )
+    assert generated_editor.status_code == 200
+    editor_slug = generated_editor.json()["editor_slug"]
+
+    generated_public = client.post(
+        f"/portfolio/{account['portfolio_id']}/dashboard/links/generate",
+        json={"link_type": "public"},
+        headers=owner_headers,
+    )
+    assert generated_public.status_code == 200
+    public_slug = generated_public.json()["public_slug"]
+
+    public_view = client.get(f"/public/portfolio/{public_slug}")
+    assert public_view.status_code == 200
+
+    public_edit_attempt = client.post(
+        f"/portfolio/{account['portfolio_id']}/dashboard/links/regenerate",
+        json={"link_type": "public"},
+    )
+    assert public_edit_attempt.status_code == 401
+
+    shared_editor_session = client.post(f"/editor/portfolio/{editor_slug}/session")
+    assert shared_editor_session.status_code == 200
+    editor_token = shared_editor_session.json()["token"]
+    editor_headers = {"Authorization": f"Bearer {editor_token}"}
+
+    editor_edit_attempt = client.post(
+        f"/portfolio/{account['portfolio_id']}/dashboard/links/regenerate",
+        json={"link_type": "editor"},
+        headers=editor_headers,
+    )
+    assert editor_edit_attempt.status_code == 200
 
 
 def test_authenticated_user_scope_rejects_mismatched_user_id(client):
