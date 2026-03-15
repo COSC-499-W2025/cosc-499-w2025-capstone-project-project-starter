@@ -1762,7 +1762,7 @@ function Homepage() {
   const [eduForm, setEduForm] = useState({});
   const [awardForm, setAwardForm] = useState({});
   const [eduTouched, setEduTouched] = useState({ start_year: false, end_year: false });
-  const [awdTouched, setAwdTouched] = useState({ year: false });
+  const [awardTouched, setAwardTouched] = useState({ year: false });
 
   const EMPTY_EDU = { institution: '', degree: '', field_of_study: '', start_year: '', end_year: '', is_current: false, description: '' };
   const EMPTY_AWARD = { title: '', issuer: '', awarded_year: '', description: '' };
@@ -1786,9 +1786,9 @@ function Homepage() {
     if (view === 'resume') fetchResumePayload();
   }, [view, fetchResumePayload]);
 
-  const startAddEdu = () => { setEduForm(EMPTY_EDU); setEditingEduId('new'); };
-  const startEditEdu = (entry) => { setEduForm({ ...entry, start_year: entry.start_year || '', end_year: entry.end_year || '' }); setEditingEduId(entry.id); };
-  const cancelEdu = () => {setEditingEduId(null); setEduTouched({})};
+  const startAddEdu = () => { setEduForm(EMPTY_EDU); setEditingEduId('new'); setEduTouched({}); };
+  const startEditEdu = (entry) => { setEduForm({ ...entry, start_year: entry.start_year || '', end_year: entry.end_year || '' }); setEditingEduId(entry.id); setEduTouched({}); };
+  const cancelEdu = () => {setEditingEduId(null); setEduTouched({});};
 
   const saveEdu = async () => {
     setResumeSaving(true);
@@ -1830,9 +1830,9 @@ function Homepage() {
     }
   };
 
-  const startAddAward = () => { setAwardForm(EMPTY_AWARD); setEditingAwardId('new'); };
-  const startEditAward = (entry) => { setAwardForm({ ...entry, awarded_year: entry.awarded_year || '' }); setEditingAwardId(entry.id); };
-  const cancelAward = () => {setEditingAwardId(null); setAwdTouched({})};
+  const startAddAward = () => { setAwardForm(EMPTY_AWARD); setEditingAwardId('new'); setAwardTouched({}); };
+  const startEditAward = (entry) => { setAwardForm({ ...entry, awarded_year: entry.awarded_year || '' }); setEditingAwardId(entry.id); setAwardTouched({}); };
+  const cancelAward = () => {setEditingAwardId(null); setAwardTouched({})};
 
   const saveAward = async () => {
     setResumeSaving(true);
@@ -1850,7 +1850,7 @@ function Homepage() {
       }
       setEditingAwardId(null);
       await fetchResumePayload();
-      setAwdTouched({});
+      setAwardTouched({});
     } catch (err) {
       setDashboardError(err.message || 'Failed to save award.');
     } finally {
@@ -3413,7 +3413,7 @@ function Homepage() {
                         <div className="summary-grid">
                           <label className="field">Title *<input value={awardForm.title || ''} onChange={(e) => setAwardForm((f) => ({ ...f, title: e.target.value }))} placeholder="e.g. Dean's List" /></label>
                           <label className="field">Issuer<input value={awardForm.issuer || ''} onChange={(e) => setAwardForm((f) => ({ ...f, issuer: e.target.value }))} placeholder="e.g. MIT" /></label>
-                          <div style={{position: 'relative'}}><label className="field">Year<input type="number" value={awardForm.awarded_year || ''} onChange={(e) => setAwardForm((f) => ({ ...f, awarded_year: e.target.value }))} onBlur={() => setAwdTouched({ ...awdTouched, year: true })} placeholder="2022" min={1900} max={new Date().getFullYear()} /></label>{awdTouched.year && getAwardYearError(awardForm.awarded_year) && <span style={{ color: 'red', fontSize: '0.78em', position: 'absolute' }}>{getAwardYearError(awardForm.awarded_year)}</span>}</div>
+                          <div style={{position: 'relative'}}><label className="field">Year<input type="number" value={awardForm.awarded_year || ''} onChange={(e) => setAwardForm((f) => ({ ...f, awarded_year: e.target.value }))} onBlur={() => setAwardTouched({ ...awardTouched, year: true })} placeholder="2022" min={1900} max={new Date().getFullYear()} /></label>{awardTouched.year && getAwardYearError(awardForm.awarded_year) && <span style={{ color: 'red', fontSize: '0.78em', position: 'absolute' }}>{getAwardYearError(awardForm.awarded_year)}</span>}</div>
                         </div>
                         <label className="field">Description<textarea value={awardForm.description || ''} onChange={(e) => setAwardForm((f) => ({ ...f, description: e.target.value }))} rows={2} /></label>
                         <div style={{ display: 'flex', gap: '8px' }}>
@@ -3429,7 +3429,7 @@ function Homepage() {
                           <div className="summary-grid">
                             <label className="field">Title *<input value={awardForm.title || ''} onChange={(e) => setAwardForm((f) => ({ ...f, title: e.target.value }))} /></label>
                             <label className="field">Issuer<input value={awardForm.issuer || ''} onChange={(e) => setAwardForm((f) => ({ ...f, issuer: e.target.value }))} /></label>
-                            <div style={{position: 'relative'}}><label className="field">Year<input type="number" value={awardForm.awarded_year || ''} onChange={(e) => setAwardForm((f) => ({ ...f, awarded_year: e.target.value }))} onBlur={() => setAwdTouched({ ...awdTouched, year: true })} min={1900} max={new Date().getFullYear()} /></label>{awdTouched.year && getAwardYearError(awardForm.awarded_year) && <span style={{ color: 'red', fontSize: '0.78em', position: 'absolute' }}>{getAwardYearError(awardForm.awarded_year)}</span>}</div>
+                            <div style={{position: 'relative'}}><label className="field">Year<input type="number" value={awardForm.awarded_year || ''} onChange={(e) => setAwardForm((f) => ({ ...f, awarded_year: e.target.value }))} onBlur={() => setAwardTouched({ ...awardTouched, year: true })} min={1900} max={new Date().getFullYear()} /></label>{awardTouched.year && getAwardYearError(awardForm.awarded_year) && <span style={{ color: 'red', fontSize: '0.78em', position: 'absolute' }}>{getAwardYearError(awardForm.awarded_year)}</span>}</div>
                           </div>
                           <label className="field">Description<textarea value={awardForm.description || ''} onChange={(e) => setAwardForm((f) => ({ ...f, description: e.target.value }))} rows={2} /></label>
                           <div style={{ display: 'flex', gap: '8px' }}>
