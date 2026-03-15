@@ -1,5 +1,6 @@
 from reportlab.lib.pagesizes import LETTER
-from reportlab.platypus import Image, SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle
+from reportlab.platypus import Image
+from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle
 from reportlab.lib.styles import getSampleStyleSheet
 from reportlab.lib import colors
 import os
@@ -7,247 +8,597 @@ import tempfile
 import base64
 import logging
 from io import BytesIO
-from typing import Any, Optional
 
 logger = logging.getLogger(__name__)
 
-# --- Utility Helpers ---
 
-def materialize_blob_to_tempfile(blob: Any, default_ext: str = ".png") -> str:
+def materialize_blob_to_tempfile(blob, default_ext=".png"):
+    """
+    Takes a FileBlob row and writes it to a temporary file.
+    Returns the file path.
+    """
     suffix = default_ext
-    mime = getattr(blob, "mime_type", None) or (blob.get("mime_type") if isinstance(blob, dict) else None)
-    if mime and "/" in mime:
-        suffix = "." + mime.split("/")[-1]
 
-    data = getattr(blob, "data", None) or (blob.get("data") if isinstance(blob, dict) else None)
-    if not data and isinstance(blob, dict) and "data_base64" in blob:
-        data = base64.b64decode(blob["data_base64"])
+    # Try to infer extension from mime type
+    if blob.mime_type and "/" in blob.mime_type:
+        suffix = "." + blob.mime_type.split("/")[-1]
 
     tmp = tempfile.NamedTemporaryFile(delete=False, suffix=suffix)
-    if data:
-        tmp.write(data)
+    tmp.write(blob.data)
     tmp.close()
+
     return tmp.name
 
-def _as_bool(val: Any, default: bool) -> bool:
-    if isinstance(val, bool): return val
+
+def export(data, llm_response=None, filename="report.pdf", consent="y"):
+    """
+    Exports a predictions dictionary to a formatted PDF file with a styled table.
+
+    Args:
+        ml_data (dict): Dictionary of predictions, e.g.:
+                      {"predictions": [["Flask", 0.93], ["SQL", 0.71]]}
+        llm_response (string): Response from LLM, conditional on user consent to use of LLM,
+                             therefore defaults to None unless passed in
+        filename (str): Output PDF filename.
+    """
+
+    # --- Validate incoming data ---
+    if not isinstance(data, dict):
+        data = {}
+
+    predictions = data.get("predictions", [])
+    if not isinstance(predictions, list):
+        predictions = []
+
+    # Clean + validate entries
+    clean_predictions = []
+    for item in predictions:
+        if (
+            isinstance(item, (list, tuple))
+            and len(item) == 2
+            and isinstance(item[0], str)
+            and isinstance(item[1], (float, int))
+        ):
+            clean_predictions.append(item)
+
+    # --- Build PDF ---
+    doc = SimpleDocTemplate(filename, pagesize=LETTER)
+    styles = getSampleStyleSheet()
+    elements = []
+
+    # Title
+    elements.append(Paragraph("Code-to-Skills Prediction Report", styles["Title"]))
+    elements.append(Spacer(1, 12))
+
+    # If no predictions
+    if not clean_predictions:
+        elements.append(Paragraph("No skills predicted.", styles["Normal"]))
+        doc.build(elements)
+        logger.info("PDF created without predictions: %s", filename)
+        return
+
+    # Section header
+    elements.append(Paragraph("<b>Predicted Skills</b>", styles["Heading2"]))
+    elements.append(Spacer(1, 6))
+
+    # Display the model used in the analysis based on consent
+    if str(consent).lower() in ("y", "yes"):
+        elements.append(Paragraph("Model used: Ollama External Model", styles["Normal"]))
+    elif str(consent).lower() in ("n", "no"):
+        elements.append(Paragraph("Model used: Local Heuristic Model", styles["Normal"]))
+    else:
+        elements.append(Paragraph("Model used: (unknown)", styles["Normal"]))
+
+    elements.append(Spacer(1, 6))
+
+    # --- Table Construction ---
+    table_data = [["Skill", "Confidence"]]
+    for skill, confidence in clean_predictions:
+        table_data.append([skill, f"{confidence:.2f}"])
+
+    # Base table styling
+    table_style = [
+        ('BACKGROUND', (0, 0), (-1, 0), colors.lightgrey),  # Header row
+        ('TEXTCOLOR', (0, 0), (-1, 0), colors.black),
+        ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+        ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+        ('GRID', (0, 0), (-1, -1), 1, colors.black),
+        ('BOTTOMPADDING', (0, 0), (-1, 0), 8),
+    ]
+
+    # Add zebra striping for even rows (row index starts at 0)
+    for row in range(1, len(table_data)):
+        if row % 2 == 0:  # even index → second, fourth, etc.
+            table_style.append(
+                ('BACKGROUND', (0, row), (-1, row), colors.whitesmoke)
+            )
+
+    table = Table(table_data)
+    table.setStyle(TableStyle(table_style))
+
+    elements.append(table)
+
+    # Optional LLM Analysis Section
+    if llm_response:
+        elements.append(Spacer(1, 20))
+        elements.append(Paragraph("<b>LLM Analysis:</b>", styles["Heading2"]))
+        elements.append(Spacer(1, 6))
+
+        for line in llm_response.split("\n"):
+            if line.strip():
+                elements.append(Paragraph(line.strip(), styles["Normal"]))
+                elements.append(Spacer(1, 4))
+
+    # Build PDF
+    doc.build(elements)
+    logger.info("PDF created successfully: %s", filename)
+
+
+def collect_predictions(parsed_folder):
+    """
+    Collects predictions from parsed file summaries.
+    Returns a flat list of ["filename: skill", probability] sorted
+    by file modification time (newest first).
+    """
+
+    if not isinstance(parsed_folder, list):
+        logger.warning("Unexpected parsed_folder structure; PDF will be empty")
+        return []
+
+    files_with_mtime = []
+
+    # Attach modification times
+    for file_summary in parsed_folder:
+        file_name = file_summary.get("file", "Unknown file")
+
+        # Only set mtime if the file exists on disk
+        if os.path.exists(file_name):
+            mtime = os.path.getmtime(file_name)
+        else:
+            mtime = 0  # fallback if file path is missing
+        files_with_mtime.append((file_summary, mtime))
+
+    # Sort files from newest to oldest
+    files_with_mtime.sort(key=lambda x: x[1], reverse=True)
+
+    all_predictions = []
+
+    # Collect predictions in sorted order
+    for file_summary, _ in files_with_mtime:
+        file_name = file_summary.get("file", "Unknown file")
+
+        # Accept both "skills" and "predictions" fields
+        skills = (
+            file_summary.get("skills")
+            or file_summary.get("predictions")
+            or []
+        )
+
+        if not isinstance(skills, list):
+            continue
+
+        for item in skills:
+            if isinstance(item, (list, tuple)) and len(item) == 2:
+                skill, prob = item
+                all_predictions.append([f"{file_name}: {skill}", prob])
+            else:
+                logger.warning("Skipping invalid skill entry in %s: %r", file_name, item)
+
+    return all_predictions
+
+
+def export_portfolio_top_projects_pdf(portfolio_summary: dict, filename: str = "portfolio_top_projects.pdf") -> str:
+    """
+    Writes a simple PDF containing the top project summaries and bullets.
+
+    Expects portfolio_summary shape returned by POST /portfolio/generate:
+      {
+        "portfolio_id": ...,
+        "generated_at": ...,
+        "top_projects": [
+          {"project_name": ..., "summary_text": ..., "resume_bullets": [...]}, ...
+        ]
+      }
+    Returns filename for convenience.
+    """
+    if not isinstance(portfolio_summary, dict):
+        portfolio_summary = {}
+
+    top = portfolio_summary.get("top_projects", [])
+    if not isinstance(top, list):
+        top = []
+
+    doc = SimpleDocTemplate(filename, pagesize=LETTER)
+    styles = getSampleStyleSheet()
+    elements = []
+
+    elements.append(Paragraph("Portfolio: Top Ranked Project Summaries", styles["Title"]))
+    elements.append(Spacer(1, 12))
+
+    meta = f"Generated at: {portfolio_summary.get('generated_at', '(unknown)')}<br/>Portfolio ID: {portfolio_summary.get('portfolio_id', '(unknown)')}"
+    elements.append(Paragraph(meta, styles["Normal"]))
+    elements.append(Spacer(1, 12))
+
+    if not top:
+        elements.append(Paragraph("No ranked projects available.", styles["Normal"]))
+        doc.build(elements)
+        return filename
+
+    for idx, item in enumerate(top, start=1):
+        name = str(item.get("project_name") or item.get("project_id") or f"Project {idx}")
+        summary = str(item.get("summary_text") or "").strip()
+        bullets = item.get("resume_bullets") or []
+    
+        # Add project title
+        elements.append(Paragraph(f"{idx}. {name}", styles["Heading2"]))
+        elements.append(Spacer(1, 6))
+    
+        # Add portfolio image if exists
+        blob = item.get("thumbnail_blob")
+        blob_sha = item.get("thumbnail_blob_sha256")  # optional, for logs only
+
+        if blob:
+            try:
+                tmp_path = materialize_blob_to_tempfile(blob)
+
+                img = Image(tmp_path)
+                img.drawHeight = 1.5 * 72   # 1.5 inches
+                img.drawWidth = 2.5 * 72    # 2.5 inches
+
+                elements.append(img)
+                elements.append(Spacer(1, 6))
+
+                logger.debug("Embedded image from blob %s", blob_sha)
+
+            except Exception:
+                logger.warning("Could not add image from blob %s", blob_sha, exc_info=True)
+
+        # Add summary
+        if summary:
+            elements.append(Paragraph(summary, styles["Normal"]))
+            elements.append(Spacer(1, 6))
+    
+        # Add bullets
+        if isinstance(bullets, list) and bullets:
+            elements.append(Paragraph("Résumé bullets:", styles["Heading3"]))
+            for b in bullets[:5]:
+                b = str(b).strip()
+                if b:
+                    elements.append(Paragraph(f"• {b}", styles["Normal"]))
+            elements.append(Spacer(1, 10))
+
+    doc.build(elements)
+    return filename
+
+
+def export_resume_item_pdf(resume_item: dict, filename: str = "resume_item.pdf") -> str:
+    """
+    Writes a PDF for a single resume item (summary + bullets).
+    Expects the shape returned by GET /resume/{id}:
+      {"resume_id": ..., "content": {"project": {...}, "summary_text": ..., "resume_bullets": [...]}}
+    """
+    if not isinstance(resume_item, dict):
+        resume_item = {}
+
+    content = resume_item.get("content") or {}
+    if not isinstance(content, dict):
+        content = {}
+
+    project = content.get("project") or {}
+    if not isinstance(project, dict):
+        project = {}
+
+    doc = SimpleDocTemplate(filename, pagesize=LETTER)
+    styles = getSampleStyleSheet()
+    elements = []
+
+    title = project.get("name") or project.get("id") or "Resume Item"
+    elements.append(Paragraph(str(title), styles["Title"]))
+    elements.append(Spacer(1, 12))
+
+    elements.append(Paragraph(f"Resume Item ID: {resume_item.get('resume_id', '(unknown)')}", styles["Normal"]))
+    elements.append(Paragraph(f"Generated at: {content.get('generated_at', '(unknown)')}", styles["Normal"]))
+    elements.append(Spacer(1, 12))
+
+    summary = str(content.get("summary_text") or "").strip()
+    if summary:
+        elements.append(Paragraph("Summary", styles["Heading2"]))
+        elements.append(Spacer(1, 6))
+        elements.append(Paragraph(summary, styles["Normal"]))
+        elements.append(Spacer(1, 12))
+
+    bullets = content.get("resume_bullets") or []
+    if isinstance(bullets, list) and bullets:
+        elements.append(Paragraph("Résumé Bullets", styles["Heading2"]))
+        elements.append(Spacer(1, 6))
+        for b in bullets[:10]:
+            b = str(b).strip()
+            if b:
+                elements.append(Paragraph(f"• {b}", styles["Normal"]))
+                elements.append(Spacer(1, 4))
+
+    doc.build(elements)
+    return filename
+
+
+def _as_bool(val, default: bool) -> bool:
+    if isinstance(val, bool):
+        return val
     if isinstance(val, str):
         s = val.strip().lower()
-        return s in {"1", "true", "yes", "y", "on"}
+        if s in {"1", "true", "yes", "y", "on"}:
+            return True
+        if s in {"0", "false", "no", "n", "off"}:
+            return False
+    if isinstance(val, (int, float)):
+        return bool(val)
     return default
 
-def _as_int(val: Any, default: int, lo: int = 0, hi: int = 20) -> int:
+
+def _as_int(val, default: int, lo: int, hi: int) -> int:
     try:
         n = int(val)
-        return max(lo, min(hi, n))
-    except (TypeError, ValueError):
-        return default
+    except Exception:
+        n = default
+    return max(lo, min(hi, n))
 
-def _normalize_resume_filters(filters: Optional[dict]) -> dict:
+
+def _normalize_resume_filters(filters: dict) -> dict:
     raw = filters if isinstance(filters, dict) else {}
     out = {
         "show_summary": _as_bool(raw.get("show_summary"), True),
         "show_bullets": _as_bool(raw.get("show_bullets"), True),
-        "show_education": _as_bool(raw.get("show_education"), True),
-        "show_awards": _as_bool(raw.get("show_awards"), True),
+        "max_bullets": _as_int(raw.get("max_bullets"), 6, 0, 20),
         "show_metadata": _as_bool(raw.get("show_metadata"), True),
         "show_project_profile": _as_bool(raw.get("show_project_profile"), True),
         "show_metrics": _as_bool(raw.get("show_metrics"), True),
         "show_tech_stack": _as_bool(raw.get("show_tech_stack"), True),
         "show_evidence": _as_bool(raw.get("show_evidence"), True),
-        "max_bullets": _as_int(raw.get("max_bullets"), 6),
+        "show_education": _as_bool(raw.get("show_education"), True),
+        "show_awards": _as_bool(raw.get("show_awards"), True),
     }
-    new_keys = {"show_project_profile", "show_metrics", "show_tech_stack", "show_evidence"}
-    if not any(k in raw for k in new_keys) and not out["show_summary"] and not out["show_bullets"]:
-        for k in new_keys: out[k] = False
+
+    # Backward compatibility logic
+    new_keys = {"show_project_profile", "show_metrics", "show_tech_stack", "show_evidence", "show_education", "show_awards"}
+    if (
+        not any(k in raw for k in new_keys)
+        and not out["show_summary"]
+        and not out["show_bullets"]
+        and not out["show_metadata"]
+    ):
+        for k in new_keys:
+            out[k] = False
+
     return out
 
-# --- Main Export Functions ---
 
 def export_resume_item_pdf_bytes(resume_item: dict, filters: dict = None) -> bytes:
-    if not isinstance(resume_item, dict): resume_item = {}
+    """
+    Build a PDF in-memory for a single resume item, respecting user toggles.
+    Embeds thumbnail image if available.
+    """
+    if not isinstance(resume_item, dict):
+        resume_item = {}
+
     opts = _normalize_resume_filters(filters)
+
+    show_summary = opts["show_summary"]
+    show_bullets = opts["show_bullets"]
+    max_bullets = opts["max_bullets"]
+    show_metadata = opts["show_metadata"]
+    show_project_profile = opts["show_project_profile"]
+    show_metrics = opts["show_metrics"]
+    show_tech_stack = opts["show_tech_stack"]
+    show_evidence = opts["show_evidence"]
+    show_education = opts["show_education"]
+    show_awards = opts["show_awards"]
+
     content = resume_item.get("content") or {}
-    project = content.get("project") or resume_item.get("project") or {}
-    
+    if not isinstance(content, dict):
+        content = {}
+
+    project = content.get("project") or {}
+    if not isinstance(project, dict):
+        project = {}
+
     buf = BytesIO()
-    doc = SimpleDocTemplate(buf, pagesize=LETTER, rightMargin=72, leftMargin=72, topMargin=72, bottomMargin=18)
+    doc = SimpleDocTemplate(buf, pagesize=LETTER)
     styles = getSampleStyleSheet()
     elements = []
 
-    # Title
-    title = project.get("name") or project.get("display_name") or "Project Showcase"
-    elements.append(Paragraph(f"<b>{title}</b>", styles["Title"]))
+    # Title (always shown)
+    title = project.get("name") or project.get("id") or "Resume Item"
+    elements.append(Paragraph(str(title), styles["Title"]))
     elements.append(Spacer(1, 12))
 
-    if opts["show_metadata"]:
-        elements.append(Paragraph(f"Resume Item ID: {resume_item.get('resume_id', 'unknown')}", styles["Normal"]))
-        elements.append(Paragraph(f"Generated at: {content.get('generated_at', 'unknown')}", styles["Normal"]))
+    if show_metadata:
+        elements.append(Paragraph(f"Resume Item ID: {resume_item.get('resume_id', '(unknown)')}", styles["Normal"]))
+        elements.append(Paragraph(f"Generated at: {content.get('generated_at', '(unknown)')}", styles["Normal"]))
         elements.append(Spacer(1, 12))
 
-    if opts["show_project_profile"]:
+    if show_project_profile:
         role = str(project.get("user_role") or "").strip()
         collab = str(project.get("collaboration_type") or "").strip()
-        snapshot = str(content.get("latest_snapshot_id") or "").strip()
-        if role or collab or snapshot:
-            elements.append(Paragraph("<b>Project Profile</b>", styles["Heading2"]))
-            if role: elements.append(Paragraph(f"Role: {role}", styles["Normal"]))
-            if collab: elements.append(Paragraph(f"Collaboration: {collab}", styles["Normal"]))
-            if snapshot: elements.append(Paragraph(f"Latest Snapshot: {snapshot}", styles["Normal"]))
+        latest_snapshot_id = str(content.get("latest_snapshot_id") or "").strip()
+
+        profile_lines = []
+        if role:
+            profile_lines.append(f"Role: {role}")
+        if collab:
+            profile_lines.append(f"Collaboration: {collab}")
+        if latest_snapshot_id:
+            profile_lines.append(f"Latest snapshot: {latest_snapshot_id}")
+
+        if profile_lines:
+            elements.append(Paragraph("Project Profile", styles["Heading2"]))
+            elements.append(Spacer(1, 6))
+            for line in profile_lines:
+                elements.append(Paragraph(line, styles["Normal"]))
             elements.append(Spacer(1, 12))
 
-    # Image
-    thumb = content.get("thumbnail_blob")
-    if thumb:
+    # --- Embed thumbnail if available ---
+    thumbnail_blob = content.get("thumbnail_blob")
+    if thumbnail_blob:
         try:
-            path = materialize_blob_to_tempfile(thumb)
-            img = Image(path, width=2.5*72, height=1.5*72)
+            file_bytes = base64.b64decode(thumbnail_blob.get("data_base64", ""))
+            suffix = ".png"
+            if "mime_type" in thumbnail_blob and "/" in thumbnail_blob["mime_type"]:
+                suffix = "." + thumbnail_blob["mime_type"].split("/")[-1]
+
+            tmp = tempfile.NamedTemporaryFile(delete=False, suffix=suffix)
+            tmp.write(file_bytes)
+            tmp.close()
+
+            img = Image(tmp.name)
+            img.drawHeight = 1.5 * 72
+            img.drawWidth = 2.5 * 72
             elements.append(img)
             elements.append(Spacer(1, 12))
-        except Exception: pass
+            logger.debug("Embedded thumbnail image in PDF")
 
-    if opts["show_summary"]:
+        except Exception:
+            logger.warning("Could not embed thumbnail in resume PDF", exc_info=True)
+
+    # Summary section
+    if show_summary:
         summary = str(content.get("summary_text") or "").strip()
         if summary:
-            elements.append(Paragraph("<b>Summary</b>", styles["Heading2"]))
+            elements.append(Paragraph("Summary", styles["Heading2"]))
+            elements.append(Spacer(1, 6))
             elements.append(Paragraph(summary.replace(". ", ".<br/>"), styles["Normal"]))
             elements.append(Spacer(1, 12))
 
-    if opts["show_bullets"]:
+    # Bullets section
+    if show_bullets:
         bullets = content.get("resume_bullets") or []
-        if bullets:
-            elements.append(Paragraph("<b>Resume Bullets</b>", styles["Heading2"]))
-            for b in bullets[:opts["max_bullets"]]:
-                if str(b).strip(): 
-                    # Standard hyphen for pytest compatibility
+        if isinstance(bullets, list) and bullets:
+            elements.append(Paragraph("Resume Bullets", styles["Heading2"]))
+            elements.append(Spacer(1, 6))
+            for b in bullets[:max_bullets]:
+                b = str(b).strip()
+                if b:
                     elements.append(Paragraph(f"- {b}", styles["Normal"]))
-            elements.append(Spacer(1, 12))
+                    elements.append(Spacer(1, 4))
+            elements.append(Spacer(1, 8))
 
-    if opts["show_metrics"]:
-        m = content.get("metrics") or {}
-        if isinstance(m, dict) and any(m.get(k) for k in ["total_commits", "user_commits"]):
-            elements.append(Paragraph("<b>Git Metrics</b>", styles["Heading2"]))
-            elements.append(Paragraph(f"Total Commits: {m.get('total_commits', 0)}", styles["Normal"]))
-            elements.append(Paragraph(f"Your Commits: {m.get('user_commits', 0)}", styles["Normal"]))
-            elements.append(Spacer(1, 12))
-
-    if opts["show_tech_stack"]:
-        sig = content.get("signals") or {}
-        p = sig.get("parser") or {}
-        ml = sig.get("local_ml") or {}
-        langs = [l.get("language") for l in (p.get("top_languages") or []) if isinstance(l, dict) and l.get("language")]
-        skills = [s.get("skill") for s in (ml.get("top_skills") or []) if isinstance(s, dict) and s.get("skill")]
-        if langs or skills:
-            elements.append(Paragraph("<b>Tech Stack</b>", styles["Heading2"]))
-            if langs: elements.append(Paragraph(f"Languages: {', '.join(langs[:4])}", styles["Normal"]))
-            if skills: elements.append(Paragraph(f"Skills: {', '.join(skills[:6])}", styles["Normal"]))
-            elements.append(Spacer(1, 12))
-
-    if opts["show_evidence"]:
-        ev = project.get("evidence_json") or {}
-        if ev:
-            elements.append(Paragraph("<b>Evidence Highlights</b>", styles["Heading2"]))
-            met = ev.get("metrics") or {}
-            for k, v in list(met.items())[:3]: elements.append(Paragraph(f"{k}: {v}", styles["Normal"]))
-            elements.append(Spacer(1, 12))
-
-    if opts["show_education"]:
-        edu_list = resume_item.get("education") or []
-        if edu_list:
-            elements.append(Paragraph("<b>Education</b>", styles["Heading2"]))
-            for edu in edu_list:
-                inst = edu.get('institution', 'Unknown Institution')
-                degree = edu.get('degree') or edu.get('subtitle') or ""
-                header = f"- <b>{inst}</b>" + (f" — {degree}" if degree else "")
-                elements.append(Paragraph(header, styles["Normal"]))
-                
-                # Fetching Year Data
-                s_year = edu.get('start_year') or edu.get('year_start') or ""
-                e_year = edu.get('end_year') or edu.get('year_end') or "Present"
-                
-                if s_year:
-                    elements.append(Paragraph(f"<i>{s_year} — {e_year}</i>", styles["Normal"]))
-                
-                desc = edu.get('description') or ""
-                if desc:
-                    elements.append(Paragraph(desc, styles["Normal"]))
-                
-                elements.append(Spacer(1, 6))
+    # --- New Section: Education ---
+    if show_education:
+        education_list = resume_item.get("education") or []
+        if education_list:
+            elements.append(Paragraph("Education", styles["Heading2"]))
             elements.append(Spacer(1, 6))
+            for edu in education_list:
+                inst = edu.get("institution") or "Unknown Institution"
+                degree = edu.get("degree") or ""
+                
+                # Logic to match your test's expected "start_year — end_year" format
+                start = edu.get("start_year")
+                end = edu.get("end_year") or "Present"
+                
+                if start:
+                    date_display = f"{start} — {end}"
+                else:
+                    date_display = f"{end}"
+                
+                text = f"<b>{inst}</b>: {degree} ({date_display})"
+                elements.append(Paragraph(text, styles["Normal"]))
+            elements.append(Spacer(1, 12))
 
-    if opts["show_awards"]:
-        awd_list = resume_item.get("awards") or []
-        if awd_list:
-            elements.append(Paragraph("<b>Awards & Honors</b>", styles["Heading2"]))
-            for a in awd_list:
-                title = a.get('title', 'Award')
-                elements.append(Paragraph(f"- <b>{title}</b>", styles["Normal"]))
-                
-                # Fetching Issuer and Year
-                issuer = a.get('issuer') or a.get('organization') or ""
-                year = a.get('awarded_year') or a.get('year') or ""
-                
-                meta = ""
-                if issuer and year: meta = f"{issuer}, {year}"
-                elif issuer: meta = issuer
-                elif year: meta = year
-                
-                if meta:
-                    elements.append(Paragraph(f"<i>{meta}</i>", styles["Normal"]))
-                
-                desc = a.get('description') or ""
-                if desc:
-                    elements.append(Paragraph(desc, styles["Normal"]))
-                
-                elements.append(Spacer(1, 6))
+    # --- New Section: Awards ---
+    if show_awards:
+        awards_list = resume_item.get("awards") or []
+        if awards_list:
+            elements.append(Paragraph("Awards & Honors", styles["Heading2"]))
             elements.append(Spacer(1, 6))
+            for award in awards_list:
+                title_awd = award.get("title") or "Award"
+                issuer = award.get("issuer") or ""
+                yr = award.get("awarded_year") or ""
+                text = f"• {title_awd} - {issuer} ({yr})"
+                elements.append(Paragraph(text, styles["Normal"]))
+            elements.append(Spacer(1, 12))
+
+    if show_metrics:
+        metrics = content.get("metrics") if isinstance(content.get("metrics"), dict) else {}
+        metric_lines = []
+        if metrics:
+            if metrics.get("total_commits") is not None:
+                metric_lines.append(f"Total commits: {metrics.get('total_commits')}")
+            if metrics.get("user_commits") is not None:
+                metric_lines.append(f"Your commits: {metrics.get('user_commits')}")
+            if metrics.get("contributor_count") is not None:
+                metric_lines.append(f"Contributors: {metrics.get('contributor_count')}")
+        if metric_lines and not (
+            str(metrics.get("total_commits") or "0") == "0" and str(metrics.get("contributor_count") or "0") == "0"
+        ):
+            elements.append(Paragraph("Git Metrics", styles["Heading2"]))
+            elements.append(Spacer(1, 6))
+            for line in metric_lines:
+                elements.append(Paragraph(line, styles["Normal"]))
+            elements.append(Spacer(1, 12))
+
+    if show_tech_stack:
+        signals = content.get("signals") if isinstance(content.get("signals"), dict) else {}
+        parser_sig = signals.get("parser") if isinstance(signals.get("parser"), dict) else {}
+        ml_sig = signals.get("local_ml") if isinstance(signals.get("local_ml"), dict) else {}
+
+        lang_names = []
+        for row in (parser_sig.get("top_languages") or [])[:4]:
+            if isinstance(row, dict) and row.get("language"):
+                lang_names.append(str(row["language"]))
+
+        frameworks = []
+        for fw in (parser_sig.get("frameworks") or [])[:4]:
+            text_fw = str(fw).strip()
+            if text_fw:
+                frameworks.append(text_fw)
+
+        skill_names = []
+        for row in (ml_sig.get("top_skills") or [])[:6]:
+            if isinstance(row, dict) and row.get("skill"):
+                skill_names.append(str(row["skill"]))
+
+        tech_lines = []
+        if lang_names:
+            tech_lines.append(f"Languages: {', '.join(lang_names)}")
+        if frameworks:
+            tech_lines.append(f"Frameworks: {', '.join(frameworks)}")
+        if skill_names:
+            tech_lines.append(f"Top skills: {', '.join(skill_names)}")
+
+        if tech_lines:
+            elements.append(Paragraph("Tech Stack", styles["Heading2"]))
+            elements.append(Spacer(1, 6))
+            for line in tech_lines:
+                elements.append(Paragraph(line, styles["Normal"]))
+            elements.append(Spacer(1, 12))
+
+    if show_evidence:
+        evidence = project.get("evidence_json") if isinstance(project.get("evidence_json"), dict) else {}
+        evidence_lines = []
+
+        mets = evidence.get("metrics")
+        if isinstance(mets, dict) and mets:
+            metric_bits = []
+            for k, v in list(mets.items())[:3]:
+                key = str(k).strip()
+                val = str(v).strip()
+                if key and val:
+                    metric_bits.append(f"{key}: {val}")
+            if metric_bits:
+                evidence_lines.append(f"Outcomes:<br/>{'<br/>'.join(metric_bits)}")
+
+        if evidence.get("feedback"):
+            evidence_lines.append("Feedback available")
+        if evidence.get("evaluation"):
+            evidence_lines.append("Evaluation available")
+
+        if evidence_lines:
+            elements.append(Paragraph("Evidence Highlights", styles["Heading2"]))
+            elements.append(Spacer(1, 6))
+            for line in evidence_lines:
+                elements.append(Paragraph(line, styles["Normal"]))
+            elements.append(Spacer(1, 12))
 
     doc.build(elements)
     return buf.getvalue()
-
-def export_portfolio_top_projects_pdf(portfolio_summary: dict, filename: str = "portfolio.pdf") -> str:
-    if not isinstance(portfolio_summary, dict): portfolio_summary = {}
-    doc = SimpleDocTemplate(filename, pagesize=LETTER)
-    styles = getSampleStyleSheet()
-    elements = [Paragraph("Portfolio: Top Ranked Project Summaries", styles["Title"]), Spacer(1, 12)]
-    
-    top = portfolio_summary.get("top_projects") or []
-    for item in top:
-        elements.append(Paragraph(f"<b>{item.get('project_name', 'Project')}</b>", styles["Heading2"]))
-        elements.append(Paragraph(str(item.get("summary_text", "")), styles["Normal"]))
-        for b in (item.get("resume_bullets") or [])[:5]:
-            elements.append(Paragraph(f"- {b}", styles["Normal"]))
-        elements.append(Spacer(1, 12))
-    
-    doc.build(elements)
-    return filename
-
-# --- Legacy Compatibility Functions ---
-
-def export(data, llm_response=None, filename="report.pdf", consent="y"):
-    doc = SimpleDocTemplate(filename, pagesize=LETTER)
-    styles = getSampleStyleSheet()
-    elements = [Paragraph("Code-to-Skills Prediction Report", styles["Title"]), Spacer(1, 12)]
-    
-    preds = data.get("predictions", [])
-    if preds:
-        table_data = [["Skill", "Confidence"]]
-        for s, c in preds: table_data.append([str(s), f"{c:.2f}"])
-        t = Table(table_data)
-        t.setStyle(TableStyle([('BACKGROUND', (0,0), (-1,0), colors.lightgrey), ('GRID', (0,0), (-1,-1), 1, colors.black)]))
-        elements.append(t)
-    
-    if llm_response:
-        elements.append(Spacer(1, 20))
-        elements.append(Paragraph("<b>LLM Analysis:</b>", styles["Heading2"]))
-        elements.append(Paragraph(llm_response, styles["Normal"]))
-
-    doc.build(elements)
-
-def collect_predictions(parsed_folder):
-    all_preds = []
-    for file_summary in (parsed_folder or []):
-        file_name = file_summary.get("file", "Unknown")
-        skills = file_summary.get("skills") or file_summary.get("predictions") or []
-        for s, p in skills: all_preds.append([f"{file_name}: {s}", p])
-    return all_preds
