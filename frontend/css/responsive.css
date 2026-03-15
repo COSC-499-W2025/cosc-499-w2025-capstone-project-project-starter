@@ -105,16 +105,17 @@
     .view-panel { padding: 16px; }
     .view-panel h3 { font-size: 1.1rem; }
     .dashboard-hero {
-        padding: 20px 16px;
+        padding: 28px 16px;
         flex-direction: column;
-        gap: 20px;
+        gap: 24px;
     }
-    .dashboard-hero h2 { font-size: 1.25rem; }
-    .dashboard-stats { grid-template-columns: 1fr 1fr; gap: 10px; }
+    .dashboard-hero h2 { font-size: 1.5rem; }
+    .dashboard-stats { grid-template-columns: 1fr 1fr; gap: 10px; min-width: 0; width: 100%; }
     .dashboard-stat { padding: 16px; }
     .dashboard-stat-value { font-size: 1.5rem; }
-    .dashboard-quick-actions { grid-template-columns: 1fr; }
+    .dashboard-quick-actions { grid-template-columns: 1fr; padding: 0 16px 24px; }
     .dashboard-quick-action { padding: 16px; }
+    .dashboard-section-title { padding: 0 16px; }
     .project-list { max-height: 280px; }
     .project-row { flex-wrap: wrap; }
     .project-thumbnail { width: 56px; height: 56px; }

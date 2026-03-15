@@ -23,11 +23,19 @@ router = APIRouter()
 logger = setup_logger(__name__)
 
 
+class PersonalInfo(BaseModel):
+    full_name: Optional[str] = None
+    email: Optional[str] = None
+    school: Optional[str] = None
+    age: Optional[int] = None
+
+
 class ResumeGenerateRequest(BaseModel):
     top_projects_count: Optional[int] = 5
     selected_project_ids: Optional[list[int]] = None
     include_skills: Optional[bool] = True
     skills_mode: Optional[str] = "categorized"
+    personal_info: Optional[PersonalInfo] = None
 
 
 class ResumeEditRequest(BaseModel):
@@ -144,6 +152,16 @@ async def generate_resume(request: ResumeGenerateRequest, user_name: Optional[st
         if not resume_data:
             logger.warning("Resume generate failed (no data) for user=%s", user_name)
             raise HTTPException(status_code=400, detail="Failed to generate resume. Ensure projects are uploaded.")
+        if request.personal_info:
+            pi = request.personal_info
+            if pi.full_name:
+                resume_data["display_name"] = pi.full_name
+            resume_data["personal_info"] = {
+                "full_name": pi.full_name,
+                "email": pi.email,
+                "school": pi.school,
+                "age": pi.age,
+            }
         if ResumeManager.store_user_resume(user_name, resume_data):
             return {"success": True, "resume": resume_data}
         raise HTTPException(status_code=500, detail="Failed to store resume")

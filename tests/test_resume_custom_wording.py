@@ -94,22 +94,23 @@ def test_generate_user_resume_uses_custom_wording(monkeypatch):
     project_id = 15
     custom_text = "Built a scalable resume system with user-controlled content."
 
-    # 1) Mock ranking output
+    # 1) Mock get_stored_rankings to return empty (triggers rank_all_projects fallback)
+    monkeypatch.setattr("resume.resume_manager.get_stored_rankings", lambda user_name=None: [])
+
+    # 2) Mock ranking output
     monkeypatch.setattr(
         "resume.resume_manager.rank_all_projects",
         lambda user_name=None: [{"project_id": project_id, "filename": "many_files.zip", "score": 99.0}]
     )
 
-    # 2) Avoid author detection / prompts
+    # 3) Mock file contents and git username
     monkeypatch.setattr("resume.resume_manager.get_file_contents_by_upload_id", lambda pid: [])
-    monkeypatch.setattr("resume.resume_manager._identify_authors_from_zip", lambda pid: set())
-    monkeypatch.setattr("resume.resume_manager._extract_common_names_from_filenames", lambda fc: set())
     monkeypatch.setattr("resume.resume_manager.get_user_git_username", lambda user_name: None)
 
     # If any input() happens, return empty to proceed
     monkeypatch.setattr(builtins, "input", lambda *args, **kwargs: "")
 
-    # 3) Mock stored resume containing custom wording map
+    # 4) Mock stored resume containing custom wording map
     monkeypatch.setattr(
         ResumeManager,
         "get_user_resume",
@@ -119,10 +120,6 @@ def test_generate_user_resume_uses_custom_wording(monkeypatch):
             "updated_at": None,
         }
     )
-
-    # 4) These fallbacks should NOT win over custom wording, but keep them safe
-    monkeypatch.setattr("resume.resume_manager.get_stored_ranking_by_project_id", lambda pid: {"summary": "DB summary"})
-    monkeypatch.setattr("resume.resume_manager.summarize_project", lambda pid, user_name=None: "LLM summary")
 
     # 5) Minimal summarizer output so resume generation continues
     class DummySummarizer:
@@ -134,6 +131,8 @@ def test_generate_user_resume_uses_custom_wording(monkeypatch):
                 "code_analysis": {},
                 "project_info": {},
             }
+        def _detect_languages(self, file_contents):
+            return {"languages": ["Python"], "primary_language": "Python"}
 
     monkeypatch.setattr("resume.resume_manager.ProjectSummarizer", lambda: DummySummarizer())
 
