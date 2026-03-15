@@ -36,7 +36,7 @@ body > #viewContainer {
     justify-content: space-between;
     align-items: center;
     margin-bottom: 0;
-    padding: 16px 24px;
+    padding: 14px 28px;
     background: var(--bg-card);
     border: none;
     border-bottom: 1px solid var(--border-color);
@@ -44,7 +44,8 @@ body > #viewContainer {
     position: sticky;
     top: 0;
     z-index: 100;
-    backdrop-filter: blur(10px);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
     box-shadow: var(--shadow-sm);
     gap: 24px;
 }
