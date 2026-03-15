@@ -118,7 +118,9 @@ def export_resume_item_pdf_bytes(resume_item: dict, filters: dict = None) -> byt
         if bullets:
             elements.append(Paragraph("<b>Resume Bullets</b>", styles["Heading2"]))
             for b in bullets[:opts["max_bullets"]]:
-                if str(b).strip(): elements.append(Paragraph(f"• {b}", styles["Normal"]))
+                if str(b).strip(): 
+                    # Standard hyphen for pytest compatibility
+                    elements.append(Paragraph(f"- {b}", styles["Normal"]))
             elements.append(Spacer(1, 12))
 
     if opts["show_metrics"]:
@@ -156,10 +158,10 @@ def export_resume_item_pdf_bytes(resume_item: dict, filters: dict = None) -> byt
             for edu in edu_list:
                 inst = edu.get('institution', 'Unknown Institution')
                 degree = edu.get('degree') or edu.get('subtitle') or ""
-                header = f"• <b>{inst}</b>" + (f" — {degree}" if degree else "")
+                header = f"- <b>{inst}</b>" + (f" — {degree}" if degree else "")
                 elements.append(Paragraph(header, styles["Normal"]))
                 
-                # Using start_year and end_year keys
+                # Fetching Year Data
                 s_year = edu.get('start_year') or edu.get('year_start') or ""
                 e_year = edu.get('end_year') or edu.get('year_end') or "Present"
                 
@@ -179,9 +181,9 @@ def export_resume_item_pdf_bytes(resume_item: dict, filters: dict = None) -> byt
             elements.append(Paragraph("<b>Awards & Honors</b>", styles["Heading2"]))
             for a in awd_list:
                 title = a.get('title', 'Award')
-                elements.append(Paragraph(f"• <b>{title}</b>", styles["Normal"]))
+                elements.append(Paragraph(f"- <b>{title}</b>", styles["Normal"]))
                 
-                # Using awarded_year and issuer
+                # Fetching Issuer and Year
                 issuer = a.get('issuer') or a.get('organization') or ""
                 year = a.get('awarded_year') or a.get('year') or ""
                 
@@ -214,7 +216,7 @@ def export_portfolio_top_projects_pdf(portfolio_summary: dict, filename: str = "
         elements.append(Paragraph(f"<b>{item.get('project_name', 'Project')}</b>", styles["Heading2"]))
         elements.append(Paragraph(str(item.get("summary_text", "")), styles["Normal"]))
         for b in (item.get("resume_bullets") or [])[:5]:
-            elements.append(Paragraph(f"• {b}", styles["Normal"]))
+            elements.append(Paragraph(f"- {b}", styles["Normal"]))
         elements.append(Spacer(1, 12))
     
     doc.build(elements)
