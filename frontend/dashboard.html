@@ -1337,6 +1337,9 @@
                     loadPreferences();
                 }, 50);
             }
+            if (viewName === 'resume-view'){
+                setTimeout(() => viewResume(), 100);
+            }
             if (viewName === 'upload') {
                 setTimeout(() => {
                     const fileInput = document.getElementById('zipFile');

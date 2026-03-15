@@ -21,12 +21,6 @@ class ResumeManager:
     
     @staticmethod
     def init_resume_table():
-        """
-        Initialize the generated_resumes table in the database.
-        Creates table structure for storing user-aggregated resume data.
-        Uses JSONB for flexible resume content storage across different resume types.
-        Uses user_name from user_informations as foreign key.
-        """
         try:
             with with_db_cursor() as cursor:
                 # First, create table if it doesn't exist (with new structure)
@@ -270,11 +264,6 @@ class ResumeManager:
 
     @staticmethod
     def init_portfolio_customizations_table():
-        """
-        Initialize the portfolio_customizations table in the database.
-        Creates table structure for storing user customizations for portfolio showcase projects.
-        Each row represents customizations for a specific project by a specific user.
-        """
         try:
             with with_db_cursor() as cursor:
                 # Create portfolio_customizations table
@@ -362,20 +351,6 @@ class ResumeManager:
     
     @staticmethod
     def store_user_resume(user_name, resume_data):
-        """
-        Store or update a user-aggregated resume.
-        
-        Uses UPSERT logic (ON CONFLICT) to ensure only the latest version is stored.
-        The resume_data parameter should contain aggregated information from top user projects
-        including top projects, skills, portfolio metrics, and experience duration.
-        
-        Args:
-            user_name (str): Username (string) to identify the user
-            resume_data (dict): Aggregated resume data containing top projects and skills
-            
-        Returns:
-            bool: True if storage successful, False otherwise
-        """
         try:
             with with_db_cursor() as cursor:
                 cursor.execute("""
@@ -395,18 +370,11 @@ class ResumeManager:
     
     @staticmethod
     def clear_custom_project_wording(user_id: str, project_id: int) -> bool:
-        """
-        Clear custom wording for a project resume item.
-        Equivalent to saving an empty wording (fallback to stored/generated summary).
-        """
         return ResumeManager.save_custom_project_wording(user_id, project_id, "")
 
 
     @staticmethod
     def list_custom_worded_projects(user_id: str) -> list[int]:
-        """
-        Return a list of project_ids that have custom resume wording saved.
-        """
         try:
             existing = ResumeManager.get_user_resume(user_id)
             if not existing or "resume_data" not in existing:
@@ -438,12 +406,6 @@ class ResumeManager:
 
     @staticmethod
     def save_custom_project_wording(user_id: str, project_id: int, wording: str) -> bool:
-        """
-        Save or clear custom resume wording for a specific project.
-
-        Stored under:
-          resume_data["custom_project_wording"][str(project_id)] = wording
-        """
         try:
             existing = ResumeManager.get_user_resume(user_id)
 
@@ -474,17 +436,6 @@ class ResumeManager:
 
     @staticmethod
     def save_portfolio_customization(user_name: str, project_id: int, custom_data: dict) -> bool:
-        """
-        Save or update portfolio customization for a specific project.
-        
-        Args:
-            user_name (str): Username to identify the user
-            project_id (int): Project ID
-            custom_data (dict): Dictionary containing custom_title, custom_description, custom_role
-            
-        Returns:
-            bool: True if save successful, False otherwise
-        """
         try:
             custom_title = (custom_data.get('custom_title') or "").strip()
             custom_description = (custom_data.get('custom_description') or "").strip()
@@ -523,17 +474,6 @@ class ResumeManager:
     
     @staticmethod
     def get_portfolio_customization(user_name: str, project_id: int) -> dict | None:
-        """
-        Retrieve portfolio customization for a specific project.
-        
-        Args:
-            user_name (str): Username to identify the user
-            project_id (int): Project ID
-            
-        Returns:
-            dict: Dictionary containing custom_title, custom_description, custom_role, created_at, updated_at
-                  Returns None if no customization exists
-        """
         try:
             with with_db_cursor() as cursor:
                 cursor.execute("""
@@ -569,15 +509,6 @@ class ResumeManager:
     
     @staticmethod
     def list_customized_portfolio_projects(user_name: str) -> list[int]:
-        """
-        Return a list of project_ids that have portfolio customizations saved.
-        
-        Args:
-            user_name (str): Username to identify the user
-            
-        Returns:
-            list[int]: List of project IDs with customizations
-        """
         try:
             with with_db_cursor() as cursor:
                 cursor.execute("""
@@ -597,16 +528,6 @@ class ResumeManager:
     
     @staticmethod
     def clear_portfolio_customization(user_name: str, project_id: int) -> bool:
-        """
-        Delete portfolio customization for a specific project.
-        
-        Args:
-            user_name (str): Username to identify the user
-            project_id (int): Project ID
-            
-        Returns:
-            bool: True if deletion successful, False otherwise
-        """
         try:
             with with_db_cursor() as cursor:
                 cursor.execute("""
@@ -622,20 +543,6 @@ class ResumeManager:
 
     @staticmethod
     def get_user_resume(user_name):
-        """
-        Retrieve the aggregated user resume.
-        
-        Fetches the most recent user resume from the database.
-        Returns resume data along with creation and last update timestamps
-        for tracking resume generation history.
-        
-        Args:
-            user_name (str): Username (string) to identify the user
-            
-        Returns:
-            dict: Dictionary containing resume_data, created_at, and updated_at
-                  Returns None if no resume exists for the user
-        """
         try:
             with with_db_cursor() as cursor:
                 cursor.execute("""
@@ -674,19 +581,6 @@ class ResumeManager:
     
     @staticmethod
     def delete_user_resume(user_name):
-        """
-        Delete a user's resume.
-        
-        Removes the user's resume from the database. This operation is typically
-        triggered when a user withdraws consent (per requirement #1) or requests
-        data deletion for privacy compliance.
-        
-        Args:
-            user_name (str): Username (string) to identify the user
-            
-        Returns:
-            bool: True if deletion successful, False otherwise
-        """
         try:
             with with_db_cursor() as cursor:
                 cursor.execute("""
@@ -702,18 +596,6 @@ class ResumeManager:
     
     @staticmethod
     def resume_exists(user_name):
-        """
-        Check if a resume exists for the given user.
-        
-        Useful for determining whether to generate a new resume
-        or retrieve an existing one.
-        
-        Args:
-            user_name (str): Username (string) to identify the user
-            
-        Returns:
-            bool: True if resume exists, False otherwise
-        """
         try:
             with with_db_cursor() as cursor:
                 cursor.execute("""
@@ -730,15 +612,6 @@ class ResumeManager:
     
     @staticmethod
     def _detect_frameworks_from_files(file_contents):
-        """
-        Detect frameworks from file contents.
-        
-        Args:
-            file_contents: List of file content dictionaries
-            
-        Returns:
-            list: Detected frameworks
-        """
         file_names = [f.get('file_name', '').lower() for f in file_contents]
         framework_indicators = {
             'React': ['package.json', 'react', '.jsx', '.tsx'],
@@ -765,21 +638,6 @@ class ResumeManager:
     
     @staticmethod
     def generate_user_resume(user_name, top_projects_count=5, selection: dict | None = None):
-        """
-        Generate a user-aggregated resume from top ranked projects.
-        
-        Leverages existing ranking system to identify top projects by score.
-        Uses ProjectSummarizer to extract summary data from each top project.
-        Aggregates skills, metrics, and project information for portfolio building.
-        
-        Args:
-            user_name (str): Username (string) to identify the user
-            top_projects_count (int): Number of top projects to include (default: 5)
-            
-        Returns:
-            dict: Generated resume data containing top projects and aggregated skills
-                  Returns None if generation fails or no projects exist
-        """
         try:
             ResumeManager.logger.info(
                 "Generate resume start: user=%s top_projects_count=%s selection=%s",
@@ -819,83 +677,15 @@ class ResumeManager:
                     all_authors.update(authors)
                 except Exception:
                     continue
-            
-            # Get user's display name from detected authors (similar to choose_author_from_zip logic)
-            display_name = user_name  # Default fallback
+            display_name = user_name  
             if all_authors:
                 git_username = get_user_git_username(user_name)
                 if git_username and git_username in all_authors:
                     # Auto-select if git username matches
                     display_name = git_username
-                elif not sys.stdin.isatty():
-                    # Non-interactive context (API); avoid blocking on input
-                    ResumeManager.logger.warning(
-                        "Non-interactive resume generation; defaulting display_name to login username for user=%s",
-                        user_name
-                    )
-                    display_name = user_name
-                else:
-                    # Let user select their name from detected authors
-                    authors_list = sorted(list(all_authors))
-                    print(f"\n{'='*70}")
-                    print("Select Your Name for Resume")
-                    print(f"{'='*70}")
-                    print("Detected author names from your projects:")
-                    for idx, name in enumerate(authors_list, start=1):
-                        print(f"  {idx}. {name}")
-                    print(f"  {len(authors_list) + 1}. Use my login username: {user_name}")
-                    print(f"  {len(authors_list) + 2}. Enter custom name")
-                    
-                    while True:
-                        try:
-                            choice = input("\nSelect an option: ").strip()
-                            
-                            if choice.isdigit():
-                                choice_num = int(choice)
-                                if 1 <= choice_num <= len(authors_list):
-                                    display_name = authors_list[choice_num - 1]
-                                    print(f"\nSelected: {display_name}")
-                                    break
-                                elif choice_num == len(authors_list) + 1:
-                                    display_name = user_name
-                                    print(f"\nUsing login username: {display_name}")
-                                    break
-                                elif choice_num == len(authors_list) + 2:
-                                    custom_name = input("Enter your name: ").strip()
-                                    if custom_name:
-                                        display_name = custom_name
-                                        print(f"\nUsing custom name: {display_name}")
-                                        break
-                                    else:
-                                        print("Please enter a valid name.")
-                                else:
-                                    print(f"Please enter a number between 1 and {len(authors_list) + 2}.")
-                            else:
-                                print("Invalid input. Enter a number.")
-                        except (ValueError, KeyboardInterrupt):
-                            print("\nUsing default username.")
-                            display_name = user_name
-                            break
-            else:
-                # No authors detected, use login username or ask for custom name
-                if not sys.stdin.isatty():
-                    ResumeManager.logger.warning(
-                        "No author names detected and non-interactive; using login username for user=%s",
-                        user_name
-                    )
-                    display_name = user_name
-                else:
-                    print(f"\nNo author names detected in projects.")
-                    use_custom = input("Enter your name for the resume (or press Enter to use login username): ").strip()
-                    if use_custom:
-                        display_name = use_custom
-                    else:
-                        display_name = user_name
             
             summarizer = ProjectSummarizer()
             skill_mapper = SkillMapper()
-            
-            # load custom project wording map
             custom_wording_map = {}
             try:
                 existing_resume = ResumeManager.get_user_resume(user_name)
@@ -922,13 +712,11 @@ class ResumeManager:
             for project in top_projects:
                 try:
                     project_id = project['project_id']
-                    
-                    # custom wording takes priority
                     custom_text = custom_wording_map.get(str(project_id), "")
                     project_summary_text = (custom_text or "").strip()
 
                     if not project_summary_text:
-                        stored_ranking = get_stored_ranking_by_project_id(project_id)
+                        stored_ranking = get_stored_ranking_by_project_id(project_id, user_name=user_name)
                         project_summary_text = stored_ranking.get('summary', '') if stored_ranking else ''
 
                     if not project_summary_text:
@@ -938,9 +726,6 @@ class ResumeManager:
                         except Exception as e:
                             print(f"[WARNING] Could not generate summary for project {project_id}: {e}")
                             project_summary_text = ''
-                    
-                    # Get comprehensive summary for additional data
-                    # Data Isolation: Pass user_name to verify project ownership
                     summary = summarizer.generate_project_summary(project_id, user_name=user_name)
                     
                     if summary and 'error' not in summary:
