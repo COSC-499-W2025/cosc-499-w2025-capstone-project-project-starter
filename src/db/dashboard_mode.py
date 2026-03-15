@@ -477,11 +477,16 @@ def apply_public_filters(
     if sort in {"date_desc", "rank_desc", "name_desc"}:
         skills_timeline = list(reversed(skills_timeline))
 
-    source["projects"] = projects
-    source["top_projects"] = top_projects
-    source["skills_timeline"] = skills_timeline
-    source["activity_heatmap"] = activity_heatmap
-    source["showcases"] = showcases
+    if "projects" in source:
+        source["projects"] = projects
+    if "top_projects" in source:
+        source["top_projects"] = top_projects
+    if "skills_timeline" in source:
+        source["skills_timeline"] = skills_timeline
+    if "activity_heatmap" in source:
+        source["activity_heatmap"] = activity_heatmap
+    if "showcases" in source:
+        source["showcases"] = showcases
     return source
 
 
