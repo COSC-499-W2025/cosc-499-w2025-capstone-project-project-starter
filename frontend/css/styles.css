@@ -84,8 +84,9 @@ body {
 }
 
 .theme-toggle:hover {
-    background: var(--bg-secondary);
-    border-color: var(--text-muted);
+    background: var(--accent-glow);
+    border-color: var(--accent-primary);
+    color: var(--accent-primary);
 }
 
 .theme-toggle svg {
@@ -126,11 +127,14 @@ body {
     background: var(--bg-card);
     color: var(--text-primary);
     border: 1px solid var(--border-color);
+    box-shadow: none;
 }
 
 .btn-secondary:hover:not(:disabled) {
     background: var(--bg-secondary);
     border-color: var(--text-muted);
+    box-shadow: var(--shadow-sm);
+    transform: translateY(-1px);
 }
 
 /* ============== Form Elements ============== */
@@ -166,6 +170,7 @@ body {
 .form-group textarea:focus {
     outline: none;
     border-color: var(--accent-primary);
+    box-shadow: 0 0 0 3px var(--accent-glow);
 }
 
 .form-group input::placeholder,
