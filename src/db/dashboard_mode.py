@@ -310,6 +310,7 @@ def apply_public_filters(
     top_projects = _ensure_rows(source.get("top_projects"))
     skills_timeline = _ensure_rows(source.get("skills_timeline"))
     activity_heatmap = _ensure_rows(source.get("activity_heatmap"))
+    top_project_evolution = _ensure_rows(source.get("top_project_evolution"))
     showcases = _ensure_rows(source.get("showcases"))
 
     pid_filter = {str(v).strip() for v in (filters.get("project_ids") or []) if str(v).strip()}
@@ -322,6 +323,9 @@ def apply_public_filters(
         projects = [p for p in projects if str(p.get("id") or "").strip() in pid_filter]
         top_projects = [p for p in top_projects if str(p.get("project_id") or "").strip() in pid_filter]
         skills_timeline = [e for e in skills_timeline if str(e.get("project_id") or "").strip() in pid_filter]
+        top_project_evolution = [
+            row for row in top_project_evolution if str(row.get("project_id") or "").strip() in pid_filter
+        ]
         showcases = [s for s in showcases if str(s.get("project_id") or "").strip() in pid_filter]
         activity_heatmap = [
             bucket
@@ -338,6 +342,9 @@ def apply_public_filters(
         inferred_ids = {str(event.get("project_id") or "").strip() for event in skills_timeline if event.get("project_id")}
         projects = [p for p in projects if str(p.get("id") or "").strip() in inferred_ids]
         top_projects = [p for p in top_projects if str(p.get("project_id") or "").strip() in inferred_ids]
+        top_project_evolution = [
+            row for row in top_project_evolution if str(row.get("project_id") or "").strip() in inferred_ids
+        ]
         showcases = [s for s in showcases if str(s.get("project_id") or "").strip() in inferred_ids]
         activity_heatmap = [
             bucket
@@ -348,6 +355,9 @@ def apply_public_filters(
     if from_date or to_date:
         skills_timeline = [e for e in skills_timeline if _date_in_range(_parse_date(_event_ts(e)), from_date, to_date)]
         projects = [p for p in projects if _date_in_range(_parse_date(p.get("created_at")), from_date, to_date)]
+        top_project_evolution = [
+            row for row in top_project_evolution if _date_in_range(_parse_date(row.get("created_at")), from_date, to_date)
+        ]
         activity_heatmap = [
             bucket
             for bucket in activity_heatmap
@@ -361,6 +371,11 @@ def apply_public_filters(
             event
             for event in skills_timeline
             if _contains_text([event.get("skill"), event.get("project_name")], text_query)
+        ]
+        top_project_evolution = [
+            row
+            for row in top_project_evolution
+            if _contains_text([row.get("project_name"), row.get("evolution_summary")], text_query)
         ]
         showcases = [
             row
@@ -385,6 +400,14 @@ def apply_public_filters(
         date_key="created_at",
         score_key="rank_score",
     )
+    top_project_evolution = _sort_rows(
+        top_project_evolution,
+        sort=sort,
+        id_key="project_id",
+        name_key="project_name",
+        date_key="created_at",
+        score_key="rank_score",
+    )
     skills_timeline = sorted(
         skills_timeline,
         key=lambda row: (
@@ -400,6 +423,7 @@ def apply_public_filters(
     source["top_projects"] = top_projects
     source["skills_timeline"] = skills_timeline
     source["activity_heatmap"] = activity_heatmap
+    source["top_project_evolution"] = top_project_evolution
     source["showcases"] = showcases
     return source
 

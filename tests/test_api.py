@@ -515,18 +515,29 @@ def test_public_dashboard_filter_validation_and_application(client, engine):
             {"e1": e1, "e2": e2, "s1": s1, "c1": c1, "c2": c2},
         )
 
+    r_analytics = client.get(f"/portfolio/{account['portfolio_id']}/analytics?timeline_limit=25&heatmap_bucket=day&top_limit=3")
+    assert r_analytics.status_code == 200
+    analytics = r_analytics.json()
+    assert analytics["skills_timeline"]["total_events"] >= 2
+    assert analytics["activity_heatmap"]["bucket"] == "day"
+    assert len(analytics["top_project_evolution"]["projects"]) == 2
+    assert all(row["rank_score"] is None for row in analytics["top_project_evolution"]["projects"])
+
     r_publish = client.post(f"/portfolio/{account['portfolio_id']}/dashboard/publish", headers=headers)
     assert r_publish.status_code == 200
     slug = r_publish.json()["public_slug"]
 
     r_public = client.get(f"/public/portfolio/{slug}")
     assert r_public.status_code == 200
-    heatmap = r_public.json()["dashboard"]["activity_heatmap"]
+    dashboard = r_public.json()["dashboard"]
+    heatmap = dashboard["activity_heatmap"]
     first_bucket = next((row for row in heatmap if row.get("bucket_date") == "2024-01-04"), None)
     assert first_bucket is not None
     assert first_bucket["snapshot_count"] == 1
     assert first_bucket["commit_count"] == 5
     assert first_bucket["activity_count"] == 6
+    assert "project_names" in first_bucket
+    assert len(dashboard["top_project_evolution"]) == 2
 
     r_bad = client.get(f"/public/portfolio/{slug}?unsupported=value")
     assert r_bad.status_code == 400
@@ -538,6 +549,7 @@ def test_public_dashboard_filter_validation_and_application(client, engine):
     assert body["applied_filters"]["skills"] == ["python"]
     assert [p["id"] for p in body["dashboard"]["projects"]] == [p1]
     assert all((event.get("skill") or "").casefold() == "python" for event in body["dashboard"]["skills_timeline"])
+    assert [row["project_id"] for row in body["dashboard"]["top_project_evolution"]] == [p1]
 
     r_filtered_again = client.get(f"/public/portfolio/{slug}?project_ids={p1}&skills=python")
     assert r_filtered_again.status_code == 200
@@ -546,6 +558,130 @@ def test_public_dashboard_filter_validation_and_application(client, engine):
     assert [p.get("project_id") for p in body_again["dashboard"]["top_projects"]] == [
         p.get("project_id") for p in body["dashboard"]["top_projects"]
     ]
+
+
+def test_portfolio_analytics_timeline_uses_latest_analysis_and_fallback(client, engine):
+    account = _register_user(client, email="dashboard-analytics-fallback@example.com")
+    portfolio_id = account["portfolio_id"]
+
+    p1 = _u()
+    s1 = _u()
+    s2 = _u()
+    a_old = _u()
+    a_new = _u()
+    a2 = _u()
+
+    t_ing_1 = datetime(2024, 3, 1, 10, 0, 0, tzinfo=timezone.utc)
+    t_ing_2 = datetime(2024, 3, 2, 10, 0, 0, tzinfo=timezone.utc)
+    t_old = datetime(2024, 3, 1, 11, 0, 0, tzinfo=timezone.utc)
+    t_new = datetime(2024, 3, 1, 12, 0, 0, tzinfo=timezone.utc)
+    t_a2 = datetime(2024, 3, 2, 12, 0, 0, tzinfo=timezone.utc)
+
+    with engine.begin() as conn:
+        conn.execute(
+            text("INSERT INTO projects (id, portfolio_id, name) VALUES (:id, :pf, 'Alpha')"),
+            {"id": p1, "pf": portfolio_id},
+        )
+        conn.execute(
+            text(
+                """
+                INSERT INTO snapshots (id, project_id, source_zip_name, source_zip_sha256, ingested_at)
+                VALUES
+                  (:s1, :pid, 'alpha-1.zip', :zh1, :t1),
+                  (:s2, :pid, 'alpha-2.zip', :zh2, :t2)
+                """
+            ),
+            {"s1": s1, "s2": s2, "pid": p1, "zh1": "a" * 64, "zh2": "b" * 64, "t1": t_ing_1, "t2": t_ing_2},
+        )
+        conn.execute(
+            text(
+                """
+                INSERT INTO analyses (id, snapshot_id, analysis_type, status, output_json, completed_at)
+                VALUES
+                  (:a_old, :s1, 'local_ml', 'complete', CAST(:old_out AS jsonb), :t_old),
+                  (:a_new, :s1, 'local_ml', 'complete', CAST(:new_out AS jsonb), :t_new),
+                  (:a2, :s2, 'local_ml', 'complete', CAST(:a2_out AS jsonb), :t_a2)
+                """
+            ),
+            {
+                "a_old": a_old,
+                "a_new": a_new,
+                "a2": a2,
+                "s1": s1,
+                "s2": s2,
+                "t_old": t_old,
+                "t_new": t_new,
+                "t_a2": t_a2,
+                "old_out": json.dumps(
+                    {
+                        "skills": [
+                            {
+                                "skill": "python",
+                                "first_seen_ts": "2024-02-01T00:00:00+00:00",
+                                "max_prob": 0.20,
+                                "hits": 1,
+                            }
+                        ]
+                    }
+                ),
+                "new_out": json.dumps({"totals": {"skills_detected": 1}}),
+                "a2_out": json.dumps({"skills": [{"skill": "docker", "max_prob": 0.61, "hits": 1}]}),
+            },
+        )
+
+        skill_id = conn.execute(
+            text(
+                """
+                INSERT INTO skills (skill_name, category)
+                VALUES ('python', 'language')
+                RETURNING id
+                """
+            )
+        ).scalar_one()
+        conn.execute(
+            text(
+                """
+                INSERT INTO analysis_skills (analysis_id, skill_id, confidence, evidence_json)
+                VALUES (:aid, :sid, :conf, CAST(:ev AS jsonb))
+                """
+            ),
+            {
+                "aid": a_new,
+                "sid": skill_id,
+                "conf": 0.91,
+                "ev": json.dumps(
+                    {
+                        "hits": 4,
+                        "max_prob": 0.91,
+                        "examples": [{"path": "main.py", "p": 0.91, "ts": "2024-01-15T00:00:00+00:00"}],
+                    }
+                ),
+            },
+        )
+
+    r = client.get(f"/portfolio/{portfolio_id}/analytics?timeline_limit=20&heatmap_bucket=day&top_limit=3")
+    assert r.status_code == 200
+    body = r.json()
+
+    events = body["skills_timeline"]["events"]
+    assert body["skills_timeline"]["total_events"] == 2
+
+    python_events = [e for e in events if e.get("skill") == "python"]
+    assert len(python_events) == 1
+    assert python_events[0]["analysis_id"] == a_new
+    assert python_events[0]["first_seen_ts"] == "2024-01-15T00:00:00+00:00"
+    assert python_events[0]["signal"]["confidence"] == 0.91
+    assert python_events[0]["signal"]["hits"] == 4
+
+    docker_events = [e for e in events if e.get("skill") == "docker"]
+    assert len(docker_events) == 1
+    assert docker_events[0]["analysis_id"] == a2
+    assert docker_events[0]["first_seen_ts"] is None
+
+    evolution = body["top_project_evolution"]["projects"]
+    assert len(evolution) == 1
+    assert evolution[0]["project_id"] == p1
+    assert evolution[0]["rank_score"] is None
 
 
 def test_dashboard_public_mode_blocks_dashboard_mutations(client, engine):
@@ -1739,19 +1875,10 @@ def test_projects_compare_endpoint_attribute_precedence_and_highlights(client, e
     assert body2["attributes"] == ["meta"]
     assert all(("meta" in p and "skills_top" not in p) for p in body2["projects"])
     
-import os
-import uuid
-import tempfile
-
-from fastapi.testclient import TestClient
-from src.api.app import app
-
-client = TestClient(app)
-
 TEST_DATA_DIR = "tests/data"
 
 
-def test_incremental_project_upload():
+def test_incremental_project_upload(client):
     """
     Req #21:
     The system must allow incremental information by adding another
@@ -1827,7 +1954,7 @@ def test_incremental_project_upload():
         # Optional: ensure only one project was created, others are skipped
         assert len([p for p in created_projects if p["project_id"] == project_id]) <= 1
 
-def test_resume_edit(client: TestClient):
+def test_resume_edit(client):
     # 1. Consent
     r = client.post("/privacy-consent", json={
         "user_id": None,

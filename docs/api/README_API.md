@@ -258,6 +258,10 @@ Resume PDF filters are read from `config.resume_filters` (optional):
   - `limit` range: `1..50`.
   - Returns ranked project summary list.
 
+- `GET /portfolio/{portfolio_id}/analytics?timeline_limit=1000&heatmap_bucket=day&top_limit=3`
+  - Returns analytics payloads for `skills_timeline.events`, `activity_heatmap.buckets`, and `top_project_evolution.projects`.
+  - Query params: `timeline_limit` (`1..10000`), `heatmap_bucket` (`day|week|hour`), `top_limit` (`1..10`).
+
 - `POST /portfolio/generate`
   - Body:
     - `portfolio_id` (required)
@@ -292,6 +296,7 @@ Resume PDF filters are read from `config.resume_filters` (optional):
 - Public read endpoint:
   - `GET /public/portfolio/{public_slug}`
     - Public-mode read-only dashboard payload.
+    - Dashboard payload includes `skills_timeline`, `activity_heatmap`, and `top_project_evolution`.
     - Supported query params only:
       - `q`
       - `date_from` / `date_to` (`YYYY-MM-DD`)

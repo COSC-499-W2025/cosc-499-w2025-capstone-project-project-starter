@@ -4,6 +4,7 @@ from typing import Iterator
 
 import pytest
 from sqlalchemy import create_engine, text
+from sqlalchemy.pool import NullPool
 from fastapi.testclient import TestClient
 
 from src.api.app import app
@@ -34,8 +35,13 @@ def migrated_db(db_url: str) -> None:
 
 @pytest.fixture()
 def engine(migrated_db: None, db_url: str):
-    eng = create_engine(db_url, future=True)
-    return eng
+    # Use NullPool for tests so each checked-out connection is closed immediately
+    # and cannot accumulate across the full suite.
+    eng = create_engine(db_url, future=True, poolclass=NullPool)
+    try:
+        yield eng
+    finally:
+        eng.dispose()
 
 
 def _truncate_all_tables(conn) -> None:
@@ -72,5 +78,6 @@ def clean_db(engine) -> Iterator[None]:
 
 
 @pytest.fixture()
-def client() -> TestClient:
-    return TestClient(app)
+def client() -> Iterator[TestClient]:
+    with TestClient(app) as c:
+        yield c
