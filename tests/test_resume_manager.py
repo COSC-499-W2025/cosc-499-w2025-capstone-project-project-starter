@@ -197,26 +197,21 @@ class TestResumeGeneration:
     """Test resume generation from projects."""
     
     @patch('resume.resume_manager.get_stored_ranking_by_project_id')
-    @patch('resume.resume_manager.summarize_project')
     @patch('resume.resume_manager.get_user_git_username')
-    @patch('resume.resume_manager._extract_common_names_from_filenames')
-    @patch('resume.resume_manager._identify_authors_from_zip')
     @patch('resume.resume_manager.get_file_contents_by_upload_id')
-    @patch('resume.resume_manager.analyze_project_from_db')
     @patch('resume.resume_manager.SkillMapper')
     @patch('resume.resume_manager.ProjectSummarizer')
+    @patch('resume.resume_manager.get_stored_rankings')
     @patch('resume.resume_manager.rank_all_projects')
-    def test_generate_user_resume_success(self, mock_rank, mock_summarizer_class, 
-                                          mock_skill_mapper_class, mock_analyze, mock_get_files,
-                                            mock_identify_authors, mock_extract_names,
-                                          mock_git_username, mock_summarize, mock_stored_ranking):
+    def test_generate_user_resume_success(self, mock_rank, mock_get_stored_rankings,
+                                          mock_summarizer_class, mock_skill_mapper_class,
+                                          mock_get_files, mock_git_username, mock_stored_ranking):
         """Test successful generation of user resume with enriched data."""
-        # Setup mocks for author selection
-        mock_identify_authors.return_value = {'Alice', 'Bob'}
-        mock_extract_names.return_value = set()
         mock_git_username.return_value = None
         mock_stored_ranking.return_value = {'summary': 'Project summary text'}
-        mock_summarize.return_value = 'Project summary text'
+
+        # Return empty stored rankings so fallback to rank_all_projects
+        mock_get_stored_rankings.return_value = []
         
         # Setup mocks
         mock_summarizer = Mock()
@@ -265,10 +260,6 @@ class TestResumeGeneration:
             }
         }
         
-        mock_analyze.return_value = {
-            'totals': {'files': 25, 'lines': 2500}
-        }
-        
         mock_get_files.return_value = [
             {'file_name': 'app.py', 'file_path': 'src/app.py'},
             {'file_name': 'test_app.py', 'file_path': 'tests/test_app.py'},
@@ -281,11 +272,11 @@ class TestResumeGeneration:
         # Verify result structure
         assert result is not None
         assert result['user_name'] == 'test_user'
-        assert result['display_name'] == 'test_user'  # Selected author name
+        assert result['display_name'] == 'test_user'
         assert result['total_projects_analyzed'] == 2
         assert result['top_projects_displayed'] == 2
         
-        # Verify enriched data fields (summary_stats removed in new version)
+        # Verify enriched data fields
         assert 'categorized_skills' in result
         assert 'languages' in result
         assert 'frameworks' in result
@@ -303,29 +294,25 @@ class TestResumeGeneration:
             assert 'duration_days' in project
             assert 'intensity' in project
             assert 'collaboration_level' in project
-            assert 'summary' in project  # Project summary from database
+            assert 'summary' in project
     
-    @patch('resume.resume_manager._extract_common_names_from_filenames')
-    @patch('resume.resume_manager._identify_authors_from_zip')
-    @patch('builtins.input')
+    @patch('resume.resume_manager.get_stored_rankings')
     @patch('resume.resume_manager.rank_all_projects')
-    def test_generate_user_resume_no_projects(self, mock_rank, mock_input, mock_identify_authors, mock_extract_names):
+    def test_generate_user_resume_no_projects(self, mock_rank, mock_get_stored_rankings):
         """Test resume generation when no projects exist."""
+        mock_get_stored_rankings.return_value = []
         mock_rank.return_value = []
-        # No authors to mock since no projects
         
         result = ResumeManager.generate_user_resume("test_user")
         
         assert result is None
     
-    @patch('resume.resume_manager._extract_common_names_from_filenames')
-    @patch('resume.resume_manager._identify_authors_from_zip')
-    @patch('builtins.input')
+    @patch('resume.resume_manager.get_stored_rankings')
     @patch('resume.resume_manager.rank_all_projects')
-    def test_generate_user_resume_failure(self, mock_rank, mock_input, mock_identify_authors, mock_extract_names):
+    def test_generate_user_resume_failure(self, mock_rank, mock_get_stored_rankings):
         """Test handling of generation failure."""
+        mock_get_stored_rankings.return_value = []
         mock_rank.side_effect = Exception("Database error")
-        # No authors to mock since exception happens before author detection
         
         result = ResumeManager.generate_user_resume("test_user")
         

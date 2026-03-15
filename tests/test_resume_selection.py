@@ -16,42 +16,34 @@ class TestResumeSelection:
     """
 
     @patch('resume.resume_manager.get_stored_ranking_by_project_id')
-    @patch('resume.resume_manager.summarize_project')
     @patch('resume.resume_manager.get_user_git_username')
-    @patch('resume.resume_manager._extract_common_names_from_filenames')
-    @patch('resume.resume_manager._identify_authors_from_zip')
-    @patch('builtins.input')
     @patch('resume.resume_manager.get_file_contents_by_upload_id')
     @patch('resume.resume_manager.SkillMapper')
     @patch('resume.resume_manager.ProjectSummarizer')
+    @patch('resume.resume_manager.get_stored_rankings')
     @patch('resume.resume_manager.rank_all_projects')
     def test_generate_user_resume_include_skills_false(
         self,
         mock_rank,
+        mock_get_stored_rankings,
         mock_summarizer_class,
         mock_skill_mapper_class,
         mock_get_files,
-        mock_input,
-        mock_identify_authors,
-        mock_extract_names,
         mock_git_username,
-        mock_summarize,
         mock_stored_ranking
     ):
-        # --- author selection mocks ---
-        mock_identify_authors.return_value = {'Alice'}
-        mock_extract_names.return_value = set()
         mock_git_username.return_value = None
-        mock_input.side_effect = ['1']  # select Alice
+
+        # Return empty stored rankings so fallback to rank_all_projects
+        mock_get_stored_rankings.return_value = []
 
         # --- ranking/project mocks ---
         mock_rank.return_value = [
             {'project_id': 1, 'filename': 'project1.zip', 'score': 100},
         ]
 
-        # --- summary stored + fallback ---
+        # --- summary stored ---
         mock_stored_ranking.return_value = {'summary': 'Stored summary'}
-        mock_summarize.return_value = 'Stored summary'
 
         # --- summarizer mock ---
         mock_summarizer = Mock()
@@ -110,40 +102,32 @@ class TestResumeSelection:
         assert result["top_projects"][0]["skills"] == []
 
     @patch('resume.resume_manager.get_stored_ranking_by_project_id')
-    @patch('resume.resume_manager.summarize_project')
     @patch('resume.resume_manager.get_user_git_username')
-    @patch('resume.resume_manager._extract_common_names_from_filenames')
-    @patch('resume.resume_manager._identify_authors_from_zip')
-    @patch('builtins.input')
     @patch('resume.resume_manager.get_file_contents_by_upload_id')
     @patch('resume.resume_manager.SkillMapper')
     @patch('resume.resume_manager.ProjectSummarizer')
+    @patch('resume.resume_manager.get_stored_rankings')
     @patch('resume.resume_manager.rank_all_projects')
     def test_generate_user_resume_skills_mode_all(
         self,
         mock_rank,
+        mock_get_stored_rankings,
         mock_summarizer_class,
         mock_skill_mapper_class,
         mock_get_files,
-        mock_input,
-        mock_identify_authors,
-        mock_extract_names,
         mock_git_username,
-        mock_summarize,
         mock_stored_ranking
     ):
-        # --- author selection mocks ---
-        mock_identify_authors.return_value = {'Alice'}
-        mock_extract_names.return_value = set()
         mock_git_username.return_value = None
-        mock_input.side_effect = ['1']  # select Alice
+
+        # Return empty stored rankings so fallback to rank_all_projects
+        mock_get_stored_rankings.return_value = []
 
         mock_rank.return_value = [
             {'project_id': 1, 'filename': 'project1.zip', 'score': 100},
         ]
 
         mock_stored_ranking.return_value = {'summary': 'Stored summary'}
-        mock_summarize.return_value = 'Stored summary'
 
         mock_summarizer = Mock()
         mock_summarizer_class.return_value = mock_summarizer
