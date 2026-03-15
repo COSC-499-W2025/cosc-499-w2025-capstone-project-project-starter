@@ -231,8 +231,8 @@ input[type="file"] {
 
 .badge-success { background: #16a34a; color: #fff; }
 .badge-warning { background: #d97706; color: #fff; }
-.badge-info    { background: #000000; color: #fff; }
-.badge-purple  { background: #333333; color: #fff; }
+.badge-info    { background: #6366f1; color: #fff; }
+.badge-purple  { background: #8b5cf6; color: #fff; }
 
 /* ============== Utility Classes ============== */
 
