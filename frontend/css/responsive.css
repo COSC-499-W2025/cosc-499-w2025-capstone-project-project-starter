@@ -51,6 +51,7 @@
 @media (max-width: 768px) {
     .nav-mobile-toggle { display: flex; }
     .nav-wrapper {
+        display: block;
         margin-bottom: 12px;
     }
     .nav-bar {

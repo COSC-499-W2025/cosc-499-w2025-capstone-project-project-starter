@@ -205,6 +205,7 @@ body > #viewContainer {
 /* ============== Nav Bar ============== */
 
 .nav-wrapper {
+    display: none; /* desktop: single nav in header; shown on mobile for drawer */
     margin-bottom: 0;
     position: relative;
 }
