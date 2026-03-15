@@ -14,15 +14,6 @@ import os
 
 
 def _perform_deep_code_analysis(project_id: int) -> Dict[str, Any]:
-    """
-    Perform deep code analysis on a project using file contents from database.
-    
-    Args:
-        project_id: The project ID to analyze
-        
-    Returns:
-        dict: Aggregated deep code analysis results
-    """
     try:
         file_contents = get_file_contents_by_upload_id(project_id)
         if not file_contents:
@@ -37,17 +28,6 @@ def _perform_deep_code_analysis(project_id: int) -> Dict[str, Any]:
 
 
 def calculate_project_score(analysis_data: Dict[str, Any], project_id: Optional[int] = None) -> float:
-    """
-    Calculate the score of a project based on the analysis data.
-    Score is normalized to be out of 100 for easier understanding.
-    
-    Args:
-        analysis_data: Analysis data from key_metrics or local analyzer
-        project_id: Optional project ID for deep code analysis
-        
-    Returns:
-        float: Project score out of 100
-    """
     base_score = 0.0
     deep_analysis_score = 0.0
     
@@ -178,17 +158,6 @@ def calculate_project_score(analysis_data: Dict[str, Any], project_id: Optional[
 
 
 def rank_all_projects(user_name=None) -> List[Dict[str, Any]]:
-    """
-    Rank all uploaded projects for the current user by composite score using key_metrics.
-    Uses stored scores from database if available, otherwise calculates new scores.
-    Data Isolation: Only ranks projects belonging to the specified user (or current user if None).
-    
-    Args:
-        user_name (str, optional): Username to filter projects. If None, uses current logged-in user.
-    
-    Returns:
-        List[Dict[str, Any]]: List of ranked projects for the user, or empty list if no user logged in.
-    """
     # Get current user if user_name not provided
     if user_name is None:
         user_name = AuthManager.get_current_username()
@@ -207,9 +176,7 @@ def rank_all_projects(user_name=None) -> List[Dict[str, Any]]:
 
         if not projects:
             return []
-
-        # Get all stored rankings to check for existing scores
-        stored_rankings = get_stored_rankings()
+        stored_rankings = get_stored_rankings(user_name=user_name)
         stored_scores = {r['project_id']: r['score'] for r in stored_rankings}
 
         ranked_projects: List[Dict[str, Any]] = []
@@ -242,18 +209,11 @@ def rank_all_projects(user_name=None) -> List[Dict[str, Any]]:
         return []
 
 def rank_local_project(project_path: str) -> Dict[str, Any]:
-    """Deprecated: local ranking disabled; use database key metrics instead."""
     raise NotImplementedError("Local ranking disabled; use key-metrics-based ranking from DB.")
 
 
 
 def display_rankings(ranked_projects: List[Dict[str, Any]]):
-    """
-    Display ranked projects in a simple format showing only project names and scores.
-    
-    Args:
-        ranked_projects: List of ranked project dictionaries
-    """
     if not ranked_projects:
         print("\nNo projects to rank.")
         return
@@ -272,10 +232,6 @@ def display_rankings(ranked_projects: List[Dict[str, Any]]):
 
 
 def rank_and_summarize_top_projects() -> None:
-    """
-    Rank all projects and summarize the top 3 projects (without displaying rankings).
-    Data Isolation: Uses current logged-in user.
-    """
     print("\nRanking all projects...")
     # Data Isolation: Get current user
     current_username = AuthManager.get_current_username()
