@@ -1788,7 +1788,7 @@ function Homepage() {
 
   const startAddEdu = () => { setEduForm(EMPTY_EDU); setEditingEduId('new'); };
   const startEditEdu = (entry) => { setEduForm({ ...entry, start_year: entry.start_year || '', end_year: entry.end_year || '' }); setEditingEduId(entry.id); };
-  const cancelEdu = () => setEditingEduId(null);
+  const cancelEdu = () => {setEditingEduId(null); setEduTouched({})};
 
   const saveEdu = async () => {
     setResumeSaving(true);
@@ -1809,6 +1809,7 @@ function Homepage() {
       }
       setEditingEduId(null);
       await fetchResumePayload();
+      setEduTouched({});
     } catch (err) {
       setDashboardError(err.message || 'Failed to save education entry.');
     } finally {
@@ -1831,7 +1832,7 @@ function Homepage() {
 
   const startAddAward = () => { setAwardForm(EMPTY_AWARD); setEditingAwardId('new'); };
   const startEditAward = (entry) => { setAwardForm({ ...entry, awarded_year: entry.awarded_year || '' }); setEditingAwardId(entry.id); };
-  const cancelAward = () => setEditingAwardId(null);
+  const cancelAward = () => {setEditingAwardId(null); setAwdTouched({})};
 
   const saveAward = async () => {
     setResumeSaving(true);
@@ -1849,6 +1850,7 @@ function Homepage() {
       }
       setEditingAwardId(null);
       await fetchResumePayload();
+      setAwdTouched({});
     } catch (err) {
       setDashboardError(err.message || 'Failed to save award.');
     } finally {
