@@ -27,6 +27,45 @@ function normalizeProjectName(filename) {
   return filename.replace(/\.zip$/i, '');
 }
 
+const YEAR_MIN = 1900;
+const YEAR_MAX_OFFSET_EDU = 10; // allow up to 10 years in the future for expected graduation, covers almost any realistic grad timeline
+
+function getEduYearErrors(startYear, endYear, isCurrent) {
+  const currentYear = new Date().getFullYear();
+  const maxEndYear = currentYear + YEAR_MAX_OFFSET_EDU;
+  const errors = { start_year: null, end_year: null };
+
+  if (startYear !== '' && startYear !== null && startYear !== undefined) {
+    const sy = parseInt(startYear, 10);
+    if (isNaN(sy) || sy < YEAR_MIN || sy > currentYear) {
+      errors.start_year = `Must be between ${YEAR_MIN} and ${currentYear}.`;
+    }
+  }
+
+  if (!isCurrent && endYear !== '' && endYear !== null && endYear !== undefined) {
+    const ey = parseInt(endYear, 10);
+    const sy = parseInt(startYear, 10);
+    if (isNaN(ey) || ey < YEAR_MIN || ey > maxEndYear) {
+      errors.end_year = `Must be between ${YEAR_MIN} and ${maxEndYear}.`;
+    } else if (!isNaN(sy) && ey < sy) {
+      errors.end_year = 'Cannot be before start year.';
+    }
+  }
+
+  return errors;
+}
+
+function getAwardYearError(awardedYear) {
+  const currentYear = new Date().getFullYear();
+  if (awardedYear !== '' && awardedYear !== null && awardedYear !== undefined) {
+    const y = parseInt(awardedYear, 10);
+    if (isNaN(y) || y < YEAR_MIN || y > currentYear) {
+      return `Must be between ${YEAR_MIN} and ${currentYear}.`;
+    }
+  }
+  return null;
+}
+
 function formatDate(value) {
   if (!value) return 'N/A';
   const parsed = new Date(value);
@@ -1722,6 +1761,8 @@ function Homepage() {
   const [editingAwardId, setEditingAwardId] = useState(null);
   const [eduForm, setEduForm] = useState({});
   const [awardForm, setAwardForm] = useState({});
+  const [eduTouched, setEduTouched] = useState({ start_year: false, end_year: false });
+  const [awdTouched, setAwdTouched] = useState({ year: false });
 
   const EMPTY_EDU = { institution: '', degree: '', field_of_study: '', start_year: '', end_year: '', is_current: false, description: '' };
   const EMPTY_AWARD = { title: '', issuer: '', awarded_year: '', description: '' };
@@ -3305,8 +3346,8 @@ function Homepage() {
                           <label className="field">Institution *<input value={eduForm.institution || ''} onChange={(e) => setEduForm((f) => ({ ...f, institution: e.target.value }))} placeholder="e.g. University of Waterloo" /></label>
                           <label className="field">Degree<input value={eduForm.degree || ''} onChange={(e) => setEduForm((f) => ({ ...f, degree: e.target.value }))} placeholder="e.g. B.Sc." /></label>
                           <label className="field">Field of Study<input value={eduForm.field_of_study || ''} onChange={(e) => setEduForm((f) => ({ ...f, field_of_study: e.target.value }))} placeholder="e.g. Computer Science" /></label>
-                          <label className="field">Start Year<input type="number" value={eduForm.start_year || ''} onChange={(e) => setEduForm((f) => ({ ...f, start_year: e.target.value }))} placeholder="2018" /></label>
-                          <label className="field">End Year<input type="number" value={eduForm.end_year || ''} onChange={(e) => setEduForm((f) => ({ ...f, end_year: e.target.value }))} placeholder="2022" disabled={eduForm.is_current} /></label>
+                          <div style={{position: 'relative'}}><label className="field">Start Year<input type="number" value={eduForm.start_year || ''} onChange={(e) => setEduForm((f) => ({ ...f, start_year: e.target.value }))} onBlur={() => setEduTouched({ ...eduTouched, start_year: true })} placeholder="2018" min={1900} max={new Date().getFullYear()} /></label>{eduTouched.start_year && getEduYearErrors(eduForm.start_year, eduForm.end_year, eduForm.is_current).start_year && <span style={{ color: 'red', fontSize: '0.78em', position: 'absolute' }}>{getEduYearErrors(eduForm.start_year, eduForm.end_year, eduForm.is_current).start_year}</span>}</div>
+                          <div style={{position: 'relative'}}><label className="field">End Year<input type="number" value={eduForm.end_year || ''} onChange={(e) => setEduForm((f) => ({ ...f, end_year: e.target.value }))} onBlur={() => setEduTouched({ ...eduTouched, end_year: true })} placeholder="2022" disabled={eduForm.is_current} min={eduForm.start_year || 1900} max={new Date().getFullYear() + YEAR_MAX_OFFSET_EDU} /></label>{eduTouched.end_year && !eduForm.is_current && getEduYearErrors(eduForm.start_year, eduForm.end_year, eduForm.is_current).end_year && <span style={{ color: 'red', fontSize: '0.78em', position: 'absolute' }}>{getEduYearErrors(eduForm.start_year, eduForm.end_year, eduForm.is_current).end_year}</span>}</div>
                         </div>
                         <label className="field" style={{ flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'flex-start', gap: '8px' }}>
                           Currently enrolled
@@ -3314,7 +3355,8 @@ function Homepage() {
                         </label>
                         <label className="field">Notes<textarea value={eduForm.description || ''} onChange={(e) => setEduForm((f) => ({ ...f, description: e.target.value }))} rows={2} /></label>
                         <div style={{ display: 'flex', gap: '8px' }}>
-                          <button className="primary-btn" disabled={!eduForm.institution?.trim() || resumeSaving} onClick={saveEdu}>{resumeSaving ? 'Saving...' : 'Save'}</button>
+                          <button className="primary-btn" disabled={!eduForm.institution?.trim() || resumeSaving || getEduYearErrors(eduForm.start_year, eduForm.end_year, eduForm.is_current).start_year ||
+    getEduYearErrors(eduForm.start_year, eduForm.end_year, eduForm.is_current).end_year} onClick={saveEdu}>{resumeSaving ? 'Saving...' : 'Save'}</button>
                           <button className="ghost-btn" onClick={cancelEdu}>Cancel</button>
                         </div>
                       </div>
@@ -3327,8 +3369,8 @@ function Homepage() {
                             <label className="field">Institution *<input value={eduForm.institution || ''} onChange={(e) => setEduForm((f) => ({ ...f, institution: e.target.value }))} /></label>
                             <label className="field">Degree<input value={eduForm.degree || ''} onChange={(e) => setEduForm((f) => ({ ...f, degree: e.target.value }))} /></label>
                             <label className="field">Field of Study<input value={eduForm.field_of_study || ''} onChange={(e) => setEduForm((f) => ({ ...f, field_of_study: e.target.value }))} /></label>
-                            <label className="field">Start Year<input type="number" value={eduForm.start_year || ''} onChange={(e) => setEduForm((f) => ({ ...f, start_year: e.target.value }))} /></label>
-                            <label className="field">End Year<input type="number" value={eduForm.end_year || ''} onChange={(e) => setEduForm((f) => ({ ...f, end_year: e.target.value }))} disabled={eduForm.is_current} /></label>
+                            <div style={{position: 'relative'}}><label className="field">Start Year<input type="number" value={eduForm.start_year || ''} onChange={(e) => setEduForm((f) => ({ ...f, start_year: e.target.value }))} onBlur={() => setEduTouched({ ...eduTouched, start_year: true })} min={1900} max={new Date().getFullYear()} /></label>{eduTouched.start_year && getEduYearErrors(eduForm.start_year, eduForm.end_year, eduForm.is_current).start_year && <span style={{ color: 'red', fontSize: '0.78em', position: 'absolute' }}>{getEduYearErrors(eduForm.start_year, eduForm.end_year, eduForm.is_current).start_year}</span>}</div>
+                            <div style={{position: 'relative'}}><label className="field">End Year<input type="number" value={eduForm.end_year || ''} onChange={(e) => setEduForm((f) => ({ ...f, end_year: e.target.value }))} onBlur={() => setEduTouched({ ...eduTouched, end_year: true })} disabled={eduForm.is_current} min={eduForm.start_year || 1900} max={new Date().getFullYear() + YEAR_MAX_OFFSET_EDU} /></label>{eduTouched.end_year && !eduForm.is_current && getEduYearErrors(eduForm.start_year, eduForm.end_year, eduForm.is_current).end_year && <span style={{ color: 'red', fontSize: '0.78em', position: 'absolute' }}>{getEduYearErrors(eduForm.start_year, eduForm.end_year, eduForm.is_current).end_year}</span>}</div>
                           </div>
                           <label className="field" style={{ flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'flex-start', gap: '8px' }}>
                             Currently enrolled
@@ -3336,7 +3378,8 @@ function Homepage() {
                           </label>
                           <label className="field">Notes<textarea value={eduForm.description || ''} onChange={(e) => setEduForm((f) => ({ ...f, description: e.target.value }))} rows={2} /></label>
                           <div style={{ display: 'flex', gap: '8px' }}>
-                            <button className="primary-btn" disabled={!eduForm.institution?.trim() || resumeSaving} onClick={saveEdu}>{resumeSaving ? 'Saving...' : 'Save'}</button>
+                            <button className="primary-btn" disabled={!eduForm.institution?.trim() || resumeSaving || getEduYearErrors(eduForm.start_year, eduForm.end_year, eduForm.is_current).start_year ||
+    getEduYearErrors(eduForm.start_year, eduForm.end_year, eduForm.is_current).end_year} onClick={saveEdu}>{resumeSaving ? 'Saving...' : 'Save'}</button>
                             <button className="ghost-btn" onClick={cancelEdu}>Cancel</button>
                           </div>
                         </div>
@@ -3368,11 +3411,11 @@ function Homepage() {
                         <div className="summary-grid">
                           <label className="field">Title *<input value={awardForm.title || ''} onChange={(e) => setAwardForm((f) => ({ ...f, title: e.target.value }))} placeholder="e.g. Dean's List" /></label>
                           <label className="field">Issuer<input value={awardForm.issuer || ''} onChange={(e) => setAwardForm((f) => ({ ...f, issuer: e.target.value }))} placeholder="e.g. MIT" /></label>
-                          <label className="field">Year<input type="number" value={awardForm.awarded_year || ''} onChange={(e) => setAwardForm((f) => ({ ...f, awarded_year: e.target.value }))} placeholder="2022" /></label>
+                          <div style={{position: 'relative'}}><label className="field">Year<input type="number" value={awardForm.awarded_year || ''} onChange={(e) => setAwardForm((f) => ({ ...f, awarded_year: e.target.value }))} onBlur={() => setAwdTouched({ ...awdTouched, year: true })} placeholder="2022" min={1900} max={new Date().getFullYear()} /></label>{awdTouched.year && getAwardYearError(awardForm.awarded_year) && <span style={{ color: 'red', fontSize: '0.78em', position: 'absolute' }}>{getAwardYearError(awardForm.awarded_year)}</span>}</div>
                         </div>
                         <label className="field">Description<textarea value={awardForm.description || ''} onChange={(e) => setAwardForm((f) => ({ ...f, description: e.target.value }))} rows={2} /></label>
                         <div style={{ display: 'flex', gap: '8px' }}>
-                          <button className="primary-btn" disabled={!awardForm.title?.trim() || resumeSaving} onClick={saveAward}>{resumeSaving ? 'Saving...' : 'Save'}</button>
+                          <button className="primary-btn" disabled={!awardForm.title?.trim() || resumeSaving || getAwardYearError(awardForm.awarded_year)} onClick={saveAward}>{resumeSaving ? 'Saving...' : 'Save'}</button>
                           <button className="ghost-btn" onClick={cancelAward}>Cancel</button>
                         </div>
                       </div>
@@ -3384,11 +3427,11 @@ function Homepage() {
                           <div className="summary-grid">
                             <label className="field">Title *<input value={awardForm.title || ''} onChange={(e) => setAwardForm((f) => ({ ...f, title: e.target.value }))} /></label>
                             <label className="field">Issuer<input value={awardForm.issuer || ''} onChange={(e) => setAwardForm((f) => ({ ...f, issuer: e.target.value }))} /></label>
-                            <label className="field">Year<input type="number" value={awardForm.awarded_year || ''} onChange={(e) => setAwardForm((f) => ({ ...f, awarded_year: e.target.value }))} /></label>
+                            <div style={{position: 'relative'}}><label className="field">Year<input type="number" value={awardForm.awarded_year || ''} onChange={(e) => setAwardForm((f) => ({ ...f, awarded_year: e.target.value }))} onBlur={() => setAwdTouched({ ...awdTouched, year: true })} min={1900} max={new Date().getFullYear()} /></label>{awdTouched.year && getAwardYearError(awardForm.awarded_year) && <span style={{ color: 'red', fontSize: '0.78em', position: 'absolute' }}>{getAwardYearError(awardForm.awarded_year)}</span>}</div>
                           </div>
                           <label className="field">Description<textarea value={awardForm.description || ''} onChange={(e) => setAwardForm((f) => ({ ...f, description: e.target.value }))} rows={2} /></label>
                           <div style={{ display: 'flex', gap: '8px' }}>
-                            <button className="primary-btn" disabled={!awardForm.title?.trim() || resumeSaving} onClick={saveAward}>{resumeSaving ? 'Saving...' : 'Save'}</button>
+                            <button className="primary-btn" disabled={!awardForm.title?.trim() || resumeSaving || getAwardYearError(awardForm.awarded_year)} onClick={saveAward}>{resumeSaving ? 'Saving...' : 'Save'}</button>
                             <button className="ghost-btn" onClick={cancelAward}>Cancel</button>
                           </div>
                         </div>
