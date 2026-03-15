@@ -177,16 +177,17 @@ def rank_all_projects(user_name=None) -> List[Dict[str, Any]]:
         if not projects:
             return []
         stored_rankings = get_stored_rankings(user_name=user_name)
-        stored_scores = {r['project_id']: r['score'] for r in stored_rankings}
+        stored_map = {r['project_id']: r for r in stored_rankings}
 
         ranked_projects: List[Dict[str, Any]] = []
         for project_id, filename, created_at in projects:
             try:
-                # Use stored score if available, otherwise calculate
-                if project_id in stored_scores:
-                    score = stored_scores[project_id]
-                    # Still need analysis data for other purposes, but use stored score
-                    analysis = analyze_project_from_db(project_id, silent=True)
+                stored = stored_map.get(project_id)
+                if stored:
+                    score = stored['score']
+                    analysis = stored.get('ranking_data', {}).get('analysis', {})
+                    if not analysis:
+                        analysis = analyze_project_from_db(project_id, silent=True)
                 else:
                     analysis = analyze_project_from_db(project_id, silent=True)
                     score = calculate_project_score(analysis, project_id=project_id)

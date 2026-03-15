@@ -1,13 +1,10 @@
 from datetime import datetime
 from config.db_config import with_db_cursor, get_connection
-from analysis.project_ranking import rank_all_projects, calculate_project_score
-from analysis.key_metrics import analyze_project_from_db
-from analysis.ranking_storage import get_stored_ranking_by_project_id
-from project_summarizer import ProjectSummarizer, summarize_project
-from parsing.file_contents_manager import get_file_contents_by_upload_id, get_file_statistics
+from analysis.project_ranking import rank_all_projects
+from analysis.ranking_storage import get_stored_ranking_by_project_id, get_stored_rankings
+from project_summarizer import ProjectSummarizer
+from parsing.file_contents_manager import get_file_contents_by_upload_id
 from portfolio.skill_mapper import SkillMapper
-from account.user_manager import AuthManager
-from collaborative.identify_projects import _identify_authors_from_zip, _extract_common_names_from_filenames
 from database.user_preferences import get_user_git_username
 from resume.evidence_extractor import build_evidence
 from common.logger import setup_logger
@@ -637,54 +634,67 @@ class ResumeManager:
         return sorted(list(detected_frameworks))
     
     @staticmethod
+    @staticmethod
+    def _clean_project_name(filename):
+        clean_name = filename
+        if clean_name.endswith('.zip'):
+            clean_name = clean_name[:-4]
+        clean_name = clean_name.replace('-master', '').replace('-main', '').replace('-main.zip', '')
+        clean_name = clean_name.replace('_', ' ').replace('-', ' ')
+        clean_name = ' '.join(clean_name.split()).title()
+        if not clean_name or len(clean_name) < 2:
+            clean_name = filename.replace('.zip', '')
+        return clean_name
+
     def generate_user_resume(user_name, top_projects_count=5, selection: dict | None = None):
         try:
             ResumeManager.logger.info(
                 "Generate resume start: user=%s top_projects_count=%s selection=%s",
                 user_name, top_projects_count, selection
             )
-            # Data Isolation: Rank only projects belonging to this user
-            ranked_projects = rank_all_projects(user_name=user_name)
-            
+
+            # --- Phase 1: Get stored rankings (fast DB query, no re-analysis) ---
+            stored_rankings = get_stored_rankings(user_name=user_name)
+            stored_rankings_map = {r['project_id']: r for r in stored_rankings}
+
+            if stored_rankings:
+                ranked_projects = [
+                    {
+                        "project_id": r["project_id"],
+                        "filename": r.get("ranking_data", {}).get("filename", f"Project {r['project_id']}"),
+                        "score": r["score"],
+                        "created_at": r.get("ranking_data", {}).get("created_at"),
+                        "analysis": r.get("ranking_data", {}).get("analysis", {}),
+                    }
+                    for r in stored_rankings
+                ]
+            else:
+                ranked_projects = rank_all_projects(user_name=user_name)
+
             if not ranked_projects:
                 ResumeManager.logger.warning("No ranked projects found for user=%s", user_name)
                 return None
-            
-            # ---- NEW: apply selection filters ----
+
+            # --- Phase 2: Apply selection filters ---
             if selection:
-                # allow overriding top_projects_count
                 if "top_projects_count" in selection and isinstance(selection["top_projects_count"], int):
                     top_projects_count = selection["top_projects_count"]
-
                 selected_ids = selection.get("selected_project_ids")
                 if selected_ids:
                     ranked_projects = [p for p in ranked_projects if p.get("project_id") in selected_ids]
-            # ---- END NEW ----
 
             top_projects = ranked_projects[:top_projects_count]
             ResumeManager.logger.info(
                 "Top projects selected: user=%s count=%s total_ranked=%s",
                 user_name, len(top_projects), len(ranked_projects)
             )
-            
-            # Collect all authors from top projects to let user select their name
-            all_authors = set()
-            for project in top_projects:
-                try:
-                    project_id = project['project_id']
-                    file_contents = get_file_contents_by_upload_id(project_id)
-                    authors = _identify_authors_from_zip(project_id) | _extract_common_names_from_filenames(file_contents)
-                    all_authors.update(authors)
-                except Exception:
-                    continue
-            display_name = user_name  
-            if all_authors:
-                git_username = get_user_git_username(user_name)
-                if git_username and git_username in all_authors:
-                    # Auto-select if git username matches
-                    display_name = git_username
-            
-            summarizer = ProjectSummarizer()
+
+            # --- Phase 3: Resolve display name (lightweight) ---
+            display_name = user_name
+            git_username = get_user_git_username(user_name)
+            if git_username:
+                display_name = git_username
+
             skill_mapper = SkillMapper()
             custom_wording_map = {}
             try:
@@ -696,156 +706,154 @@ class ResumeManager:
             except Exception:
                 custom_wording_map = {}
 
-            # Aggregated resume fields (always initialized to avoid NameError)
             all_skills: set = set()
             all_languages: set = set()
             all_frameworks: set = set()
             project_summaries: list = []
-            
-            include_skills = True
-            skills_mode = "categorized"   # "categorized" or "all"
 
+            include_skills = True
+            skills_mode = "categorized"
             if selection:
                 include_skills = selection.get("include_skills", True)
                 skills_mode = selection.get("skills_mode", "categorized")
 
+            # --- Phase 4: Process each project (use stored data first, fallback to live analysis) ---
             for project in top_projects:
                 try:
                     project_id = project['project_id']
+                    stored_ranking = stored_rankings_map.get(project_id)
+
+                    # 4a. Get summary text (custom wording > stored ranking > skip)
                     custom_text = custom_wording_map.get(str(project_id), "")
                     project_summary_text = (custom_text or "").strip()
+                    if not project_summary_text and stored_ranking:
+                        project_summary_text = stored_ranking.get('summary', '') or ''
 
-                    if not project_summary_text:
-                        stored_ranking = get_stored_ranking_by_project_id(project_id, user_name=user_name)
-                        project_summary_text = stored_ranking.get('summary', '') if stored_ranking else ''
+                    # 4b. Try to use stored analysis data from ranking_data
+                    stored_analysis = project.get('analysis', {})
+                    file_contents = get_file_contents_by_upload_id(project_id)
 
-                    if not project_summary_text:
-                        try:
-                            # Data Isolation: Pass user_name to verify project ownership
-                            project_summary_text = summarize_project(project_id, user_name=user_name)
-                        except Exception as e:
-                            print(f"[WARNING] Could not generate summary for project {project_id}: {e}")
-                            project_summary_text = ''
-                    summary = summarizer.generate_project_summary(project_id, user_name=user_name)
-                    
-                    if summary and 'error' not in summary:
-                        # Extract languages
+                    if stored_analysis and stored_analysis.get('by_language'):
+                        # Build summary dict from stored analysis without re-running heavy computation
+                        summarizer = ProjectSummarizer()
+                        languages_data = summarizer._detect_languages(file_contents) if file_contents else {}
+                        project_languages = languages_data.get('languages', [])
+                        primary_language = languages_data.get('primary_language', 'Unknown')
+
+                        timeline = stored_analysis.get('timeline', {})
+                        duration_days = timeline.get('duration_days', 0)
+                        first_file = timeline.get('start', '')
+                        last_file = timeline.get('end', '')
+                        active_days = timeline.get('active_days', 0)
+                        intensity = 'High' if active_days > 30 else ('Medium' if active_days > 7 else 'Low')
+
+                        collaboration_level = 'Unknown'
+                        code_analysis = {}
+                        file_stats = stored_analysis.get('totals', {})
+
+                        summary = {
+                            'languages': languages_data,
+                            'time_analysis': {
+                                'duration_days': duration_days,
+                                'intensity': intensity,
+                                'first_file': first_file,
+                                'last_file': last_file,
+                            },
+                            'collaboration_analysis': {'collaboration_level': collaboration_level},
+                            'code_analysis': code_analysis,
+                            'project_info': {'id': project_id, 'filename': project.get('filename', '')},
+                            'project_structure': {},
+                            'file_statistics': file_stats,
+                        }
+                    else:
+                        # No stored analysis — run full summarization (slow path)
+                        summarizer = ProjectSummarizer()
+                        summary = summarizer.generate_project_summary(project_id, user_name=user_name)
+                        if not summary or 'error' in summary:
+                            continue
+
                         languages_data = summary.get('languages', {})
                         project_languages = languages_data.get('languages', [])
                         primary_language = languages_data.get('primary_language', 'Unknown')
-                        all_languages.update(project_languages)
-                        
-                        # Get timeline info
+
                         time_analysis = summary.get('time_analysis', {})
                         duration_days = time_analysis.get('duration_days', 0)
                         intensity = time_analysis.get('intensity', 'Unknown')
                         first_file = time_analysis.get('first_file', '')
                         last_file = time_analysis.get('last_file', '')
-                        
-                        # Get collaboration info
-                        collab_analysis = summary.get('collaboration_analysis', {})
-                        collaboration_level = collab_analysis.get('collaboration_level', 'Unknown')
-                        
-                        # Get file contents for framework detection
-                        file_contents = get_file_contents_by_upload_id(project_id)
-                        frameworks = ResumeManager._detect_frameworks_from_files(file_contents)
-                        all_frameworks.update(frameworks)
-                        
-                        # Only collect skills if enabled
-                        if include_skills:
-                            # Extract skills from deep analysis
-                            code_analysis = summary.get('code_analysis', {})
-                            deep_analysis_skills = skill_mapper.extract_skills_from_deep_analysis(code_analysis)
 
-                            # Combine all skills for this project
-                            project_skills = set(project_languages)
-                            project_skills.update(frameworks)
-                            project_skills.update(deep_analysis_skills)
+                        collaboration_level = summary.get('collaboration_analysis', {}).get('collaboration_level', 'Unknown')
+                        code_analysis = summary.get('code_analysis', {})
+                        file_stats = summary.get('file_statistics', {})
 
-                            # all_skills is initialized before the loop (aggregates skills across projects)
-                            all_skills.update(project_skills)
-                        else:
-                            # Still keep per-project skills key stable, but empty
-                            project_skills = set()
-                        
-                        # Clean project name
-                        project_name = project['filename']
-                        # Remove common suffixes and extensions
-                        clean_name = project_name
-                        # Remove file extensions
-                        if clean_name.endswith('.zip'):
-                            clean_name = clean_name[:-4]
-                        # Remove common git suffixes
-                        clean_name = clean_name.replace('-master', '').replace('-main', '').replace('-main.zip', '')
-                        # Replace underscores and hyphens with spaces
-                        clean_name = clean_name.replace('_', ' ').replace('-', ' ')
-                        # Title case and clean up multiple spaces
-                        clean_name = ' '.join(clean_name.split()).title()
-                        # If name is empty or too short, use original
-                        if not clean_name or len(clean_name) < 2:
-                            clean_name = project_name.replace('.zip', '')
-                        
-                        # Optional: gather file stats for evidence (LOC, file count)
-                        file_stats = {}
-                        try:
-                            file_stats = get_file_statistics(project_id) or {}
-                        except Exception:
-                            file_stats = {}
-                        
+                    all_languages.update(project_languages)
 
-                        evidence = build_evidence(
-                            {
-                                "languages": {"languages": project_languages, "primary_language": primary_language},
-                                "frameworks": frameworks,
-                                "time_analysis": {
-                                    "duration_days": duration_days,
-                                    "intensity": intensity,
-                                    "first_file": first_file,
-                                    "last_file": last_file,
-                                },
-                                "collaboration_analysis": {"collaboration_level": collaboration_level},
-                                "code_analysis": summary.get("code_analysis", {}),
-                                "project_info": summary.get("project_info", {}),
-                                "project_structure": summary.get("project_structure", {}),
-                                "file_statistics": file_stats,
-                            }
-                        )
+                    # 4c. Framework detection (fast — just filename matching)
+                    frameworks = ResumeManager._detect_frameworks_from_files(file_contents) if file_contents else []
+                    all_frameworks.update(frameworks)
 
-                        # Build enriched project summary for resume
-                        project_summaries.append({
-                            'project_name': clean_name,
-                            'project_id': project_id,
-                            'primary_language': primary_language,
-                            'languages': project_languages,
-                            'frameworks': frameworks,
-                            'skills': sorted(list(project_skills))[:15],
-                            'duration_days': duration_days,
-                            'intensity': intensity,
-                            'first_file': first_file,
-                            'last_file': last_file,
-                            'collaboration_level': collaboration_level,
-                            'summary': project_summary_text,  # Use stored summary from database
-                            'project_info': summary.get('project_info', {}),
-                            'evidence': evidence
-                        })
-                
+                    # 4d. Skills
+                    if include_skills:
+                        deep_analysis_skills = skill_mapper.extract_skills_from_deep_analysis(code_analysis) if code_analysis else []
+                        project_skills = set(project_languages)
+                        project_skills.update(frameworks)
+                        project_skills.update(deep_analysis_skills)
+                        all_skills.update(project_skills)
+                    else:
+                        project_skills = set()
+
+                    clean_name = ResumeManager._clean_project_name(project.get('filename', f'Project {project_id}'))
+
+                    evidence = build_evidence(
+                        {
+                            "languages": {"languages": project_languages, "primary_language": primary_language},
+                            "frameworks": frameworks,
+                            "time_analysis": {
+                                "duration_days": duration_days,
+                                "intensity": intensity,
+                                "first_file": first_file,
+                                "last_file": last_file,
+                            },
+                            "collaboration_analysis": {"collaboration_level": collaboration_level},
+                            "code_analysis": code_analysis,
+                            "project_info": summary.get("project_info", {}),
+                            "project_structure": summary.get("project_structure", {}),
+                            "file_statistics": file_stats,
+                        }
+                    )
+
+                    project_summaries.append({
+                        'project_name': clean_name,
+                        'project_id': project_id,
+                        'primary_language': primary_language,
+                        'languages': project_languages,
+                        'frameworks': frameworks,
+                        'skills': sorted(list(project_skills))[:15],
+                        'duration_days': duration_days,
+                        'intensity': intensity,
+                        'first_file': first_file,
+                        'last_file': last_file,
+                        'collaboration_level': collaboration_level,
+                        'summary': project_summary_text,
+                        'project_info': summary.get('project_info', {}),
+                        'evidence': evidence
+                    })
+
                 except Exception as e:
                     print(f"[ERROR] Failed to summarize project {project['project_id']}: {e}")
                     continue
-            
-            # Categorize skills (respect selection)
+
+            # --- Phase 5: Aggregate skills ---
             if include_skills:
                 all_skills_list = sorted(list(all_skills))
                 if skills_mode == "categorized":
-                    # SkillMapper expects a set for set operations (e.g., set difference)
                     categorized_skills = skill_mapper.categorize_skills(all_skills)
                 else:
                     categorized_skills = {}
             else:
                 all_skills_list = []
                 categorized_skills = {}
-            
-            # Build comprehensive resume data
+
             resume_data = {
                 'display_name': display_name,
                 'user_name': user_name,
@@ -858,9 +866,9 @@ class ResumeManager:
                 'top_projects': project_summaries,
                 'generated_at': datetime.now().isoformat()
             }
-            
+
             return resume_data
-            
+
         except Exception as e:
             ResumeManager.logger.exception("Error generating user resume for user=%s: %s", user_name, e)
             print(f"[ERROR] Error generating user resume: {e}")
