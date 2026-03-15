@@ -277,47 +277,12 @@ def export_resume_item_pdf(resume_item: dict, filename: str = "resume_item.pdf")
     Expects the shape returned by GET /resume/{id}:
       {"resume_id": ..., "content": {"project": {...}, "summary_text": ..., "resume_bullets": [...]}}
     """
-    if not isinstance(resume_item, dict):
-        resume_item = {}
-
-    content = resume_item.get("content") or {}
-    if not isinstance(content, dict):
-        content = {}
-
-    project = content.get("project") or {}
-    if not isinstance(project, dict):
-        project = {}
-
-    doc = SimpleDocTemplate(filename, pagesize=LETTER)
-    styles = getSampleStyleSheet()
-    elements = []
-
-    title = project.get("name") or project.get("id") or "Resume Item"
-    elements.append(Paragraph(str(title), styles["Title"]))
-    elements.append(Spacer(1, 12))
-
-    elements.append(Paragraph(f"Resume Item ID: {resume_item.get('resume_id', '(unknown)')}", styles["Normal"]))
-    elements.append(Paragraph(f"Generated at: {content.get('generated_at', '(unknown)')}", styles["Normal"]))
-    elements.append(Spacer(1, 12))
-
-    summary = str(content.get("summary_text") or "").strip()
-    if summary:
-        elements.append(Paragraph("Summary", styles["Heading2"]))
-        elements.append(Spacer(1, 6))
-        elements.append(Paragraph(summary, styles["Normal"]))
-        elements.append(Spacer(1, 12))
-
-    bullets = content.get("resume_bullets") or []
-    if isinstance(bullets, list) and bullets:
-        elements.append(Paragraph("Résumé Bullets", styles["Heading2"]))
-        elements.append(Spacer(1, 6))
-        for b in bullets[:10]:
-            b = str(b).strip()
-            if b:
-                elements.append(Paragraph(f"• {b}", styles["Normal"]))
-                elements.append(Spacer(1, 4))
-
-    doc.build(elements)
+    # Call internal helper that generates bytes
+    pdf_bytes = export_resume_item_pdf_bytes(resume_item)
+    
+    with open(filename, "wb") as f:
+        f.write(pdf_bytes)
+    
     return filename
 
 
@@ -490,17 +455,10 @@ def export_resume_item_pdf_bytes(resume_item: dict, filters: dict = None) -> byt
             for edu in education_list:
                 inst = edu.get("institution") or "Unknown Institution"
                 degree = edu.get("degree") or ""
-                
-                # Logic to match your test's expected "start_year — end_year" format
                 start = edu.get("start_year")
                 end = edu.get("end_year") or "Present"
-                
-                if start:
-                    date_display = f"{start} — {end}"
-                else:
-                    date_display = f"{end}"
-                
-                text = f"<b>{inst}</b>: {degree} ({date_display})"
+                date_str = f"{start} — {end}" if start else end
+                text = f"<b>{inst}</b>: {degree} ({date_str})"
                 elements.append(Paragraph(text, styles["Normal"]))
             elements.append(Spacer(1, 12))
 
