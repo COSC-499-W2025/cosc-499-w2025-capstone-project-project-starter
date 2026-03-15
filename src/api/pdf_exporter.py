@@ -457,7 +457,10 @@ def export_resume_item_pdf_bytes(resume_item: dict, filters: dict = None) -> byt
                 degree = edu.get("degree") or ""
                 start = edu.get("start_year")
                 end = edu.get("end_year") or "Present"
-                date_str = f"{start} — {end}" if start else end
+                
+                
+                date_str = f"{start} - {end}" if start else end
+                
                 text = f"<b>{inst}</b>: {degree} ({date_str})"
                 elements.append(Paragraph(text, styles["Normal"]))
             elements.append(Spacer(1, 12))
