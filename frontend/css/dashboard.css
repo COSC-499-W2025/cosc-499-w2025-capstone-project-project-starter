@@ -143,12 +143,12 @@ body > #viewContainer {
 
 .header-nav-submenu-btn:hover {
     color: var(--text-primary);
-    background: var(--bg-secondary);
+    background: var(--accent-glow);
 }
 
 .header-nav-submenu-btn.active {
-    color: var(--text-primary);
-    background: var(--bg-secondary);
+    color: var(--accent-primary);
+    background: var(--accent-glow);
     font-weight: 600;
 }
 
@@ -313,12 +313,12 @@ body > #viewContainer {
 }
 
 .submenu-btn:hover {
-    color: var(--text-primary);
+    color: var(--accent-primary);
     background: var(--accent-glow);
 }
 
 .submenu-btn.active {
-    color: var(--text-primary);
+    color: var(--accent-primary);
     background: var(--accent-glow);
     font-weight: 600;
 }
@@ -358,6 +358,7 @@ body > #viewContainer {
     border: none;
     box-shadow: none;
     width: 100%;
+    min-height: calc(100vh - 120px);
 }
 
 .dashboard-hero {
