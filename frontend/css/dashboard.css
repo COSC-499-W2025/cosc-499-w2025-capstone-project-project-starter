@@ -498,6 +498,7 @@ body > #viewContainer {
     letter-spacing: 0.08em;
     margin-bottom: 16px;
     padding: 0 40px;
+    margin-top: 32px;
 }
 
 .dashboard-quick-actions {
