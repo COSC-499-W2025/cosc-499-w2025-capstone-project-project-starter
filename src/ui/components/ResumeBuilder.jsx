@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 
-export default function ResumeBuilder({ scans, selectedScanId, fetchJson, downloadArtifact, loadProjectsForScan, setActiveTab, formatTimestamp }) {
+export default function ResumeBuilder({ isActive, scans, selectedScanId, fetchJson, downloadArtifact, loadProjectsForScan, setActiveTab, formatTimestamp }) {
   const [resumeTitle, setResumeTitle] = useState("Generated Resume");
   const [resumeScanId, setResumeScanId] = useState("");
   const [resumeProjects, setResumeProjects] = useState([]);
@@ -18,6 +18,20 @@ export default function ResumeBuilder({ scans, selectedScanId, fetchJson, downlo
   }, [selectedScanId]);
 
   useEffect(() => {
+    if (!isActive) {
+      setResumeArtifact(null);
+      setResumeError("");
+    }
+  }, [isActive]);
+
+  useEffect(() => {
+    setResumeArtifact(null);
+    setResumeError("");
+    setResumeSelectedProjectIds([]);
+    setResumeProjects([]);
+  }, [resumeScanId]);
+
+  useEffect(() => {
     loadProjectsForScan(resumeScanId, {
       setProjects: setResumeProjects,
       setSelected: setResumeSelectedProjectIds,
@@ -28,9 +42,10 @@ export default function ResumeBuilder({ scans, selectedScanId, fetchJson, downlo
   }, [resumeScanId, loadProjectsForScan]);
 
   const toggleResumeProject = (projectId) => {
-    setResumeSelectedProjectIds((prev) =>
-      prev.includes(projectId) ? prev.filter((id) => id !== projectId) : [...prev, projectId]
-    );
+    setResumeSelectedProjectIds((prev) => {
+      const validPrev = prev.filter(id => resumeProjects.some(p => p.project_id === id));
+      return validPrev.includes(projectId) ? validPrev.filter((id) => id !== projectId) : [...validPrev, projectId];
+    });
   };
 
   const handleGenerateResume = async () => {
@@ -104,7 +119,10 @@ export default function ResumeBuilder({ scans, selectedScanId, fetchJson, downlo
             <ul className="project-list">
               {resumeProjects.map((project) => (
                 <li key={project.project_id}>
-                  <label><input type="checkbox" checked={resumeSelectedProjectIds.includes(project.project_id)} onChange={() => toggleResumeProject(project.project_id)} /><span>{project.project_name} <small>score: {project.score ?? "n/a"} | type: {project.project_type ?? "n/a"}</small></span></label>
+                  <label>
+                    <input type="checkbox" checked={resumeSelectedProjectIds.includes(project.project_id)} onChange={() => toggleResumeProject(project.project_id)} />
+                    <span>{project.project_name} <small>score: {project.score ?? "n/a"} | type: {project.project_type ?? "n/a"}</small></span>
+                  </label>
                 </li>
               ))}
             </ul>
