@@ -23,7 +23,7 @@ function App() {
   const isNoise = useCallback((author) => {
     if (!author) return true;
     const lower = String(author).toLowerCase();
-    const noiseKeywords = ["bot", "dependabot", "snyk", "action", "jenkins", "github", "noreply"];
+    const noiseKeywords = ["bot", "dependabot", "snyk", "action", "jenkins"];
     return noiseKeywords.some((kw) => lower.includes(kw));
   }, []);
 
@@ -89,6 +89,8 @@ function App() {
       if (nextScans.length > 0) {
         const firstId = String(nextScans[0].summary_id);
         setSelectedScanId((prev) => prev || firstId);
+      } else {
+        setSelectedScanId("");
       }
     } catch (error) {
       setApiStatus("offline");
@@ -269,6 +271,7 @@ function App() {
             selectedScanId={selectedScanId}
             setSelectedScanId={setSelectedScanId}
             fetchJson={fetchJson}
+            loadScans={loadScans}
             isNoise={isNoise}
             setActiveTab={setActiveTab}
             formatTimestamp={formatTimestamp}
@@ -276,6 +279,7 @@ function App() {
         </div>
         <div style={{ display: activeTab === "resume" ? "block" : "none" }}>
           <ResumeBuilder
+            isActive={activeTab === "resume"}
             scans={scans}
             selectedScanId={selectedScanId}
             fetchJson={fetchJson}
@@ -287,6 +291,7 @@ function App() {
         </div>
         <div style={{ display: activeTab === "portfolio" ? "block" : "none" }}>
           <PortfolioDashboard
+            isActive={activeTab === "portfolio"}
             scans={scans}
             selectedScanId={selectedScanId}
             fetchJson={fetchJson}
@@ -294,6 +299,7 @@ function App() {
             loadProjectsForScan={loadProjectsForScan}
             setActiveTab={setActiveTab}
             formatTimestamp={formatTimestamp}
+            isNoise={isNoise}
           />
         </div>
       </main>

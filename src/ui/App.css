@@ -192,6 +192,12 @@ textarea {
   resize: vertical;
 }
 
+input[type="checkbox"],
+input[type="radio"] {
+  width: auto;
+  cursor: pointer;
+}
+
 input:focus,
 select:focus,
 textarea:focus,
@@ -295,8 +301,9 @@ button:focus {
 
 .project-list label {
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   gap: 10px;
+  cursor: pointer;
 }
 
 .project-list small {

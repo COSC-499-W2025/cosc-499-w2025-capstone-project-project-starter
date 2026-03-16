@@ -1,8 +1,13 @@
 import React, { useState, useEffect, useCallback } from "react";
 
-export default function ScanManager({ isActive, scans, selectedScanId, setSelectedScanId, fetchJson, isNoise, setActiveTab, formatTimestamp }) {
+export default function ScanManager({ isActive, scans, selectedScanId, setSelectedScanId, fetchJson, loadScans, isNoise, setActiveTab, formatTimestamp }) {
   const [scanManagerDetails, setScanManagerDetails] = useState(null);
   const [scanManagerLoading, setScanManagerLoading] = useState(false);
+  const [deleteLoading, setDeleteLoading] = useState(false);
+  const [showMerge, setShowMerge] = useState(false);
+  const [mergePrimary, setMergePrimary] = useState("");
+  const [mergeSecondaries, setMergeSecondaries] = useState([]);
+  const [isMerging, setIsMerging] = useState(false);
 
   const loadScanDetails = useCallback(async (scanId) => {
     if (!scanId) return;
@@ -19,10 +24,54 @@ export default function ScanManager({ isActive, scans, selectedScanId, setSelect
   }, [fetchJson]);
 
   useEffect(() => {
-    if (isActive && selectedScanId) {
-      loadScanDetails(selectedScanId);
+    if (isActive) {
+      if (selectedScanId) {
+        loadScanDetails(selectedScanId);
+        setShowMerge(false);
+        setMergePrimary("");
+        setMergeSecondaries([]);
+      } else {
+        setScanManagerDetails(null);
+      }
     }
   }, [isActive, selectedScanId, loadScanDetails]);
+
+  const handleDeleteScan = async () => {
+    if (!scanManagerDetails) return;
+    const confirm = window.confirm(`Are you sure you want to delete Scan #${scanManagerDetails.summary_id}? This action cannot be undone.`);
+    if (!confirm) return;
+
+    setDeleteLoading(true);
+    try {
+      await fetchJson(`/scans/${scanManagerDetails.summary_id}`, { method: "DELETE" });
+      setSelectedScanId("");
+      await loadScans();
+    } catch (error) {
+      alert(`Failed to delete scan: ${error.message}`);
+    } finally {
+      setDeleteLoading(false);
+    }
+  };
+
+  const submitMerge = async () => {
+    setIsMerging(true);
+    try {
+      await fetchJson(`/scans/${scanManagerDetails.summary_id}/contributors/merge`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          primary_contributor: mergePrimary,
+          contributors_to_merge: mergeSecondaries,
+        }),
+      });
+      await loadScanDetails(scanManagerDetails.summary_id);
+      setShowMerge(false);
+    } catch (e) {
+      alert("Failed to merge aliases: " + e.message);
+    } finally {
+      setIsMerging(false);
+    }
+  };
 
   return (
     <section className="panel">
@@ -78,6 +127,15 @@ export default function ScanManager({ isActive, scans, selectedScanId, setSelect
                   >
                     Build Portfolio
                   </button>
+                  <button
+                    type="button"
+                    className="btn btn-ghost"
+                    style={{ color: "var(--danger)", borderColor: "var(--danger)" }}
+                    onClick={handleDeleteScan}
+                    disabled={deleteLoading}
+                  >
+                    {deleteLoading ? "Deleting..." : "Delete"}
+                  </button>
                 </div>
               </div>
               
@@ -87,12 +145,50 @@ export default function ScanManager({ isActive, scans, selectedScanId, setSelect
                 if (validContributors.length === 0) return null;
                 return (
                   <div style={{ marginBottom: "1rem" }}>
-                    <strong>Contributors Detected:</strong>
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                      <strong>Contributors Detected:</strong>
+                      {validContributors.length > 1 && (
+                        <button 
+                          type="button" 
+                          className="btn btn-ghost" 
+                          style={{ padding: "4px 8px", fontSize: "0.8rem", margin: 0 }} 
+                          onClick={() => setShowMerge(!showMerge)}
+                        >
+                          {showMerge ? "Cancel Merge" : "Merge Aliases"}
+                        </button>
+                      )}
+                    </div>
                     <div className="tag-wrap" style={{ marginTop: "0.5rem" }}>
                       {validContributors.map((contributor) => (
                         <span className="tag" key={contributor} style={{ backgroundColor: "#f3f4f6", borderColor: "#e5e7eb" }}>{contributor}</span>
                       ))}
                     </div>
+
+                    {showMerge && (
+                      <div className="result-card" style={{ marginTop: "1rem", background: "#fffaf3", borderColor: "var(--peach-300)" }}>
+                        <h4 style={{ marginTop: 0 }}>Merge Contributor Aliases</h4>
+                        <div className="field">
+                          <span>1. Select Primary Identity (Keep this one)</span>
+                          <select value={mergePrimary} onChange={e => { setMergePrimary(e.target.value); setMergeSecondaries([]); }}>
+                            <option value="">Select primary...</option>
+                            {validContributors.map(c => <option key={c} value={c}>{c}</option>)}
+                          </select>
+                        </div>
+                        {mergePrimary && (
+                          <div className="field" style={{ marginTop: "1rem" }}>
+                            <span>2. Select Aliases to fold into {mergePrimary}:</span>
+                            <div className="inline-options wrap">
+                              {validContributors.filter(c => c !== mergePrimary).map(c => (
+                                <label key={c}><input type="checkbox" checked={mergeSecondaries.includes(c)} onChange={(e) => { if (e.target.checked) setMergeSecondaries([...mergeSecondaries, c]); else setMergeSecondaries(mergeSecondaries.filter(x => x !== c)); }} /> {c}</label>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                        <button type="button" className="btn btn-primary" style={{ marginTop: "1rem", width: "100%" }} onClick={submitMerge} disabled={!mergePrimary || mergeSecondaries.length === 0 || isMerging}>
+                          {isMerging ? "Merging..." : "Apply Merge"}
+                        </button>
+                      </div>
+                    )}
                   </div>
                 );
               })()}
