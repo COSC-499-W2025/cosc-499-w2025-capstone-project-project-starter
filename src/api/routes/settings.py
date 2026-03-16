@@ -54,7 +54,7 @@ class AccountUpdateRequest(BaseModel):
 
 
 class ProfileRequest(BaseModel):
-    """Request model for resume profile (name, email, education, links)."""
+    """Request model for resume profile (name, email, education, links, summary, location)."""
     display_name: Optional[str] = None
     email: Optional[str] = None
     education: Optional[list] = None
@@ -62,6 +62,8 @@ class ProfileRequest(BaseModel):
     github: Optional[str] = None
     phone: Optional[str] = None
     website: Optional[str] = None
+    summary: Optional[str] = None
+    location: Optional[str] = None
 
 
 @router.get("")
@@ -397,6 +399,8 @@ async def update_profile_settings(
             github=request.github,
             phone=request.phone,
             website=request.website,
+            summary=request.summary,
+            location=request.location,
         )
         return {"success": True, "message": "Profile saved"}
     except HTTPException:

@@ -634,7 +634,6 @@ class ResumeManager:
         return sorted(list(detected_frameworks))
     
     @staticmethod
-    @staticmethod
     def _clean_project_name(filename):
         clean_name = filename
         if clean_name.endswith('.zip'):

@@ -19,6 +19,8 @@ pytest-cov==6.0.0
 python-dotenv==1.0.1
 names-dataset==3.3.1
 reportlab==4.2.5
+weasyprint>=62.0
+Jinja2>=3.1.0
 pytesseract==0.3.13
 Pillow==10.4.0
 pypdf==5.2.0

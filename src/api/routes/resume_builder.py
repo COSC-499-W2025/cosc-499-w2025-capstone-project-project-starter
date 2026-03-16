@@ -1,14 +1,9 @@
-"""Resume builder API (team-3 style): multiple named resumes, sidebar, edit, export PDF/TeX."""
+"""Resume builder API: multiple named resumes, sidebar, edit, export PDF/HTML/Markdown."""
 from __future__ import annotations
 
-import hashlib
-import os
-import shutil
-import subprocess
-import uuid
 from typing import Any, Dict, List, Optional
 
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, Body, HTTPException, Query
 from fastapi.concurrency import run_in_threadpool
 from fastapi.responses import Response
 from pydantic import BaseModel, Field
@@ -27,14 +22,9 @@ from resume.resume_builder_service import (
     resume_exists,
     save_resume_edits,
 )
-from resume.generate_resume_tex import generate_resume_tex
+from resume.resume_export import export_markdown, export_pdf, render_html
 
 router = APIRouter()
-
-PDF_CACHE_DIR = "/tmp/resume_pdf_cache"
-LATEX_BUILD_DIR = "/tmp/latex_build"
-os.makedirs(PDF_CACHE_DIR, exist_ok=True)
-os.makedirs(LATEX_BUILD_DIR, exist_ok=True)
 
 
 class ResumeFilter(BaseModel):
@@ -46,77 +36,17 @@ class AddProjectsBody(BaseModel):
     project_ids: List[int] = Field(..., description="List of project IDs to add")
 
 
-def _tex_hash(tex: str) -> str:
-    return hashlib.sha256(tex.encode("utf-8")).hexdigest()
-
-
-def _get_resume_tex(user_name: str, project_ids: Optional[List[int]] = None, resume_id: Optional[int] = None) -> str:
+def _get_resume_model(
+    user_name: str,
+    project_ids: Optional[List[int]] = None,
+    resume_id: Optional[int] = None,
+) -> Dict[str, Any]:
+    """Return the resume model dict for the given user/filter."""
     if resume_id is not None:
         if resume_id == 0:
-            resume_model = build_resume_model(user_name, project_ids=None)
-        else:
-            resume_model = load_saved_resume(user_name, resume_id)
-    else:
-        resume_model = build_resume_model(user_name, project_ids=project_ids)
-    return generate_resume_tex(resume_model)
-
-
-def _compile_pdf(tex: str) -> bytes:
-    build_id = uuid.uuid4().hex
-    build_dir = os.path.join(LATEX_BUILD_DIR, build_id)
-    os.makedirs(build_dir, exist_ok=True)
-    tex_path = os.path.join(build_dir, "resume.tex")
-    pdf_path = os.path.join(build_dir, "resume.pdf")
-    try:
-        with open(tex_path, "w", encoding="utf-8") as f:
-            f.write(tex)
-        proc = subprocess.run(
-            ["pdflatex", "-interaction=nonstopmode", "resume.tex"],
-            cwd=build_dir,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-            timeout=30,
-        )
-        if proc.returncode != 0 and not os.path.exists(pdf_path):
-            raise subprocess.CalledProcessError(
-                proc.returncode, proc.args, output=proc.stdout, stderr=proc.stderr
-            )
-        with open(pdf_path, "rb") as f:
-            return f.read()
-    except subprocess.TimeoutExpired:
-        raise HTTPException(504, "LaTeX compilation timed out.")
-    except FileNotFoundError:
-        raise HTTPException(500, "pdflatex not found. Install LaTeX.")
-    except subprocess.CalledProcessError as e:
-        raise HTTPException(
-            422,
-            {
-                "error": "LaTeX compilation failed",
-                "stdout": (e.output or b"").decode(errors="ignore")[-1500:],
-                "stderr": (e.stderr or b"").decode(errors="ignore")[-1500:],
-            },
-        )
-    finally:
-        shutil.rmtree(build_dir, ignore_errors=True)
-
-
-def _get_or_compile_pdf(tex: str) -> bytes:
-    h = _tex_hash(tex)
-    pdf_path = os.path.join(PDF_CACHE_DIR, f"{h}.pdf")
-    if os.path.exists(pdf_path) and not os.path.islink(pdf_path):
-        with open(pdf_path, "rb") as f:
-            return f.read()
-    pdf_bytes = _compile_pdf(tex)
-    tmp_path = pdf_path + ".tmp"
-    with open(tmp_path, "wb") as f:
-        f.write(pdf_bytes)
-    if os.path.islink(pdf_path):
-        try:
-            os.unlink(pdf_path)
-        except OSError:
-            pass
-    os.replace(tmp_path, pdf_path)
-    return pdf_bytes
+            return build_resume_model(user_name, project_ids=None)
+        return load_saved_resume(user_name, resume_id)
+    return build_resume_model(user_name, project_ids=project_ids)
 
 
 @router.get("/resume")
@@ -193,48 +123,59 @@ def save_edited_resume(
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@router.get("/resume/export/tex")
-def export_tex(
-    user_name: str = Query(...),
-    project_ids: Optional[List[int]] = Query(None),
-    resume_id: Optional[int] = Query(None),
+@router.post("/resume/export")
+async def export_resume(
+    payload: Dict[str, Any] = Body(...),
+    format: str = Query("pdf", description="Export format: pdf, html, or markdown"),
+    user_name: str = Query(..., description="Current user (for logging)"),
 ):
-    """Export resume as .tex file."""
-    if project_ids and resume_id is not None:
-        raise HTTPException(400, "Cannot specify both project_ids and resume_id.")
+    """Export resume from request body (FullResumeData or legacy shape). No persistence."""
+    fmt = (format or "pdf").lower().strip()
+    if fmt not in ("pdf", "html", "markdown"):
+        raise HTTPException(400, "format must be pdf, html, or markdown")
     try:
-        tex = _get_resume_tex(user_name, project_ids=project_ids, resume_id=resume_id)
-    except ResumeNotFoundError as e:
-        raise HTTPException(404, detail=str(e))
+        if fmt == "pdf":
+            pdf_bytes = await run_in_threadpool(export_pdf, payload)
+            return Response(
+                content=pdf_bytes,
+                media_type="application/pdf",
+                headers={"Content-Disposition": 'attachment; filename="resume.pdf"'},
+            )
+        if fmt == "html":
+            html_str = render_html(payload)
+            return Response(
+                content=html_str,
+                media_type="text/html",
+                headers={"Content-Disposition": 'attachment; filename="resume.html"'},
+            )
+        md_str = export_markdown(payload)
+        return Response(
+            content=md_str,
+            media_type="text/markdown",
+            headers={"Content-Disposition": 'attachment; filename="resume.md"'},
+        )
     except Exception as e:
-        raise HTTPException(500, detail=str(e))
-    return Response(
-        content=tex,
-        media_type="application/x-tex",
-        headers={"Content-Disposition": "attachment; filename=resume.tex"},
-    )
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 @router.get("/resume/export/pdf")
-async def export_pdf(
+async def export_pdf_get(
     user_name: str = Query(...),
     project_ids: Optional[List[int]] = Query(None),
     resume_id: Optional[int] = Query(None),
 ):
-    """Export resume as PDF."""
+    """Export resume as PDF by user/resume_id (loads from DB)."""
     if project_ids and resume_id is not None:
         raise HTTPException(400, "Cannot specify both project_ids and resume_id.")
     try:
-        tex = _get_resume_tex(user_name, project_ids=project_ids, resume_id=resume_id)
+        model = _get_resume_model(user_name, project_ids=project_ids, resume_id=resume_id)
     except ResumeNotFoundError as e:
         raise HTTPException(404, detail=str(e))
-    except Exception as e:
-        raise HTTPException(500, detail=str(e))
-    pdf_bytes = await run_in_threadpool(_get_or_compile_pdf, tex)
+    pdf_bytes = await run_in_threadpool(export_pdf, model)
     return Response(
         content=pdf_bytes,
         media_type="application/pdf",
-        headers={"Content-Disposition": "attachment; filename=resume.pdf"},
+        headers={"Content-Disposition": 'attachment; filename="resume.pdf"'},
     )
 
 

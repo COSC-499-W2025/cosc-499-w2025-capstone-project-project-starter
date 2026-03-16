@@ -1018,160 +1018,417 @@ body > #viewContainer {
     background: var(--accent-glow);
 }
 
-/* ============== Resume Builder (team-3 style) ============== */
+/* ============== Resume Builder (reworked UI) ============== */
 
 .resume-builder-panel {
     display: flex;
     flex-direction: column;
     height: 100%;
     min-height: 0;
+    gap: 0;
 }
 
-.resume-builder__header {
+/* Toolbar: resume dropdown, new, save, export */
+.rb-toolbar {
+    flex-shrink: 0;
+    padding: 20px 24px;
+    background: var(--bg-card);
+    border-bottom: 1px solid var(--border-color);
+    margin: 0 -24px 24px -24px;
+    padding-left: 24px;
+    padding-right: 24px;
+}
+
+.rb-toolbar__row {
     display: flex;
-    justify-content: space-between;
-    align-items: center;
     flex-wrap: wrap;
-    gap: 12px;
-    margin-bottom: 16px;
+    align-items: center;
+    justify-content: space-between;
+    gap: 20px;
 }
 
-.resume-builder__nav .nav-current {
+.rb-toolbar__group {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex-wrap: wrap;
+}
+
+.rb-toolbar__label {
+    font-size: 0.875rem;
     font-weight: 600;
+    color: var(--text-muted);
+    margin: 0;
+}
+
+.rb-toolbar__select {
+    min-width: 220px;
+    padding: 10px 14px;
+    font-size: 0.9375rem;
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-sm);
+    background: var(--bg-primary);
+    color: var(--text-primary);
+    cursor: pointer;
+}
+
+.rb-toolbar__select:focus {
+    outline: none;
+    border-color: var(--accent-primary);
+    box-shadow: 0 0 0 2px var(--accent-glow);
+}
+
+.rb-toolbar__btn {
+    padding: 10px 18px;
+    font-size: 0.9375rem;
+    font-weight: 500;
+    border-radius: var(--radius-sm);
+    border: none;
+    cursor: pointer;
+    transition: background 0.15s, opacity 0.15s;
+}
+
+.rb-toolbar__btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+.rb-toolbar__btn--secondary {
+    background: var(--bg-secondary);
+    color: var(--text-primary);
+    border: 1px solid var(--border-color);
+}
+
+.rb-toolbar__btn--secondary:hover:not(:disabled) {
+    background: var(--border-color);
+}
+
+.rb-toolbar__btn--save {
+    background: var(--accent-primary);
+    color: #fff;
+}
+
+.rb-toolbar__btn--save:hover:not(:disabled) {
+    filter: brightness(1.08);
+}
+
+.rb-toolbar__btn--primary {
+    background: var(--accent-primary);
+    color: #fff;
+}
+
+.rb-toolbar__btn--primary:hover:not(:disabled) {
+    filter: brightness(1.08);
+}
+
+.rb-toolbar__btn--delete {
+    background: transparent;
+    color: var(--text-muted);
+    font-size: 0.875rem;
+}
+
+.rb-toolbar__btn--delete:hover {
     color: var(--text-primary);
 }
 
-.resume-builder__actions {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-}
-
-.resume-builder__actions .dropdown {
+.rb-toolbar__export-wrap {
     position: relative;
 }
 
-.resume-builder__actions .dropdown-menu {
+.rb-export-menu {
+    display: none;
     position: absolute;
     top: 100%;
     right: 0;
-    margin-top: 4px;
-    min-width: 160px;
+    margin-top: 6px;
+    min-width: 180px;
     background: var(--bg-card);
     border: 1px solid var(--border-color);
     border-radius: var(--radius-sm);
     box-shadow: var(--shadow-md);
-    z-index: 50;
+    z-index: 100;
+    padding: 6px 0;
 }
 
-.resume-builder__actions .dropdown-item {
+.rb-export-menu.show {
+    display: block;
+}
+
+.rb-export-menu__item {
     display: block;
     width: 100%;
-    padding: 10px 14px;
+    padding: 12px 16px;
     text-align: left;
     border: none;
     background: none;
     color: var(--text-primary);
     cursor: pointer;
-    font-size: 14px;
+    font-size: 0.9375rem;
 }
 
-.resume-builder__actions .dropdown-item:hover {
+.rb-export-menu__item:hover {
     background: var(--bg-secondary);
 }
 
-.resume-builder__content {
+/* Main: editor | preview */
+.rb-main {
     display: grid;
-    grid-template-columns: 240px 1fr;
-    gap: 20px;
+    grid-template-columns: 1fr 1fr;
+    gap: 28px;
     flex: 1;
     min-height: 0;
+    align-items: start;
 }
 
-@media (max-width: 768px) {
-    .resume-builder__content {
+@media (max-width: 1100px) {
+    .rb-main {
         grid-template-columns: 1fr;
     }
 }
 
-.resume-builder__sidebar.card {
-    padding: 16px;
-    height: fit-content;
+/* Editor card */
+.rb-editor.card {
+    padding: 24px;
+    border-radius: var(--radius-md);
+    overflow: visible;
 }
 
-.resume-sidebar__title {
-    font-size: 1.1rem;
-    font-weight: 600;
-    margin: 0 0 12px 0;
-    color: var(--text-primary);
+.rb-editor__hint {
+    font-size: 0.875rem;
+    color: var(--text-muted);
+    margin: 0 0 20px 0;
+    line-height: 1.45;
 }
 
-.resume-sidebar__list {
-    list-style: none;
-    padding: 0;
-    margin: 0 0 16px 0;
-}
-
-.resume-sidebar__item {
+.rb-editor__tabs {
     display: flex;
-    align-items: center;
-    justify-content: space-between;
-    padding: 10px 12px;
-    cursor: pointer;
-    border-radius: var(--radius-sm);
-    margin-bottom: 4px;
-    color: var(--text-primary);
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-bottom: 24px;
+    border-bottom: 1px solid var(--border-color);
+    padding-bottom: 12px;
 }
 
-.resume-sidebar__item:hover {
+.rb-editor__tab {
+    padding: 10px 16px;
+    border: none;
+    background: transparent;
+    cursor: pointer;
+    font-size: 0.9375rem;
+    color: var(--text-muted);
+    border-radius: var(--radius-sm);
+    font-weight: 500;
+}
+
+.rb-editor__tab:hover {
+    color: var(--text-primary);
     background: var(--bg-secondary);
 }
 
-.resume-sidebar__item--active {
-    background: var(--accent-glow);
+.rb-editor__tab.active {
+    font-weight: 600;
     color: var(--accent-primary);
+    background: var(--accent-glow);
 }
 
-.resume-sidebar__item-label {
-    flex: 1;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
+.rb-editor__panel {
+    display: none;
+    padding-top: 4px;
 }
 
-.resume-sidebar__icon-btn {
-    background: none;
-    border: none;
-    cursor: pointer;
-    padding: 2px 6px;
-    font-size: 18px;
-    line-height: 1;
+.rb-editor__panel.active {
+    display: block;
+}
+
+.rb-editor__list {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    margin-bottom: 16px;
+}
+
+.resume-editor__entry {
+    padding: 18px;
+    background: var(--bg-secondary);
+    border-radius: var(--radius-sm);
+    border: 1px solid var(--border-color);
+}
+
+.resume-editor__entry .form-group {
+    margin-bottom: 14px;
+}
+
+.resume-editor__entry .form-group:last-child {
+    margin-bottom: 0;
+}
+
+.rb-editor__desc {
+    font-size: 0.875rem;
     color: var(--text-muted);
+    margin: 0 0 16px 0;
+    line-height: 1.45;
 }
 
-.resume-sidebar__icon-btn:hover {
+.rb-editor__add {
+    padding: 10px 16px;
+    font-size: 0.9375rem;
+    background: var(--bg-secondary);
+    color: var(--text-primary);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+    font-weight: 500;
+}
+
+.rb-editor__add:hover {
+    background: var(--border-color);
+}
+
+/* Form inside editor */
+.rb-form {
+    display: flex;
+    flex-direction: column;
+    gap: 18px;
+}
+
+.rb-form__group {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.rb-form__group label {
+    font-size: 0.875rem;
+    font-weight: 500;
     color: var(--text-primary);
 }
 
-.resume-sidebar__tailor-btn {
-    width: 100%;
-    padding: 10px 14px;
-    background: var(--accent-primary);
-    color: white;
-    border: none;
+.rb-form__input {
+    padding: 12px 14px;
+    font-size: 0.9375rem;
+    border: 1px solid var(--border-color);
     border-radius: var(--radius-sm);
+    background: var(--bg-primary);
+    color: var(--text-primary);
+}
+
+.rb-form__input:focus {
+    outline: none;
+    border-color: var(--accent-primary);
+}
+
+.rb-form__textarea {
+    min-height: 100px;
+    resize: vertical;
+}
+
+/* Project blocks (injected in Projects tab) */
+.rb-projects {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+}
+
+.resume-builder__edit-project-block {
+    padding: 20px;
+    background: var(--bg-secondary);
+    border-radius: var(--radius-sm);
+    border: 1px solid var(--border-color);
+}
+
+.resume-builder__edit-project-block .form-group {
+    margin-bottom: 14px;
+}
+
+.resume-builder__edit-project-block .form-group:last-child {
+    margin-bottom: 0;
+}
+
+.resume-builder__edit-project-heading {
+    font-size: 1rem;
     font-weight: 600;
-    cursor: pointer;
-    font-size: 14px;
+    margin: 0 0 14px 0;
+    color: var(--text-primary);
 }
 
-.resume-sidebar__tailor-btn:hover:not(:disabled) {
-    filter: brightness(1.05);
+/* Preview card */
+.rb-preview.card {
+    padding: 24px;
+    border-radius: var(--radius-md);
+    position: sticky;
+    top: 24px;
 }
 
-.resume-sidebar__tailor-btn:disabled {
-    opacity: 0.6;
-    cursor: not-allowed;
+.rb-empty {
+    padding: 48px 24px;
+    text-align: center;
+    color: var(--text-muted);
+}
+
+.rb-empty__title {
+    font-size: 1.125rem;
+    font-weight: 600;
+    margin: 0 0 8px 0;
+    color: var(--text-primary);
+}
+
+.rb-empty__text {
+    font-size: 0.9375rem;
+    margin: 0;
+    line-height: 1.5;
+}
+
+.rb-preview__iframe {
+    width: 100%;
+    min-height: 640px;
+    height: 75vh;
+    max-height: 900px;
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-sm);
+    background: #fff;
+}
+
+/* Legacy project block form inputs (used in injected HTML) */
+.resume-builder__edit-project-block .form-input {
+    padding: 10px 12px;
+    font-size: 0.9375rem;
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-sm);
+    width: 100%;
+}
+
+.resume-builder__preview-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 20px;
+    align-items: start;
+}
+
+@media (max-width: 900px) {
+    .resume-builder__preview-row {
+        grid-template-columns: 1fr;
+    }
+}
+
+.resume-builder__pdf-wrap {
+    padding: 16px;
+    position: sticky;
+    top: 16px;
+}
+
+.resume-builder__pdf-title {
+    font-size: 1rem;
+    font-weight: 600;
+    margin: 0 0 4px 0;
+}
+
+.resume-builder__pdf-iframe {
+    width: 100%;
+    min-height: 500px;
+    height: 70vh;
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-sm);
+    background: #fff;
 }
 
 .resume-builder__preview.card {

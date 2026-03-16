@@ -88,15 +88,19 @@ def render_education(education_list: List[Dict[str, Any]]) -> str:
         return ""
     blocks = []
     for edu in education_list:
-        school = escape_latex(edu.get("school", ""))
         degree = escape_latex(edu.get("degree", ""))
+        major = escape_latex(edu.get("major", ""))
+        gpa = str(edu.get("gpa", "")).strip()
+        gpa_scale = str(edu.get("gpa_scale", "")).strip()
         dates = escape_latex(edu.get("dates", ""))
-        gpa = escape_latex(str(edu.get("gpa", "")).strip())
-        gpa_line = rf"{{\sl GPA: {gpa}}}\\" if gpa else ""
-        block = rf"""{school} \hfill {dates}\\
-{{\sl {degree}}}\\
-{gpa_line}"""
-        blocks.append(block.strip())
+        school = escape_latex(edu.get("school", ""))
+        location = escape_latex(edu.get("location", ""))
+        degree_major = " - ".join(x for x in [degree, major] if x)
+        gpa_part = f" (GPA: {escape_latex(gpa)}/{escape_latex(gpa_scale)})" if (gpa and gpa_scale) else (f" (GPA: {escape_latex(gpa)})" if gpa else "")
+        line1 = " ".join(x for x in [degree_major + gpa_part, dates] if x.strip())
+        line2 = " ".join(x for x in [school, location] if x)
+        block = rf"{line1}\\{line2}" if line2 else line1
+        blocks.append(block)
     return "\n\n".join(blocks)
 
 

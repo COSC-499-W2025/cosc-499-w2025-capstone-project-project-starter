@@ -80,7 +80,7 @@ def _load_user_for_resume(user_name: str) -> Dict[str, Any]:
                 url = f"https://{url}"
             links.append({"label": "Website", "url": url or "#"})
 
-    if not any(l.get("label") === "GitHub" for l in links):
+    if not any(l.get("label") == "GitHub" for l in links):
         git_user = get_user_git_username(user_name)
         if git_user:
             links.append({"label": "GitHub", "url": f"https://github.com/{git_user}"})
@@ -98,11 +98,17 @@ def _load_user_for_resume(user_name: str) -> Dict[str, Any]:
         except Exception:
             pass
 
+    summary = (profile.get("summary") or "").strip() if profile else ""
+    location = (profile.get("location") or "").strip() if profile else ""
+    phone = (profile.get("phone") or "").strip() if profile else ""
     return {
         "name": name,
         "email": email or f"{user_name}@user",
         "links": links,
         "education": education,
+        "summary": summary,
+        "location": location,
+        "phone": phone,
     }
 
 
@@ -159,22 +165,29 @@ def build_resume_model(user_name: str, project_ids: Optional[List[int]] = None) 
         "email": user["email"],
         "links": user["links"],
         "education": user["education"],
+        "summary": user.get("summary") or "",
+        "phone": user.get("phone") or "",
+        "location": user.get("location") or "",
         "skills": {"Skills": all_skills},
         "projects": projects,
+        "experience": [],
     }
 
 
 def load_saved_resume(user_name: str, resume_id: int) -> Dict[str, Any]:
-    """Load a saved resume by id (from resume_projects + resume_skills), merged with base bullets."""
+    """Load a saved resume by id (resume_projects, resume_skills, resume_experience, contact/education overrides)."""
     init_resume_builder_tables()
     with with_db_cursor() as cursor:
         cursor.execute(
-            "SELECT id, name FROM resumes WHERE id = %s AND user_name = %s",
+            "SELECT id, name, summary, contact, education FROM resumes WHERE id = %s AND user_name = %s",
             (resume_id, user_name),
         )
         row = cursor.fetchone()
         if not row:
             raise ResumeNotFoundError(f"Resume {resume_id} not found")
+        summary_val = row[2] if len(row) > 2 else None
+        contact_json = row[3] if len(row) > 3 else None
+        education_json = row[4] if len(row) > 4 else None
         cursor.execute(
             """
             SELECT rp.project_id, rp.project_name, rp.start_date, rp.end_date, rp.skills, rp.bullets, rp.display_order,
@@ -187,13 +200,51 @@ def load_saved_resume(user_name: str, resume_id: int) -> Dict[str, Any]:
             (resume_id,),
         )
         rows = cursor.fetchall()
-    if not rows:
-        raise ResumeNotFoundError(f"Resume {resume_id} has no projects")
+        cursor.execute(
+            """
+            SELECT company_name, job_title, location, is_remote, start_date, end_date, is_current,
+                   responsibilities, achievements, display_order
+            FROM resume_experience WHERE resume_id = %s ORDER BY display_order, id
+            """,
+            (resume_id,),
+        )
+        exp_rows = cursor.fetchall()
+        cursor.execute("SELECT skills FROM resume_skills WHERE resume_id = %s", (resume_id,))
+        rs = cursor.fetchone()
 
     user = _load_user_for_resume(user_name)
-    project_ids = [r[0] for r in rows]
-    base_model = build_resume_model(user_name, project_ids=project_ids)
-    base_projects_by_id = {p["project_id"]: p for p in base_model.get("projects", [])}
+    if contact_json:
+        try:
+            c = json.loads(contact_json) if isinstance(contact_json, str) else contact_json
+            if isinstance(c, dict):
+                user["name"] = c.get("name") or user["name"]
+                user["email"] = c.get("email") or user["email"]
+                user["phone"] = c.get("phone") or user.get("phone") or ""
+                user["location"] = c.get("location") or user.get("location") or ""
+                links = []
+                if c.get("linkedin_url"):
+                    links.append({"label": "LinkedIn", "url": c["linkedin_url"]})
+                if c.get("github_url"):
+                    links.append({"label": "GitHub", "url": c["github_url"]})
+                if c.get("portfolio_url"):
+                    links.append({"label": "Website", "url": c["portfolio_url"]})
+                if links:
+                    user["links"] = links
+        except Exception:
+            pass
+    if education_json:
+        try:
+            edu = json.loads(education_json) if isinstance(education_json, str) else education_json
+            if isinstance(edu, list):
+                user["education"] = edu
+        except Exception:
+            pass
+
+    base_projects_by_id = {}
+    if rows:
+        project_ids = [r[0] for r in rows]
+        base_model = build_resume_model(user_name, project_ids=project_ids)
+        base_projects_by_id = {p["project_id"]: p for p in base_model.get("projects", [])}
 
     projects_out = []
     for r in rows:
@@ -204,10 +255,14 @@ def load_saved_resume(user_name: str, resume_id: int) -> Dict[str, Any]:
             skills = json.loads(skills_json) if isinstance(skills_json, str) else skills_json
         else:
             skills = base.get("skills", [])[:5]
+        if not isinstance(skills, list):
+            skills = list(skills) if skills else []
         if bullets_json is not None:
             bullets = json.loads(bullets_json) if isinstance(bullets_json, str) else bullets_json
         else:
             bullets = base.get("bullets", [])
+        if not isinstance(bullets, list):
+            bullets = list(bullets) if bullets else []
         title = override_name or base.get("title") or base_name or "(Removed project)"
         start_val = start_d or (created_at.strftime("%Y-%m-%d") if created_at else "")
         end_val = end_d or (last_modified.strftime("%Y-%m-%d") if last_modified else (created_at.strftime("%Y-%m-%d") if created_at else ""))
@@ -220,21 +275,48 @@ def load_saved_resume(user_name: str, resume_id: int) -> Dict[str, Any]:
             "bullets": bullets,
         })
 
-    with with_db_cursor() as cursor:
-        cursor.execute("SELECT skills FROM resume_skills WHERE resume_id = %s", (resume_id,))
-        rs = cursor.fetchone()
     if rs and rs[0]:
-        all_skills = json.loads(rs[0]) if isinstance(rs[0], str) else rs[0]
+        raw_skills = json.loads(rs[0]) if isinstance(rs[0], str) else rs[0]
+        if isinstance(raw_skills, dict):
+            all_skills_dict = raw_skills
+        else:
+            all_skills_dict = {"Skills": raw_skills if isinstance(raw_skills, list) else []}
     else:
-        all_skills = sorted(set(s for p in projects_out for s in p["skills"]))
+        all_skills_dict = {"Skills": sorted(set(s for p in projects_out for s in p["skills"]))}
+
+    experience_out = []
+    for er in exp_rows:
+        (company_name, job_title, location, is_remote, start_date, end_date, is_current,
+         resp_json, ach_json, _order) = er
+        resp = json.loads(resp_json) if isinstance(resp_json, str) else (resp_json or [])
+        ach = json.loads(ach_json) if isinstance(ach_json, str) else (ach_json or [])
+        if not isinstance(resp, list):
+            resp = []
+        if not isinstance(ach, list):
+            ach = []
+        experience_out.append({
+            "company_name": company_name or "",
+            "job_title": job_title or "",
+            "location": location,
+            "is_remote": bool(is_remote),
+            "start_date": start_date,
+            "end_date": end_date,
+            "is_current": bool(is_current),
+            "responsibilities": resp,
+            "achievements": ach,
+        })
 
     return {
         "name": user["name"],
         "email": user["email"],
         "links": user["links"],
         "education": user["education"],
-        "skills": {"Skills": all_skills},
+        "summary": summary_val or user.get("summary") or "",
+        "phone": user.get("phone") or "",
+        "location": user.get("location") or "",
+        "skills": all_skills_dict,
         "projects": projects_out,
+        "experience": experience_out,
     }
 
 
@@ -310,7 +392,7 @@ def resume_exists(user_name: str, resume_id: int) -> bool:
 
 
 def save_resume_edits(user_name: str, resume_id: int, payload: Dict[str, Any]) -> None:
-    """Save edits: skills (list), projects (list of {project_id, project_name?, start_date?, end_date?, skills?, bullets?, display_order?})."""
+    """Save edits: contact, summary, education, experience, skills (list or dict), projects."""
     if resume_id == 0:
         raise ResumePersistenceError("Cannot edit Master Resume")
     init_resume_builder_tables()
@@ -318,19 +400,77 @@ def save_resume_edits(user_name: str, resume_id: int, payload: Dict[str, Any]) -
         cursor.execute("SELECT 1 FROM resumes WHERE id = %s AND user_name = %s", (resume_id, user_name))
         if not cursor.fetchone():
             raise ResumeNotFoundError(f"Resume {resume_id} not found")
+
+        if "contact" in payload and isinstance(payload["contact"], dict):
+            cursor.execute(
+                "UPDATE resumes SET contact = %s WHERE id = %s AND user_name = %s",
+                (json.dumps(payload["contact"]), resume_id, user_name),
+            )
+        if "summary" in payload:
+            cursor.execute(
+                "UPDATE resumes SET summary = %s WHERE id = %s AND user_name = %s",
+                (payload["summary"] or None, resume_id, user_name),
+            )
+        if "education" in payload and isinstance(payload["education"], list):
+            cursor.execute(
+                "UPDATE resumes SET education = %s WHERE id = %s AND user_name = %s",
+                (json.dumps(payload["education"]), resume_id, user_name),
+            )
+
+        if "experience" in payload and isinstance(payload["experience"], list):
+            cursor.execute("DELETE FROM resume_experience WHERE resume_id = %s", (resume_id,))
+            for idx, exp in enumerate(payload["experience"]):
+                if not isinstance(exp, dict):
+                    continue
+                cursor.execute(
+                    """
+                    INSERT INTO resume_experience
+                    (resume_id, company_name, job_title, location, is_remote, start_date, end_date,
+                     is_current, responsibilities, achievements, display_order)
+                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                    """,
+                    (
+                        resume_id,
+                        exp.get("company_name"),
+                        exp.get("job_title"),
+                        exp.get("location"),
+                        bool(exp.get("is_remote")),
+                        exp.get("start_date"),
+                        exp.get("end_date"),
+                        bool(exp.get("is_current")),
+                        json.dumps(exp.get("responsibilities") or []),
+                        json.dumps(exp.get("achievements") or []),
+                        idx,
+                    ),
+                )
+
         if "skills" in payload:
+            raw = payload["skills"]
+            if isinstance(raw, dict):
+                skills_json = json.dumps(raw)
+            else:
+                skills_json = json.dumps({"Skills": raw if isinstance(raw, list) else []})
             cursor.execute(
                 """
                 INSERT INTO resume_skills (resume_id, skills)
                 VALUES (%s, %s)
                 ON CONFLICT (resume_id) DO UPDATE SET skills = EXCLUDED.skills, updated_at = CURRENT_TIMESTAMP
                 """,
-                (resume_id, json.dumps(payload["skills"])),
+                (resume_id, skills_json),
             )
-        for project in payload.get("projects", []):
+
+        for idx, project in enumerate(payload.get("projects", [])):
             pid = project.get("project_id")
             if pid is None:
                 continue
+            pid_int = int(pid) if isinstance(pid, str) and pid.isdigit() else (int(pid) if isinstance(pid, int) else None)
+            if pid_int is None:
+                continue
+            proj_skills = project.get("skills") or project.get("technologies") or []
+            proj_bullets = project.get("bullets") or project.get("highlights") or []
+            display_order = project.get("display_order")
+            if display_order is None:
+                display_order = idx
             cursor.execute(
                 """
                 INSERT INTO resume_projects (resume_id, project_id, project_name, start_date, end_date, skills, bullets, display_order)
@@ -345,13 +485,13 @@ def save_resume_edits(user_name: str, resume_id: int, payload: Dict[str, Any]) -
                 """,
                 (
                     resume_id,
-                    int(pid) if isinstance(pid, str) else pid,
-                    project.get("project_name"),
+                    pid_int,
+                    project.get("project_name") or project.get("title"),
                     project.get("start_date"),
                     project.get("end_date"),
-                    json.dumps(project["skills"]) if "skills" in project else None,
-                    json.dumps(project["bullets"]) if "bullets" in project else None,
-                    project.get("display_order"),
+                    json.dumps(proj_skills) if proj_skills else None,
+                    json.dumps(proj_bullets) if proj_bullets else None,
+                    display_order,
                 ),
             )
 
