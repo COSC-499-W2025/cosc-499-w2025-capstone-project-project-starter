@@ -2,15 +2,10 @@ import os
 import uuid
 import tempfile
 
-from fastapi.testclient import TestClient
-from src.api.app import app
-
-client = TestClient(app)
-
 TEST_DATA_DIR = "tests/data"
 
 
-def test_req21_incremental_project_upload():
+def test_req21_incremental_project_upload(client):
     """
     Req #21:
     The system must allow incremental information by adding another

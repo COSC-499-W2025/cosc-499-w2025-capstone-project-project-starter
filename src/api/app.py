@@ -70,6 +70,7 @@ from src.api.generation import (
     list_portfolio_showcases,
     get_resume_item,
 )
+from src.api.portfolio_analytics import build_portfolio_analytics
 
 from src.db.deletion import (
     delete_snapshot_and_gc,
@@ -516,11 +517,12 @@ def _build_activity_heatmap(engine, portfolio_id: str) -> List[Dict[str, Any]]:
 def _build_dashboard_snapshot(engine, portfolio_id: str) -> Dict[str, Any]:
     projects_payload = list_projects(portfolio_id=portfolio_id, user_id=None, credentials=None)
     top_payload = top_projects(portfolio_id=portfolio_id, limit=3, credentials=None)
-    timeline_payload = list_portfolio_skills_chronological(
+    analytics_payload = build_portfolio_analytics(
+        engine=engine,
         portfolio_id=portfolio_id,
-        direction="asc",
-        limit=500,
-        credentials=None,
+        timeline_limit=2000,
+        heatmap_bucket="day",
+        top_limit=3,
     )
     showcases_payload = list_portfolio_showcases(engine=engine, portfolio_id=portfolio_id, limit=200)
 
@@ -529,8 +531,9 @@ def _build_dashboard_snapshot(engine, portfolio_id: str) -> Dict[str, Any]:
         "portfolio_id": portfolio_id,
         "projects": projects_payload.get("projects") or [],
         "top_projects": top_payload.get("top_projects") or [],
-        "skills_timeline": timeline_payload.get("skill_events") or [],
-        "activity_heatmap": _build_activity_heatmap(engine, portfolio_id),
+        "skills_timeline": ((analytics_payload.get("skills_timeline") or {}).get("events") or []),
+        "activity_heatmap": ((analytics_payload.get("activity_heatmap") or {}).get("buckets") or []),
+        "top_project_evolution": ((analytics_payload.get("top_project_evolution") or {}).get("projects") or []),
         "showcases": showcases_payload.get("items") or [],
     }
 
@@ -1756,6 +1759,39 @@ def top_projects(
 
     return {"portfolio_id": portfolio_id, "limit": int(limit), "top_projects": summaries}
 
+
+@app.get("/portfolio/{portfolio_id}/analytics")
+def get_portfolio_analytics(
+    portfolio_id: str,
+    timeline_limit: int = Query(default=1000, ge=1, le=10_000),
+    heatmap_bucket: str = Query(default="day", pattern="^(day|week|hour)$"),
+    top_limit: int = Query(default=3, ge=1, le=10),
+    credentials: Optional[HTTPAuthorizationCredentials] = Depends(auth_bearer),
+):
+    """
+    Returns in-depth portfolio analytics payloads used by public dashboard visualizations:
+      - skills timeline with progression signals
+      - activity heatmap bucketed by day/week/hour
+      - top project evolution milestones
+    """
+    engine = get_engine()
+    auth = _resolve_auth_context(credentials, required=False)
+    with engine.connect() as conn:
+        if auth:
+            _assert_portfolio_owned_by(conn, portfolio_id=portfolio_id, user_id=auth["user_id"])
+        exists = conn.execute(text("SELECT 1 FROM portfolios WHERE id = :pid"), {"pid": portfolio_id}).scalar()
+        if not exists:
+            raise HTTPException(status_code=404, detail="Portfolio not found")
+
+    return build_portfolio_analytics(
+        engine=engine,
+        portfolio_id=portfolio_id,
+        timeline_limit=int(timeline_limit),
+        heatmap_bucket=heatmap_bucket,
+        top_limit=int(top_limit),
+    )
+
+
 @app.get("/portfolio/{portfolio_id}")
 def get_portfolio(
     portfolio_id: str,
@@ -2125,38 +2161,57 @@ def edit_resume(resume_id: str, body: ResumeEditRequest):
 def download_resume_pdf(resume_id: str):
     engine = get_engine()
     try:
-        # 1. Get the resume data
+        # 1. Get the core project resume data
         item = get_resume_item(engine=engine, resume_id=resume_id)
         
-        # 2. Fetch the user's config to get preferences
         from sqlalchemy import text
         with engine.connect() as conn:
-            query = text("""
-                SELECT uc.config_json 
-                FROM user_config uc
-                JOIN portfolios po ON uc.user_id = po.user_id
+            # --- NEW: Get User ID first to fetch their data ---
+            user_row = conn.execute(text("""
+                SELECT po.user_id 
+                FROM portfolios po
                 JOIN projects pr ON po.id = pr.portfolio_id
                 JOIN resume_items ri ON pr.id = ri.project_id
                 WHERE ri.id = :rid
-            """)
-            result = conn.execute(query, {"rid": resume_id}).mappings().first()
-
-            logger.debug("Found config for resume %s: %s", resume_id, result is not None)
+            """), {"rid": resume_id}).mappings().first()
             
-            # Extract the filters if they exist, otherwise empty dict
-            user_config = result["config_json"] if result else {}
+            if not user_row:
+                raise HTTPException(status_code=404, detail="User not found for this resume")
+            
+            uid = user_row["user_id"]
+
+            # --- NEW: Fetch Education and Awards ---
+            edu_rows = conn.execute(text("""
+                SELECT institution, degree, field_of_study, start_year, end_year, is_current, description
+                FROM education_entries WHERE user_id = :uid
+                ORDER BY start_year DESC NULLS LAST
+            """), {"uid": uid}).mappings().all()
+
+            award_rows = conn.execute(text("""
+                SELECT title, issuer, awarded_year, description
+                FROM award_entries WHERE user_id = :uid
+                ORDER BY awarded_year DESC NULLS LAST
+            """), {"uid": uid}).mappings().all()
+
+            # --- Existing Config/Filters Logic ---
+            config_result = conn.execute(text("""
+                SELECT config_json FROM user_config WHERE user_id = :uid
+            """), {"uid": uid}).mappings().first()
+            
+            user_config = config_result["config_json"] if config_result else {}
             filters = user_config.get("resume_filters", {})
 
-            logger.debug("Filters passed to PDF exporter for resume %s: %s", resume_id, filters)
+        # 2. Inject the data into the 'item' dict so the exporter sees it
+        item["education"] = [dict(r) for r in edu_rows]
+        item["awards"] = [dict(r) for r in award_rows]
 
     except KeyError:
         raise HTTPException(status_code=404, detail="Resume item not found")
 
-    # 3. Pass the filters into the exporter we just modified
+    # 3. Now the exporter has everything it needs
     pdf_bytes = export_resume_item_pdf_bytes(item, filters=filters)
     
     filename = f"resume-{resume_id}.pdf"
-
     return Response(
         content=pdf_bytes,
         media_type="application/pdf",

@@ -30,16 +30,15 @@ def materialize_blob_to_tempfile(blob, default_ext=".png"):
     return tmp.name
 
 
-
-def export(data, llm_response=None,filename="report.pdf", consent="y"):
+def export(data, llm_response=None, filename="report.pdf", consent="y"):
     """
     Exports a predictions dictionary to a formatted PDF file with a styled table.
 
     Args:
         ml_data (dict): Dictionary of predictions, e.g.:
-                     {"predictions": [["Flask", 0.93], ["SQL", 0.71]]}
+                      {"predictions": [["Flask", 0.93], ["SQL", 0.71]]}
         llm_response (string): Response from LLM, conditional on user consent to use of LLM,
-                    therefore defaults to None unless passed in
+                             therefore defaults to None unless passed in
         filename (str): Output PDF filename.
     """
 
@@ -130,8 +129,6 @@ def export(data, llm_response=None,filename="report.pdf", consent="y"):
                 elements.append(Paragraph(line.strip(), styles["Normal"]))
                 elements.append(Spacer(1, 4))
 
-
-
     # Build PDF
     doc.build(elements)
     logger.info("PDF created successfully: %s", filename)
@@ -188,7 +185,6 @@ def collect_predictions(parsed_folder):
                 logger.warning("Skipping invalid skill entry in %s: %r", file_name, item)
 
     return all_predictions
-
 
 
 def export_portfolio_top_projects_pdf(portfolio_summary: dict, filename: str = "portfolio_top_projects.pdf") -> str:
@@ -281,47 +277,12 @@ def export_resume_item_pdf(resume_item: dict, filename: str = "resume_item.pdf")
     Expects the shape returned by GET /resume/{id}:
       {"resume_id": ..., "content": {"project": {...}, "summary_text": ..., "resume_bullets": [...]}}
     """
-    if not isinstance(resume_item, dict):
-        resume_item = {}
-
-    content = resume_item.get("content") or {}
-    if not isinstance(content, dict):
-        content = {}
-
-    project = content.get("project") or {}
-    if not isinstance(project, dict):
-        project = {}
-
-    doc = SimpleDocTemplate(filename, pagesize=LETTER)
-    styles = getSampleStyleSheet()
-    elements = []
-
-    title = project.get("name") or project.get("id") or "Resume Item"
-    elements.append(Paragraph(str(title), styles["Title"]))
-    elements.append(Spacer(1, 12))
-
-    elements.append(Paragraph(f"Resume Item ID: {resume_item.get('resume_id', '(unknown)')}", styles["Normal"]))
-    elements.append(Paragraph(f"Generated at: {content.get('generated_at', '(unknown)')}", styles["Normal"]))
-    elements.append(Spacer(1, 12))
-
-    summary = str(content.get("summary_text") or "").strip()
-    if summary:
-        elements.append(Paragraph("Summary", styles["Heading2"]))
-        elements.append(Spacer(1, 6))
-        elements.append(Paragraph(summary, styles["Normal"]))
-        elements.append(Spacer(1, 12))
-
-    bullets = content.get("resume_bullets") or []
-    if isinstance(bullets, list) and bullets:
-        elements.append(Paragraph("Résumé Bullets", styles["Heading2"]))
-        elements.append(Spacer(1, 6))
-        for b in bullets[:10]:
-            b = str(b).strip()
-            if b:
-                elements.append(Paragraph(f"• {b}", styles["Normal"]))
-                elements.append(Spacer(1, 4))
-
-    doc.build(elements)
+    # Call internal helper that generates bytes
+    pdf_bytes = export_resume_item_pdf_bytes(resume_item)
+    
+    with open(filename, "wb") as f:
+        f.write(pdf_bytes)
+    
     return filename
 
 
@@ -358,20 +319,20 @@ def _normalize_resume_filters(filters: dict) -> dict:
         "show_metrics": _as_bool(raw.get("show_metrics"), True),
         "show_tech_stack": _as_bool(raw.get("show_tech_stack"), True),
         "show_evidence": _as_bool(raw.get("show_evidence"), True),
+        "show_education": _as_bool(raw.get("show_education"), True),
+        "show_awards": _as_bool(raw.get("show_awards"), True),
     }
 
-    # Backward compatibility: existing "hide all" behavior with legacy keys.
-    new_keys = {"show_project_profile", "show_metrics", "show_tech_stack", "show_evidence"}
+    # Backward compatibility logic
+    new_keys = {"show_project_profile", "show_metrics", "show_tech_stack", "show_evidence", "show_education", "show_awards"}
     if (
         not any(k in raw for k in new_keys)
         and not out["show_summary"]
         and not out["show_bullets"]
         and not out["show_metadata"]
     ):
-        out["show_project_profile"] = False
-        out["show_metrics"] = False
-        out["show_tech_stack"] = False
-        out["show_evidence"] = False
+        for k in new_keys:
+            out[k] = False
 
     return out
 
@@ -394,6 +355,8 @@ def export_resume_item_pdf_bytes(resume_item: dict, filters: dict = None) -> byt
     show_metrics = opts["show_metrics"]
     show_tech_stack = opts["show_tech_stack"]
     show_evidence = opts["show_evidence"]
+    show_education = opts["show_education"]
+    show_awards = opts["show_awards"]
 
     content = resume_item.get("content") or {}
     if not isinstance(content, dict):
@@ -442,9 +405,8 @@ def export_resume_item_pdf_bytes(resume_item: dict, filters: dict = None) -> byt
     thumbnail_blob = content.get("thumbnail_blob")
     if thumbnail_blob:
         try:
-            # If blob has base64 data (as in your artifact)
             file_bytes = base64.b64decode(thumbnail_blob.get("data_base64", ""))
-            suffix = ".png"  # default
+            suffix = ".png"
             if "mime_type" in thumbnail_blob and "/" in thumbnail_blob["mime_type"]:
                 suffix = "." + thumbnail_blob["mime_type"].split("/")[-1]
 
@@ -483,6 +445,39 @@ def export_resume_item_pdf_bytes(resume_item: dict, filters: dict = None) -> byt
                     elements.append(Paragraph(f"- {b}", styles["Normal"]))
                     elements.append(Spacer(1, 4))
             elements.append(Spacer(1, 8))
+
+    # --- New Section: Education ---
+    if show_education:
+        education_list = resume_item.get("education") or []
+        if education_list:
+            elements.append(Paragraph("Education", styles["Heading2"]))
+            elements.append(Spacer(1, 6))
+            for edu in education_list:
+                inst = edu.get("institution") or "Unknown Institution"
+                degree = edu.get("degree") or ""
+                start = edu.get("start_year")
+                end = edu.get("end_year") or "Present"
+                
+                
+                date_str = f"{start} - {end}" if start else end
+                
+                text = f"<b>{inst}</b>: {degree} ({date_str})"
+                elements.append(Paragraph(text, styles["Normal"]))
+            elements.append(Spacer(1, 12))
+
+    # --- New Section: Awards ---
+    if show_awards:
+        awards_list = resume_item.get("awards") or []
+        if awards_list:
+            elements.append(Paragraph("Awards & Honors", styles["Heading2"]))
+            elements.append(Spacer(1, 6))
+            for award in awards_list:
+                title_awd = award.get("title") or "Award"
+                issuer = award.get("issuer") or ""
+                yr = award.get("awarded_year") or ""
+                text = f"• {title_awd} - {issuer} ({yr})"
+                elements.append(Paragraph(text, styles["Normal"]))
+            elements.append(Spacer(1, 12))
 
     if show_metrics:
         metrics = content.get("metrics") if isinstance(content.get("metrics"), dict) else {}
@@ -543,10 +538,10 @@ def export_resume_item_pdf_bytes(resume_item: dict, filters: dict = None) -> byt
         evidence = project.get("evidence_json") if isinstance(project.get("evidence_json"), dict) else {}
         evidence_lines = []
 
-        metrics = evidence.get("metrics")
-        if isinstance(metrics, dict) and metrics:
+        mets = evidence.get("metrics")
+        if isinstance(mets, dict) and mets:
             metric_bits = []
-            for k, v in list(metrics.items())[:3]:
+            for k, v in list(mets.items())[:3]:
                 key = str(k).strip()
                 val = str(v).strip()
                 if key and val:
