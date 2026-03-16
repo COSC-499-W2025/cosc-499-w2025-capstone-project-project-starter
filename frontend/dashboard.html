@@ -11,6 +11,9 @@
     <script src="js/utils.js"></script>
     <script src="js/api.js"></script>
     <script src="js/resume-formatter.js"></script>
+    <!-- PDF export libraries -->
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 </head>
 <body>
     <header class="header">
@@ -3013,35 +3016,112 @@
         }
 
         async function exportMarkdownPdf(markdown, filename) {
-            if (typeof marked === 'undefined' || typeof html2pdf === 'undefined') {
-                showMessage('PDF export libraries not available, using text fallback.', 'error');
-                return false;
-            }
-
-            const renderTarget = document.getElementById('resumePdfRender');
-            if (!renderTarget) return false;
-
-            renderTarget.innerHTML = marked.parse(markdown);
-            await new Promise(resolve => setTimeout(resolve, 50));
-
-            if (!renderTarget.innerHTML.trim()) {
-                showMessage('PDF render failed, using text fallback.', 'error');
+            const jsPDFClass = (window.jspdf && window.jspdf.jsPDF) || (typeof jsPDF !== 'undefined' ? jsPDF : null);
+            if (!jsPDFClass) {
+                showMessage('PDF export library not available, using text fallback.', 'error');
                 return false;
             }
 
             try {
-                await html2pdf()
-                    .from(renderTarget)
-                    .set({
-                        margin: [0.6, 0.6, 0.6, 0.6],
-                        filename,
-                        html2canvas: { scale: 2, useCORS: true },
-                        jsPDF: { unit: 'in', format: 'letter', orientation: 'portrait' }
-                    })
-                    .save();
+                const doc = new jsPDFClass({ unit: 'pt', format: 'letter' });
+                const pageW = doc.internal.pageSize.getWidth();
+                const pageH = doc.internal.pageSize.getHeight();
+                const margin = 54;
+                const usable = pageW - margin * 2;
+                let y = margin;
+
+                function checkPage(needed) {
+                    if (y + needed > pageH - margin) {
+                        doc.addPage();
+                        y = margin;
+                    }
+                }
+
+                const lines = markdown.split('\n');
+                for (const raw of lines) {
+                    const line = raw.replace(/\r$/, '');
+
+                    if (line.startsWith('# ')) {
+                        checkPage(28);
+                        doc.setFont('helvetica', 'bold');
+                        doc.setFontSize(20);
+                        doc.setTextColor(17, 17, 17);
+                        doc.text(line.slice(2), margin, y);
+                        y += 10;
+                        doc.setDrawColor(60, 60, 60);
+                        doc.setLineWidth(1.2);
+                        doc.line(margin, y, pageW - margin, y);
+                        y += 18;
+                        continue;
+                    }
+                    if (line.startsWith('## ')) {
+                        checkPage(24);
+                        y += 8;
+                        doc.setFont('helvetica', 'bold');
+                        doc.setFontSize(14);
+                        doc.setTextColor(34, 34, 34);
+                        doc.text(line.slice(3), margin, y);
+                        y += 6;
+                        doc.setDrawColor(180, 180, 180);
+                        doc.setLineWidth(0.5);
+                        doc.line(margin, y, pageW - margin, y);
+                        y += 14;
+                        continue;
+                    }
+                    if (line.startsWith('### ')) {
+                        checkPage(20);
+                        y += 4;
+                        doc.setFont('helvetica', 'bold');
+                        doc.setFontSize(12);
+                        doc.setTextColor(51, 51, 51);
+                        doc.text(line.slice(4), margin, y);
+                        y += 16;
+                        continue;
+                    }
+                    if (line.trim() === '') {
+                        y += 6;
+                        continue;
+                    }
+
+                    doc.setFont('helvetica', 'normal');
+                    doc.setFontSize(10);
+                    doc.setTextColor(33, 33, 33);
+
+                    let text = line;
+                    let xOffset = margin;
+                    if (text.startsWith('- ')) {
+                        text = text.slice(2);
+                        checkPage(14);
+                        doc.setFontSize(10);
+                        doc.text('\u2022', margin, y);
+                        xOffset = margin + 12;
+                    }
+
+                    const isBoldLine = text.startsWith('**') && text.endsWith('**');
+                    const hasBoldPrefix = /^\*\*[^*]+\*\*/.test(text);
+                    if (isBoldLine) {
+                        doc.setFont('helvetica', 'bold');
+                        text = text.replace(/\*\*/g, '');
+                    } else if (hasBoldPrefix) {
+                        text = text.replace(/\*\*/g, '');
+                    } else {
+                        text = text.replace(/\*\*/g, '').replace(/\*/g, '');
+                    }
+
+                    const wrapped = doc.splitTextToSize(text, usable - (xOffset - margin));
+                    for (const wl of wrapped) {
+                        checkPage(14);
+                        doc.text(wl, xOffset, y);
+                        y += 13;
+                        xOffset = margin + (line.startsWith('- ') ? 12 : 0);
+                    }
+                }
+
+                doc.save(filename);
                 return true;
             } catch (e) {
-                showMessage('PDF export failed, using text fallback.', 'error');
+                console.error('PDF export error:', e);
+                showMessage('PDF export failed: ' + e.message, 'error');
                 return false;
             }
         }
@@ -4045,6 +4125,6 @@
 
     </script>
     <script src="vendor/marked.min.js"></script>
-    <script src="vendor/html2pdf.bundle.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 </body>
 </html>
