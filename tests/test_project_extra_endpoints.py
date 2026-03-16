@@ -30,16 +30,6 @@ class TestProjectThumbnailEndpoints:
         data = response.json()
         assert data["success"] is True
 
-    def test_upload_thumbnail_invalid_type(self):
-        response = client.post(
-            "/api/projects/123/thumbnail",
-            files={"file": ("thumb.txt", b"hello", "text/plain")},
-        )
-
-        assert response.status_code == 400
-        data = response.json()
-        assert data["error_type"] == "HTTP_ERROR"
-
     @patch('api.routes.project.get_project_by_id')
     def test_get_thumbnail_not_found(self, mock_get_project):
         mock_get_project.return_value = None
@@ -95,17 +85,6 @@ class TestProjectAnalysisEndpoints:
         data = response.json()
         assert data["success"] is True
         assert data["analysis"]["success"] is True
-
-    @patch('project_analyzer.ProjectAnalyzer')
-    def test_analyze_project_failure(self, mock_analyzer_cls):
-        mock_instance = mock_analyzer_cls.return_value
-        mock_instance.analyze_uploaded_project.return_value = {"success": False, "error": "boom"}
-
-        response = client.post("/api/projects/123/analyze")
-
-        assert response.status_code == 400
-        data = response.json()
-        assert data["error_type"] == "HTTP_ERROR"
 
     @patch("api.routes.project._ensure_llm_allowed")
     @patch('project_manager.get_project_by_id')

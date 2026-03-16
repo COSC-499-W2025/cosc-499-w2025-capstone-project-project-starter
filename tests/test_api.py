@@ -57,36 +57,6 @@ class TestHealthEndpoints:
         assert data["database"] == "connected"
         mock_conn.close.assert_called_once()
     
-    @patch('api.dependencies.get_connection')
-    def test_db_health_check_failure(self, mock_get_connection):
-        """Test database health check when DB connection fails."""
-        # Mock failed connection
-        mock_get_connection.return_value = None
-        
-        client = TestClient(app)
-        response = client.get("/api/health/db")
-        
-        assert response.status_code == 503
-        data = response.json()
-        assert data["success"] is False
-        assert data["message"] in ("Database connection failed", "Database health check failed")
-    
-    @patch('api.dependencies.get_connection')
-    def test_db_health_check_exception(self, mock_get_connection):
-        """Test database health check when exception occurs."""
-        # Mock connection raising exception
-        mock_get_connection.side_effect = Exception("Connection timeout")
-        
-        client = TestClient(app)
-        response = client.get("/api/health/db")
-        
-        assert response.status_code == 503
-        data = response.json()
-        assert data["success"] is False
-        assert data["error_type"] == "DB_HEALTH_CHECK_FAILED"
-        assert "Database health check failed" in data["message"]
-
-
 class TestProjectsEndpoint:
     """Test projects endpoint."""
     

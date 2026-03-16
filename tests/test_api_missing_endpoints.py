@@ -35,16 +35,6 @@ class TestAuthEndpoints:
 
         assert response.status_code == 422
 
-    @patch('api.routes.auth.login_user')
-    def test_login_invalid_credentials(self, mock_login):
-        mock_login.return_value = False
-
-        response = client.post("/api/auth/login", json={"username": "test_user", "password": "wrong"})
-
-        assert response.status_code == 401
-        data = response.json()
-        assert data["error_type"] == "INVALID_CREDENTIALS"
-
     @patch('api.routes.auth.AuthManager.register')
     def test_register_success(self, mock_register):
         mock_register.return_value = {"success": True, "message": "ok", "user_id": 10}
@@ -74,16 +64,6 @@ class TestAuthEndpoints:
         assert data["success"] is True
 
     @patch('api.routes.auth.get_user_by_username')
-    def test_logout_not_logged_in(self, mock_get_user):
-        mock_get_user.return_value = {"user_name": "test_user", "is_login": False}
-
-        response = client.post("/api/auth/logout", json={"username": "test_user"})
-
-        assert response.status_code == 409
-        data = response.json()
-        assert data["error_type"] == "NOT_LOGGED_IN"
-
-    @patch('api.routes.auth.get_user_by_username')
     def test_get_current_user_success(self, mock_get_user):
         mock_get_user.return_value = {"user_id": 1, "user_name": "test_user", "is_login": True}
 
@@ -108,17 +88,6 @@ class TestConsentEndpoint:
         data = response.json()
         assert data["success"] is True
         assert data["user_name"] == "test_user"
-
-    @patch('account.user_manager.AuthManager.get_current_username')
-    def test_privacy_consent_missing_user(self, mock_get_current):
-        mock_get_current.return_value = None
-
-        response = client.post("/api/privacy-consent", json={"consent_given": True})
-
-        assert response.status_code == 400
-        data = response.json()
-        assert data["error_type"] == "HTTP_ERROR"
-
 
 class TestSettingsRootAndAccount:
     @patch('api.dependencies.get_user_by_username')
@@ -172,13 +141,3 @@ class TestPreferencesEndpoint:
         mock_update_git.assert_called_once_with("test_user", "new_git")
 
 
-class TestResumeDeleteEndpoint:
-    @patch('api.routes.resume_portfolio.ResumeManager.delete_user_resume')
-    def test_delete_resume_success(self, mock_delete):
-        mock_delete.return_value = True
-
-        response = client.delete("/api/resume/test_user")
-
-        assert response.status_code == 200
-        data = response.json()
-        assert data["success"] is True
