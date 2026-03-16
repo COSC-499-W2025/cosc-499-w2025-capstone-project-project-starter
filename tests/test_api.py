@@ -14,7 +14,11 @@ import json
 from sqlalchemy import text, bindparam
 from sqlalchemy.dialects.postgresql import JSONB
 from unittest.mock import MagicMock
+from unittest.mock import patch
 import hashlib
+import importlib.util
+import sys
+
 
 from PIL import Image
 
@@ -2597,3 +2601,179 @@ def test_resume_payload_project_evidence_schema(client, engine):
 def test_resume_payload_unknown_user_returns_404(client):
     r = client.get(f"/users/{_u()}/resume-payload")
     assert r.status_code == 404
+
+def test_pdf_education_and_awards_rendering(client, monkeypatch, tmp_path):
+    """Verifies that Education and Awards sections are created and populated correctly."""
+    test_blob_dir = tmp_path / "test_blobs"
+    test_blob_dir.mkdir()
+    monkeypatch.setenv("ARTIFACT_MINER_BLOBSTORE", str(test_blob_dir))
+
+    # 1. Setup User & Project (to get a valid session and ID)
+    r_consent = client.post("/privacy-consent", json={"consent_type": "data_access", "granted": True, "version": 1})
+    user_id = r_consent.json()["user_id"]
+    
+    zip_buf = _create_dummy_zip()
+    r_upload = client.post("/projects/upload", files={"file": ("test.zip", zip_buf, "application/zip")}, data={"user_id": user_id})
+    project_id = r_upload.json()["created"][0]["project_id"]
+
+    # 2. Generate a base resume item record
+    r_gen = client.post("/resume/generate", json={"project_id": project_id})
+    resume_id = r_gen.json()["resume_id"]
+
+    # 3. Create the mock data structure for the PDF
+    mock_resume_item = {
+        "resume_id": resume_id,
+        "education": [{
+            "institution": "University of British Columbia",
+            "degree": "B.Sc. in Computer Science",
+            "start_year": "2022",
+            "end_year": "2026"
+        }],
+        "awards": [{
+            "title": "Hackathon Winner",
+            "issuer": "Major League Hacking",
+            "awarded_year": "2025"
+        }],
+        "content": {
+            "summary_text": "Mock summary for rendering test.",
+            "project": {"name": "Artifact Miner"}
+        }
+    }
+
+    # 4. Patch the export call inside src.api.app
+    with patch("src.api.app.export_resume_item_pdf_bytes") as mock_export:
+        path = Path("src/api/pdf_exporter.py").resolve()
+        
+        spec = importlib.util.spec_from_file_location("pdf_export_module", path)
+        pdf_module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(pdf_module)
+        
+        # Use the function from the manually loaded module
+        real_exporter = pdf_module.export_resume_item_pdf_bytes
+        mock_export.return_value = real_exporter(mock_resume_item, filters=None)
+
+        # 5. Trigger the GET request
+        r_pdf = client.get(f"/resume/{resume_id}/pdf?user_id={user_id}")
+        assert r_pdf.status_code == 200
+        
+        # 6. Verify PDF Content
+        pdf_reader = PdfReader(io.BytesIO(r_pdf.content))
+        page_text = pdf_reader.pages[0].extract_text()
+
+        assert "Education" in page_text
+        assert "University of British Columbia" in page_text
+        assert "2022 - 2026" in page_text
+        assert "Awards & Honors" in page_text
+        assert "Hackathon Winner" in page_text
+
+def test_pdf_section_toggles(client, monkeypatch, tmp_path):
+    """Ensures Education and Awards can be hidden via user configuration."""
+    test_blob_dir = tmp_path / "test_blobs"
+    test_blob_dir.mkdir()
+    monkeypatch.setenv("ARTIFACT_MINER_BLOBSTORE", str(test_blob_dir))
+
+    r_consent = client.post("/privacy-consent", json={"consent_type": "data_access", "granted": True, "version": 1})
+    user_id = r_consent.json()["user_id"]
+
+    zip_buf = _create_dummy_zip()
+    r_upload = client.post("/projects/upload", files={"file": ("test.zip", zip_buf, "application/zip")}, data={"user_id": user_id})
+    project_id = r_upload.json()["created"][0]["project_id"]
+
+    # 1. Set data AND set toggles to FALSE
+    client.patch(f"/users/{user_id}/config", json={
+        "education": [{"institution": "Hidden University"}],
+        "resume_filters": {
+            "show_education": False,
+            "show_awards": False
+        }
+    })
+
+    r_gen = client.post("/resume/generate", json={"project_id": project_id})
+    resume_id = r_gen.json()["resume_id"]
+
+    r_pdf = client.get(f"/resume/{resume_id}/pdf?user_id={user_id}")
+    page_text = PdfReader(io.BytesIO(r_pdf.content)).pages[0].extract_text()
+
+    # Headers should be missing
+    assert "Education" not in page_text
+    assert "Hidden University" not in page_text
+
+
+def test_export_resume_item_pdf_education_awards_content():
+    """
+    Integration test to verify that Education and Awards sections
+    render correctly with specific date formatting and em-dashes.
+    """
+    # 1. Arrange: Create a mock resume item with the new schema
+    mock_resume_item = {
+        "resume_id": "test-uuid-1234",
+        "education": [
+            {
+                "institution": "University of British Columbia",
+                "degree": "B.Sc. in Computer Science",
+                "start_year": "2022",
+                "end_year": "2026"
+            }
+        ],
+        "awards": [
+            {
+                "title": "Hackathon Winner",
+                "issuer": "Major League Hacking",
+                "awarded_year": "2025"
+            }
+        ],
+        "content": {
+            "summary_text": "A full-stack developer focusing on React and Python.",
+            "project": {"name": "Artifact Miner", "id": "proj-999"}
+        }
+    }
+
+    # Use default filters (which should have show_education/awards=True)
+    filters = {
+        "show_education": True,
+        "show_awards": True,
+        "show_summary": True
+    }
+
+    # 2. Act: Generate the PDF bytes
+    pdf_bytes = export_resume_item_pdf_bytes(mock_resume_item, filters=filters)
+
+    # 3. Assert: Verify PDF structure and text content
+    assert isinstance(pdf_bytes, bytes)
+    assert len(pdf_bytes) > 0
+
+    reader = PdfReader(io.BytesIO(pdf_bytes))
+    page_text = reader.pages[0].extract_text()
+
+    # Verify Title and Headers
+    assert "Artifact Miner" in page_text
+    assert "Education" in page_text
+    assert "Awards & Honors" in page_text
+
+    
+    assert "University of British Columbia" in page_text
+    assert "B.Sc. in Computer Science" in page_text
+    
+    assert "2022 - 2026" in page_text
+
+    # Verify Awards Content
+    assert "Hackathon Winner" in page_text
+    assert "Major League Hacking" in page_text
+    assert "(2025)" in page_text
+
+def test_resume_pdf_filters_toggles():
+    """Verifies that sections are omitted when filters are set to False."""
+    mock_resume_item = {
+        "education": [{"institution": "UBC", "degree": "CS", "end_year": "2026"}],
+        "content": {"project": {"name": "Hidden Project"}}
+    }
+    
+    # Toggle education off
+    filters = {"show_education": False}
+    
+    pdf_bytes = export_resume_item_pdf_bytes(mock_resume_item, filters=filters)
+    reader = PdfReader(io.BytesIO(pdf_bytes))
+    page_text = reader.pages[0].extract_text()
+    
+    assert "Education" not in page_text
+    assert "UBC" not in page_text
