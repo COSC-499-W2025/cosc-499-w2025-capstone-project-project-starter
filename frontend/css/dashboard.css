@@ -1341,10 +1341,6 @@ body > #viewContainer {
     color: var(--text-muted);
 }
 
-.analyze-loading .spinner {
-    margin: 0 auto 12px;
-}
-
 .analyze-loading p {
     margin: 4px 0;
     font-size: 0.9rem;
@@ -1421,12 +1417,6 @@ body > #viewContainer {
     border-radius: var(--radius-sm);
     padding: 8px 14px;
     font-weight: 500;
-}
-
-/* ============== Spinner (dashboard) ============== */
-
-.view-panel .spinner {
-    border-top-color: var(--accent-primary);
 }
 
 /* ============== Modal ============== */
@@ -1922,8 +1912,6 @@ body > #viewContainer {
     padding: 32px;
     color: var(--text-muted);
 }
-
-.pd-loading .spinner { margin: 0 auto 10px; }
 
 /* ── Timeline ── */
 .pd-timeline {

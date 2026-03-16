@@ -12,7 +12,7 @@
     <script src="js/api.js"></script>
     <script src="js/resume-formatter.js"></script>
     <!-- PDF export libraries -->
-    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/marked@4.3.0/marked.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 </head>
 <body>
@@ -345,12 +345,6 @@
                             `Request failed (${response.status})`;
                     }
 
-                    const reqId =
-                        data?.request_id ||
-                        response.headers.get('X-Request-Id') ||
-                        'unknown-id';
-
-                    showErrorToast(String(msg), reqId);
                     return { ok: false, error: String(msg), status: response.status, data };
                 }
 
@@ -358,8 +352,6 @@
             } catch (e) {
                 if (e.name === 'AbortError') throw e;
                 const errorMsg = e.message || "Network error";
-                showErrorToast(errorMsg, "offline");
-
                 return { ok: false, error: errorMsg, status: 0, data: null };
             }
         }
@@ -434,8 +426,7 @@
         function renderError(container, message) {
             const safe = escapeHtml(message);
             if (container) {
-                // Do not overwrite complex HTML and prepend a message block instead.
-                container.insertAdjacentHTML('afterbegin', `<div class="message error">${safe}</div>`);
+                container.innerHTML = `<div class="message error">${safe}</div>`;
             }
             showMessage(safe, "error");
         }
@@ -443,8 +434,7 @@
         function renderSuccess(container, message) {
             const safe = escapeHtml(message);
             if (container) {
-                // Do not overwrite complex HTML and prepend a message block instead.
-                container.insertAdjacentHTML('afterbegin', `<div class="message success">${safe}</div>`);
+                container.innerHTML = `<div class="message success">${safe}</div>`;
             }
             showMessage(safe, "success");
         }
@@ -635,6 +625,7 @@
 
         async function renderProjectsList(containerId, onSelect, showThumbnails = false) {
             const container = document.getElementById(containerId);
+            if (!container) return;
             if (!projects.length) {
                 container.innerHTML = '<div style="text-align: center; padding: 60px 20px; color: var(--text-muted);"><p style="font-size: 16px;">No projects found</p><p style="font-size: 14px; margin-top: 8px;">Upload a project to get started</p></div>';
                 return;
@@ -651,10 +642,7 @@
                     data-on-select="${onSelect}">
                     ${showThumbnails && p.has_thumbnail ? `<img class="project-thumbnail" data-project-id="${p.id}" alt="Thumbnail for ${p.filename}" />` : ''}
                     ${shouldShowSummary ? `<div class="project-summary-placeholder" data-project-id="${p.id}" style="width: 100%; height: 180px; background: var(--bg-secondary); border-radius: var(--radius-sm); border: 1px solid var(--border-color); display: flex; align-items: center; justify-content: center; margin-bottom: 12px;">
-                        <div style="text-align: center; color: var(--text-muted);">
-                            <div class="spinner" style="width: 24px; height: 24px; margin: 0 auto 8px;"></div>
-                            <div style="font-size: 12px;">Loading summary...</div>
-                        </div>
+                        <div style="text-align: center; color: var(--text-muted); font-size: 12px;">Loading summary...</div>
                     </div>` : ''}
                     <div class="project-info">
                         <strong>${escapeHtml(p.filename)}</strong>
@@ -1336,34 +1324,29 @@
 
             if (viewName === 'list' || viewName === 'analyze' || 
                 viewName === 'cleanup' || viewName === 'thumbnail' || viewName === 'merge') {
+                const listId = viewName === 'list' ? 'projectsList' :
+                    viewName === 'analyze' ? 'analyzeProjectsList' :
+                    viewName === 'cleanup' ? 'cleanupProjectsList' :
+                    viewName === 'thumbnail' ? 'thumbnailProjectsList' :
+                    viewName === 'merge' ? 'mergeProjectsList' : 'llmProjectsList';
+                const showThumbs = viewName === 'list' || viewName === 'analyze' || viewName === 'thumbnail' || viewName === 'merge';
                 setTimeout(async () => {
-                    let listId = null;
-                    listId = viewName === 'list' ? 'projectsList' : 
-                                  viewName === 'analyze' ? 'analyzeProjectsList' :
-                                  viewName === 'cleanup' ? 'cleanupProjectsList' :
-                                  viewName === 'thumbnail' ? 'thumbnailProjectsList' :
-                                  viewName === 'merge' ? 'mergeProjectsList' : 'llmProjectsList';
-                    const showThumbs = viewName === 'list' || viewName === 'analyze' || viewName === 'thumbnail' || viewName === 'merge';
                     await renderProjectsList(listId, 'onProjectSelect', showThumbs);
+                    const state = loadDashboardState();
+                    const restoreId = state?.selectedProjectId;
+                    const idInList = Array.isArray(projects) && projects.some(p => p.id === restoreId);
+                    if (restoreId && idInList) {
+                        const containerEl = document.getElementById(listId);
+                        const items = containerEl?.querySelectorAll?.('.project-item') || [];
+                        items.forEach(el => el.classList.remove('selected'));
+                        const match = Array.from(items).find(el => (el.getAttribute('onclick') || '').includes(`, ${restoreId},`));
+                        if (match) match.classList.add('selected');
+                        selectedProjectId = restoreId;
+                    } else if (restoreId && !idInList) {
+                        selectedProjectId = null;
+                        saveDashboardState({ selectedProjectId: null });
+                    }
                 }, 100);
-
-                const state = loadDashboardState();
-                const restoreId = state?.selectedProjectId;
-                const idInList = Array.isArray(projects) && projects.some(p => p.id === restoreId);
-                if (restoreId && idInList) {
-                    // restore selection only if this project is in the current list (same user)
-                    const containerEl = document.getElementById(listId);
-                    const items = containerEl?.querySelectorAll?.('.project-item') || [];
-                    items.forEach(el => el.classList.remove('selected'));
-
-                    const match = Array.from(items).find(el => (el.getAttribute('onclick') || '').includes(`, ${restoreId},`));
-                    if (match) match.classList.add('selected');
-
-                    selectedProjectId = restoreId;
-                } else if (restoreId && !idInList) {
-                    selectedProjectId = null;
-                    saveDashboardState({ selectedProjectId: null });
-                }
             }
             
             if (viewName === 'portfolio-dashboard') {
@@ -1389,7 +1372,9 @@
                     const fileInput = document.getElementById('zipFile');
                     if (fileInput) {
                         fileInput.addEventListener('change', handleUploadFileSelect);
-                        setupFileUploadDragDrop('zipFile', 'uploadFileInfo', 'uploadFileName', 'uploadBtn', 'clearUploadBtn');
+                        if (typeof setupFileUploadDragDrop === 'function') {
+                            setupFileUploadDragDrop('zipFile', 'uploadFileInfo', 'uploadFileName', 'uploadBtn', 'clearUploadBtn');
+                        }
                     }
                 }, 50);
             }
@@ -1398,10 +1383,37 @@
                     const fileInput = document.getElementById('mergeZipFile');
                     if (fileInput) {
                         fileInput.addEventListener('change', handleMergeFileSelect);
-                        setupFileUploadDragDrop('mergeZipFile', 'mergeFileInfo', 'mergeFileName', 'mergeBtn', 'clearMergeBtn');
+                        if (typeof setupFileUploadDragDrop === 'function') {
+                            setupFileUploadDragDrop('mergeZipFile', 'mergeFileInfo', 'mergeFileName', 'mergeBtn', 'clearMergeBtn');
+                        }
                     }
                 }, 50);
             }
+        }
+
+        function setupFileUploadDragDrop(inputId, infoId, fileNameId, uploadBtnId, clearBtnId) {
+            const zone = document.getElementById(infoId)?.closest('.file-upload-zone') || document.getElementById(inputId)?.closest('div');
+            const input = document.getElementById(inputId);
+            if (!zone || !input) return;
+            zone.addEventListener('dragover', (e) => { e.preventDefault(); e.stopPropagation(); zone.classList.add('dragover'); });
+            zone.addEventListener('dragleave', (e) => { e.preventDefault(); zone.classList.remove('dragover'); });
+            zone.addEventListener('drop', (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                zone.classList.remove('dragover');
+                const files = e.dataTransfer?.files;
+                if (files?.length) {
+                    input.files = files;
+                    const nameEl = document.getElementById(fileNameId);
+                    if (nameEl) nameEl.textContent = files[0].name;
+                    const infoEl = document.getElementById(infoId);
+                    if (infoEl) infoEl.style.display = 'block';
+                    const uploadBtn = document.getElementById(uploadBtnId);
+                    if (uploadBtn) uploadBtn.disabled = false;
+                    const clearBtn = document.getElementById(clearBtnId);
+                    if (clearBtn) clearBtn.style.display = 'inline-block';
+                }
+            });
         }
 
         function handleUploadFileSelect() {
@@ -1476,14 +1488,17 @@
             }
             const formData = new FormData();
             formData.append('file', fileInput.files[0]);
-            resultDiv.innerHTML = '<div style="text-align: center; padding: 20px;"><div class="spinner"></div><p style="margin-top: 10px;">Uploading file...</p></div>';
+            resultDiv.innerHTML = '<div style="text-align: center; padding: 20px;"><p>Uploading file...</p></div>';
             try {
                 const data = await apiRequest(`/api/projects/upload?user_name=${currentUser.user_name}`, {
                     method: 'POST',
                     body: formData
                 });
                 if (data.success) {
-                    renderSuccess(resultDiv, `Project "${data.filename}" uploaded successfully with ID ${data.project_id}.`);
+                    const name = (data.filename || 'Project').replace(/^.*[/\\]/, '').replace(/\.zip$/i, '') || 'Project';
+                    const id = data.project_id != null ? String(data.project_id) : '—';
+                    resultDiv.innerHTML = `<div class="message success">Project uploaded successfully.<br><br><strong>Project name:</strong> ${escapeHtml(name)}<br><strong>Project ID:</strong> ${escapeHtml(id)}</div>`;
+                    showMessage('Project uploaded successfully', 'success');
                     loadProjects();
                     clearUploadFile();
                 } else {
@@ -1881,7 +1896,7 @@
             }
             const resultDiv = document.getElementById('analyzeResultLocal');
             if (!resultDiv) return;
-            resultDiv.innerHTML = '<div class="analyze-loading"><div class="spinner"></div><p>Analyzing locally...</p></div>';
+            resultDiv.innerHTML = '<div class="analyze-loading"><p>Analyzing locally...</p></div>';
             switchAnalyzeTab('local');
             try {
                 const res = await apiCallWithTimeout(
@@ -1893,7 +1908,7 @@
                 const data = res.data;
                 if (data && data.success) {
                     resultDiv.innerHTML = formatAnalysisResults(data.analysis);
-                    renderSuccess(resultDiv, 'Local analysis complete');
+                    showMessage('Local analysis complete', 'success');
                 } else {
                     renderError(resultDiv, (data && data.error) || 'Analysis failed');
                 }
@@ -1913,7 +1928,7 @@
             }
             const resultDiv = document.getElementById('analyzeResultAi');
             if (!resultDiv) return;
-            resultDiv.innerHTML = '<div class="analyze-loading"><div class="spinner"></div><p>Running AI-powered deep analysis with Gemini...</p><p class="text-muted">This may take 15–30 seconds</p></div>';
+            resultDiv.innerHTML = '<div class="analyze-loading"><p>Running AI-powered deep analysis with Gemini...</p><p class="text-muted">This may take 15–30 seconds</p></div>';
             switchAnalyzeTab('ai');
             try {
                 const res = await apiCallWithTimeout(
@@ -1925,7 +1940,7 @@
                 const data = res.data;
                 if (data && data.success && data.analysis) {
                     resultDiv.innerHTML = formatGeminiAnalysis(data.analysis);
-                    renderSuccess(resultDiv, 'AI analysis complete');
+                    showMessage('AI analysis complete', 'success');
                 } else {
                     renderError(resultDiv, (data && data.error) || 'Gemini analysis failed');
                 }
@@ -2429,7 +2444,7 @@
             const resultDiv = document.getElementById('rankGeminiResult');
             const saveBtn = document.getElementById('rankGeminiSaveBtn');
             if (!resultDiv) return;
-            resultDiv.innerHTML = '<div class="analyze-loading"><div class="spinner"></div><p>Asking Gemini to rank your projects…</p><p class="text-muted">This may take 15–30 seconds</p></div>';
+            resultDiv.innerHTML = '<div class="analyze-loading"><p>Asking Gemini to rank your projects…</p><p class="text-muted">This may take 15–30 seconds</p></div>';
             if (saveBtn) saveBtn.disabled = true;
             try {
                 const res = await apiCall(`/api/projects/rank-gemini?user_name=${encodeURIComponent(currentUser.user_name || '')}`, { method: 'POST' });
@@ -2485,7 +2500,7 @@
             if (!resultDiv) return;
             resultDiv.innerHTML = '<div class="rank-loading text-muted">Loading rankings...</div>';
             try {
-                const res = await apiCall('/api/projects/rankings');
+                const res = await apiCall(`/api/projects/rankings?user_name=${encodeURIComponent(currentUser?.user_name || '')}`);
                 if (!res.ok) { renderError(resultDiv, res.error || "Failed to load rankings"); return; }
                 const data = res.data;
                 const list = (data && data.rankings) ? data.rankings : [];
@@ -3248,7 +3263,7 @@
             }
             const formData = new FormData();
             formData.append('file', file);
-            resultDiv.innerHTML = '<div style="text-align: center; padding: 20px;"><div class="spinner"></div><p style="margin-top: 10px;">Merging files into project...</p></div>';
+            resultDiv.innerHTML = '<div style="text-align: center; padding: 20px;"><p>Merging files into project...</p></div>';
             try {
                 const data = await apiRequest(`/api/projects/${selectedProjectId}/merge?user_name=${currentUser.user_name}`, {
                     method: 'POST',
@@ -3424,7 +3439,7 @@
         async function loadPdTimeline() {
             const container = document.getElementById('pdTimeline');
             if (!container) return;
-            container.innerHTML = '<div class="pd-loading"><div class="spinner"></div><p>Loading timeline...</p></div>';
+            container.innerHTML = '<div class="pd-loading"><p>Loading timeline...</p></div>';
             timelineEdits = {};
             try {
                 const res = await apiCall(`/api/portfolio/${currentUser.user_name}/timeline`);
@@ -3603,7 +3618,7 @@
         async function loadPdHeatmap() {
             const container = document.getElementById('pdHeatmap');
             if (!container) return;
-            container.innerHTML = '<div class="pd-loading"><div class="spinner"></div><p>Loading heatmap...</p></div>';
+            container.innerHTML = '<div class="pd-loading"><p>Loading heatmap...</p></div>';
             try {
                 const res = await apiCall(`/api/portfolio/${currentUser.user_name}/heatmap`);
                 if (!res.ok) {
@@ -3701,7 +3716,7 @@
         async function loadPdTopProjects() {
             const container = document.getElementById('pdTopProjects');
             if (!container) return;
-            container.innerHTML = '<div class="pd-loading"><div class="spinner"></div><p>Loading top projects...</p></div>';
+            container.innerHTML = '<div class="pd-loading"><p>Loading top projects...</p></div>';
             try {
                 const res = await apiCall(`/api/portfolio/${currentUser.user_name}/top-projects`);
                 if (!res.ok) {
@@ -3854,7 +3869,7 @@
         async function loadPdSkills() {
             const container = document.getElementById('pdSkills');
             if (!container) return;
-            container.innerHTML = '<div class="pd-loading"><div class="spinner"></div><p>Loading skills...</p></div>';
+            container.innerHTML = '<div class="pd-loading"><p>Loading skills...</p></div>';
             try {
                 const res = await apiCall(`/api/portfolio/${currentUser.user_name}/timeline`);
                 if (!res.ok) { container.innerHTML = '<p class="text-muted">Could not load skills.</p>'; return; }
@@ -4124,7 +4139,6 @@
         })();
 
     </script>
-    <script src="vendor/marked.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 </body>
 </html>

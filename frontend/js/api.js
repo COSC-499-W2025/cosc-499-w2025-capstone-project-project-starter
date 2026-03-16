@@ -43,12 +43,6 @@ async function apiCall(endpoint, options = {}) {
                     `Request failed (${response.status})`;
             }
 
-            const reqId =
-                data?.request_id ||
-                response.headers.get('X-Request-Id') ||
-                'unknown-id';
-
-            showErrorToast(String(msg), reqId);
             return { ok: false, error: String(msg), status: response.status, data };
         }
 
@@ -56,8 +50,6 @@ async function apiCall(endpoint, options = {}) {
     } catch (e) {
         if (e.name === 'AbortError') throw e;
         const errorMsg = e.message || "Network error";
-        showErrorToast(errorMsg, "offline");
-
         return { ok: false, error: errorMsg, status: 0, data: null };
     }
 }

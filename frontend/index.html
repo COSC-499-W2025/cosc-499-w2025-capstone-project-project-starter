@@ -295,8 +295,6 @@
                 return;
             }
 
-            // Show loading state
-            loginBtn.classList.add('loading');
             loginBtn.disabled = true;
             clearMessage();
 
@@ -316,7 +314,6 @@
                 console.error('Login error:', error);
                 showMessage('Unable to connect to the server. Please check if the API is running.', 'error');
             } finally {
-                loginBtn.classList.remove('loading');
                 loginBtn.disabled = false;
             }
         });
@@ -437,8 +434,6 @@
                 return;
             }
 
-            // Show loading state
-            registerBtn.classList.add('loading');
             registerBtn.disabled = true;
             clearRegisterMessage();
 
@@ -459,7 +454,6 @@
                 console.error('Registration error:', error);
                 showRegisterMessage('Unable to connect to the server. Please check if the API is running.', 'error');
             } finally {
-                registerBtn.classList.remove('loading');
                 registerBtn.disabled = false;
             }
         });
