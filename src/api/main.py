@@ -9,15 +9,12 @@ from api.routes import project
 from api.routes import auth
 import os
 from api.routes import consent
-from api.routes import resume_portfolio
+from api.routes import resume_portfolio, resume_builder
 from api.routes import settings
 from api.routes import public
 from api.middleware.request_context import RequestContextMiddleware
 from api.exception_handlers import global_exception_handler, http_exception_handler
 
-app = FastAPI(title="Capstone Project Team 9 API")
-app.add_exception_handler(Exception, global_exception_handler)
-app.add_exception_handler(HTTPException, http_exception_handler)
 
 def initialize_database_tables():
     """Initialize all database tables required by the application."""
@@ -41,7 +38,13 @@ def initialize_database_tables():
         init_ranking_storage_table()
         
         ResumeManager.init_resume_table()
-        
+
+        from resume.resume_builder_db import init_resume_builder_tables
+        init_resume_builder_tables()
+
+        from database.user_profile import init_user_profile_table
+        init_user_profile_table()
+
         ResumeManager.init_portfolio_customizations_table()
         print("portfolio_customizations table initialized")
         
@@ -80,6 +83,8 @@ app = FastAPI(
     version="1.0.0",
     lifespan=lifespan
 )
+app.add_exception_handler(Exception, global_exception_handler)
+app.add_exception_handler(HTTPException, http_exception_handler)
 
 # CORS middleware for frontend connectivity
 app.add_middleware(
@@ -99,6 +104,7 @@ app.include_router(project.router, prefix="/api", tags=["projects"])
 app.include_router(auth.router, prefix="/api/auth", tags=["authentication"])
 app.include_router(consent.router, prefix="/api", tags=["consent"])
 app.include_router(resume_portfolio.router, prefix="/api", tags=["resume", "portfolio"])
+app.include_router(resume_builder.router, prefix="/api/resume-builder", tags=["resume-builder"])
 app.include_router(settings.router, prefix="/api/settings", tags=["settings"])
 app.include_router(public.router, prefix="/api", tags=["public"])
 
@@ -200,53 +206,3 @@ async def api_test_page():
 async def favicon():
     """Avoid 404 when browser requests favicon. No icon file required."""
     return Response(status_code=204)
-
-@app.exception_handler(HTTPException)
-async def http_exception_handler(request: Request, exc: HTTPException):
-    error_type, message, data = _normalize_detail(exc.detail)
-    request_id = getattr(getattr(request, "state", None), "request_id", None)
-    
-    payload = {
-        "success": False,
-        "error_type": error_type,
-        "message": message,
-        "request_id": request_id,
-    }
-    if data is not None:
-        payload["data"] = data
-
-    return JSONResponse(status_code=exc.status_code, content=payload)
-
-
-@app.exception_handler(Exception)
-async def unhandled_exception_handler(request: Request, exc: Exception):
-    request_id = getattr(getattr(request, "state", None), "request_id", None)
-
-    return JSONResponse(
-        status_code=500,
-        content={
-            "success": False,
-            "error_type": "INTERNAL_ERROR",
-            "message": "Internal server error",
-            "request_id": request_id,
-        },
-    )
-
-def _normalize_detail(detail):
-    """
-    Normalize FastAPI HTTPException.detail into a unified shape.
-    Supports:
-      - str detail (legacy)
-      - dict detail with {error_type, message, data}
-      - any other types -> stringified
-    """
-    if isinstance(detail, dict):
-        error_type = detail.get("error_type", "HTTP_ERROR")
-        message = detail.get("message", "") or "Request failed"
-        data = detail.get("data")
-        return error_type, message, data
-
-    if isinstance(detail, str):
-        return "HTTP_ERROR", detail, None
-
-    return "HTTP_ERROR", str(detail), None

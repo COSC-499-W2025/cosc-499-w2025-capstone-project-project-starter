@@ -1018,6 +1018,341 @@ body > #viewContainer {
     background: var(--accent-glow);
 }
 
+/* ============== Resume Builder (team-3 style) ============== */
+
+.resume-builder-panel {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    min-height: 0;
+}
+
+.resume-builder__header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 12px;
+    margin-bottom: 16px;
+}
+
+.resume-builder__nav .nav-current {
+    font-weight: 600;
+    color: var(--text-primary);
+}
+
+.resume-builder__actions {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.resume-builder__actions .dropdown {
+    position: relative;
+}
+
+.resume-builder__actions .dropdown-menu {
+    position: absolute;
+    top: 100%;
+    right: 0;
+    margin-top: 4px;
+    min-width: 160px;
+    background: var(--bg-card);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-sm);
+    box-shadow: var(--shadow-md);
+    z-index: 50;
+}
+
+.resume-builder__actions .dropdown-item {
+    display: block;
+    width: 100%;
+    padding: 10px 14px;
+    text-align: left;
+    border: none;
+    background: none;
+    color: var(--text-primary);
+    cursor: pointer;
+    font-size: 14px;
+}
+
+.resume-builder__actions .dropdown-item:hover {
+    background: var(--bg-secondary);
+}
+
+.resume-builder__content {
+    display: grid;
+    grid-template-columns: 240px 1fr;
+    gap: 20px;
+    flex: 1;
+    min-height: 0;
+}
+
+@media (max-width: 768px) {
+    .resume-builder__content {
+        grid-template-columns: 1fr;
+    }
+}
+
+.resume-builder__sidebar.card {
+    padding: 16px;
+    height: fit-content;
+}
+
+.resume-sidebar__title {
+    font-size: 1.1rem;
+    font-weight: 600;
+    margin: 0 0 12px 0;
+    color: var(--text-primary);
+}
+
+.resume-sidebar__list {
+    list-style: none;
+    padding: 0;
+    margin: 0 0 16px 0;
+}
+
+.resume-sidebar__item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 10px 12px;
+    cursor: pointer;
+    border-radius: var(--radius-sm);
+    margin-bottom: 4px;
+    color: var(--text-primary);
+}
+
+.resume-sidebar__item:hover {
+    background: var(--bg-secondary);
+}
+
+.resume-sidebar__item--active {
+    background: var(--accent-glow);
+    color: var(--accent-primary);
+}
+
+.resume-sidebar__item-label {
+    flex: 1;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.resume-sidebar__icon-btn {
+    background: none;
+    border: none;
+    cursor: pointer;
+    padding: 2px 6px;
+    font-size: 18px;
+    line-height: 1;
+    color: var(--text-muted);
+}
+
+.resume-sidebar__icon-btn:hover {
+    color: var(--text-primary);
+}
+
+.resume-sidebar__tailor-btn {
+    width: 100%;
+    padding: 10px 14px;
+    background: var(--accent-primary);
+    color: white;
+    border: none;
+    border-radius: var(--radius-sm);
+    font-weight: 600;
+    cursor: pointer;
+    font-size: 14px;
+}
+
+.resume-sidebar__tailor-btn:hover:not(:disabled) {
+    filter: brightness(1.05);
+}
+
+.resume-sidebar__tailor-btn:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+}
+
+.resume-builder__preview.card {
+    padding: 24px;
+    overflow: auto;
+}
+
+.resume-preview-content {
+    font-family: Georgia, 'Times New Roman', serif;
+    font-size: 14px;
+    line-height: 1.5;
+    color: var(--text-primary);
+}
+
+.resume-preview__header {
+    text-align: center;
+    margin-bottom: 20px;
+    padding-bottom: 16px;
+    border-bottom: 2px solid var(--border-color);
+}
+
+.resume-preview__name {
+    font-size: 1.75rem;
+    font-weight: 700;
+    margin: 0 0 4px 0;
+    text-transform: uppercase;
+    letter-spacing: 0.02em;
+}
+
+.resume-preview__contact a {
+    color: var(--accent-primary);
+    text-decoration: none;
+}
+
+.resume-preview__links {
+    margin-top: 6px;
+}
+
+.resume-preview__links a {
+    margin-right: 12px;
+    color: var(--text-secondary);
+}
+
+.resume-preview__section {
+    margin-bottom: 18px;
+}
+
+.resume-preview__heading {
+    font-size: 1rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    margin: 0 0 8px 0;
+    padding-bottom: 4px;
+    border-bottom: 1px solid var(--border-color);
+}
+
+.resume-preview__education-entry {
+    margin-bottom: 10px;
+}
+
+.resume-preview__education-row {
+    display: flex;
+    justify-content: space-between;
+}
+
+.resume-preview__education-school {
+    font-weight: 600;
+}
+
+.resume-preview__education-dates {
+    color: var(--text-muted);
+    font-size: 13px;
+}
+
+.resume-preview__education-degree {
+    margin: 4px 0 0 0;
+    font-style: italic;
+}
+
+.resume-preview__skills-row {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
+.resume-preview__skills-label {
+    font-weight: 600;
+}
+
+.resume-preview__skills-list {
+    margin: 0;
+}
+
+.resume-preview__skill-inline {
+    margin-right: 4px;
+}
+
+.resume-preview__project {
+    margin-bottom: 20px;
+    padding-bottom: 16px;
+    border-bottom: 1px solid var(--border-color);
+}
+
+.resume-preview__project:last-child {
+    border-bottom: none;
+}
+
+.resume-preview__project-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 12px;
+    margin-bottom: 6px;
+}
+
+.resume-preview__project-title {
+    font-weight: 700;
+    margin: 0;
+    font-size: 1rem;
+}
+
+.resume-preview__project-dates {
+    color: var(--text-muted);
+    font-size: 13px;
+    white-space: nowrap;
+}
+
+.resume-preview__project-skills {
+    margin: 0 0 8px 0;
+    font-size: 13px;
+}
+
+.resume-preview__project-bullets {
+    margin: 0 0 0 20px;
+    padding: 0;
+}
+
+.resume-preview__project-bullets li {
+    margin-bottom: 4px;
+}
+
+.resume-builder__empty-state {
+    text-align: center;
+    padding: 40px 20px;
+    color: var(--text-muted);
+}
+
+.resume-builder__empty-state-title {
+    font-weight: 600;
+    margin-bottom: 8px;
+}
+
+.modal-overlay {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.5);
+    z-index: 1000;
+}
+
+.modal-overlay .modal-content {
+    background: var(--bg-card);
+    border-radius: var(--radius-md);
+    padding: 24px;
+    max-width: 480px;
+    width: 90%;
+    max-height: 90vh;
+    overflow: auto;
+}
+
+.modal-title { margin-top: 0; }
+.modal-subtitle { color: var(--text-muted); font-size: 14px; margin-bottom: 16px; }
+.modal-actions { display: flex; gap: 10px; justify-content: flex-end; }
+.btn--primary { background: var(--accent-primary); color: white; border: none; padding: 8px 16px; border-radius: var(--radius-sm); cursor: pointer; }
+.btn--secondary { background: var(--bg-secondary); color: var(--text-primary); border: 1px solid var(--border-color); padding: 8px 16px; border-radius: var(--radius-sm); cursor: pointer; }
+
+/* Welcome / profile modal */
+
 .resume-gen-project-item input[type="checkbox"] {
     width: 18px;
     height: 18px;
@@ -1517,6 +1852,84 @@ body > #viewContainer {
     gap: 10px;
     flex-wrap: wrap;
     border-top: 1px solid var(--border);
+}
+
+/* Compact modals (consent + profile) – less zoomed, tighter layout */
+.modal--compact {
+    padding: 16px;
+}
+
+.modal-content--compact {
+    max-width: 400px;
+    padding: 18px 20px;
+    font-size: 13px;
+}
+
+.modal-content--compact .modal-header h3 {
+    font-size: 1rem;
+    font-weight: 600;
+    margin: 0 0 10px 0;
+}
+
+.modal-content--compact .modal-body {
+    margin: 0;
+}
+
+.modal-text {
+    margin: 0 0 10px 0;
+    line-height: 1.45;
+    color: var(--text-secondary);
+}
+
+.modal-content--compact .modal-actions {
+    margin-top: 16px;
+    padding-top: 14px;
+}
+
+.modal-content--compact .modal-actions .btn {
+    padding: 8px 14px;
+    font-size: 13px;
+}
+
+.modal-content--profile {
+    max-width: 420px;
+}
+
+.profile-form-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px 14px;
+}
+
+.profile-form-grid .form-group {
+    margin: 0;
+}
+
+.profile-form-grid .form-group--full {
+    grid-column: 1 / -1;
+}
+
+.profile-form-grid label {
+    font-size: 12px;
+    font-weight: 500;
+    color: var(--text-secondary);
+    margin-bottom: 4px;
+    display: block;
+}
+
+.profile-form-grid .form-input {
+    width: 100%;
+    padding: 6px 10px;
+    font-size: 13px;
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-sm);
+    background: var(--bg-primary);
+}
+
+.modal-content--compact .modal-subtitle {
+    font-size: 12px;
+    margin-bottom: 12px;
+    color: var(--text-muted);
 }
 
 /* ============== External Services ============== */

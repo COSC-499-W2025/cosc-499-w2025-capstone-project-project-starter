@@ -40,6 +40,7 @@
                         Resume Tools <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor"><path d="M3 4.5l3 3 3-3"/></svg>
                     </button>
                     <div class="header-nav-submenu" id="resumeSubmenu">
+                        <button type="button" class="header-nav-submenu-btn" data-view="resume-builder" onclick="showView('resume-builder')">Resume Builder</button>
                         <button type="button" class="header-nav-submenu-btn" data-view="resume-gen" onclick="showView('resume-gen')">Generate Resume</button>
                         <button type="button" class="header-nav-submenu-btn" data-view="resume-view" onclick="showView('resume-view')">View Resume</button>
                         <button type="button" class="header-nav-submenu-btn" data-view="resume-delete" onclick="showView('resume-delete')">Delete Resume</button>
@@ -101,24 +102,69 @@
             </form>
         </div>
     </div>
-    <div id="llmConsentModal" class="modal" aria-modal="true" role="dialog">
-        <div class="modal-content">
+    <div id="llmConsentModal" class="modal modal--compact" aria-modal="true" role="dialog">
+        <div class="modal-content modal-content--compact">
             <div class="modal-header">
-                <h3>AI Features & LLM Usage</h3>
+                <h3>AI Features &amp; LLM Usage</h3>
             </div>
             <div class="modal-body">
-                <p>
+                <p class="modal-text">
                     This dashboard can use external AI models to analyze your projects (e.g. deep code reviews and AI rankings).
                     When enabled, relevant project data may be sent to an external LLM provider.
                 </p>
-                <p>
+                <p class="modal-text">
                     If you prefer to keep analysis fully local, you can disable AI features. Local analysis will continue
                     to work and no project data will be sent to external services.
                 </p>
             </div>
             <div class="modal-actions">
-                <button type="button" class="btn" onclick="setLlmConsent(true)">Enable AI features</button>
-                <button type="button" class="btn btn-secondary" onclick="setLlmConsent(false)">Disable AI features</button>
+                <button type="button" class="btn" onclick="setLlmConsentThenMaybeProfile(true)">Enable AI &amp; continue</button>
+                <button type="button" class="btn btn-secondary" onclick="setLlmConsentThenMaybeProfile(false)">Disable AI &amp; continue</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="profileBuilderModal" class="modal modal--compact" aria-modal="true" role="dialog" style="display: none;" onclick="if (event.target === this) closeProfileBuilderModal()">
+        <div class="modal-content modal-content--compact modal-content--profile" onclick="event.stopPropagation()">
+            <div class="modal-header">
+                <h3>Build your profile</h3>
+            </div>
+            <div class="modal-body">
+                <p class="modal-text modal-subtitle">This information will appear on your resume. You can change it later in settings.</p>
+                <div class="profile-form-grid">
+                    <div class="form-group">
+                        <label for="profileDisplayName">Full name</label>
+                        <input type="text" id="profileDisplayName" class="form-input" placeholder="e.g. Jane Doe" />
+                    </div>
+                    <div class="form-group">
+                        <label for="profileEmail">Email</label>
+                        <input type="email" id="profileEmail" class="form-input" placeholder="e.g. jane@example.com" />
+                    </div>
+                    <div class="form-group">
+                        <label for="profilePhone">Phone (optional)</label>
+                        <input type="tel" id="profilePhone" class="form-input" placeholder="e.g. (555) 123-4567" />
+                    </div>
+                    <div class="form-group">
+                        <label for="profileSchool">School / University (optional)</label>
+                        <input type="text" id="profileSchool" class="form-input" placeholder="e.g. University of Central Florida" />
+                    </div>
+                    <div class="form-group">
+                        <label for="profileLinkedIn">LinkedIn (optional)</label>
+                        <input type="url" id="profileLinkedIn" class="form-input" placeholder="e.g. linkedin.com/in/username" />
+                    </div>
+                    <div class="form-group">
+                        <label for="profileGitHub">GitHub (optional)</label>
+                        <input type="text" id="profileGitHub" class="form-input" placeholder="e.g. username or https://github.com/username" />
+                    </div>
+                    <div class="form-group form-group--full">
+                        <label for="profileWebsite">Website / Portfolio (optional)</label>
+                        <input type="url" id="profileWebsite" class="form-input" placeholder="e.g. https://yourportfolio.com" />
+                    </div>
+                </div>
+            </div>
+            <div class="modal-actions">
+                <button type="button" class="btn btn-secondary" onclick="skipProfileBuilder()">Skip for now</button>
+                <button type="button" class="btn" onclick="saveProfileBuilder()">Save profile</button>
             </div>
         </div>
     </div>
@@ -1210,6 +1256,47 @@
                 </div>`,
                 'resume-view': `<div class="view-panel resume-view-panel"><div class="resume-header"><h3>Resume</h3><div class="resume-actions"><button type="button" class="btn" id="resumeSaveBtn" onclick="saveResume()" disabled>Save</button><button type="button" class="btn btn-secondary" id="resumeRegenerateBtn" onclick="regenerateResume()" disabled>Regenerate from Projects</button><select id="resumeExportFormat" class="resume-export-select" aria-label="Export format"><option value="pdf">.pdf</option><option value="md" selected>.md</option><option value="txt">.txt</option><option value="json">.json</option></select><button type="button" class="btn" id="resumeExportBtn" onclick="exportResume()" disabled>Export</button></div></div><textarea id="resumeTextBox" class="resume-textbox" rows="18" disabled aria-live="polite">Loading resume...</textarea><div id="resumePdfRender" class="resume-pdf-render" aria-hidden="true"></div></div>`,
                 'resume-delete': `<div class="view-panel"><h3>Delete Resume</h3><button class="btn" onclick="deleteResume()">Delete</button><div id="resumeDeleteResult" class="result"></div></div>`,
+                'resume-builder': `<div class="view-panel resume-builder-panel">
+                    <div class="resume-builder__header">
+                        <div class="resume-builder__nav"><span class="nav-current">Résumé Builder</span></div>
+                        <div class="resume-builder__actions">
+                            <button type="button" class="btn btn--secondary" id="resumeBuilderEditBtn" onclick="resumeBuilderEdit()" style="display:none;">Edit resume</button>
+                            <button type="button" class="btn btn--secondary" id="resumeBuilderSaveBtn" onclick="resumeBuilderSave()" disabled style="display:none;">Save</button>
+                            <button type="button" class="btn btn--primary" id="resumeBuilderDownloadBtn" onclick="resumeBuilderDownloadPdf()">Download PDF</button>
+                        </div>
+                    </div>
+                    <div class="resume-builder__content">
+                        <aside class="resume-builder__sidebar card">
+                            <h2 class="resume-sidebar__title">Your Résumés</h2>
+                            <ul id="resumeBuilderSidebarList" class="resume-sidebar__list"></ul>
+                            <button type="button" class="resume-sidebar__tailor-btn" id="resumeBuilderTailorBtn" onclick="resumeBuilderTailorNew()">Tailor New Resume</button>
+                        </aside>
+                        <div class="resume-builder__main">
+                            <div id="resumeBuilderPreview" class="resume-builder__preview card">
+                                <div id="resumeBuilderEmpty" class="resume-builder__empty-state" style="display:none;">
+                                    <p class="resume-builder__empty-state-title">No projects to include on resume</p>
+                                    <p class="resume-builder__empty-state-message">Upload a project to get started, then tailor a new resume from the sidebar.</p>
+                                </div>
+                                <div id="resumeBuilderContent" class="resume-preview-content"></div>
+                            </div>
+                        </div>
+                    </div>
+                    <div id="resumeBuilderTailorModal" class="modal-overlay" style="display:none;" onclick="closeResumeBuilderTailorModal()">
+                        <div class="modal-content" onclick="event.stopPropagation()">
+                            <h2 class="modal-title">Select Projects for Resume</h2>
+                            <p class="modal-subtitle">Choose which projects should contribute to your resume.</p>
+                            <div id="resumeBuilderTailorProjectsList" class="resume-gen-projects-list" style="max-height:300px;overflow:auto;"></div>
+                            <div class="form-group" style="margin-top:12px;">
+                                <label for="resumeBuilderTailorName">Resume name</label>
+                                <input type="text" id="resumeBuilderTailorName" class="form-input" placeholder="e.g. Software Engineer Resume" />
+                            </div>
+                            <div class="modal-actions" style="margin-top:16px;">
+                                <button type="button" class="btn btn-secondary" onclick="closeResumeBuilderTailorModal()">Cancel</button>
+                                <button type="button" class="btn" id="resumeBuilderTailorSubmitBtn" onclick="resumeBuilderTailorSubmit()">Create Resume</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>`,
                 'portfolio-dashboard': `<div class="portfolio-dashboard-wrapper">
                     <div class="pd-header">
                         <div class="pd-header-left">
@@ -1383,6 +1470,9 @@
             }
             if (viewName === 'resume-view'){
                 setTimeout(() => viewResume(), 100);
+            }
+            if (viewName === 'resume-builder') {
+                setTimeout(() => loadResumeBuilder(), 100);
             }
             if (viewName === 'upload') {
                 setTimeout(() => {
@@ -1945,12 +2035,93 @@
                 }
                 llmEnabled = res.data.llm_enabled;
                 applyLlmConsentToUi();
-                if (llmEnabled === null || llmEnabled === undefined) {
-                    const modal = document.getElementById('llmConsentModal');
-                    if (modal) modal.classList.add('show');
+
+                const profileRes = await apiCall(`/api/settings/profile?username=${encodeURIComponent(currentUser.user_name)}`);
+                const hasProfile = profileRes.ok && profileRes.data?.has_profile === true;
+                const needLlm = llmEnabled === null || llmEnabled === undefined;
+
+                if (needLlm) {
+                    document.getElementById('llmConsentModal').classList.add('show');
+                } else if (!hasProfile) {
+                    openProfileBuilderModal();
                 }
             } catch (e) {
                 console.warn('Error initializing LLM consent:', e);
+            }
+        }
+
+        async function setLlmConsentThenMaybeProfile(llmEnabled) {
+            try {
+                await setLlmConsent(!!llmEnabled);
+                const profileRes = await apiCall(`/api/settings/profile?username=${encodeURIComponent(currentUser.user_name)}`);
+                const hasProfile = profileRes.ok && profileRes.data?.has_profile === true;
+                if (!hasProfile) {
+                    openProfileBuilderModal();
+                }
+            } catch (e) {
+                showMessage(e.message || 'Failed', 'error');
+            }
+        }
+
+        async function openProfileBuilderModal() {
+            const modal = document.getElementById('profileBuilderModal');
+            if (!modal) return;
+            try {
+                const profileRes = await apiCall(`/api/settings/profile?username=${encodeURIComponent(currentUser.user_name)}`);
+                const p = (profileRes.ok && profileRes.data?.profile) ? profileRes.data.profile : {};
+                document.getElementById('profileDisplayName').value = p.display_name || '';
+                document.getElementById('profileEmail').value = p.email || '';
+                document.getElementById('profilePhone').value = p.phone || '';
+                document.getElementById('profileSchool').value = (p.education && p.education[0]) ? (p.education[0].school || '') : '';
+                document.getElementById('profileLinkedIn').value = p.linkedin || '';
+                document.getElementById('profileGitHub').value = p.github || '';
+                document.getElementById('profileWebsite').value = p.website || '';
+            } catch (_) {}
+            modal.style.display = 'flex';
+            modal.classList.add('show');
+        }
+
+        function closeProfileBuilderModal() {
+            const modal = document.getElementById('profileBuilderModal');
+            if (modal) { modal.style.display = 'none'; modal.classList.remove('show'); }
+        }
+
+        function skipProfileBuilder() {
+            closeProfileBuilderModal();
+        }
+
+        async function saveProfileBuilder() {
+            const displayName = (document.getElementById('profileDisplayName')?.value || '').trim();
+            const email = (document.getElementById('profileEmail')?.value || '').trim();
+            const phone = (document.getElementById('profilePhone')?.value || '').trim();
+            const school = (document.getElementById('profileSchool')?.value || '').trim();
+            const linkedin = (document.getElementById('profileLinkedIn')?.value || '').trim();
+            const github = (document.getElementById('profileGitHub')?.value || '').trim();
+            const website = (document.getElementById('profileWebsite')?.value || '').trim();
+            const username = (currentUser && currentUser.user_name) ? encodeURIComponent(currentUser.user_name) : '';
+            if (!username) return;
+            const education = school ? [{ school: school, degree: '', dates: '', gpa: '' }] : [];
+            try {
+                const profileRes = await apiCall(`/api/settings/profile?username=${username}`, {
+                    method: 'POST',
+                    body: JSON.stringify({
+                        display_name: displayName || undefined,
+                        email: email || undefined,
+                        phone: phone || undefined,
+                        education: education.length ? education : undefined,
+                        linkedin: linkedin || undefined,
+                        github: github || undefined,
+                        website: website || undefined
+                    })
+                });
+                if (profileRes.ok) {
+                    closeProfileBuilderModal();
+                    showMessage('Profile saved. It will be used for your resume.', 'success');
+                } else {
+                    showMessage(profileRes.error || 'Failed to save profile', 'error');
+                }
+            } catch (e) {
+                showMessage(e.message || 'Failed to save profile', 'error');
             }
         }
 
@@ -3139,6 +3310,198 @@
                 }
             } catch (e) {
                 resultDiv.innerHTML = `Error: ${e.message}`;
+            }
+        }
+
+        const RESUME_BUILDER_BASE = '/api/resume-builder';
+        let resumeBuilderList = [];
+        let resumeBuilderActiveId = 0;
+        let resumeBuilderContent = null;
+
+        async function loadResumeBuilder() {
+            if (!currentUser?.user_name) return;
+            const listEl = document.getElementById('resumeBuilderSidebarList');
+            const emptyEl = document.getElementById('resumeBuilderEmpty');
+            const contentEl = document.getElementById('resumeBuilderContent');
+            const tailorBtn = document.getElementById('resumeBuilderTailorBtn');
+            try {
+                const res = await apiCall(`${RESUME_BUILDER_BASE}/resume_names?user_name=${encodeURIComponent(currentUser.user_name)}`);
+                if (!res.ok) { if (listEl) listEl.innerHTML = '<li class="text-muted">Failed to load</li>'; return; }
+                resumeBuilderList = res.data.resumes || [];
+                if (listEl) {
+                    listEl.innerHTML = resumeBuilderList.map((r, i) => {
+                        const isActive = (r.id === 0 && resumeBuilderActiveId === 0) || (r.id === resumeBuilderActiveId);
+                        const delBtn = r.is_master || r.id === 0 ? '' : `<button type="button" class="resume-sidebar__icon-btn" aria-label="Delete resume" onclick="event.stopPropagation(); resumeBuilderDelete(${r.id})">×</button>`;
+                        return `<li class="resume-sidebar__item ${isActive ? 'resume-sidebar__item--active' : ''}" data-id="${r.id}" data-index="${i}">
+                            <span class="resume-sidebar__item-label">${escapeHtml(r.name || 'Resume ' + (i+1))}</span>${delBtn}
+                        </li>`;
+                    }).join('');
+                    listEl.querySelectorAll('li').forEach(li => {
+                        li.addEventListener('click', () => { resumeBuilderSelectResume(Number(li.dataset.id)); });
+                    });
+                }
+                const hasProjects = await fetchProjectCount() > 0;
+                if (tailorBtn) tailorBtn.disabled = !hasProjects;
+                if (resumeBuilderList.length > 0) {
+                    resumeBuilderActiveId = resumeBuilderList[0].id;
+                    await loadResumeBuilderContent(resumeBuilderActiveId);
+                }
+                if (contentEl && resumeBuilderContent) { renderResumeBuilderPreview(contentEl, resumeBuilderContent); emptyEl.style.display = 'none'; contentEl.style.display = 'block'; }
+                else if (resumeBuilderList.length === 0 || !resumeBuilderContent?.projects?.length) { emptyEl.style.display = 'block'; contentEl.style.display = 'none'; }
+                const isMaster = (resumeBuilderActiveId === 0 || resumeBuilderActiveId === undefined);
+                const saveBtn = document.getElementById('resumeBuilderSaveBtn');
+                const editBtn = document.getElementById('resumeBuilderEditBtn');
+                if (saveBtn) saveBtn.style.display = isMaster ? 'none' : 'inline-block';
+                if (editBtn) editBtn.style.display = isMaster ? 'none' : 'inline-block';
+            } catch (e) {
+                if (listEl) listEl.innerHTML = '<li class="text-muted">Error loading</li>';
+            }
+        }
+
+        async function fetchProjectCount() {
+            try {
+                const res = await apiCall(`/api/projects?user_name=${encodeURIComponent(currentUser.user_name)}`);
+                return (res.ok && res.data?.projects) ? res.data.projects.length : 0;
+            } catch (_) { return 0; }
+        }
+
+        async function resumeBuilderSelectResume(id) {
+            resumeBuilderActiveId = id;
+            document.querySelectorAll('#resumeBuilderSidebarList .resume-sidebar__item').forEach(li => {
+                li.classList.toggle('resume-sidebar__item--active', Number(li.dataset.id) === id);
+            });
+            await loadResumeBuilderContent(id);
+            const contentEl = document.getElementById('resumeBuilderContent');
+            const emptyEl = document.getElementById('resumeBuilderEmpty');
+            if (contentEl && resumeBuilderContent) { renderResumeBuilderPreview(contentEl, resumeBuilderContent); emptyEl.style.display = 'none'; contentEl.style.display = 'block'; }
+            else { emptyEl.style.display = 'block'; contentEl.style.display = 'none'; }
+            const isMaster = (id === 0 || id === undefined);
+            const saveBtn = document.getElementById('resumeBuilderSaveBtn');
+            const editBtn = document.getElementById('resumeBuilderEditBtn');
+            if (saveBtn) saveBtn.style.display = isMaster ? 'none' : 'inline-block';
+            if (editBtn) editBtn.style.display = isMaster ? 'none' : 'inline-block';
+        }
+
+        async function loadResumeBuilderContent(id) {
+            if (!currentUser?.user_name) return;
+            const url = id === 0 || id === undefined
+                ? `${RESUME_BUILDER_BASE}/resume?user_name=${encodeURIComponent(currentUser.user_name)}`
+                : `${RESUME_BUILDER_BASE}/resume/${id}?user_name=${encodeURIComponent(currentUser.user_name)}`;
+            const res = await apiCall(url);
+            if (res.ok && res.data) resumeBuilderContent = res.data;
+            else resumeBuilderContent = null;
+        }
+
+        function renderResumeBuilderPreview(container, data) {
+            if (!container || !data) return;
+            const projectsHtml = (data.projects || []).map(p => `
+                <div class="resume-preview__project">
+                    <div class="resume-preview__project-header">
+                        <p class="resume-preview__project-title">${escapeHtml(p.title || '')}</p>
+                        <span class="resume-preview__project-dates">${escapeHtml(p.dates || '')}</span>
+                    </div>
+                    <p class="resume-preview__project-skills">Skills: ${(p.skills || []).map(s => `<span class="resume-preview__skill-inline">${escapeHtml(s)}</span>`).join(', ')}</p>
+                    <ul class="resume-preview__project-bullets">${(p.bullets || []).map(b => `<li>${escapeHtml(b)}</li>`).join('')}</ul>
+                </div>`).join('');
+            container.innerHTML = `
+                <header class="resume-preview__header">
+                    <h1 class="resume-preview__name">${escapeHtml(data.name || '')}</h1>
+                    <p class="resume-preview__contact"><a href="mailto:${escapeHtml(data.email || '')}">${escapeHtml(data.email || '')}</a></p>
+                    ${(data.links || []).length ? `<p class="resume-preview__links">${data.links.map(l => `<a href="${escapeHtml(l.url)}" target="_blank" rel="noopener">${escapeHtml(l.label)}</a>`).join(' ')}</p>` : ''}
+                </header>
+                ${(data.education || []).length ? `<section class="resume-preview__section"><h2 class="resume-preview__heading">Education</h2>${data.education.map(e => `<div class="resume-preview__education-entry"><div class="resume-preview__education-row"><span class="resume-preview__education-school">${escapeHtml(e.school)}</span><span class="resume-preview__education-dates">${escapeHtml(e.dates || '')}</span></div><p class="resume-preview__education-degree">${escapeHtml(e.degree)}</p></div>`).join('')}</section>` : ''}
+                <section class="resume-preview__section"><h2 class="resume-preview__heading">Skills</h2><div class="resume-preview__skills-row"><span class="resume-preview__skills-label">Skills:</span><p class="resume-preview__skills-list">${(data.skills?.Skills || []).map(s => escapeHtml(s)).join(', ')}</p></div></section>
+                <section class="resume-preview__section"><h2 class="resume-preview__heading">Projects / Experience</h2>${projectsHtml}</section>`;
+        }
+
+        async function resumeBuilderDownloadPdf() {
+            if (!currentUser?.user_name) return;
+            const id = resumeBuilderActiveId;
+            const params = new URLSearchParams({ user_name: currentUser.user_name });
+            if (id !== 0 && id !== undefined) params.append('resume_id', String(id));
+            const url = `${RESUME_BUILDER_BASE}/resume/export/pdf?${params}`;
+            try {
+                const response = await fetch(`${window.location.origin}${url}`, { credentials: 'include' });
+                if (!response.ok) throw new Error(response.statusText || 'Download failed');
+                const blob = await response.blob();
+                const blobUrl = window.URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = blobUrl;
+                a.download = 'resume.pdf';
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                window.URL.revokeObjectURL(blobUrl);
+            } catch (e) {
+                showMessage(e.message || 'PDF download failed. The server may not have pdflatex installed.', 'error');
+            }
+        }
+
+        function resumeBuilderEdit() {
+            showMessage('Edit mode: use the Resume Builder preview to change content, then click Save. (Inline edit UI can be added later.)', 'info');
+        }
+
+        function resumeBuilderSave() {
+            if (resumeBuilderActiveId === 0 || resumeBuilderActiveId === undefined) return;
+            showMessage('Edit mode and save from preview not yet implemented in this view. Use Download to export.', 'info');
+        }
+
+        function resumeBuilderTailorNew() {
+            const modal = document.getElementById('resumeBuilderTailorModal');
+            const listEl = document.getElementById('resumeBuilderTailorProjectsList');
+            if (!modal || !listEl) return;
+            listEl.innerHTML = 'Loading...';
+            modal.style.display = 'flex';
+            apiCall(`/api/projects?user_name=${encodeURIComponent(currentUser.user_name)}`).then(res => {
+                if (!res.ok || !res.data?.projects) { listEl.innerHTML = 'No projects'; return; }
+                const projects = res.data.projects;
+                listEl.innerHTML = projects.map(p => `<label class="resume-gen-project-item"><input type="checkbox" data-id="${p.id}" /> <span class="resume-gen-project-info"><strong>${escapeHtml(p.filename || 'Project ' + p.id)}</strong><br><small>ID: ${p.id}</small></span></label>`).join('');
+            });
+        }
+
+        function closeResumeBuilderTailorModal() {
+            const modal = document.getElementById('resumeBuilderTailorModal');
+            if (modal) modal.style.display = 'none';
+        }
+
+        async function resumeBuilderTailorSubmit() {
+            const nameInput = document.getElementById('resumeBuilderTailorName');
+            const name = (nameInput?.value || '').trim();
+            if (!name) { showMessage('Enter a resume name', 'error'); return; }
+            const checked = document.querySelectorAll('#resumeBuilderTailorProjectsList input[type=checkbox]:checked');
+            const projectIds = Array.from(checked).map(c => parseInt(c.dataset.id, 10)).filter(Boolean);
+            if (projectIds.length === 0) { showMessage('Select at least one project', 'error'); return; }
+            const btn = document.getElementById('resumeBuilderTailorSubmitBtn');
+            if (btn) btn.disabled = true;
+            try {
+                const res = await apiCall(`${RESUME_BUILDER_BASE}/resume?user_name=${encodeURIComponent(currentUser.user_name)}`, {
+                    method: 'POST',
+                    body: JSON.stringify({ name, project_ids: projectIds })
+                });
+                if (!res.ok) { showMessage(res.error || 'Failed to create resume', 'error'); return; }
+                closeResumeBuilderTailorModal();
+                nameInput.value = '';
+                await loadResumeBuilder();
+                const id = res.data.resume_id;
+                resumeBuilderActiveId = id;
+                const idx = resumeBuilderList.findIndex(r => r.id === id);
+                if (idx >= 0) document.querySelectorAll('#resumeBuilderSidebarList li')[idx]?.click();
+            } catch (e) {
+                showMessage(e.message || 'Failed', 'error');
+            } finally {
+                if (btn) btn.disabled = false;
+            }
+        }
+
+        async function resumeBuilderDelete(id) {
+            if (id === 0 || id === undefined) return;
+            if (!confirm('Delete this resume?')) return;
+            try {
+                const res = await apiCall(`${RESUME_BUILDER_BASE}/resume/${id}?user_name=${encodeURIComponent(currentUser.user_name)}`, { method: 'DELETE' });
+                if (res.ok) await loadResumeBuilder();
+                else showMessage(res.error || 'Failed to delete', 'error');
+            } catch (e) {
+                showMessage(e.message || 'Failed', 'error');
             }
         }
 
