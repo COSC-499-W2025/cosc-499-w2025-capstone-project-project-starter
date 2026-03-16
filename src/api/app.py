@@ -45,13 +45,17 @@ from src.db.user_config import (
 from src.db.dashboard_mode import (
     DASHBOARD_MODE_PRIVATE,
     DASHBOARD_MODE_PUBLIC,
+    DEFAULT_PUBLIC_VISIBILITY,
+    apply_public_visibility,
     apply_public_filters,
     create_dashboard_publication,
     ensure_portfolio_dashboard,
     get_public_dashboard_by_slug,
+    normalize_public_visibility_config,
     parse_public_filters,
     public_filter_spec,
-    regenerate_portfolio_public_slug,
+    regenerate_portfolio_slug,
+    set_portfolio_dashboard_visibility,
     set_portfolio_dashboard_mode,
 )
 
@@ -195,6 +199,10 @@ class PortfolioEditRequest(BaseModel):
 class DashboardModeIn(BaseModel):
     mode: str
 
+
+class DashboardVisibilityIn(BaseModel):
+    visibility_config: Dict[str, bool]
+
 class AuthRegisterIn(BaseModel):
     email: str = Field(min_length=3, max_length=320)
     password: str = Field(min_length=8, max_length=256)
@@ -296,14 +304,9 @@ def _assert_portfolio_owned_by(conn, *, portfolio_id: str, user_id: str) -> None
 
 
 def _assert_dashboard_private_for_portfolio(conn, portfolio_id: Optional[str]) -> None:
-    if not portfolio_id:
-        return
-    dashboard = ensure_portfolio_dashboard(conn, str(portfolio_id))
-    if dashboard.get("mode") == DASHBOARD_MODE_PUBLIC:
-        raise HTTPException(
-            status_code=409,
-            detail="Dashboard is in public mode. Switch to private mode before editing dashboard customizations.",
-        )
+    # Link-based sharing replaced the global public lock. Keep this helper as a no-op
+    # so existing call sites continue to work while preserving draft edit behavior.
+    return
 
 
 def _portfolio_id_for_project(conn, project_id: str) -> Optional[str]:
@@ -1831,6 +1834,111 @@ def get_dashboard_mode(
     return {**dashboard, "filter_spec": public_filter_spec()}
 
 
+def _publish_dashboard_snapshot(conn, *, engine, portfolio_id: str, actor_user_id: str) -> Dict[str, Any]:
+    dashboard_snapshot = _build_dashboard_snapshot(engine, portfolio_id)
+    spec = public_filter_spec()
+
+    owner_user_id = conn.execute(
+        text("SELECT user_id FROM portfolios WHERE id = :pid"),
+        {"pid": portfolio_id},
+    ).scalar()
+    if not owner_user_id:
+        raise HTTPException(status_code=404, detail="Portfolio not found")
+
+    user_cfg = get_user_config(conn, str(owner_user_id))
+    publication = create_dashboard_publication(
+        conn,
+        portfolio_id=portfolio_id,
+        created_by_user_id=actor_user_id,
+        frozen_config_json={"user_config": user_cfg},
+        frozen_dashboard_json=dashboard_snapshot,
+        filter_spec_json=spec,
+    )
+    return {"publication": publication, "filter_spec": spec}
+
+
+@app.patch("/portfolio/{portfolio_id}/dashboard/visibility")
+@app.post("/portfolio/{portfolio_id}/dashboard/visibility")
+def set_dashboard_visibility(
+    portfolio_id: str,
+    payload: DashboardVisibilityIn,
+    credentials: Optional[HTTPAuthorizationCredentials] = Depends(auth_bearer),
+):
+    auth = _resolve_auth_context(credentials, required=True)
+    assert auth is not None
+
+    engine = get_engine()
+    with engine.begin() as conn:
+        _assert_portfolio_owned_by(conn, portfolio_id=portfolio_id, user_id=auth["user_id"])
+        dashboard = set_portfolio_dashboard_visibility(
+            conn,
+            portfolio_id=portfolio_id,
+            visibility_config=payload.visibility_config,
+        )
+
+    return {**dashboard, "filter_spec": public_filter_spec()}
+
+
+@app.post("/portfolio/{portfolio_id}/dashboard/links/generate")
+def generate_dashboard_link(
+    portfolio_id: str,
+    credentials: Optional[HTTPAuthorizationCredentials] = Depends(auth_bearer),
+):
+    auth = _resolve_auth_context(credentials, required=True)
+    assert auth is not None
+
+    engine = get_engine()
+
+    with engine.begin() as conn:
+        _assert_portfolio_owned_by(conn, portfolio_id=portfolio_id, user_id=auth["user_id"])
+        published = _publish_dashboard_snapshot(
+            conn,
+            engine=engine,
+            portfolio_id=portfolio_id,
+            actor_user_id=auth["user_id"],
+        )
+        publication = published["publication"]
+        spec = published["filter_spec"]
+        dashboard = set_portfolio_dashboard_mode(
+            conn,
+            portfolio_id=portfolio_id,
+            mode=DASHBOARD_MODE_PUBLIC,
+            active_publication_id=publication["publication_id"],
+        )
+
+    return {
+        "portfolio_id": portfolio_id,
+        "mode": dashboard.get("mode"),
+        "generated_slug": dashboard.get("public_slug"),
+        "public_slug": dashboard.get("public_slug"),
+        "visibility_config": dashboard.get("visibility_config") or DEFAULT_PUBLIC_VISIBILITY,
+        "publication": publication,
+        "filter_spec": spec,
+    }
+
+
+@app.post("/portfolio/{portfolio_id}/dashboard/links/regenerate")
+def regenerate_dashboard_link(
+    portfolio_id: str,
+    credentials: Optional[HTTPAuthorizationCredentials] = Depends(auth_bearer),
+):
+    auth = _resolve_auth_context(credentials, required=True)
+    assert auth is not None
+
+    engine = get_engine()
+    with engine.begin() as conn:
+        _assert_portfolio_owned_by(conn, portfolio_id=portfolio_id, user_id=auth["user_id"])
+        dashboard = regenerate_portfolio_slug(conn, portfolio_id)
+
+    return {
+        "portfolio_id": portfolio_id,
+        "mode": dashboard.get("mode"),
+        "generated_slug": dashboard.get("public_slug"),
+        "public_slug": dashboard.get("public_slug"),
+        "visibility_config": dashboard.get("visibility_config") or DEFAULT_PUBLIC_VISIBILITY,
+    }
+
+
 @app.post("/portfolio/{portfolio_id}/dashboard/mode")
 def set_dashboard_mode(
     portfolio_id: str,
@@ -1867,48 +1975,7 @@ def publish_dashboard(
     portfolio_id: str,
     credentials: Optional[HTTPAuthorizationCredentials] = Depends(auth_bearer),
 ):
-    auth = _resolve_auth_context(credentials, required=True)
-    assert auth is not None
-
-    engine = get_engine()
-    with engine.connect() as conn:
-        _assert_portfolio_owned_by(conn, portfolio_id=portfolio_id, user_id=auth["user_id"])
-
-    dashboard_snapshot = _build_dashboard_snapshot(engine, portfolio_id)
-    spec = public_filter_spec()
-
-    with engine.begin() as conn:
-        _assert_portfolio_owned_by(conn, portfolio_id=portfolio_id, user_id=auth["user_id"])
-        owner_user_id = conn.execute(
-            text("SELECT user_id FROM portfolios WHERE id = :pid"),
-            {"pid": portfolio_id},
-        ).scalar()
-        if not owner_user_id:
-            raise HTTPException(status_code=404, detail="Portfolio not found")
-
-        user_cfg = get_user_config(conn, str(owner_user_id))
-        publication = create_dashboard_publication(
-            conn,
-            portfolio_id=portfolio_id,
-            created_by_user_id=auth["user_id"],
-            frozen_config_json={"user_config": user_cfg},
-            frozen_dashboard_json=dashboard_snapshot,
-            filter_spec_json=spec,
-        )
-        dashboard = set_portfolio_dashboard_mode(
-            conn,
-            portfolio_id=portfolio_id,
-            mode=DASHBOARD_MODE_PUBLIC,
-            active_publication_id=publication["publication_id"],
-        )
-
-    return {
-        "portfolio_id": portfolio_id,
-        "mode": dashboard.get("mode"),
-        "public_slug": dashboard.get("public_slug"),
-        "publication": publication,
-        "filter_spec": spec,
-    }
+    return generate_dashboard_link(portfolio_id=portfolio_id, credentials=credentials)
 
 
 @app.post("/portfolio/{portfolio_id}/dashboard/unpublish")
@@ -1936,14 +2003,7 @@ def regenerate_dashboard_public_link(
     portfolio_id: str,
     credentials: Optional[HTTPAuthorizationCredentials] = Depends(auth_bearer),
 ):
-    auth = _resolve_auth_context(credentials, required=True)
-    assert auth is not None
-
-    engine = get_engine()
-    with engine.begin() as conn:
-        _assert_portfolio_owned_by(conn, portfolio_id=portfolio_id, user_id=auth["user_id"])
-        out = regenerate_portfolio_public_slug(conn, portfolio_id)
-    return out
+    return regenerate_dashboard_link(portfolio_id=portfolio_id, credentials=credentials)
 
 
 @app.get("/public/portfolio/{public_slug}")
@@ -1962,7 +2022,9 @@ def get_public_dashboard(public_slug: str, request: Request):
     if row.get("mode") != DASHBOARD_MODE_PUBLIC or not row.get("active_publication_id"):
         raise HTTPException(status_code=404, detail="Public portfolio not found")
 
-    filtered_dashboard = apply_public_filters(row.get("frozen_dashboard_json") or {}, filters)
+    visibility_config = normalize_public_visibility_config(row.get("visibility_config"))
+    visible_dashboard = apply_public_visibility(row.get("frozen_dashboard_json") or {}, visibility_config)
+    filtered_dashboard = apply_public_filters(visible_dashboard, filters)
     return {
         "public_slug": public_slug,
         "portfolio_id": row.get("portfolio_id"),
@@ -1979,6 +2041,7 @@ def get_public_dashboard(public_slug: str, request: Request):
         },
         "filter_spec": row.get("filter_spec_json") or public_filter_spec(),
         "applied_filters": filters,
+        "visibility_config": visibility_config,
         "dashboard": filtered_dashboard,
     }
 

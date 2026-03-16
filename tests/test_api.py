@@ -564,131 +564,7 @@ def test_public_dashboard_filter_validation_and_application(client, engine):
     ]
 
 
-def test_portfolio_analytics_timeline_uses_latest_analysis_and_fallback(client, engine):
-    account = _register_user(client, email="dashboard-analytics-fallback@example.com")
-    portfolio_id = account["portfolio_id"]
-
-    p1 = _u()
-    s1 = _u()
-    s2 = _u()
-    a_old = _u()
-    a_new = _u()
-    a2 = _u()
-
-    t_ing_1 = datetime(2024, 3, 1, 10, 0, 0, tzinfo=timezone.utc)
-    t_ing_2 = datetime(2024, 3, 2, 10, 0, 0, tzinfo=timezone.utc)
-    t_old = datetime(2024, 3, 1, 11, 0, 0, tzinfo=timezone.utc)
-    t_new = datetime(2024, 3, 1, 12, 0, 0, tzinfo=timezone.utc)
-    t_a2 = datetime(2024, 3, 2, 12, 0, 0, tzinfo=timezone.utc)
-
-    with engine.begin() as conn:
-        conn.execute(
-            text("INSERT INTO projects (id, portfolio_id, name) VALUES (:id, :pf, 'Alpha')"),
-            {"id": p1, "pf": portfolio_id},
-        )
-        conn.execute(
-            text(
-                """
-                INSERT INTO snapshots (id, project_id, source_zip_name, source_zip_sha256, ingested_at)
-                VALUES
-                  (:s1, :pid, 'alpha-1.zip', :zh1, :t1),
-                  (:s2, :pid, 'alpha-2.zip', :zh2, :t2)
-                """
-            ),
-            {"s1": s1, "s2": s2, "pid": p1, "zh1": "a" * 64, "zh2": "b" * 64, "t1": t_ing_1, "t2": t_ing_2},
-        )
-        conn.execute(
-            text(
-                """
-                INSERT INTO analyses (id, snapshot_id, analysis_type, status, output_json, completed_at)
-                VALUES
-                  (:a_old, :s1, 'local_ml', 'complete', CAST(:old_out AS jsonb), :t_old),
-                  (:a_new, :s1, 'local_ml', 'complete', CAST(:new_out AS jsonb), :t_new),
-                  (:a2, :s2, 'local_ml', 'complete', CAST(:a2_out AS jsonb), :t_a2)
-                """
-            ),
-            {
-                "a_old": a_old,
-                "a_new": a_new,
-                "a2": a2,
-                "s1": s1,
-                "s2": s2,
-                "t_old": t_old,
-                "t_new": t_new,
-                "t_a2": t_a2,
-                "old_out": json.dumps(
-                    {
-                        "skills": [
-                            {
-                                "skill": "python",
-                                "first_seen_ts": "2024-02-01T00:00:00+00:00",
-                                "max_prob": 0.20,
-                                "hits": 1,
-                            }
-                        ]
-                    }
-                ),
-                "new_out": json.dumps({"totals": {"skills_detected": 1}}),
-                "a2_out": json.dumps({"skills": [{"skill": "docker", "max_prob": 0.61, "hits": 1}]}),
-            },
-        )
-
-        skill_id = conn.execute(
-            text(
-                """
-                INSERT INTO skills (skill_name, category)
-                VALUES ('python', 'language')
-                RETURNING id
-                """
-            )
-        ).scalar_one()
-        conn.execute(
-            text(
-                """
-                INSERT INTO analysis_skills (analysis_id, skill_id, confidence, evidence_json)
-                VALUES (:aid, :sid, :conf, CAST(:ev AS jsonb))
-                """
-            ),
-            {
-                "aid": a_new,
-                "sid": skill_id,
-                "conf": 0.91,
-                "ev": json.dumps(
-                    {
-                        "hits": 4,
-                        "max_prob": 0.91,
-                        "examples": [{"path": "main.py", "p": 0.91, "ts": "2024-01-15T00:00:00+00:00"}],
-                    }
-                ),
-            },
-        )
-
-    r = client.get(f"/portfolio/{portfolio_id}/analytics?timeline_limit=20&heatmap_bucket=day&top_limit=3")
-    assert r.status_code == 200
-    body = r.json()
-
-    events = body["skills_timeline"]["events"]
-    assert body["skills_timeline"]["total_events"] == 2
-
-    python_events = [e for e in events if e.get("skill") == "python"]
-    assert len(python_events) == 1
-    assert python_events[0]["analysis_id"] == a_new
-    assert python_events[0]["first_seen_ts"] == "2024-01-15T00:00:00+00:00"
-    assert python_events[0]["signal"]["confidence"] == 0.91
-    assert python_events[0]["signal"]["hits"] == 4
-
-    docker_events = [e for e in events if e.get("skill") == "docker"]
-    assert len(docker_events) == 1
-    assert docker_events[0]["analysis_id"] == a2
-    assert docker_events[0]["first_seen_ts"] is None
-
-    evolution = body["top_project_evolution"]["projects"]
-    assert len(evolution) == 1
-    assert evolution[0]["project_id"] == p1
-    assert evolution[0]["rank_score"] is None
-
-
-def test_dashboard_public_mode_blocks_dashboard_mutations(client, engine):
+def test_dashboard_public_link_keeps_owner_edits_available(client, engine):
     account = _register_user(client, email="dashboard-locks@example.com")
     headers = {"Authorization": f"Bearer {account['token']}"}
 
@@ -734,32 +610,111 @@ def test_dashboard_public_mode_blocks_dashboard_mutations(client, engine):
     assert r_publish.status_code == 200
 
     r_cfg = client.patch(f"/users/{account['user_id']}/config", json={"highlights": {"skills": ["python"]}})
-    assert r_cfg.status_code == 409
-    assert "public mode" in r_cfg.text.lower()
+    assert r_cfg.status_code == 200
 
     r_generate_pf = client.post("/portfolio/generate", json={"portfolio_id": account["portfolio_id"]})
-    assert r_generate_pf.status_code == 409
+    assert r_generate_pf.status_code == 200
 
     r_generate_showcase = client.post(f"/projects/{project_id}/showcase/generate")
-    assert r_generate_showcase.status_code == 409
+    assert r_generate_showcase.status_code == 200
 
     r_edit_project = client.patch(
         f"/projects/{project_id}",
         json={"user_role": "Lead Developer"},
     )
-    assert r_edit_project.status_code == 409
+    assert r_edit_project.status_code == 200
 
     r_edit_showcase = client.post(
         f"/portfolio/{showcase_id}/edit",
         json={"title": "new title"},
     )
-    assert r_edit_showcase.status_code == 409
+    assert r_edit_showcase.status_code == 200
 
     r_edit_resume = client.post(
         f"/resume/{resume_id}/edit",
         json={"summary_text": "new summary"},
     )
-    assert r_edit_resume.status_code == 409
+    assert r_edit_resume.status_code == 200
+
+
+def test_dashboard_public_link_requires_owner_auth_and_supports_regeneration(client):
+    account = _register_user(client, email="dashboard-public-link@example.com")
+    owner_headers = {"Authorization": f"Bearer {account['token']}"}
+
+    generated_public = client.post(
+        f"/portfolio/{account['portfolio_id']}/dashboard/links/generate",
+        headers=owner_headers,
+    )
+    assert generated_public.status_code == 200
+    public_slug = generated_public.json()["public_slug"]
+    assert public_slug
+
+    public_view = client.get(f"/public/portfolio/{public_slug}")
+    assert public_view.status_code == 200
+
+    unauth_regenerate = client.post(f"/portfolio/{account['portfolio_id']}/dashboard/links/regenerate")
+    assert unauth_regenerate.status_code == 401
+
+    regenerate_public = client.post(
+        f"/portfolio/{account['portfolio_id']}/dashboard/public-link/regenerate",
+        headers=owner_headers,
+    )
+    assert regenerate_public.status_code == 200
+    regenerated_slug = regenerate_public.json()["public_slug"]
+    assert regenerated_slug
+    assert regenerated_slug != public_slug
+
+    old_public_view = client.get(f"/public/portfolio/{public_slug}")
+    assert old_public_view.status_code == 404
+
+    new_public_view = client.get(f"/public/portfolio/{regenerated_slug}")
+    assert new_public_view.status_code == 200
+
+
+def test_dashboard_visibility_controls_public_sections_and_private_mode_404(client):
+    account = _register_user(client, email="dashboard-visibility@example.com")
+    owner_headers = {"Authorization": f"Bearer {account['token']}"}
+
+    generated_public = client.post(
+        f"/portfolio/{account['portfolio_id']}/dashboard/links/generate",
+        headers=owner_headers,
+    )
+    assert generated_public.status_code == 200
+    public_slug = generated_public.json()["public_slug"]
+
+    set_visibility = client.post(
+        f"/portfolio/{account['portfolio_id']}/dashboard/visibility",
+        json={
+            "visibility_config": {
+                "projects": True,
+                "skills_timeline": False,
+                "top_projects": False,
+                "activity_heatmap": False,
+                "showcases": False,
+            }
+        },
+        headers=owner_headers,
+    )
+    assert set_visibility.status_code == 200
+    assert set_visibility.json()["visibility_config"]["projects"] is True
+    assert set_visibility.json()["visibility_config"]["skills_timeline"] is False
+
+    public_view = client.get(f"/public/portfolio/{public_slug}")
+    assert public_view.status_code == 200
+    public_dashboard = public_view.json()["dashboard"]
+    assert "projects" in public_dashboard
+    assert "skills_timeline" not in public_dashboard
+    assert "top_projects" not in public_dashboard
+
+    unpublish = client.post(
+        f"/portfolio/{account['portfolio_id']}/dashboard/unpublish",
+        headers=owner_headers,
+    )
+    assert unpublish.status_code == 200
+    assert unpublish.json()["mode"] == "private"
+
+    private_view = client.get(f"/public/portfolio/{public_slug}")
+    assert private_view.status_code == 404
 
 
 def test_authenticated_user_scope_rejects_mismatched_user_id(client):

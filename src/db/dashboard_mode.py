@@ -13,6 +13,13 @@ from sqlalchemy.exc import IntegrityError
 DASHBOARD_MODE_PRIVATE = "private"
 DASHBOARD_MODE_PUBLIC = "public"
 ALLOWED_DASHBOARD_MODES = {DASHBOARD_MODE_PRIVATE, DASHBOARD_MODE_PUBLIC}
+DEFAULT_PUBLIC_VISIBILITY = {
+    "projects": True,
+    "skills_timeline": True,
+    "top_projects": True,
+    "activity_heatmap": True,
+    "showcases": True,
+}
 
 PUBLIC_FILTER_ALLOWED_KEYS = {"q", "date_from", "date_to", "project_ids", "skills", "sort"}
 PUBLIC_FILTER_ALLOWED_SORTS = {
@@ -40,6 +47,7 @@ def _to_dashboard_out(row: Mapping[str, Any]) -> Dict[str, Any]:
         "portfolio_id": str(row.get("portfolio_id")),
         "mode": str(row.get("mode") or DASHBOARD_MODE_PRIVATE),
         "public_slug": str(row.get("public_slug") or ""),
+        "visibility_config": normalize_public_visibility_config(row.get("visibility_config_json")),
         "active_publication_id": str(row["active_publication_id"]) if row.get("active_publication_id") else None,
         "published_at": row.get("published_at"),
         "created_at": row.get("created_at"),
@@ -63,7 +71,8 @@ def ensure_portfolio_dashboard(conn, portfolio_id: str) -> Dict[str, Any]:
     row = conn.execute(
         text(
             """
-            SELECT portfolio_id, mode, public_slug, active_publication_id, published_at, created_at, updated_at
+            SELECT portfolio_id, mode, public_slug, visibility_config_json,
+                   active_publication_id, published_at, created_at, updated_at
             FROM portfolio_dashboards
             WHERE portfolio_id = :pid
             """
@@ -77,21 +86,32 @@ def ensure_portfolio_dashboard(conn, portfolio_id: str) -> Dict[str, Any]:
         raise KeyError("Portfolio not found")
 
     for _ in range(10):
-        slug = _slug_candidate()
+        public_slug = _slug_candidate()
         conn.execute(
             text(
                 """
-                INSERT INTO portfolio_dashboards (portfolio_id, mode, public_slug)
-                VALUES (:pid, :mode, :slug)
+                INSERT INTO portfolio_dashboards (
+                  portfolio_id,
+                  mode,
+                  public_slug,
+                  visibility_config_json
+                )
+                VALUES (:pid, :mode, :public_slug, CAST(:visibility AS jsonb))
                 ON CONFLICT DO NOTHING
                 """
             ),
-            {"pid": portfolio_id, "mode": DASHBOARD_MODE_PRIVATE, "slug": slug},
+            {
+                "pid": portfolio_id,
+                "mode": DASHBOARD_MODE_PRIVATE,
+                "public_slug": public_slug,
+                "visibility": _json_dump(DEFAULT_PUBLIC_VISIBILITY),
+            },
         )
         row = conn.execute(
             text(
                 """
-                SELECT portfolio_id, mode, public_slug, active_publication_id, published_at, created_at, updated_at
+                SELECT portfolio_id, mode, public_slug, visibility_config_json,
+                       active_publication_id, published_at, created_at, updated_at
                 FROM portfolio_dashboards
                 WHERE portfolio_id = :pid
                 """
@@ -138,7 +158,7 @@ def set_portfolio_dashboard_mode(
     return ensure_portfolio_dashboard(conn, portfolio_id)
 
 
-def regenerate_portfolio_public_slug(conn, portfolio_id: str) -> Dict[str, Any]:
+def regenerate_portfolio_slug(conn, portfolio_id: str) -> Dict[str, Any]:
     ensure_portfolio_dashboard(conn, portfolio_id)
 
     for _ in range(10):
@@ -148,17 +168,47 @@ def regenerate_portfolio_public_slug(conn, portfolio_id: str) -> Dict[str, Any]:
                 text(
                     """
                     UPDATE portfolio_dashboards
-                    SET public_slug = :slug, updated_at = NOW()
+                    SET
+                                            public_slug = :slug,
+                      updated_at = NOW()
                     WHERE portfolio_id = :pid
                     """
                 ),
-                {"pid": portfolio_id, "slug": slug},
+                {
+                    "pid": portfolio_id,
+                    "slug": slug,
+                },
             )
             return ensure_portfolio_dashboard(conn, portfolio_id)
         except IntegrityError:
             continue
 
     raise RuntimeError("Unable to generate a unique public slug")
+
+
+def regenerate_portfolio_public_slug(conn, portfolio_id: str) -> Dict[str, Any]:
+    return regenerate_portfolio_slug(conn, portfolio_id)
+
+
+def set_portfolio_dashboard_visibility(
+    conn,
+    *,
+    portfolio_id: str,
+    visibility_config: Mapping[str, Any] | None,
+) -> Dict[str, Any]:
+    ensure_portfolio_dashboard(conn, portfolio_id)
+    normalized_visibility = normalize_public_visibility_config(visibility_config)
+    conn.execute(
+        text(
+            """
+            UPDATE portfolio_dashboards
+            SET visibility_config_json = CAST(:visibility AS jsonb), updated_at = NOW()
+            WHERE portfolio_id = :pid
+            """
+        ),
+        {"pid": portfolio_id, "visibility": _json_dump(normalized_visibility)},
+    )
+    return ensure_portfolio_dashboard(conn, portfolio_id)
 
 
 def _next_publication_version(conn, portfolio_id: str) -> int:
@@ -233,6 +283,7 @@ def get_public_dashboard_by_slug(conn, public_slug: str) -> Optional[Dict[str, A
               pd.portfolio_id,
               pd.mode,
               pd.public_slug,
+                            pd.visibility_config_json,
               pd.active_publication_id,
               pd.published_at,
               p.user_id AS owner_user_id,
@@ -257,6 +308,7 @@ def get_public_dashboard_by_slug(conn, public_slug: str) -> Optional[Dict[str, A
         "portfolio_id": str(row["portfolio_id"]),
         "mode": str(row.get("mode") or DASHBOARD_MODE_PRIVATE),
         "public_slug": str(row.get("public_slug") or ""),
+        "visibility_config": normalize_public_visibility_config(row.get("visibility_config_json")),
         "active_publication_id": str(row["active_publication_id"]) if row.get("active_publication_id") else None,
         "published_at": row.get("published_at"),
         "owner_user_id": str(row["owner_user_id"]) if row.get("owner_user_id") else None,
@@ -270,6 +322,35 @@ def get_public_dashboard_by_slug(conn, public_slug: str) -> Optional[Dict[str, A
         "filter_spec_json": _as_dict(row.get("filter_spec_json")),
         "publication_created_at": row.get("publication_created_at"),
     }
+
+
+def normalize_public_visibility_config(config: Any) -> Dict[str, bool]:
+    source = config if isinstance(config, Mapping) else {}
+    return {
+        key: bool(source[key]) if key in source else bool(default_enabled)
+        for key, default_enabled in DEFAULT_PUBLIC_VISIBILITY.items()
+    }
+
+
+def apply_public_visibility(
+    dashboard_json: Mapping[str, Any] | None,
+    visibility_config: Mapping[str, Any] | None,
+) -> Dict[str, Any]:
+    out = deepcopy(dict(dashboard_json or {}))
+    visibility = normalize_public_visibility_config(visibility_config)
+
+    section_to_key = {
+        "projects": "projects",
+        "skills_timeline": "skills_timeline",
+        "top_projects": "top_projects",
+        "activity_heatmap": "activity_heatmap",
+        "showcases": "showcases",
+    }
+    for section, key in section_to_key.items():
+        if not visibility.get(section, False):
+            out.pop(key, None)
+
+    return out
 
 
 def parse_public_filters(query_params: Any) -> Dict[str, Any]:
@@ -419,12 +500,16 @@ def apply_public_filters(
     if sort in {"date_desc", "rank_desc", "name_desc"}:
         skills_timeline = list(reversed(skills_timeline))
 
-    source["projects"] = projects
-    source["top_projects"] = top_projects
-    source["skills_timeline"] = skills_timeline
-    source["activity_heatmap"] = activity_heatmap
-    source["top_project_evolution"] = top_project_evolution
-    source["showcases"] = showcases
+    if "projects" in source:
+        source["projects"] = projects
+    if "top_projects" in source:
+        source["top_projects"] = top_projects
+    if "skills_timeline" in source:
+        source["skills_timeline"] = skills_timeline
+    if "activity_heatmap" in source:
+        source["activity_heatmap"] = activity_heatmap
+    if "showcases" in source:
+        source["showcases"] = showcases
     return source
 
 

@@ -464,15 +464,22 @@ function Homepage() {
   const [showcaseSaving, setShowcaseSaving] = useState(false);
   const [showcaseGenerating, setShowcaseGenerating] = useState(false);
   const [showcaseError, setShowcaseError] = useState('');
-  const [dashboardViewMode, setDashboardViewMode] = useState('owner');
   const [dashboardMode, setDashboardMode] = useState('private');
   const [dashboardPublicSlug, setDashboardPublicSlug] = useState('');
-  const [publicPreviewVersion, setPublicPreviewVersion] = useState(0);
+  const [dashboardVisibilityConfig, setDashboardVisibilityConfig] = useState({
+    projects: true,
+    skills_timeline: true,
+    top_projects: true,
+    activity_heatmap: true,
+    showcases: true,
+  });
+  const [dashboardVisibilitySaving, setDashboardVisibilitySaving] = useState(false);
   const [dashboardModeLoading, setDashboardModeLoading] = useState(false);
   const [dashboardModeActionBusy, setDashboardModeActionBusy] = useState(false);
   const [dashboardModeError, setDashboardModeError] = useState('');
 
   const isAuthenticated = Boolean(token && currentUser);
+  const currentUserId = currentUser?.user_id || null;
 
   const clearDashboardState = useCallback(() => {
     setPortfolioId(null);
@@ -524,10 +531,16 @@ function Homepage() {
     setShowcaseSaving(false);
     setShowcaseGenerating(false);
     setShowcaseError('');
-    setDashboardViewMode('owner');
     setDashboardMode('private');
     setDashboardPublicSlug('');
-    setPublicPreviewVersion(0);
+    setDashboardVisibilityConfig({
+      projects: true,
+      skills_timeline: true,
+      top_projects: true,
+      activity_heatmap: true,
+      showcases: true,
+    });
+    setDashboardVisibilitySaving(false);
     setDashboardModeLoading(false);
     setDashboardModeActionBusy(false);
     setDashboardModeError('');
@@ -644,10 +657,10 @@ function Homepage() {
   }, []);
 
   const fetchUserConfig = useCallback(async () => {
-    if (!token || !currentUser?.user_id) return;
+    if (!token || !currentUserId) return;
     setConfigLoading(true);
     try {
-      const response = await userConfigApi.getConfig(token, currentUser.user_id);
+      const response = await userConfigApi.getConfig(token, currentUserId);
       const config = response?.config || {};
       setUserConfig(config);
       applyRepresentationConfig(config);
@@ -656,7 +669,7 @@ function Homepage() {
     } finally {
       setConfigLoading(false);
     }
-  }, [token, currentUser, applyRepresentationConfig]);
+  }, [token, currentUserId, applyRepresentationConfig]);
 
   const fetchDashboardMode = useCallback(async () => {
     if (!token || !portfolioId) return;
@@ -666,6 +679,13 @@ function Homepage() {
       const response = await dashboardApi.getMode(token, portfolioId);
       setDashboardMode(response?.mode || 'private');
       setDashboardPublicSlug(response?.public_slug || '');
+      setDashboardVisibilityConfig({
+        projects: Boolean(response?.visibility_config?.projects ?? true),
+        skills_timeline: Boolean(response?.visibility_config?.skills_timeline ?? true),
+        top_projects: Boolean(response?.visibility_config?.top_projects ?? true),
+        activity_heatmap: Boolean(response?.visibility_config?.activity_heatmap ?? true),
+        showcases: Boolean(response?.visibility_config?.showcases ?? true),
+      });
     } catch (error) {
       setDashboardModeError(error.message || 'Unable to load dashboard mode.');
     } finally {
@@ -1012,49 +1032,46 @@ function Homepage() {
     }
   };
 
-  const publishDashboard = async () => {
+  const makeDashboardPublic = async () => {
     if (!token || !portfolioId) return;
     setDashboardModeActionBusy(true);
     setDashboardModeError('');
-    setDashboardError('');
     try {
       const response = await dashboardApi.publish(token, portfolioId);
-      setDashboardMode(response?.mode || 'public');
+      setDashboardMode(response?.mode || 'private');
       setDashboardPublicSlug(response?.public_slug || '');
-      setPublicPreviewVersion((version) => version + 1);
-      setFlashMessage('Dashboard published. Public mode is now live.');
+      setFlashMessage('Portfolio is now public.');
     } catch (error) {
-      setDashboardModeError(error.message || 'Unable to publish dashboard.');
+      setDashboardModeError(error.message || 'Unable to make portfolio public.');
     } finally {
       setDashboardModeActionBusy(false);
     }
   };
 
-  const switchDashboardToPrivate = async () => {
+  const makeDashboardPrivate = async () => {
     if (!token || !portfolioId) return;
     setDashboardModeActionBusy(true);
     setDashboardModeError('');
     try {
       const response = await dashboardApi.unpublish(token, portfolioId);
       setDashboardMode(response?.mode || 'private');
-      setDashboardPublicSlug(response?.public_slug || dashboardPublicSlug);
-      setPublicPreviewVersion((version) => version + 1);
-      setFlashMessage('Dashboard switched to private mode.');
+      setDashboardPublicSlug(response?.public_slug || '');
+      setFlashMessage('Portfolio is now private.');
     } catch (error) {
-      setDashboardModeError(error.message || 'Unable to switch dashboard to private mode.');
+      setDashboardModeError(error.message || 'Unable to make portfolio private.');
     } finally {
       setDashboardModeActionBusy(false);
     }
   };
 
-  const regeneratePublicLink = async () => {
+  const regenerateDashboardLink = async () => {
     if (!token || !portfolioId) return;
     setDashboardModeActionBusy(true);
     setDashboardModeError('');
     try {
       const response = await dashboardApi.regeneratePublicLink(token, portfolioId);
+      setDashboardMode(response?.mode || 'private');
       setDashboardPublicSlug(response?.public_slug || '');
-      setPublicPreviewVersion((version) => version + 1);
       setFlashMessage('Public link regenerated.');
     } catch (error) {
       setDashboardModeError(error.message || 'Unable to regenerate public link.');
@@ -1063,26 +1080,44 @@ function Homepage() {
     }
   };
 
-  const copyPublicLink = async () => {
+  const copyLastGeneratedLink = async () => {
     if (!dashboardPublicSlug) return;
     const url = `${window.location.origin}/portfolio/${dashboardPublicSlug}`;
     try {
       await navigator.clipboard.writeText(url);
-      setFlashMessage('Public link copied to clipboard.');
+      setFlashMessage('Public URL copied to clipboard.');
     } catch (error) {
-      setDashboardModeError('Unable to copy public link. Copy it manually from the URL preview.');
+      setDashboardModeError('Unable to copy link. Copy it manually from the URL shown below.');
     }
   };
 
-  const toggleDashboardVisibility = async () => {
-    if (dashboardMode === 'public') {
-      await switchDashboardToPrivate();
-      return;
-    }
-    await publishDashboard();
+  const handleDashboardVisibilityToggle = (key) => {
+    setDashboardVisibilityConfig((current) => ({
+      ...current,
+      [key]: !Boolean(current[key]),
+    }));
   };
 
-  const isPublicFacingView = dashboardViewMode === 'public';
+  const saveDashboardVisibility = async () => {
+    if (!token || !portfolioId) return;
+    setDashboardVisibilitySaving(true);
+    setDashboardModeError('');
+    try {
+      const response = await dashboardApi.setVisibility(token, portfolioId, dashboardVisibilityConfig);
+      setDashboardVisibilityConfig({
+        projects: Boolean(response?.visibility_config?.projects ?? true),
+        skills_timeline: Boolean(response?.visibility_config?.skills_timeline ?? true),
+        top_projects: Boolean(response?.visibility_config?.top_projects ?? true),
+        activity_heatmap: Boolean(response?.visibility_config?.activity_heatmap ?? true),
+        showcases: Boolean(response?.visibility_config?.showcases ?? true),
+      });
+      setFlashMessage('Public section visibility saved.');
+    } catch (error) {
+      setDashboardModeError(error.message || 'Unable to save public section visibility.');
+    } finally {
+      setDashboardVisibilitySaving(false);
+    }
+  };
 
   const handleUpload = async () => {
     if (!file) return;
@@ -1885,12 +1920,6 @@ function Homepage() {
     []
   );
 
-  const visibleNavButtons = useMemo(() => {
-    if (!isPublicFacingView) return navButtons;
-    const allowedInPublic = new Set(['projects', 'skills', 'top']);
-    return navButtons.filter((item) => allowedInPublic.has(item.id));
-  }, [isPublicFacingView, navButtons]);
-
   const reportStats = useMemo(() => {
     const toNumber = (value) => {
       if (value === null || value === undefined) return null;
@@ -1992,11 +2021,6 @@ function Homepage() {
     return `${window.location.origin}/portfolio/${dashboardPublicSlug}`;
   }, [dashboardPublicSlug]);
 
-  const publicPreviewUrl = useMemo(() => {
-    if (!publicPortfolioUrl) return '';
-    return `${publicPortfolioUrl}?preview=${publicPreviewVersion}`;
-  }, [publicPortfolioUrl, publicPreviewVersion]);
-
   const uploadSnapshotHistory = useMemo(() => {
     const snapshots = Array.isArray(uploadTargetReport?.snapshots) ? uploadTargetReport.snapshots : [];
     const getTimestamp = (value) => {
@@ -2017,14 +2041,6 @@ function Homepage() {
     if (!asText) return '';
     return asText.length >= 10 ? asText.slice(0, 10) : asText;
   }, []);
-
-  useEffect(() => {
-    if (!isPublicFacingView) return;
-    const allowedViews = new Set(['projects', 'skills', 'top', 'report']);
-    if (!allowedViews.has(view)) {
-      setView('projects');
-    }
-  }, [isPublicFacingView, view]);
 
   if (sessionLoading) {
     return (
@@ -2149,17 +2165,6 @@ function Homepage() {
             <h1>{currentUser.display_name || currentUser.email}</h1>
           </div>
           <div className="dashboard-header-actions">
-            <fieldset className="mode-switch">
-              <legend className="mode-switch-label">Dashboard View</legend>
-              <select
-                className="mode-select"
-                value={dashboardViewMode}
-                onChange={(event) => setDashboardViewMode(event.target.value)}
-              >
-                <option value="owner">Owner</option>
-                <option value="public">Public</option>
-              </select>
-            </fieldset>
             <button className="ghost-btn" type="button" onClick={handleLogout}>
               Log Out
             </button>
@@ -2167,7 +2172,7 @@ function Homepage() {
         </header>
 
         <nav className="dashboard-nav">
-          {visibleNavButtons.map((item) => (
+          {navButtons.map((item) => (
             <button
               key={item.id}
               type="button"
@@ -2235,23 +2240,19 @@ function Homepage() {
                         )}
                         <div className="card-actions">
                           <button className="primary-btn" type="button" onClick={() => viewProjectDetails(project)}>
-                            {isPublicFacingView ? 'View Public Details' : 'View Details'}
+                            View Details
                           </button>
-                          {!isPublicFacingView && (
-                            <>
-                              <button className="secondary-btn" type="button" onClick={() => generateResume(project.id)}>
-                                Generate Resume
-                              </button>
-                              <button
-                                className="secondary-btn"
-                                type="button"
-                                onClick={() => deleteProject(project)}
-                                disabled={deletingProjectId === project.id}
-                              >
-                                {deletingProjectId === project.id ? 'Deleting...' : 'Delete Project'}
-                              </button>
-                            </>
-                          )}
+                          <button className="secondary-btn" type="button" onClick={() => generateResume(project.id)}>
+                            Generate Resume
+                          </button>
+                          <button
+                            className="secondary-btn"
+                            type="button"
+                            onClick={() => deleteProject(project)}
+                            disabled={deletingProjectId === project.id}
+                          >
+                            {deletingProjectId === project.id ? 'Deleting...' : 'Delete Project'}
+                          </button>
                         </div>
                       </article>
                     );
@@ -2275,53 +2276,107 @@ function Homepage() {
                   </div>
                   <div className="card-actions">
                     <button
-                      className="primary-btn"
+                      className={dashboardMode === 'public' ? 'ghost-btn' : 'primary-btn'}
                       type="button"
-                      onClick={toggleDashboardVisibility}
+                      onClick={makeDashboardPublic}
                       disabled={dashboardModeActionBusy || dashboardModeLoading}
                     >
-                      {dashboardModeActionBusy
-                        ? 'Working...'
-                        : dashboardMode === 'public'
-                          ? 'Make Private'
-                          : 'Make Public'}
+                      {dashboardModeActionBusy && dashboardMode !== 'public' ? 'Working...' : 'Make Public'}
+                    </button>
+                    <button
+                      className={dashboardMode === 'public' ? 'secondary-btn' : 'ghost-btn'}
+                      type="button"
+                      onClick={makeDashboardPrivate}
+                      disabled={dashboardModeActionBusy || dashboardModeLoading}
+                    >
+                      {dashboardModeActionBusy && dashboardMode === 'public' ? 'Working...' : 'Make Private'}
                     </button>
                     <button
                       className="secondary-btn"
                       type="button"
-                      onClick={regeneratePublicLink}
-                      disabled={dashboardModeActionBusy || dashboardModeLoading}
+                      onClick={regenerateDashboardLink}
+                      disabled={dashboardModeActionBusy || dashboardModeLoading || !publicPortfolioUrl}
                     >
                       Regenerate Link
                     </button>
                     <button
                       className="ghost-btn"
                       type="button"
-                      onClick={copyPublicLink}
-                      disabled={!dashboardPublicSlug || dashboardModeLoading}
+                      onClick={copyLastGeneratedLink}
+                      disabled={!publicPortfolioUrl || dashboardModeLoading}
                     >
-                      Copy Public URL
+                      Copy URL
                     </button>
                   </div>
                 </div>
+                <div className="summary-grid">
+                  <label className="field">
+                    <span>
+                      <input
+                        type="checkbox"
+                        checked={dashboardVisibilityConfig.projects}
+                        onChange={() => handleDashboardVisibilityToggle('projects')}
+                        disabled={dashboardVisibilitySaving || dashboardModeLoading}
+                      />{' '}
+                      Projects
+                    </span>
+                  </label>
+                  <label className="field">
+                    <span>
+                      <input
+                        type="checkbox"
+                        checked={dashboardVisibilityConfig.skills_timeline}
+                        onChange={() => handleDashboardVisibilityToggle('skills_timeline')}
+                        disabled={dashboardVisibilitySaving || dashboardModeLoading}
+                      />{' '}
+                      Skills Timeline
+                    </span>
+                  </label>
+                  <label className="field">
+                    <span>
+                      <input
+                        type="checkbox"
+                        checked={dashboardVisibilityConfig.top_projects}
+                        onChange={() => handleDashboardVisibilityToggle('top_projects')}
+                        disabled={dashboardVisibilitySaving || dashboardModeLoading}
+                      />{' '}
+                      Top Projects
+                    </span>
+                  </label>
+                  <label className="field">
+                    <span>
+                      <input
+                        type="checkbox"
+                        checked={dashboardVisibilityConfig.activity_heatmap}
+                        onChange={() => handleDashboardVisibilityToggle('activity_heatmap')}
+                        disabled={dashboardVisibilitySaving || dashboardModeLoading}
+                      />{' '}
+                      Activity Heatmap
+                    </span>
+                  </label>
+                  <label className="field">
+                    <span>
+                      <input
+                        type="checkbox"
+                        checked={dashboardVisibilityConfig.showcases}
+                        onChange={() => handleDashboardVisibilityToggle('showcases')}
+                        disabled={dashboardVisibilitySaving || dashboardModeLoading}
+                      />{' '}
+                      Showcases
+                    </span>
+                  </label>
+                </div>
+                <div className="card-actions">
+                  <button
+                    className="secondary-btn"
+                    type="button"
+                    onClick={saveDashboardVisibility}
+                    disabled={dashboardVisibilitySaving || dashboardModeLoading}
+                  >
+                    {dashboardVisibilitySaving ? 'Saving...' : 'Save Visibility'}
+                  </button>
+                </div>
                 {dashboardModeError && <p className="error-banner inline-error">{dashboardModeError}</p>}
-              </div>
-
-              <div className="stack-block">
-                <h3>Public Preview</h3>
-                <p className="muted">This is what others see at your public URL.</p>
-                {!publicPortfolioUrl ? (
-                  <p className="muted">Public URL not available yet.</p>
-                ) : dashboardMode !== 'public' ? (
-                  <p className="muted">Your profile is private. Switch to public mode to enable public viewing.</p>
-                ) : (
-                  <iframe
-                    key={`${dashboardMode}:${dashboardPublicSlug}:${publicPreviewVersion}`}
-                    className="public-preview-frame"
-                    src={publicPreviewUrl}
-                    title="Public portfolio preview"
-                  />
-                )}
               </div>
             </section>
           )}
@@ -2792,12 +2847,6 @@ function Homepage() {
                 <p>Loading project details...</p>
               ) : (
                 <>
-                  {isPublicFacingView && (
-                    <p className="muted">
-                      Public view is active. Edit controls are hidden and only read-only project details are shown.
-                    </p>
-                  )}
-
                   <div className="stack-block">
                     <h3>Analysis Status</h3>
                     {selectedProjectStatus && (
@@ -2815,8 +2864,7 @@ function Homepage() {
                     )}
                   </div>
 
-                  {!isPublicFacingView && (
-                    <>
+                  <>
                       <div className="stack-block">
                         <h3>Project Thumbnail</h3>
                         {selectedProjectThumbnail?.loading ? (
@@ -3139,7 +3187,6 @@ function Homepage() {
                         </button>
                       </div>
                     </>
-                  )}
 
                   {projectReport && (
                     <div className="stack-block">
@@ -3210,8 +3257,7 @@ function Homepage() {
                     </div>
                   )}
 
-                  {!isPublicFacingView && (
-                    <div className="stack-block">
+                  <div className="stack-block">
                       <h3>Resume Editing</h3>
                       {!activeResumeId ? (
                         <>
@@ -3277,7 +3323,6 @@ function Homepage() {
                         </>
                       )}
                     </div>
-                  )}
                 </>
               )}
             </section>

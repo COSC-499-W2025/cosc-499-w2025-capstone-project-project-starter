@@ -238,6 +238,12 @@ export const userConfigApi = {
 
 export const dashboardApi = {
   getMode: (token, portfolioId) => apiRequest(`/portfolio/${portfolioId}/dashboard/mode`, { token }),
+  setVisibility: (token, portfolioId, visibilityConfig) =>
+    apiRequest(`/portfolio/${portfolioId}/dashboard/visibility`, {
+      method: 'POST',
+      token,
+      body: { visibility_config: visibilityConfig },
+    }),
   setMode: (token, portfolioId, mode) =>
     apiRequest(`/portfolio/${portfolioId}/dashboard/mode`, {
       method: 'POST',

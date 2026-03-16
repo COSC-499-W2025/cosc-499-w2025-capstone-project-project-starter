@@ -48,6 +48,7 @@ function Section({ title, empty, children }) {
 }
 
 function PublicPortfolioView({ publicSlug }) {
+  const [view, setView] = useState('projects');
   const urlFilters = useMemo(() => readFiltersFromUrl(), []);
   const [q, setQ] = useState(urlFilters.q);
   const [dateFrom, setDateFrom] = useState(urlFilters.date_from);
@@ -101,12 +102,26 @@ function PublicPortfolioView({ publicSlug }) {
   };
 
   const dashboard = payload?.dashboard || {};
+  const visibility = {
+    projects: Boolean(payload?.visibility_config?.projects ?? true),
+    skills_timeline: Boolean(payload?.visibility_config?.skills_timeline ?? true),
+    top_projects: Boolean(payload?.visibility_config?.top_projects ?? true),
+  };
+  const availableViews = [
+    visibility.projects ? 'projects' : null,
+    visibility.skills_timeline ? 'skills' : null,
+    visibility.top_projects ? 'top' : null,
+  ].filter(Boolean);
   const projects = dashboard.projects || [];
   const topProjects = dashboard.top_projects || [];
   const skillsTimeline = dashboard.skills_timeline || [];
-  const heatmap = dashboard.activity_heatmap || [];
-  const showcases = dashboard.showcases || [];
-  const ownerUsername = payload?.owner?.username || payload?.owner?.display_name || 'User';
+
+  useEffect(() => {
+    if (availableViews.length === 0) return;
+    if (!availableViews.includes(view)) {
+      setView(availableViews[0]);
+    }
+  }, [availableViews, view]);
 
   return (
     <div className="screen-shell">
@@ -114,9 +129,39 @@ function PublicPortfolioView({ publicSlug }) {
         <header className="dashboard-header">
           <div>
             <p className="eyebrow">Public Portfolio</p>
-            <h1>{ownerUsername}</h1>
+            <h1>Shared Dashboard</h1>
           </div>
         </header>
+
+        <nav className="dashboard-nav">
+          {visibility.projects && (
+            <button
+              type="button"
+              className={view === 'projects' ? 'nav-btn active' : 'nav-btn'}
+              onClick={() => setView('projects')}
+            >
+              Projects
+            </button>
+          )}
+          {visibility.skills_timeline && (
+            <button
+              type="button"
+              className={view === 'skills' ? 'nav-btn active' : 'nav-btn'}
+              onClick={() => setView('skills')}
+            >
+              Skills Timeline
+            </button>
+          )}
+          {visibility.top_projects && (
+            <button
+              type="button"
+              className={view === 'top' ? 'nav-btn active' : 'nav-btn'}
+              onClick={() => setView('top')}
+            >
+              Top Projects
+            </button>
+          )}
+        </nav>
 
         {error && <p className="error-banner">{error}</p>}
 
@@ -151,30 +196,27 @@ function PublicPortfolioView({ publicSlug }) {
           <Section title="Loading" empty="Loading public dashboard..." />
         ) : (
           <>
-            <Section title="Projects" empty={projects.length === 0 ? 'No projects match current filters.' : ''}>
+            {availableViews.length === 0 && (
+              <Section title="No Public Sections" empty="This portfolio owner has hidden all public sections." />
+            )}
+
+            {visibility.projects && view === 'projects' && (
+              <Section title="Projects" empty={projects.length === 0 ? 'No projects match current filters.' : ''}>
               <div className="project-grid">{projects.map((project) => <article key={project.id} className="project-card"><h3>{project.name}</h3><p>Created: {project.created_at || 'N/A'}</p><p>Rank score: {project.metrics?.rank_score ?? 'N/A'}</p></article>)}</div>
-            </Section>
+              </Section>
+            )}
 
-            <Section title="Top Projects" empty={topProjects.length === 0 ? 'No top projects available.' : ''}>
+            {visibility.top_projects && view === 'top' && (
+              <Section title="Top Projects" empty={topProjects.length === 0 ? 'No top projects available.' : ''}>
               <div className="top-list">{topProjects.map((project) => <article key={project.project_id} className="top-card"><h3>{project.project_name || project.name || project.project_id}</h3><p>Rank score: {project.rank_score ?? 'N/A'}</p></article>)}</div>
-            </Section>
+              </Section>
+            )}
 
-            <Section title="Skills Timeline" empty={skillsTimeline.length === 0 ? 'No timeline events for current filters.' : ''}>
+            {visibility.skills_timeline && view === 'skills' && (
+              <Section title="Skills Timeline" empty={skillsTimeline.length === 0 ? 'No timeline events for current filters.' : ''}>
               <div className="timeline">{skillsTimeline.map((event, index) => <article key={`${event.project_id}-${event.skill}-${index}`} className="timeline-item"><p className="timeline-date">{formatDateOnly(event.first_seen_ts)}</p><div><h3>{event.skill}</h3><p className="muted">{event.project_name || event.project_id}</p></div></article>)}</div>
-            </Section>
-
-            <Section title="Activity Heatmap Buckets" empty={heatmap.length === 0 ? 'No activity buckets for current filters.' : ''}>
-              <div className="table-wrap">
-                <table>
-                  <thead><tr><th>Date</th><th>Activity Count</th></tr></thead>
-                  <tbody>{heatmap.map((bucket, index) => <tr key={`${bucket.bucket_date}-${index}`}><td>{formatDateOnly(bucket.bucket_date)}</td><td>{bucket.activity_count ?? 0}</td></tr>)}</tbody>
-                </table>
-              </div>
-            </Section>
-
-            <Section title="Showcase Items" empty={showcases.length === 0 ? 'No showcase items available.' : ''}>
-              <div className="project-grid">{showcases.map((showcase) => <article key={showcase.id} className="project-card"><h3>{showcase.content?.title || showcase.project_name || showcase.project_id}</h3><p className="muted">{showcase.content?.summary_text || 'No summary saved.'}</p></article>)}</div>
-            </Section>
+              </Section>
+            )}
           </>
         )}
       </div>
