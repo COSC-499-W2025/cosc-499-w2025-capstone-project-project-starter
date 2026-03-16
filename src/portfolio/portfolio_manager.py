@@ -663,16 +663,44 @@ class PortfolioManager:
             print(f"Error generating activity heatmap: {e}")
             return {'activity_data': {}, 'max_activity': 0, 'total_days': 0, 'total_projects': 0}
 
+    def _ensure_rankings_exist(self):
+        """Rank and score all user projects if any are missing from project_rankings."""
+        try:
+            from config.db_config import with_db_cursor
+            from analysis.ranking_storage import save_rankings_to_db
+
+            with with_db_cursor() as cursor:
+                cursor.execute(
+                    "SELECT id FROM uploaded_files WHERE user_name = %s",
+                    (self.user_name,)
+                )
+                all_project_ids = {row[0] for row in cursor.fetchall()}
+
+            if not all_project_ids:
+                return
+
+            stored = get_stored_rankings(user_name=self.user_name)
+            ranked_ids = {r['project_id'] for r in stored}
+
+            if all_project_ids - ranked_ids:
+                ranked_projects = rank_all_projects(user_name=self.user_name)
+                if ranked_projects:
+                    save_rankings_to_db(ranked_projects, user_name=self.user_name)
+        except Exception as e:
+            print(f"[PORTFOLIO] Auto-ranking failed: {e}")
+
     def get_top3_showcase(self) -> List[Dict[str, Any]]:
         """
         Get top 3 projects with showcase data. Uses stored rankings if
-        available, otherwise falls back to projects sorted by file count.
+        available, otherwise ranks all projects first, then reads them.
         Builds data directly from file_contents without requiring
         the full portfolio report generation.
         """
         try:
             from config.db_config import with_db_cursor
             from common.constants import LANGUAGE_EXTENSIONS
+
+            self._ensure_rankings_exist()
 
             ranked = []
             try:
