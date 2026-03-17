@@ -23,7 +23,7 @@ def _fmt_date(val):
     if isinstance(val, datetime):
         return val.date().isoformat()
     if isinstance(val, str):
-        return val.split("T")[0]
+        return val.split("T")[0].split(" ")[0]
     return ""
 
 
@@ -239,7 +239,7 @@ def generate_contributor_portfolio(
         return None
 
     safe_name = "".join(c for c in contributor_name if c.isalnum() or c in (' ', '_', '-')).strip()
-    docx_path = os.path.join(RESUME_DIR, f"Resume_{safe_name}.docx")
+    docx_path = os.path.join(RESUME_DIR, f"{safe_name} Resume.docx")
     
     doc = Document()
     
@@ -707,7 +707,7 @@ def render_resume_artifact(artifact_data: dict, output_path: str) -> None:
     doc = Document()
 
     # Header
-    user_name = artifact_data.get("user_name") or "Resume"
+    user_name = artifact_data.get("user_name") or "Project Portfolio Resume"
     title = doc.add_heading(user_name, level=0)
     title.runs[0].font.size = Pt(24)
     
@@ -734,7 +734,10 @@ def render_resume_artifact(artifact_data: dict, output_path: str) -> None:
     # Projects
     items = artifact_data.get("items", [])
     if items:
-        doc.add_heading("Project Experience", level=1)
+        if artifact_data.get("user_summary"):
+            doc.add_heading("Project Experience", level=1)
+        else:
+            doc.add_heading("Top Projects", level=1)
         for item in items:
             p_name = item.get("project_name", "Unknown Project")
             date_str = item.get("date_str", "")
@@ -758,5 +761,31 @@ def render_resume_artifact(artifact_data: dict, output_path: str) -> None:
                 s_p.add_run(", ".join(item_skills))
             
             doc.add_paragraph()
+
+    # Timeline
+    projects_chrono = artifact_data.get("projects_chronological")
+    if projects_chrono:
+        doc.add_heading("Project Timeline", level=1)
+        for p in projects_chrono:
+            para = doc.add_paragraph(style="List Bullet")
+            para.add_run(p["name"]).bold = True
+            para.add_run(f" – {p['first_used']} → {p['last_used']}")
+        doc.add_paragraph()
+
+    # Skills over time
+    skills_chrono = artifact_data.get("skills_chronological")
+    if skills_chrono:
+        doc.add_heading("Skills Used Over Time", level=1)
+        table = doc.add_table(rows=1, cols=3)
+        hdr = table.rows[0].cells
+        hdr[0].text = "Skill"
+        hdr[1].text = "First Used"
+        hdr[2].text = "Last Used"
+        for row in skills_chrono:
+            cells = table.add_row().cells
+            cells[0].text = row["skill"]
+            cells[1].text = row["first_used"]
+            cells[2].text = row["last_used"]
+        doc.add_paragraph()
     
     doc.save(output_path)

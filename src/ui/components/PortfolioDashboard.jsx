@@ -18,6 +18,7 @@ export default function PortfolioDashboard({ isActive, scans, selectedScanId, fe
   const [contributorSelections, setContributorSelections] = useState({});
   const [contributorProjectEdits, setContributorProjectEdits] = useState({});
   const [artifactsByContributor, setArtifactsByContributor] = useState({});
+  const [uploadingThumbnails, setUploadingThumbnails] = useState({});
 
   useEffect(() => {
     if (selectedScanId) {
@@ -45,6 +46,7 @@ export default function PortfolioDashboard({ isActive, scans, selectedScanId, fe
     setPortfolioSelectedProjectIds([]);
     setPortfolioProjects([]);
     setPortfolioViewMode("edit");
+    setUploadingThumbnails({});
   }, [portfolioScanId]);
 
   useEffect(() => {
@@ -54,46 +56,49 @@ export default function PortfolioDashboard({ isActive, scans, selectedScanId, fe
   }, [selectedContributor]); // Intentionally omitting artifactsByContributor so it only runs on switch
 
   useEffect(() => {
+    if (!portfolioScanId || !isActive) return;
     loadProjectsForScan(portfolioScanId, {
       setProjects: setPortfolioProjects,
       setSelected: () => {},
       setLoading: setPortfolioLoadingProjects,
       setError: setPortfolioError,
-      limit: 3,
+      limit: 0,
     });
-  }, [portfolioScanId, loadProjectsForScan]);
+  }, [portfolioScanId, loadProjectsForScan, isActive]);
   
   useEffect(() => {
-    if (!portfolioScanId) {
-      setContributors([]);
-      setSelectedContributor("");
+    if (!portfolioScanId || !isActive) {
+      if (!portfolioScanId) {
+        setContributors([]);
+        setSelectedContributor("");
+      }
       return;
     }
     let active = true;
     fetchJson(`/scans/${portfolioScanId}`).then((data) => {
       if (!active) return;
       const profiles = data.scan?.scan_data?.contributor_profiles || {};
-      const valid = Object.keys(profiles).filter(c => !isNoise(c));
+      const valid = Object.keys(profiles).filter(c => {
+        if (typeof isNoise === "function") return !isNoise(c);
+        const lower = c.toLowerCase();
+        return !(lower.includes("[bot]") || lower.includes("dependabot") || lower.includes("github-actions") || lower.includes("github-classroom"));
+      });
       setContributorProfiles(profiles);
       setContributors(valid);
-      if (valid.length > 0) {
-        setSelectedContributor(valid[0]);
-        setPortfolioTitle(`Portfolio - ${valid[0]}`);
-      } else {
-        setSelectedContributor("");
-        setPortfolioTitle("Generated Portfolio");
-      }
+      setSelectedContributor(prev => valid.includes(prev) ? prev : "");
     }).catch(console.error);
     return () => { active = false; };
-  }, [portfolioScanId, fetchJson, isNoise]);
+  }, [portfolioScanId, fetchJson, isNoise, isActive]);
 
   const filteredProjects = useMemo(() => {
+    if (!selectedContributor || selectedContributor === "general") return portfolioProjects;
+    const userProjects = contributorProfiles[selectedContributor]?.projects || [];
+    const validNames = new Set(userProjects.map(p => p.name));
     return portfolioProjects.filter(p => {
-      if (!selectedContributor) return true;
       const pcts = p.data?.per_contributor_pct || {};
-      return (pcts[selectedContributor] || 0) > 0;
+      return validNames.has(p.project_name) || (pcts[selectedContributor] || 0) > 0;
     });
-  }, [portfolioProjects, selectedContributor]);
+  }, [portfolioProjects, selectedContributor, contributorProfiles]);
 
   useEffect(() => {
     if (!selectedContributor) return;
@@ -103,7 +108,7 @@ export default function PortfolioDashboard({ isActive, scans, selectedScanId, fe
         setPortfolioSelectedProjectIds(validIds);
         return { ...curr, [selectedContributor]: validIds };
       }
-      const defaultSelection = filteredProjects.slice(0, 3).map((p) => p.project_id);
+      const defaultSelection = filteredProjects.map((p) => p.project_id);
       setPortfolioSelectedProjectIds(defaultSelection);
       return { ...curr, [selectedContributor]: defaultSelection };
     });
@@ -113,13 +118,8 @@ export default function PortfolioDashboard({ isActive, scans, selectedScanId, fe
     setPortfolioError("");
     setPortfolioSelectedProjectIds((prev) => {
       const validPrev = prev.filter(id => filteredProjects.some(p => p.project_id === id));
-      let nextIds;
-      if (validPrev.includes(projectId)) nextIds = validPrev.filter((id) => id !== projectId);
-      else if (validPrev.length >= 3) {
-        setPortfolioError("Portfolio showcase is limited to top 3 projects.");
-        nextIds = validPrev;
-      } else nextIds = [...validPrev, projectId];
-
+      const nextIds = validPrev.includes(projectId) ? validPrev.filter((id) => id !== projectId) : [...validPrev, projectId];
+      
       if (selectedContributor) {
         setContributorSelections((curr) => ({ ...curr, [selectedContributor]: nextIds }));
       }
@@ -144,11 +144,33 @@ export default function PortfolioDashboard({ isActive, scans, selectedScanId, fe
     });
   };
 
+  const handleUploadThumbnail = async (projectId, file) => {
+    setUploadingThumbnails(prev => ({ ...prev, [projectId]: true }));
+    setPortfolioError("");
+    const formData = new FormData();
+    formData.append("file", file);
+    try {
+      const API_BASE = "http://127.0.0.1:5000";
+      const res = await fetch(`${API_BASE}/projects/${encodeURIComponent(projectId)}/thumbnail`, {
+        method: "POST",
+        body: formData
+      });
+      if (!res.ok) throw new Error("Thumbnail upload failed");
+      const data = await res.json();
+      updateProjectEdit(projectId, "thumbnail", data.thumbnail);
+    } catch (err) {
+      console.error(err);
+      setPortfolioError(err.message);
+    } finally {
+      setUploadingThumbnails(prev => ({ ...prev, [projectId]: false }));
+    }
+  };
+
   const handleGeneratePortfolio = async () => {
     setPortfolioError("");
     setPortfolioArtifact(null);
     if (!portfolioScanId) return setPortfolioError("Select a scan first.");
-    if (portfolioSelectedProjectIds.length === 0) return setPortfolioError("Select 1 to 3 projects for the showcase.");
+    if (portfolioSelectedProjectIds.length === 0) return setPortfolioError("Select at least one project for the showcase.");
 
     setPortfolioGenerating(true);
     try {
@@ -184,7 +206,7 @@ export default function PortfolioDashboard({ isActive, scans, selectedScanId, fe
         }
       }
 
-      if (Object.keys(contributorUpdates).length > 0 && selectedContributor) {
+      if (Object.keys(contributorUpdates).length > 0 && selectedContributor && selectedContributor !== "general") {
         await fetchJson(`/scans/${portfolioScanId}/contributors/${encodeURIComponent(selectedContributor)}`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -197,8 +219,20 @@ export default function PortfolioDashboard({ isActive, scans, selectedScanId, fe
 
       const generatePayload = {
         scan_id: Number(portfolioScanId),
-        contributor_id: selectedContributor || undefined,
-        title: portfolioTitle.trim() || "Generated Portfolio",
+        contributor_id: (selectedContributor && selectedContributor !== "general") ? selectedContributor : undefined,
+        title: portfolioTitle.trim() || (function() {
+          if (selectedContributor && selectedContributor !== "general") {
+            let cleanName = selectedContributor;
+            const prof = contributorProfiles[cleanName] || {};
+            if (prof.custom_name) cleanName = prof.custom_name;
+            else if (cleanName.includes("@")) {
+              cleanName = cleanName.split("@")[0].replace(/\./g, " ").replace(/_/g, " ");
+              cleanName = cleanName.replace(/\b\w/g, c => c.toUpperCase());
+            }
+            return `${cleanName} Portfolio`;
+          }
+          return "Project Portfolio";
+        })(),
         selected_project_ids: portfolioSelectedProjectIds,
         project_order: portfolioSelectedProjectIds,
       };
@@ -228,7 +262,8 @@ export default function PortfolioDashboard({ isActive, scans, selectedScanId, fe
     setPortfolioExporting(true);
     setPortfolioError("");
     try {
-      await downloadArtifact(`/portfolio/${portfolioArtifact.portfolio_id}/export`, "portfolio.md");
+      const fileName = portfolioArtifact.title ? `${portfolioArtifact.title}.md` : "portfolio.md";
+      await downloadArtifact(`/portfolio/${portfolioArtifact.portfolio_id}/export`, fileName);
     } catch (error) {
       setPortfolioError(error.message);
     } finally {
@@ -246,11 +281,23 @@ export default function PortfolioDashboard({ isActive, scans, selectedScanId, fe
       
       if (!hasGlobalDates && dates.length === 0) return null;
 
-      const globalStart = hasGlobalDates ? new Date(item.first_modified).getTime() : new Date(dates[0]).getTime();
-      const globalEnd = hasGlobalDates ? new Date(item.last_modified).getTime() : new Date(dates[dates.length - 1]).getTime();
+      // Normalize all dates to midnight UTC safely, handling both 'T' and space separators
+      const getDayTime = (dStr) => {
+        if (!dStr) return 0;
+        const datePart = String(dStr).split('T')[0].split(' ')[0];
+        const parsed = new Date(`${datePart}T00:00:00Z`).getTime();
+        return isNaN(parsed) ? 0 : parsed;
+      };
 
-      const userStart = dates.length > 0 ? new Date(dates[0]).getTime() : globalStart;
-      const userEnd = dates.length > 0 ? new Date(dates[dates.length - 1]).getTime() : globalEnd;
+      let globalStart = hasGlobalDates ? getDayTime(item.first_modified) : getDayTime(dates[0]);
+      let globalEnd = hasGlobalDates ? getDayTime(item.last_modified) : getDayTime(dates[dates.length - 1]);
+
+      const userStart = dates.length > 0 ? getDayTime(dates[0]) : globalStart;
+      const userEnd = dates.length > 0 ? getDayTime(dates[dates.length - 1]) : globalEnd;
+
+      // Ensure global bounds fully encapsulate the user bounds
+      globalStart = Math.min(globalStart, userStart);
+      globalEnd = Math.max(globalEnd, userEnd);
 
       return { 
         id: item.project_id, 
@@ -393,8 +440,22 @@ export default function PortfolioDashboard({ isActive, scans, selectedScanId, fe
               <span>Contributor</span>
               <select value={selectedContributor} onChange={(e) => {
                 setSelectedContributor(e.target.value);
-                setPortfolioTitle(`Portfolio - ${e.target.value}`);
+                let cleanName = e.target.value;
+                if (cleanName && cleanName !== "general") {
+                  const prof = contributorProfiles[cleanName] || {};
+                  if (prof.custom_name) {
+                    cleanName = prof.custom_name;
+                  } else if (cleanName.includes("@")) {
+                    cleanName = cleanName.split("@")[0].replace(/\./g, " ").replace(/_/g, " ");
+                    cleanName = cleanName.replace(/\b\w/g, c => c.toUpperCase());
+                  }
+                  setPortfolioTitle(`${cleanName} Portfolio`);
+                } else {
+                  setPortfolioTitle("Project Portfolio");
+                }
               }}>
+                <option value="" disabled>Select a contributor...</option>
+                <option value="general">No Contributor (General Scan Portfolio)</option>
                 {contributors.map((c) => (
                   <option key={c} value={c}>{c}</option>
                 ))}
@@ -402,9 +463,15 @@ export default function PortfolioDashboard({ isActive, scans, selectedScanId, fe
             </label>
           )}
 
+          {selectedContributor === "" ? (
+            <div className="result-card" style={{ textAlign: "center", padding: "2rem" }}>
+              <p className="muted" style={{ margin: 0 }}>Please select a contributor to continue building the portfolio.</p>
+            </div>
+          ) : (
+            <>
           <label className="field"><span>Portfolio title</span><input value={portfolioTitle} onChange={(e) => setPortfolioTitle(e.target.value)} /></label>
           <div className="field">
-            <span>Top 3 showcase projects</span>
+            <span>Showcase projects</span>
             {portfolioLoadingProjects ? (<p>Loading projects...</p>) : filteredProjects.length === 0 ? (<p>No projects found for this contributor.</p>) : (
               <ul className="project-list">
                 {filteredProjects.map((project) => (
@@ -426,23 +493,84 @@ export default function PortfolioDashboard({ isActive, scans, selectedScanId, fe
             const current = currentEdits[projectId] || {};
             const userStats = contributorProfiles[selectedContributor]?.projects?.find(p => p.name === project?.project_name) || {};
 
-            const desc = current.custom_portfolio_project_description ?? userStats.custom_portfolio_project_description ?? project?.customization?.custom_portfolio_project_description ?? "";
-            const role = current.custom_portfolio_description ?? userStats.custom_portfolio_description ?? "";
-            const techRaw = current.custom_portfolio_tech_stack ?? userStats.custom_portfolio_tech_stack ?? "";
+            // 1. Generate a default role description (codebase percentage)
+            let defaultRole = project.role || "";
+            if (selectedContributor && selectedContributor !== "general") {
+                const pcts = project.data?.per_contributor_pct || {};
+                const pct = pcts[selectedContributor];
+                if (pct !== undefined) {
+                    defaultRole = `${pct.toFixed(1)}% of codebase`;
+                }
+            }
+
+            // 2. Generate a default combined tech stack
+            let defaultTechArr = [];
+            const pContext = project.data || {};
+            let langs = pContext.languages || [];
+            let fworks = pContext.frameworks || [];
+            let combined = [];
+            const flattenSkills = (val) => {
+              if (typeof val === "string" && val) return val.split(",").map(s => s.trim());
+              if (Array.isArray(val)) return val.flatMap(v => typeof v === "string" ? v.split(",").map(s => s.trim()) : [String(v).trim()]);
+              return [];
+            };
+            combined.push(...flattenSkills(langs));
+            combined.push(...flattenSkills(fworks));
+            
+            if (combined.length > 0) {
+                defaultTechArr = [...new Set(combined)].filter(t => t && !["NA", "NONE", "UNKNOWN"].includes(t.toUpperCase()));
+            } else {
+                const hs = project.highlighted_skills || project.skills || [];
+                if (Array.isArray(hs)) defaultTechArr = hs;
+                else if (typeof hs === "string" && hs) defaultTechArr = hs.split(",").map(s => s.trim());
+            }
+            const defaultTech = defaultTechArr.join(", ");
+
+            // 3. Generate a default project description
+            let defaultDesc = project?.customization?.custom_portfolio_project_description || "";
+            if (!defaultDesc) {
+                const pType = pContext.project_type || "software";
+                const dateStr = pContext.last_modified ? ` (last updated ${String(pContext.last_modified).split("T")[0].split(" ")[0]})` : "";
+                defaultDesc = `${project.project_name} is a ${pType.toLowerCase()} project${dateStr}.`;
+            }
+
+            const desc = current.custom_portfolio_project_description ?? userStats.custom_portfolio_project_description ?? defaultDesc ?? "";
+            const role = current.custom_portfolio_description ?? userStats.custom_portfolio_description ?? defaultRole ?? "";
+            const techRaw = current.custom_portfolio_tech_stack ?? userStats.custom_portfolio_tech_stack ?? defaultTech ?? "";
             const tech = Array.isArray(techRaw) ? techRaw.join(", ") : techRaw;
 
             return (
               <div className="result-card" key={projectId}>
                 <h3>{project?.project_name || projectId}</h3>
-                <label className="field"><span>Project Description</span><textarea value={desc || ""} onChange={(e) => updateProjectEdit(projectId, "custom_portfolio_project_description", e.target.value)} rows={2} placeholder="General project overview" /></label>
-                <label className="field"><span>Role / Contribution</span><input value={role || ""} onChange={(e) => updateProjectEdit(projectId, "custom_portfolio_description", e.target.value)} placeholder="E.g. 50% of codebase, Lead Developer" /></label>
-                <label className="field"><span>Tech Stack (comma separated)</span><input value={tech || ""} onChange={(e) => updateProjectEdit(projectId, "custom_portfolio_tech_stack", e.target.value)} placeholder="React, Node.js, Python" /></label>
+                <label className="field"><span>Project Description</span><textarea value={desc} onChange={(e) => updateProjectEdit(projectId, "custom_portfolio_project_description", e.target.value)} rows={2} placeholder={defaultDesc} /></label>
+                <label className="field"><span>Role / Contribution</span><input value={role} onChange={(e) => updateProjectEdit(projectId, "custom_portfolio_description", e.target.value)} placeholder={defaultRole || "E.g. 50% of codebase, Lead Developer"} /></label>
+                <label className="field"><span>Tech Stack (comma separated)</span><input value={tech} onChange={(e) => updateProjectEdit(projectId, "custom_portfolio_tech_stack", e.target.value)} placeholder={defaultTech || "React, Node.js, Python"} /></label>
+                <label className="field">
+                  <span>Project Thumbnail</span>
+                  <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+                    <input 
+                      type="file" 
+                      accept="image/*" 
+                      onChange={(e) => {
+                        if (e.target.files?.length) {
+                          handleUploadThumbnail(projectId, e.target.files[0]);
+                        }
+                      }} 
+                    />
+                    {uploadingThumbnails[projectId] && <span className="muted" style={{ fontSize: "0.85rem" }}>Uploading...</span>}
+                    {(current.thumbnail || project.customization?.thumbnail) && !uploadingThumbnails[projectId] && (
+                      <span style={{ color: "var(--mint-600)", fontWeight: "bold", fontSize: "0.85rem" }}>✓ Saved</span>
+                    )}
+                  </div>
+                </label>
               </div>
             );
           })}
 
           <button type="button" className="btn btn-primary" onClick={handleGeneratePortfolio} disabled={portfolioGenerating}>{portfolioGenerating ? "Saving & Generating..." : "Save & Generate"}</button>
           {portfolioError && <p className="error-text">{portfolioError}</p>}
+            </>
+          )}
         </div>
       )}
 
@@ -462,6 +590,34 @@ export default function PortfolioDashboard({ isActive, scans, selectedScanId, fe
                   </div>
                 )}
               </div>
+
+              {portfolioArtifact.data?.skills_progression?.length > 0 && (
+                <div className="result-card" style={{ marginBottom: "2rem" }}>
+                  <h3 style={{ marginTop: 0, marginBottom: "1rem" }}>Skills Progression & Depth</h3>
+                  <table style={{ width: "100%", borderCollapse: "collapse", textAlign: "left" }}>
+                    <thead>
+                      <tr style={{ borderBottom: "2px solid #e5e7eb" }}>
+                        <th style={{ padding: "0.5rem" }}>Skill</th>
+                        <th style={{ padding: "0.5rem" }}>First Used</th>
+                        <th style={{ padding: "0.5rem" }}>Last Used</th>
+                        <th style={{ padding: "0.5rem" }}>Projects</th>
+                        <th style={{ padding: "0.5rem" }}>Commits</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {portfolioArtifact.data.skills_progression.map((s, i) => (
+                        <tr key={i} style={{ borderBottom: "1px solid #e5e7eb" }}>
+                          <td style={{ padding: "0.5rem" }}><strong>{s.skill}</strong></td>
+                          <td style={{ padding: "0.5rem" }}>{s.first_used || "Unknown"}</td>
+                          <td style={{ padding: "0.5rem" }}>{s.last_used || "Unknown"}</td>
+                          <td style={{ padding: "0.5rem" }}>{s.projects_count}</td>
+                          <td style={{ padding: "0.5rem" }}>{s.commits}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
 
               <div style={{ display: "flex", gap: "2rem", alignItems: "flex-start", flexWrap: "wrap" }}>
                 {/* Left Column: Interactive Project List */}
@@ -483,9 +639,17 @@ export default function PortfolioDashboard({ isActive, scans, selectedScanId, fe
                             margin: 0
                           }}
                         >
-                          <div style={{ height: "140px", background: "#e5e7eb", borderRadius: "8px", marginBottom: "1rem", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                        <div style={{ height: "140px", background: "#e5e7eb", borderRadius: "8px", marginBottom: "1rem", display: "flex", alignItems: "center", justifyContent: "center", overflow: "hidden" }}>
+                          {item.thumbnail ? (
+                            <img 
+                              src={`http://127.0.0.1:5000/thumbnails/${item.thumbnail}`} 
+                              alt={`${item.project_name} thumbnail`} 
+                              style={{ width: "100%", height: "100%", objectFit: "cover" }} 
+                            />
+                          ) : (
                             <p className="muted">🖼️ Thumbnail Placeholder</p>
-                          </div>
+                          )}
+                        </div>
                           <h4 style={{ fontSize: "1.25rem", marginBottom: "0.5rem" }}>{item.project_name}</h4>
                           <p style={{ lineHeight: "1.5" }}>{item.project_description || item.text}</p>
                           

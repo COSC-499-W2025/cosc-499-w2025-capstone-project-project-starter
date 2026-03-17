@@ -376,7 +376,7 @@ def _project_to_resume_item(project: Dict[str, Any], user_stats: Optional[Dict[s
         text = custom_text
     elif user_stats:
         # Check for custom description in user_stats (Contributor specific edit)
-        if user_stats.get("custom_description"):
+        if "custom_description" in user_stats and user_stats.get("custom_description") is not None:
             text = user_stats.get("custom_description")
         else:
             # Use rich description logic from resume_generator
@@ -386,16 +386,15 @@ def _project_to_resume_item(project: Dict[str, Any], user_stats: Optional[Dict[s
                 "frameworks": data.get("frameworks", "None"),
                 "duration_days": data.get("duration_days", 0)
             }
-            text = _build_personal_project_description(project_name, project_context, user_stats)
+            stats = dict(user_stats)
+            if stats.get("files_worked", 0) == 0 and stats.get("files_list"):
+                stats["files_worked"] = len(stats["files_list"])
+            text = _build_personal_project_description(project_name, project_context, stats)
     else:
-        parts = [f"Contributed to {project_name}"]
-        if role:
-            parts.append(f"as {role}")
-        if skills:
-            parts.append(f"highlighting {', '.join(skills[:5])}")
-        if evidence:
-            parts.append(f"with evidence of success: {evidence}")
-        text = "; ".join(parts) + "."
+        from resume_generator import build_project_line
+        p_data = dict(data)
+        p_data["project"] = project_name
+        text = build_project_line(p_data)
         
     return {
         "project_id": project["project_id"],
@@ -419,6 +418,12 @@ def _project_to_portfolio_item(project: Dict[str, Any], contributor_id: Optional
     
     if user_stats and user_stats.get("custom_portfolio_project_description"):
         proj_desc = user_stats.get("custom_portfolio_project_description")
+
+    if not proj_desc:
+        p_type = data.get("project_type", "software")
+        last_mod = data.get("last_modified")
+        date_str = f" (last updated {str(last_mod).split('T')[0].split(' ')[0]})" if last_mod else ""
+        proj_desc = f"{project_name} is a {str(p_type).lower()} project{date_str}."
 
     if user_stats and user_stats.get("custom_portfolio_description"):
         role_desc = user_stats.get("custom_portfolio_description")
@@ -451,15 +456,26 @@ def _project_to_portfolio_item(project: Dict[str, Any], contributor_id: Optional
         # Try to combine languages and frameworks for a richer stack
         langs = data.get("languages", [])
         fworks = data.get("frameworks", [])
-        if langs or fworks:
-            if isinstance(langs, str): langs = [langs]
-            if isinstance(fworks, str): fworks = [fworks]
-            combined = sorted(list(set(langs + fworks)))
+        
+        def _flatten_skills(val):
+            res = []
+            if isinstance(val, str):
+                res.extend([x.strip() for x in val.split(",") if x.strip()])
+            elif isinstance(val, list):
+                for item in val:
+                    if isinstance(item, str): res.extend([x.strip() for x in item.split(",") if x.strip()])
+                    else: res.append(str(item).strip())
+            return res
+            
+        flat_langs = _flatten_skills(langs)
+        flat_fworks = _flatten_skills(fworks)
+        
+        if flat_langs or flat_fworks:
+            combined = sorted(list(set(flat_langs + flat_fworks)))
             tech_stack = [t for t in combined if t and str(t).upper() not in ("NA", "NONE", "UNKNOWN")]
         else:
             tech_stack = project.get("highlighted_skills") or project.get("skills") or []
-            if isinstance(tech_stack, str):
-                tech_stack = [s.strip() for s in tech_stack.split(",") if s.strip()]
+            tech_stack = _flatten_skills(tech_stack)
 
     # Contribution Stats
     contribution_display = None
@@ -542,6 +558,61 @@ def _ordered_project_ids(candidates: List[Dict[str, Any]], explicit_order: Optio
         if pid not in seen:
             ordered.append(pid)
     return ordered
+
+
+def _calculate_skills_progression(items: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    skills_progression = {}
+    for item in items:
+        raw_techs = item.get("tech_stack", [])
+        techs = []
+        if isinstance(raw_techs, str):
+            techs = [x.strip() for x in raw_techs.split(",") if x.strip()]
+        elif isinstance(raw_techs, list):
+            for t in raw_techs:
+                if isinstance(t, str):
+                    techs.extend([x.strip() for x in t.split(",") if x.strip()])
+                else:
+                    techs.append(str(t).strip())
+        
+        try:
+            c_commits = int(item.get("commits") or 0)
+        except ValueError:
+            c_commits = 0
+            
+        p_start = item.get("first_modified")
+        p_end = item.get("last_modified")
+
+        daily_commits = item.get("daily_commits") or {}
+        if daily_commits:
+            dates = sorted(daily_commits.keys())
+            if dates:
+                p_start = dates[0]
+                p_end = dates[-1]
+
+        p_start_str = str(p_start).split("T")[0].split(" ")[0] if p_start else ""
+        p_end_str = str(p_end).split("T")[0].split(" ")[0] if p_end else ""
+
+        for tech in techs:
+            if not tech: continue
+            if tech not in skills_progression:
+                skills_progression[tech] = {
+                    "skill": tech,
+                    "first_used": p_start_str,
+                    "last_used": p_end_str,
+                    "projects_count": 0,
+                    "commits": 0
+                }
+            sp = skills_progression[tech]
+            sp["projects_count"] += 1
+            sp["commits"] += c_commits
+            if p_start_str and (not sp["first_used"] or p_start_str < sp["first_used"]):
+                sp["first_used"] = p_start_str
+            if p_end_str and (not sp["last_used"] or p_end_str > sp["last_used"]):
+                sp["last_used"] = p_end_str
+
+    progression_list = list(skills_progression.values())
+    progression_list.sort(key=lambda x: (x["first_used"] or "", x["skill"]))
+    return progression_list
 
 
 async def _parse_upload_inputs(request: Request) -> Dict[str, Any]:
@@ -938,6 +1009,16 @@ def create_app() -> FastAPI:
         
         return {"project_id": project_id, "thumbnail": filename, "customization": _json_safe(saved)}
 
+    @app.get("/thumbnails/{filename}")
+    def get_thumbnail(filename: str):
+        """
+        Serves an uploaded project thumbnail.
+        """
+        path = os.path.join(THUMBNAILS_DIR, filename)
+        if not os.path.exists(path):
+            raise HTTPException(status_code=404, detail="Thumbnail not found")
+        return FileResponse(path)
+
     @app.post("/scans/{summary_id}/contributors/merge")
     def merge_contributors(
         payload: MergeContributorsPayload,
@@ -1098,16 +1179,6 @@ def create_app() -> FastAPI:
             payload.project_order or None,
         )
 
-        # Filter by contributor if specified
-        if payload.contributor_id:
-            filtered_projects = []
-            for p in selected_projects:
-                # Check if contributor has > 0 percentage in this project
-                pcts = p.get("data", {}).get("per_contributor_pct", {})
-                if pcts.get(payload.contributor_id, 0) > 0:
-                    filtered_projects.append(p)
-            selected_projects = filtered_projects
-
         # Resolve user header info if contributor_id is provided
         user_header = {}
         user_project_stats = {}
@@ -1166,6 +1237,17 @@ def create_app() -> FastAPI:
             "user_summary": user_header.get("user_summary"),
             "skills": user_header.get("skills", []),
         }
+
+        # Add global timelines if no contributor is selected
+        if not payload.contributor_id and scan_id:
+            scan = get_full_scan_by_id(scan_id)
+            if scan:
+                scan_data = scan.get("scan_data", {})
+                selected_names = {p["project_name"] for p in selected_projects}
+                all_chrono = scan_data.get("projects_chronological", [])
+                artifact_data["projects_chronological"] = [c for c in all_chrono if c.get("name") in selected_names]
+                artifact_data["skills_chronological"] = scan_data.get("skills_chronological", [])
+
         saved = create_resume_artifact(artifact_data, scan_summary_id=scan_id, title=payload.title)
         return {"resume": _json_safe(saved)}
 
@@ -1219,7 +1301,7 @@ def create_app() -> FastAPI:
         try:
             # Sanitize title for filename
             title = artifact.get("title", "resume")
-            safe_title = "".join(c for c in title if c.isalnum() or c in (' ', '_', '-')).strip().replace(' ', '_')
+            safe_title = "".join(c for c in title if c.isalnum() or c in (' ', '_', '-')).strip()
             filename = f"{safe_title}.docx"
             
             # Use temp directory to avoid cluttering output folder
@@ -1246,15 +1328,6 @@ def create_app() -> FastAPI:
             payload.project_order or None,
         )
 
-        # Filter by contributor if specified
-        if payload.contributor_id:
-            filtered_projects = []
-            for p in selected_projects:
-                pcts = p.get("data", {}).get("per_contributor_pct", {})
-                if pcts.get(payload.contributor_id, 0) > 0:
-                    filtered_projects.append(p)
-            selected_projects = filtered_projects
-
         # Default showcase selection honors project customization if explicit selection not provided.
         if not payload.selected_project_ids:
             showcase_filtered = [
@@ -1279,12 +1352,16 @@ def create_app() -> FastAPI:
         
         # Calculate Global Skills
         all_skills = set()
-        for p in selected_projects:
-            s = p.get("skills", [])
+        for item in items:
+            s = item.get("tech_stack", [])
             if isinstance(s, str):
                 s = [x.strip() for x in s.split(",") if x.strip()]
             if isinstance(s, list):
-                all_skills.update(s)
+                for x in s:
+                    if isinstance(x, str):
+                        all_skills.update([t.strip() for t in x.split(",") if t.strip()])
+                    else:
+                        all_skills.add(str(x).strip())
         global_skills = sorted(list(all_skills))
 
         artifact_data = {
@@ -1294,6 +1371,7 @@ def create_app() -> FastAPI:
             "project_order": ordered_ids,
             "contributor_id": payload.contributor_id,
             "global_skills": global_skills,
+            "skills_progression": _calculate_skills_progression(items),
         }
         saved = create_portfolio_artifact(artifact_data, scan_summary_id=scan_id, title=payload.title)
         return {"portfolio": _json_safe(saved)}
@@ -1347,6 +1425,7 @@ def create_app() -> FastAPI:
             patch["items"] = [_project_to_portfolio_item(project_map[pid], contributor_id=contributor_id, user_stats=user_project_stats_map.get(project_map[pid].get("project_name"))) for pid in ordered_ids if pid in project_map]
             patch["selected_project_ids"] = selected_ids
             patch["project_order"] = ordered_ids
+            patch["skills_progression"] = _calculate_skills_progression(patch["items"])
 
         saved = update_portfolio_artifact(portfolio_id, patch)
         return {"portfolio": _json_safe(saved)}
@@ -1362,7 +1441,7 @@ def create_app() -> FastAPI:
         
         try:
             title = artifact.get("title", "portfolio")
-            safe_title = "".join(c for c in title if c.isalnum() or c in (' ', '_', '-')).strip().replace(' ', '_')
+            safe_title = "".join(c for c in title if c.isalnum() or c in (' ', '_', '-')).strip()
             filename = f"{safe_title}.md"
             
             # Try using the shared generator if available
@@ -1384,6 +1463,17 @@ def create_app() -> FastAPI:
             if data.get("global_skills"):
                 lines.append("## Global Skills")
                 lines.append(f"**{', '.join(data['global_skills'])}**")
+                lines.append("")
+
+            if data.get("skills_progression"):
+                lines.append("## Skills Progression & Depth")
+                lines.append("")
+                lines.append("| Skill | First Used | Last Used | Projects | Commits |")
+                lines.append("|---|---|---|---|---|")
+                for sp in data["skills_progression"]:
+                    f_used = sp.get('first_used') or 'Unknown'
+                    l_used = sp.get('last_used') or 'Unknown'
+                    lines.append(f"| **{sp['skill']}** | {f_used} | {l_used} | {sp['projects_count']} | {sp['commits']} |")
                 lines.append("")
 
             lines.append("## Project Showcase")
