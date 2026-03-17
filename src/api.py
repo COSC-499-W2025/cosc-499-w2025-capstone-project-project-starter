@@ -519,6 +519,8 @@ def _project_to_portfolio_item(project: Dict[str, Any], contributor_id: Optional
             pc_exts = data.get("per_contributor_extensions", {}) or data.get("per_contributor_file_breakdown", {})
             if contributor_id in pc_exts:
                 file_breakdown = pc_exts[contributor_id]
+                
+    loc_by_skill = user_stats.get("loc_by_skill", {}) if user_stats else {}
 
     return {
         "project_id": project["project_id"],
@@ -541,6 +543,7 @@ def _project_to_portfolio_item(project: Dict[str, Any], contributor_id: Optional
         "lines_added": lines_added,
         "lines_removed": lines_removed,
         "file_breakdown": file_breakdown,
+        "loc_by_skill": loc_by_skill,
     }
 
 
@@ -573,11 +576,8 @@ def _calculate_skills_progression(items: List[Dict[str, Any]]) -> List[Dict[str,
                     techs.extend([x.strip() for x in t.split(",") if x.strip()])
                 else:
                     techs.append(str(t).strip())
-        
-        try:
-            c_commits = int(item.get("commits") or 0)
-        except ValueError:
-            c_commits = 0
+                    
+        loc_by_skill = item.get("loc_by_skill", {})
             
         p_start = item.get("first_modified")
         p_end = item.get("last_modified")
@@ -592,6 +592,15 @@ def _calculate_skills_progression(items: List[Dict[str, Any]]) -> List[Dict[str,
         p_start_str = str(p_start).split("T")[0].split(" ")[0] if p_start else ""
         p_end_str = str(p_end).split("T")[0].split(" ")[0] if p_end else ""
 
+        loc_by_skill_ci = {str(k).lower(): v for k, v in loc_by_skill.items()}
+        has_loc_data = any(tech.lower() in loc_by_skill_ci for tech in techs if tech)
+        
+        fallback_ins = 0
+        fallback_del = 0
+        if not has_loc_data and techs:
+            fallback_ins = (item.get("lines_added") or 0) // len(techs)
+            fallback_del = (item.get("lines_removed") or 0) // len(techs)
+
         for tech in techs:
             if not tech: continue
             if tech not in skills_progression:
@@ -600,18 +609,27 @@ def _calculate_skills_progression(items: List[Dict[str, Any]]) -> List[Dict[str,
                     "first_used": p_start_str,
                     "last_used": p_end_str,
                     "projects_count": 0,
-                    "commits": 0
+                    "insertions": 0,
+                    "deletions": 0
                 }
             sp = skills_progression[tech]
             sp["projects_count"] += 1
-            sp["commits"] += c_commits
+            
+            tech_lower = tech.lower()
+            if has_loc_data and tech_lower in loc_by_skill_ci:
+                sp["insertions"] += loc_by_skill_ci[tech_lower].get("insertions", 0)
+                sp["deletions"] += loc_by_skill_ci[tech_lower].get("deletions", 0)
+            elif not has_loc_data:
+                sp["insertions"] += fallback_ins
+                sp["deletions"] += fallback_del
+                    
             if p_start_str and (not sp["first_used"] or p_start_str < sp["first_used"]):
                 sp["first_used"] = p_start_str
             if p_end_str and (not sp["last_used"] or p_end_str > sp["last_used"]):
                 sp["last_used"] = p_end_str
 
     progression_list = list(skills_progression.values())
-    progression_list.sort(key=lambda x: (x["first_used"] or "", x["skill"]))
+    progression_list.sort(key=lambda x: (-x.get("insertions", 0), x["skill"]))
     return progression_list
 
 
@@ -1062,6 +1080,12 @@ def create_app() -> FastAPI:
                     for d, cnt in sp.get("daily_commits", {}).items():
                         pp["daily_commits"][d] = pp["daily_commits"].get(d, 0) + cnt
                         
+                    if "loc_by_skill" not in pp: pp["loc_by_skill"] = {}
+                    for skill, loc_stats in sp.get("loc_by_skill", {}).items():
+                        if skill not in pp["loc_by_skill"]: pp["loc_by_skill"][skill] = {"insertions": 0, "deletions": 0}
+                        pp["loc_by_skill"][skill]["insertions"] += loc_stats.get("insertions", 0)
+                        pp["loc_by_skill"][skill]["deletions"] += loc_stats.get("deletions", 0)
+                        
                     pp["files_list"] = sorted(list(set(pp.get("files_list", []) + sp.get("files_list", []))))
                 else:
                     prim_prof["projects"].append(sp)
@@ -1468,12 +1492,16 @@ def create_app() -> FastAPI:
             if data.get("skills_progression"):
                 lines.append("## Skills Progression & Depth")
                 lines.append("")
-                lines.append("| Skill | First Used | Last Used | Projects | Commits |")
-                lines.append("|---|---|---|---|---|")
+                lines.append("| Skill | First Used | Last Used | Projects | Lines Added | Lines Removed |")
+                lines.append("|---|---|---|---|---|---|")
                 for sp in data["skills_progression"]:
                     f_used = sp.get('first_used') or 'Unknown'
                     l_used = sp.get('last_used') or 'Unknown'
-                    lines.append(f"| **{sp['skill']}** | {f_used} | {l_used} | {sp['projects_count']} | {sp['commits']} |")
+                    ins_val = sp.get('insertions', 0)
+                    del_val = sp.get('deletions', 0)
+                    ins_str = f"+{ins_val}" if ins_val > 0 else "-"
+                    del_str = f"-{del_val}" if del_val > 0 else "-"
+                    lines.append(f"| **{sp['skill']}** | {f_used} | {l_used} | {sp['projects_count']} | {ins_str} | {del_str} |")
                 lines.append("")
 
             lines.append("## Project Showcase")

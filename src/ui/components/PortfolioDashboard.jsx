@@ -19,6 +19,9 @@ export default function PortfolioDashboard({ isActive, scans, selectedScanId, fe
   const [contributorProjectEdits, setContributorProjectEdits] = useState({});
   const [artifactsByContributor, setArtifactsByContributor] = useState({});
   const [uploadingThumbnails, setUploadingThumbnails] = useState({});
+  const [viewSearchQuery, setViewSearchQuery] = useState("");
+  const [viewActiveFilter, setViewActiveFilter] = useState("");
+  const [showSkillsProgression, setShowSkillsProgression] = useState(false);
 
   useEffect(() => {
     if (selectedScanId) {
@@ -47,6 +50,9 @@ export default function PortfolioDashboard({ isActive, scans, selectedScanId, fe
     setPortfolioProjects([]);
     setPortfolioViewMode("edit");
     setUploadingThumbnails({});
+    setViewSearchQuery("");
+    setViewActiveFilter("");
+    setShowSkillsProgression(false);
   }, [portfolioScanId]);
 
   useEffect(() => {
@@ -54,6 +60,12 @@ export default function PortfolioDashboard({ isActive, scans, selectedScanId, fe
     setActiveViewProjectId(null);
     setPortfolioArtifact(artifactsByContributor[selectedContributor] || null);
   }, [selectedContributor]); // Intentionally omitting artifactsByContributor so it only runs on switch
+
+  useEffect(() => {
+    setViewSearchQuery("");
+    setViewActiveFilter("");
+    setShowSkillsProgression(false);
+  }, [portfolioViewMode, selectedContributor]);
 
   useEffect(() => {
     if (!portfolioScanId || !isActive) return;
@@ -272,10 +284,33 @@ export default function PortfolioDashboard({ isActive, scans, selectedScanId, fe
   };
 
   const visiblePortfolioItems = portfolioArtifact?.data?.items || [];
-  const activeViewItem = visiblePortfolioItems.find(i => i.project_id === activeViewProjectId) || visiblePortfolioItems[0];
+  
+  // Filter items for Public View Mode based on search and skill filters
+  const filteredViewItems = useMemo(() => {
+    let items = visiblePortfolioItems;
+    if (viewSearchQuery) {
+      const q = viewSearchQuery.toLowerCase();
+      items = items.filter(i => 
+        i.project_name?.toLowerCase().includes(q) || 
+        i.project_description?.toLowerCase().includes(q) || 
+        i.role_description?.toLowerCase().includes(q)
+      );
+    }
+    if (viewActiveFilter) {
+      const f = viewActiveFilter.toLowerCase();
+      items = items.filter(i => {
+        const stack = i.tech_stack || [];
+        const arr = Array.isArray(stack) ? stack : [stack];
+        return arr.some(s => String(s).toLowerCase() === f);
+      });
+    }
+    return items;
+  }, [visiblePortfolioItems, viewSearchQuery, viewActiveFilter]);
+
+  const activeViewItem = filteredViewItems.find(i => i.project_id === activeViewProjectId) || filteredViewItems[0];
 
   const renderTimeline = () => {
-    const times = visiblePortfolioItems.map((item) => {
+    const times = filteredViewItems.map((item) => {
       const hasGlobalDates = item.first_modified && item.last_modified;
       const dates = Object.keys(item.daily_commits || {}).sort();
       
@@ -582,40 +617,82 @@ export default function PortfolioDashboard({ isActive, scans, selectedScanId, fe
                 <h1 style={{ fontSize: "2.5rem", marginBottom: "0.5rem" }}>{portfolioArtifact.title || portfolioTitle}</h1>
                 {portfolioArtifact.data?.global_skills?.length > 0 && (
                   <div className="tag-wrap" style={{ justifyContent: "center" }}>
-                    {portfolioArtifact.data.global_skills.map((skill) => (
-                      <span className="tag" key={skill} style={{ backgroundColor: "#182231", color: "white", borderColor: "#182231", padding: "6px 14px", fontSize: "0.95rem" }}>
-                        {skill}
-                      </span>
-                    ))}
+                    {portfolioArtifact.data.global_skills.map((skill) => {
+                      const isSelected = viewActiveFilter === skill;
+                      return (
+                        <button 
+                          key={skill} 
+                          onClick={() => setViewActiveFilter(isSelected ? "" : skill)}
+                          style={{ 
+                            backgroundColor: isSelected ? "#111827" : "white", 
+                            color: isSelected ? "white" : "#4b5563", 
+                            border: `1px solid ${isSelected ? "#111827" : "#d1d5db"}`,
+                            borderRadius: "16px",
+                            padding: "6px 14px", 
+                            fontSize: "0.95rem",
+                            cursor: "pointer",
+                            transition: "all 0.2s ease"
+                          }}
+                          title={`Filter by ${skill}`}
+                        >
+                          {skill}
+                        </button>
+                      );
+                    })}
                   </div>
+                )}
+              </div>
+
+              <div style={{ display: "flex", justifyContent: "center", marginBottom: "2rem", gap: "1rem" }}>
+                <input
+                    type="text"
+                    placeholder="Search projects by name or description..."
+                    value={viewSearchQuery}
+                    onChange={(e) => setViewSearchQuery(e.target.value)}
+                    style={{ padding: "0.75rem 1rem", width: "100%", maxWidth: "500px", borderRadius: "8px", border: "1px solid #e5e7eb", fontSize: "1rem" }}
+                />
+                { (viewSearchQuery || viewActiveFilter) && (
+                    <button type="button" className="btn btn-secondary" onClick={() => { setViewSearchQuery(""); setViewActiveFilter(""); }}>Clear Filters</button>
                 )}
               </div>
 
               {portfolioArtifact.data?.skills_progression?.length > 0 && (
                 <div className="result-card" style={{ marginBottom: "2rem" }}>
-                  <h3 style={{ marginTop: 0, marginBottom: "1rem" }}>Skills Progression & Depth</h3>
-                  <table style={{ width: "100%", borderCollapse: "collapse", textAlign: "left" }}>
-                    <thead>
-                      <tr style={{ borderBottom: "2px solid #e5e7eb" }}>
-                        <th style={{ padding: "0.5rem" }}>Skill</th>
-                        <th style={{ padding: "0.5rem" }}>First Used</th>
-                        <th style={{ padding: "0.5rem" }}>Last Used</th>
-                        <th style={{ padding: "0.5rem" }}>Projects</th>
-                        <th style={{ padding: "0.5rem" }}>Commits</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {portfolioArtifact.data.skills_progression.map((s, i) => (
-                        <tr key={i} style={{ borderBottom: "1px solid #e5e7eb" }}>
-                          <td style={{ padding: "0.5rem" }}><strong>{s.skill}</strong></td>
-                          <td style={{ padding: "0.5rem" }}>{s.first_used || "Unknown"}</td>
-                          <td style={{ padding: "0.5rem" }}>{s.last_used || "Unknown"}</td>
-                          <td style={{ padding: "0.5rem" }}>{s.projects_count}</td>
-                          <td style={{ padding: "0.5rem" }}>{s.commits}</td>
+                  <div 
+                    style={{ display: "flex", justifyContent: "space-between", alignItems: "center", cursor: "pointer", userSelect: "none" }}
+                    onClick={() => setShowSkillsProgression(!showSkillsProgression)}
+                  >
+                    <h3 style={{ margin: 0 }}>Skills Progression & Depth</h3>
+                    <span style={{ fontSize: "1.5rem", color: "#6b7280", lineHeight: "1" }}>
+                      {showSkillsProgression ? "−" : "+"}
+                    </span>
+                  </div>
+                  {showSkillsProgression && (
+                    <table style={{ width: "100%", borderCollapse: "collapse", textAlign: "left", marginTop: "1rem" }}>
+                      <thead>
+                        <tr style={{ borderBottom: "2px solid #e5e7eb" }}>
+                          <th style={{ padding: "0.5rem" }}>Skill</th>
+                          <th style={{ padding: "0.5rem" }}>First Used</th>
+                          <th style={{ padding: "0.5rem" }}>Last Used</th>
+                          <th style={{ padding: "0.5rem" }}>Projects</th>
+                          <th style={{ padding: "0.5rem" }}>Lines Added</th>
+                          <th style={{ padding: "0.5rem" }}>Lines Removed</th>
                         </tr>
-                      ))}
-                    </tbody>
-                  </table>
+                      </thead>
+                      <tbody>
+                        {portfolioArtifact.data.skills_progression.map((s, i) => (
+                          <tr key={i} style={{ borderBottom: "1px solid #e5e7eb" }}>
+                            <td style={{ padding: "0.5rem" }}><strong>{s.skill}</strong></td>
+                            <td style={{ padding: "0.5rem" }}>{s.first_used || "Unknown"}</td>
+                            <td style={{ padding: "0.5rem" }}>{s.last_used || "Unknown"}</td>
+                            <td style={{ padding: "0.5rem" }}>{s.projects_count}</td>
+                            <td style={{ padding: "0.5rem", color: "#047857" }}>{s.insertions > 0 ? `+${s.insertions}` : "-"}</td>
+                            <td style={{ padding: "0.5rem", color: "#b91c1c" }}>{s.deletions > 0 ? `-${s.deletions}` : "-"}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  )}
                 </div>
               )}
 
@@ -624,7 +701,7 @@ export default function PortfolioDashboard({ isActive, scans, selectedScanId, fe
                 <div style={{ flex: "1 1 350px" }}>
                   <h3 style={{ marginTop: 0, marginBottom: "1rem", fontSize: "1.5rem" }}>Project Showcase</h3>
                   <div style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
-                    {visiblePortfolioItems.map((item) => {
+                    {filteredViewItems.length > 0 ? filteredViewItems.map((item) => {
                       const isActiveCard = activeViewItem?.project_id === item.project_id;
                       return (
                         <article 
@@ -690,7 +767,9 @@ export default function PortfolioDashboard({ isActive, scans, selectedScanId, fe
                           </div>
                         </article>
                       );
-                    })}
+                    }) : (
+                      <p className="muted">No projects match your search or filter criteria.</p>
+                    )}
                   </div>
                 </div>
 
