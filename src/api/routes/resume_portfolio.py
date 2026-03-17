@@ -8,7 +8,6 @@ from resume.resume_manager import ResumeManager
 from portfolio.portfolio_manager import PortfolioManager
 from portfolio.skill_mapper import SkillMapper
 from common.schemas import (
-    CustomWordingSaveRequest, 
     SimpleMessageResponse,
     PortfolioCustomizationRequest,
     PortfolioCustomizationResponse,
@@ -21,30 +20,6 @@ from common.schemas import ResumeItemResponse, PortfolioCardResponse
 
 router = APIRouter()
 logger = setup_logger(__name__)
-
-
-class PersonalInfo(BaseModel):
-    full_name: Optional[str] = None
-    email: Optional[str] = None
-    school: Optional[str] = None
-    age: Optional[int] = None
-
-
-class ResumeGenerateRequest(BaseModel):
-    top_projects_count: Optional[int] = 5
-    selected_project_ids: Optional[list[int]] = None
-    include_skills: Optional[bool] = True
-    skills_mode: Optional[str] = "categorized"
-    personal_info: Optional[PersonalInfo] = None
-
-
-class ResumeEditRequest(BaseModel):
-    project_id: int
-    wording: str
-
-
-class ResumeMarkdownSaveRequest(BaseModel):
-    markdown: str
 
 
 class PortfolioGenerateRequest(BaseModel):
@@ -117,157 +92,6 @@ async def get_skills(user_name: Optional[str] = Query(None)):
         return {"success": True, "skills": [], "categorized_skills": {}, "languages": [], "frameworks": []}
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error retrieving skills: {str(e)}")
-
-
-@router.get("/resume/{user_id}")
-async def get_resume(user_id: str):
-    """Get user's resume by ID."""
-    try:
-        resume = ResumeManager.get_user_resume(user_id)
-        if not resume:
-            raise HTTPException(status_code=404, detail="Resume not found")
-        return {"success": True, "resume": resume}
-    except HTTPException:
-        raise
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error retrieving resume: {str(e)}")
-
-
-@router.post("/resume/generate")
-async def generate_resume(request: ResumeGenerateRequest, user_name: Optional[str] = Query(None)):
-    """Generate a new resume for the user."""
-    try:
-        if not user_name:
-            raise HTTPException(status_code=400, detail="user_name is required")
-        logger.info("Resume generate requested for user=%s", user_name)
-        selection = {
-            "top_projects_count": request.top_projects_count,
-            "selected_project_ids": request.selected_project_ids,
-            "include_skills": request.include_skills,
-            "skills_mode": request.skills_mode
-        } if request.selected_project_ids or request.top_projects_count != 5 else None
-        if selection:
-            logger.info("Resume generate selection for user=%s: %s", user_name, selection)
-        resume_data = ResumeManager.generate_user_resume(user_name, request.top_projects_count, selection)
-        if not resume_data:
-            logger.warning("Resume generate failed (no data) for user=%s", user_name)
-            raise HTTPException(status_code=400, detail="Failed to generate resume. Ensure projects are uploaded.")
-        if request.personal_info:
-            pi = request.personal_info
-            if pi.full_name:
-                resume_data["display_name"] = pi.full_name
-            resume_data["personal_info"] = {
-                "full_name": pi.full_name,
-                "email": pi.email,
-                "school": pi.school,
-                "age": pi.age,
-            }
-        if ResumeManager.store_user_resume(user_name, resume_data):
-            return {"success": True, "resume": resume_data}
-        raise HTTPException(status_code=500, detail="Failed to store resume")
-    except HTTPException:
-        raise
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error generating resume: {str(e)}")
-
-
-@router.post("/resume/{user_id}/edit")
-async def edit_resume(user_id: str, request: ResumeEditRequest):
-    """Edit custom wording for a project in the resume."""
-    try:
-        if ResumeManager.save_custom_project_wording(user_id, request.project_id, request.wording):
-            return {"success": True, "message": "Resume updated"}
-        raise HTTPException(status_code=500, detail="Failed to update resume")
-    except HTTPException:
-        raise
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error editing resume: {str(e)}")
-
-@router.get("/resume/{user_id}/custom-wording")
-async def list_resume_custom_wording(user_id: str):
-    """List project_ids that have custom wording saved."""
-    try:
-        project_ids = ResumeManager.list_custom_worded_projects(user_id)
-        return {"success": True, "project_ids": project_ids}
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error listing custom wording: {str(e)}")
-
-
-@router.post("/resume/{user_id}/custom-wording")
-async def save_resume_custom_wording(user_id: str, request: CustomWordingSaveRequest):
-    """
-    Save or overwrite custom wording for a project using a dedicated request schema.
-    """
-    try:
-        if request.project_id <= 0:
-            raise HTTPException(status_code=400, detail="project_id must be positive")
-
-        if ResumeManager.save_custom_project_wording(user_id, request.project_id, request.wording):
-            return {"success": True, "message": "Custom wording saved"}
-        raise HTTPException(status_code=500, detail="Failed to save custom wording")
-    except HTTPException:
-        raise
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error saving custom wording: {str(e)}")
-
-
-@router.delete("/resume/{user_id}/custom-wording/{project_id}")
-async def clear_resume_custom_wording(user_id: str, project_id: int):
-    """Clear custom wording for a project."""
-    try:
-        if project_id <= 0:
-            raise HTTPException(status_code=400, detail="project_id must be positive")
-
-        if ResumeManager.clear_custom_project_wording(user_id, project_id):
-            return {"success": True, "message": "Custom wording cleared"}
-        raise HTTPException(status_code=500, detail="Failed to clear custom wording")
-    except HTTPException:
-        raise
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error clearing custom wording: {str(e)}")
-
-
-@router.delete("/resume/{user_id}")
-async def delete_resume(user_id: str):
-    """Delete user's resume."""
-    try:
-        if ResumeManager.delete_user_resume(user_id):
-            return {"success": True, "message": "Resume deleted"}
-        raise HTTPException(status_code=500, detail="Failed to delete resume")
-    except HTTPException:
-        raise
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error deleting resume: {str(e)}")
-
-
-@router.post("/resume/{user_id}/markdown")
-async def save_resume_markdown(user_id: str, request: ResumeMarkdownSaveRequest):
-    """Save custom resume markdown and replace stored version."""
-    try:
-        markdown = (request.markdown or "").strip()
-        if not markdown:
-            raise HTTPException(status_code=400, detail="markdown cannot be empty")
-
-        existing = ResumeManager.get_user_resume(user_id)
-        if existing and isinstance(existing.get("resume_data"), dict):
-            resume_data = existing["resume_data"]
-        else:
-            resume_data = {
-                "user_name": user_id,
-                "display_name": user_id,
-                "generated_at": datetime.now().isoformat()
-            }
-
-        resume_data["custom_markdown"] = markdown
-        resume_data["custom_markdown_updated_at"] = datetime.now().isoformat()
-
-        if ResumeManager.store_user_resume(user_id, resume_data):
-            return {"success": True, "message": "Resume saved"}
-        raise HTTPException(status_code=500, detail="Failed to save resume")
-    except HTTPException:
-        raise
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error saving resume: {str(e)}")
 
 
 @router.get("/portfolio/public-users")

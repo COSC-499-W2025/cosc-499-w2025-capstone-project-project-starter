@@ -8,6 +8,7 @@ from database.user_preferences import (
     get_user_git_username
 )
 from database.user_informations import get_user_by_username
+from database.user_profile import get_profile as get_user_profile, save_profile as save_user_profile, init_user_profile_table
 from api.schemas.auth import UserInfo, LoginResponse
 from api.dependencies import get_authenticated_user
 
@@ -50,6 +51,19 @@ class LLMSettingsRequest(BaseModel):
 class AccountUpdateRequest(BaseModel):
     """Request model for account updates (placeholder for future use)."""
     pass
+
+
+class ProfileRequest(BaseModel):
+    """Request model for resume profile (name, email, education, links, summary, location)."""
+    display_name: Optional[str] = None
+    email: Optional[str] = None
+    education: Optional[list] = None
+    linkedin: Optional[str] = None
+    github: Optional[str] = None
+    phone: Optional[str] = None
+    website: Optional[str] = None
+    summary: Optional[str] = None
+    location: Optional[str] = None
 
 
 @router.get("")
@@ -344,3 +358,52 @@ async def update_llm_settings(
             status_code=500,
             detail=f"Error updating LLM settings: {str(e)}",
         )
+
+
+@router.get("/profile")
+async def get_profile_settings(
+    current_user: dict = Depends(get_authenticated_user),
+):
+    """Get resume profile (display name, email, education). Used for resume header."""
+    try:
+        init_user_profile_table()
+        username = current_user["user_name"]
+        profile = get_user_profile(username)
+        has_profile = bool(profile and (profile.get("display_name") or profile.get("email")))
+        return {
+            "success": True,
+            "has_profile": has_profile,
+            "profile": profile or {},
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error retrieving profile: {str(e)}")
+
+
+@router.post("/profile")
+async def update_profile_settings(
+    request: ProfileRequest,
+    current_user: dict = Depends(get_authenticated_user),
+):
+    """Save resume profile (display name, email, education)."""
+    try:
+        init_user_profile_table()
+        username = current_user["user_name"]
+        save_user_profile(
+            username,
+            display_name=request.display_name,
+            email=request.email,
+            education=request.education,
+            linkedin=request.linkedin,
+            github=request.github,
+            phone=request.phone,
+            website=request.website,
+            summary=request.summary,
+            location=request.location,
+        )
+        return {"success": True, "message": "Profile saved"}
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error saving profile: {str(e)}")

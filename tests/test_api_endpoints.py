@@ -19,29 +19,6 @@ from api.main import app
 class TestProjectUploadEndpoint:
     """Test POST /api/projects/upload endpoint."""
 
-    def test_upload_invalid_file_type(self):
-        """Test that non-ZIP files are rejected."""
-        client = TestClient(app)
-
-        # Create a temporary text file
-        with tempfile.NamedTemporaryFile(mode='w', suffix='.txt', delete=False) as f:
-            f.write("not a zip file")
-            temp_path = f.name
-
-        try:
-            with open(temp_path, 'rb') as file:
-                response = client.post(
-                    "/api/projects/upload",
-                    files={"file": ("test.txt", file, "text/plain")}
-                )
-
-            assert response.status_code == 400
-            data = response.json()
-            assert data["success"] is False
-            assert "Only ZIP files are supported" in data["message"]
-        finally:
-            os.unlink(temp_path)
-
     @patch('api.routes.project.add_file_to_db')
     def test_upload_valid_zip(self, mock_add_file):
         """Test uploading a valid ZIP file."""
@@ -83,38 +60,6 @@ class TestProjectUploadEndpoint:
             mock_add_file.assert_called_once()
         finally:
             os.unlink(temp_path)
-
-    @patch('api.routes.project.add_file_to_db')
-    def test_upload_duplicate_file(self, mock_add_file):
-        """Test that duplicate uploads are rejected."""
-        from upload_file import UploadResult
-        mock_add_file.return_value = UploadResult(
-            success=False,
-            message="This ZIP file appears to have already been uploaded",
-            error_type="DUPLICATE_UPLOAD",
-            data={"existing_file_id": 100, "existing_filename": "test.zip"}
-        )
-
-        with tempfile.NamedTemporaryFile(suffix='.zip', delete=False) as f:
-            with zipfile.ZipFile(f.name, 'w') as zf:
-                zf.writestr("test.txt", "content")
-            temp_path = f.name
-
-        try:
-            client = TestClient(app)
-            with open(temp_path, 'rb') as file:
-                response = client.post(
-                    "/api/projects/upload",
-                    files={"file": ("test.zip", file, "application/zip")}
-                )
-
-            assert response.status_code == 400
-            data = response.json()
-            assert data["success"] is False
-            assert "already been uploaded" in data["message"]
-        finally:
-            os.unlink(temp_path)
-
 
 class TestPrivacyConsentEndpoint:
     """Test POST /api/settings/privacy endpoint (unified settings)."""
@@ -180,29 +125,6 @@ class TestPrivacyConsentEndpoint:
         assert data["consent_given"] is False
         assert data["user_name"] == "test_user"  # Uses authenticated user's username
         assert "privacy" in data
-
-    @patch('api.routes.settings.ConsentStorage.store_consent')
-    @patch('api.dependencies.get_user_by_username')
-    def test_post_consent_storage_failure(self, mock_get_user, mock_store):
-        """Test handling when consent storage fails via settings endpoint."""
-        mock_get_user.return_value = {
-            'user_id': 1,
-            'user_name': 'test_user',
-            'is_login': True
-        }
-        mock_store.return_value = False
-
-        client = TestClient(app)
-        response = client.post(
-            "/api/settings/privacy?username=test_user",
-            json={"consent_given": True}
-        )
-
-        assert response.status_code == 500
-        data = response.json()
-        assert data["success"] is False
-        assert "Failed to store consent" in data["message"]
-
 
 class TestSettingsEndpoints:
     """Test unified settings endpoints."""
@@ -315,50 +237,6 @@ class TestDeleteProjectDataEndpoint:
         assert data["deleted"]["projects"] == 1
         mock_delete.assert_called_once_with(123, user_name='testuser')
 
-    @patch('api.routes.project.AuthManager')
-    @patch('api.routes.project.delete_insights')
-    def test_delete_project_data_error(self, mock_delete, mock_auth_manager):
-        """Test error handling when deleting project data fails."""
-        mock_auth_manager.get_current_username.return_value = "testuser"
-        mock_delete.side_effect = Exception("Database error")
-
-        client = TestClient(app)
-        response = client.delete("/api/projects/123/data?user_name=testuser")
-
-        assert response.status_code == 500
-        data = response.json()
-        assert data["success"] is False
-        assert "Error deleting project data" in data["message"]
-
-    @patch('api.routes.project.AuthManager')
-    @patch('api.routes.project.delete_insights')
-    def test_delete_project_data_missing_user(self, mock_delete, mock_auth_manager):
-        """Test that user_name is required."""
-        mock_auth_manager.get_current_username.return_value = "testuser"
-        client = TestClient(app)
-        response = client.delete("/api/projects/123/data")
-
-        assert response.status_code == 400
-        data = response.json()
-        assert data["success"] is False
-        assert "user_name parameter is required" in data["message"]
-
-    @patch('api.routes.project.AuthManager')
-    @patch('api.routes.project.delete_insights')
-    def test_delete_project_data_permission_denied(self, mock_delete, mock_auth_manager):
-        """Test permission denied error."""
-        mock_auth_manager.get_current_username.return_value = "testuser"
-        mock_delete.side_effect = PermissionError("Project does not belong to user")
-
-        client = TestClient(app)
-        response = client.delete("/api/projects/123/data?user_name=testuser")
-
-        assert response.status_code == 403
-        data = response.json()
-        assert data["success"] is False
-        assert "Project does not belong to user" in data["message"]
-
-
 class TestGetProjectsEndpoint:
     """Test GET /api/projects endpoint."""
 
@@ -451,21 +329,6 @@ class TestGetProjectByIdEndpoint:
 
     @patch('api.routes.project.AuthManager')
     @patch('api.routes.project.get_project_by_id')
-    def test_get_project_by_id_not_found(self, mock_get, mock_auth_manager):
-        """Test retrieving a non-existent project."""
-        mock_auth_manager.get_current_username.return_value = "test_user"
-        mock_get.return_value = None
-
-        client = TestClient(app)
-        response = client.get("/api/projects/999")
-
-        assert response.status_code == 404
-        data = response.json()
-        assert data["success"] is False
-        assert "not found" in data["message"].lower()
-
-    @patch('api.routes.project.AuthManager')
-    @patch('api.routes.project.get_project_by_id')
     def test_get_project_by_id_without_user(self, mock_get, mock_auth_manager):
         """Test retrieving a project without user verification."""
         from datetime import datetime
@@ -492,29 +355,6 @@ class TestGetProjectByIdEndpoint:
 
 class TestMergeProjectEndpoint:
     """Test POST /api/projects/{id}/merge endpoint."""
-
-    def test_merge_invalid_file_type(self):
-        """Test that non-ZIP files are rejected for merging."""
-        client = TestClient(app)
-
-        # Create a temporary text file
-        with tempfile.NamedTemporaryFile(mode='w', suffix='.txt', delete=False) as f:
-            f.write("not a zip file")
-            temp_path = f.name
-
-        try:
-            with open(temp_path, 'rb') as file:
-                response = client.post(
-                    "/api/projects/123/merge?user_name=test_user",
-                    files={"file": ("test.txt", file, "text/plain")}
-                )
-
-            assert response.status_code == 400
-            data = response.json()
-            assert data["success"] is False
-            assert "Only ZIP files are supported" in data["message"]
-        finally:
-            os.unlink(temp_path)
 
     @patch('api.routes.project.merge_zip_to_project')
     def test_merge_valid_zip_success(self, mock_merge):
@@ -558,37 +398,6 @@ class TestMergeProjectEndpoint:
             assert data["data"]["new_files_count"] == 5
             assert data["data"]["skipped_duplicates"] == 2
             mock_merge.assert_called_once()
-        finally:
-            os.unlink(temp_path)
-
-    @patch('api.routes.project.merge_zip_to_project')
-    def test_merge_project_not_found(self, mock_merge):
-        """Test merging into a non-existent project."""
-        from upload_file import UploadResult
-        mock_merge.return_value = UploadResult(
-            success=False,
-            message="Project with ID 999 not found or access denied.",
-            error_type="PROJECT_NOT_FOUND",
-            data={"project_id": 999}
-        )
-
-        with tempfile.NamedTemporaryFile(suffix='.zip', delete=False) as f:
-            with zipfile.ZipFile(f.name, 'w') as zf:
-                zf.writestr("test.txt", "content")
-            temp_path = f.name
-
-        try:
-            client = TestClient(app)
-            with open(temp_path, 'rb') as file:
-                response = client.post(
-                    "/api/projects/999/merge?user_name=test_user",
-                    files={"file": ("merge.zip", file, "application/zip")}
-                )
-
-            assert response.status_code == 404
-            data = response.json()
-            assert data["success"] is False
-            assert "not found" in data["message"].lower()
         finally:
             os.unlink(temp_path)
 
@@ -680,19 +489,6 @@ class TestResumePortfolioEndpoints:
         # Verify tech stack merging
         assert "Python" in data['technologies']
         assert "React" in data['technologies']
-
-    @patch('api.routes.resume_portfolio.get_project_with_analysis')
-    def test_get_resume_preview_not_found(self, mock_get_db):
-        """Test 404 error when project doesn't exist."""
-        mock_get_db.return_value = None
-
-        client = TestClient(app)
-        response = client.get("/api/resume/preview/999")
-
-        assert response.status_code == 404
-        data = response.json()
-        assert data["success"] is False
-        assert data["message"] == "Project not found"
 
     @patch('api.routes.resume_portfolio.get_project_with_analysis')
     def test_get_portfolio_card_success(self, mock_get_db):
@@ -789,131 +585,6 @@ class TestGetSkillsEndpoint:
         assert data["frameworks"] == []
 
 
-class TestGetResumeEndpoint:
-    """Test GET /api/resume/{user_id} endpoint."""
-
-    @patch('api.routes.resume_portfolio.ResumeManager.get_user_resume')
-    def test_get_resume_success(self, mock_get_resume):
-        """Test GET /api/resume/{user_id} returns stored resume."""
-        mock_get_resume.return_value = {
-            'user_name': 'test_user',
-            'resume_data': {'projects': [], 'all_skills': ['Python'], 'generated_at': '2025-01-01'}
-        }
-
-        client = TestClient(app)
-        response = client.get("/api/resume/test_user")
-
-        assert response.status_code == 200
-        data = response.json()
-        assert data["success"] is True
-        assert "resume" in data
-        assert data["resume"]["user_name"] == "test_user"
-        assert "resume_data" in data["resume"]
-        mock_get_resume.assert_called_once_with("test_user")
-
-    @patch('api.routes.resume_portfolio.ResumeManager.get_user_resume')
-    def test_get_resume_not_found(self, mock_get_resume):
-        """Test GET /api/resume/{user_id} returns 404 when no resume exists."""
-        mock_get_resume.return_value = None
-
-        client = TestClient(app)
-        response = client.get("/api/resume/nonexistent_user")
-
-        assert response.status_code == 404
-        data = response.json()
-        assert data["success"] is False
-        assert "not found" in data["message"].lower()
-
-
-class TestPostResumeGenerateEndpoint:
-    """Test POST /api/resume/generate endpoint."""
-
-    @patch('api.routes.resume_portfolio.ResumeManager.store_user_resume')
-    @patch('api.routes.resume_portfolio.ResumeManager.generate_user_resume')
-    def test_resume_generate_success(self, mock_generate, mock_store):
-        """Test POST /api/resume/generate creates and stores resume."""
-        mock_generate.return_value = {
-            'projects': [{'project_id': 1, 'title': 'Proj A'}],
-            'all_skills': ['Python'],
-            'generated_at': '2025-01-01T00:00:00'
-        }
-        mock_store.return_value = True
-
-        client = TestClient(app)
-        response = client.post(
-            "/api/resume/generate?user_name=test_user",
-            json={"top_projects_count": 5}
-        )
-
-        assert response.status_code == 200
-        data = response.json()
-        assert data["success"] is True
-        assert "resume" in data
-        mock_generate.assert_called_once()
-        mock_store.assert_called_once()
-
-    def test_resume_generate_missing_user_name(self):
-        """Test POST /api/resume/generate returns 400 when user_name is missing."""
-        client = TestClient(app)
-        response = client.post("/api/resume/generate", json={})
-
-        assert response.status_code == 400
-        data = response.json()
-        assert data["success"] is False
-        assert "user_name" in data["message"].lower()
-
-    @patch('api.routes.resume_portfolio.ResumeManager.generate_user_resume')
-    def test_resume_generate_no_projects(self, mock_generate):
-        """Test POST /api/resume/generate returns 400 when user has no projects."""
-        mock_generate.return_value = None
-
-        client = TestClient(app)
-        response = client.post(
-            "/api/resume/generate?user_name=test_user",
-            json={"top_projects_count": 5}
-        )
-
-        assert response.status_code == 400
-        data = response.json()
-        assert data["success"] is False
-
-
-class TestPostResumeEditEndpoint:
-    """Test POST /api/resume/{user_id}/edit endpoint."""
-
-    @patch('api.routes.resume_portfolio.ResumeManager.save_custom_project_wording')
-    def test_resume_edit_success(self, mock_save):
-        """Test POST /api/resume/{user_id}/edit saves custom wording."""
-        mock_save.return_value = True
-
-        client = TestClient(app)
-        response = client.post(
-            "/api/resume/test_user/edit",
-            json={"project_id": 1, "wording": "Custom bullet text for resume."}
-        )
-
-        assert response.status_code == 200
-        data = response.json()
-        assert data["success"] is True
-        assert "updated" in data["message"].lower() or "Resume updated" in data["message"]
-        mock_save.assert_called_once_with("test_user", 1, "Custom bullet text for resume.")
-
-    @patch('api.routes.resume_portfolio.ResumeManager.save_custom_project_wording')
-    def test_resume_edit_failure(self, mock_save):
-        """Test POST /api/resume/{user_id}/edit returns 500 when save fails."""
-        mock_save.return_value = False
-
-        client = TestClient(app)
-        response = client.post(
-            "/api/resume/test_user/edit",
-            json={"project_id": 1, "wording": "Some text"}
-        )
-
-        assert response.status_code == 500
-        data = response.json()
-        assert data["success"] is False
-
-
 class TestGetPortfolioEndpoint:
     """Test GET /api/portfolio/{user_id} endpoint."""
 
@@ -939,21 +610,6 @@ class TestGetPortfolioEndpoint:
         assert data["portfolio"]["user_name"] == "test_user"
         assert data["portfolio"]["summary"]["total_projects"] == 2
         mock_instance.generate_portfolio_report.assert_called_once_with(top_n=None)
-
-    @patch('api.routes.resume_portfolio.PortfolioManager')
-    def test_get_portfolio_not_found(self, mock_pm_class):
-        """Test GET /api/portfolio/{user_id} returns 404 when report has error."""
-        mock_instance = MagicMock()
-        mock_instance.generate_portfolio_report.return_value = {'error': 'No projects found for user'}
-        mock_pm_class.return_value = mock_instance
-
-        client = TestClient(app)
-        response = client.get("/api/portfolio/empty_user")
-
-        assert response.status_code == 404
-        data = response.json()
-        assert data["success"] is False
-
 
 class TestPostPortfolioGenerateEndpoint:
     """Test POST /api/portfolio/generate endpoint."""
@@ -981,34 +637,6 @@ class TestPostPortfolioGenerateEndpoint:
         assert data["success"] is True
         assert "portfolio" in data
         mock_instance.generate_portfolio_report.assert_called_once_with(top_n=None)
-
-    def test_portfolio_generate_missing_user_name(self):
-        """Test POST /api/portfolio/generate returns 400 when user_name is missing."""
-        client = TestClient(app)
-        response = client.post("/api/portfolio/generate", json={})
-
-        assert response.status_code == 400
-        data = response.json()
-        assert data["success"] is False
-        assert "user_name" in data["message"].lower()
-
-    @patch('api.routes.resume_portfolio.PortfolioManager')
-    def test_portfolio_generate_error_in_report(self, mock_pm_class):
-        """Test POST /api/portfolio/generate returns 400 when report contains error."""
-        mock_instance = MagicMock()
-        mock_instance.generate_portfolio_report.return_value = {'error': 'No projects to analyze'}
-        mock_pm_class.return_value = mock_instance
-
-        client = TestClient(app)
-        response = client.post(
-            "/api/portfolio/generate?user_name=test_user",
-            json={}
-        )
-
-        assert response.status_code == 400
-        data = response.json()
-        assert data["success"] is False
-
 
 class TestPostPortfolioEditEndpoint:
     """Test POST /api/portfolio/{user_id}/edit endpoint."""

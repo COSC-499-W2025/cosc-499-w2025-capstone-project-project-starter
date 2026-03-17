@@ -10,7 +10,6 @@
     <!-- Core JavaScript Modules -->
     <script src="js/utils.js"></script>
     <script src="js/api.js"></script>
-    <script src="js/resume-formatter.js"></script>
     <!-- PDF export libraries -->
     <script src="https://cdn.jsdelivr.net/npm/marked@4.3.0/marked.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
@@ -35,16 +34,7 @@
                         <button type="button" class="header-nav-submenu-btn" data-view="cleanup" onclick="showView('cleanup')">Delete Projects</button>
                     </div>
                 </div>
-                <div class="header-nav-dropdown">
-                    <button type="button" class="header-nav-btn header-nav-btn-dropdown" id="resumeMenuToggle" onclick="toggleHeaderDropdown('resumeSubmenu', 'resumeMenuToggle')">
-                        Resume Tools <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor"><path d="M3 4.5l3 3 3-3"/></svg>
-                    </button>
-                    <div class="header-nav-submenu" id="resumeSubmenu">
-                        <button type="button" class="header-nav-submenu-btn" data-view="resume-gen" onclick="showView('resume-gen')">Generate Resume</button>
-                        <button type="button" class="header-nav-submenu-btn" data-view="resume-view" onclick="showView('resume-view')">View Resume</button>
-                        <button type="button" class="header-nav-submenu-btn" data-view="resume-delete" onclick="showView('resume-delete')">Delete Resume</button>
-                    </div>
-                </div>
+                <button type="button" class="header-nav-btn" data-view="resume-builder" onclick="showView('resume-builder')">Resume</button>
                 <button type="button" class="header-nav-btn" data-view="portfolio-dashboard" onclick="showView('portfolio-dashboard')">Portfolio</button>
                 <button type="button" class="header-nav-btn" onclick="window.location.href='public-dashboard.html'">Public Dashboard</button>
             </nav>
@@ -101,24 +91,93 @@
             </form>
         </div>
     </div>
-    <div id="llmConsentModal" class="modal" aria-modal="true" role="dialog">
-        <div class="modal-content">
+    <div id="llmConsentModal" class="modal modal--compact" aria-modal="true" role="dialog">
+        <div class="modal-content modal-content--compact">
             <div class="modal-header">
-                <h3>AI Features & LLM Usage</h3>
+                <h3>AI Features &amp; LLM Usage</h3>
             </div>
             <div class="modal-body">
-                <p>
+                <p class="modal-text">
                     This dashboard can use external AI models to analyze your projects (e.g. deep code reviews and AI rankings).
                     When enabled, relevant project data may be sent to an external LLM provider.
                 </p>
-                <p>
+                <p class="modal-text">
                     If you prefer to keep analysis fully local, you can disable AI features. Local analysis will continue
                     to work and no project data will be sent to external services.
                 </p>
             </div>
             <div class="modal-actions">
-                <button type="button" class="btn" onclick="setLlmConsent(true)">Enable AI features</button>
-                <button type="button" class="btn btn-secondary" onclick="setLlmConsent(false)">Disable AI features</button>
+                <button type="button" class="btn" onclick="setLlmConsentThenMaybeProfile(true)">Enable AI &amp; continue</button>
+                <button type="button" class="btn btn-secondary" onclick="setLlmConsentThenMaybeProfile(false)">Disable AI &amp; continue</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="profileBuilderModal" class="modal modal--compact" aria-modal="true" role="dialog" style="display: none;" onclick="if (event.target === this) closeProfileBuilderModal()">
+        <div class="modal-content modal-content--compact modal-content--profile" onclick="event.stopPropagation()">
+            <div class="modal-header">
+                <h3>Build your profile</h3>
+            </div>
+            <div class="modal-body">
+                <p class="modal-text modal-subtitle">This information will appear on your resume. You can change it later in settings.</p>
+                <div class="profile-form-grid">
+                    <div class="form-group">
+                        <label for="profileDisplayName">Full name</label>
+                        <input type="text" id="profileDisplayName" class="form-input" placeholder="e.g. Jane Doe" />
+                    </div>
+                    <div class="form-group">
+                        <label for="profileEmail">Email</label>
+                        <input type="email" id="profileEmail" class="form-input" placeholder="e.g. jane@example.com" />
+                    </div>
+                    <div class="form-group">
+                        <label for="profilePhone">Phone (optional)</label>
+                        <input type="tel" id="profilePhone" class="form-input" placeholder="e.g. (555) 123-4567" />
+                    </div>
+                    <div class="form-group">
+                        <label for="profileDegree">Degree (optional)</label>
+                        <input type="text" id="profileDegree" class="form-input" placeholder="e.g. Bachelor of Science" />
+                    </div>
+                    <div class="form-group">
+                        <label for="profileMajor">Major / Concentration (optional)</label>
+                        <input type="text" id="profileMajor" class="form-input" placeholder="e.g. Computer Science" />
+                    </div>
+                    <div class="form-group">
+                        <label for="profileGpa">GPA (optional)</label>
+                        <input type="text" id="profileGpa" class="form-input" placeholder="e.g. 4.10" />
+                    </div>
+                    <div class="form-group">
+                        <label for="profileGpaScale">GPA Scale (optional)</label>
+                        <input type="text" id="profileGpaScale" class="form-input" placeholder="e.g. 4.33" />
+                    </div>
+                    <div class="form-group">
+                        <label for="profileEduDates">Education dates (optional)</label>
+                        <input type="text" id="profileEduDates" class="form-input" placeholder="e.g. Sep 2022 – Apr 2026" />
+                    </div>
+                    <div class="form-group">
+                        <label for="profileSchool">School / University (optional)</label>
+                        <input type="text" id="profileSchool" class="form-input" placeholder="e.g. University of British Columbia" />
+                    </div>
+                    <div class="form-group">
+                        <label for="profileLocation">Location (optional)</label>
+                        <input type="text" id="profileLocation" class="form-input" placeholder="e.g. British Columbia, CA" />
+                    </div>
+                    <div class="form-group">
+                        <label for="profileLinkedIn">LinkedIn (optional)</label>
+                        <input type="url" id="profileLinkedIn" class="form-input" placeholder="e.g. linkedin.com/in/username" />
+                    </div>
+                    <div class="form-group">
+                        <label for="profileGitHub">GitHub (optional)</label>
+                        <input type="text" id="profileGitHub" class="form-input" placeholder="e.g. username or https://github.com/username" />
+                    </div>
+                    <div class="form-group form-group--full">
+                        <label for="profileWebsite">Website / Portfolio (optional)</label>
+                        <input type="url" id="profileWebsite" class="form-input" placeholder="e.g. https://yourportfolio.com" />
+                    </div>
+                </div>
+            </div>
+            <div class="modal-actions">
+                <button type="button" class="btn btn-secondary" onclick="skipProfileBuilder()">Skip for now</button>
+                <button type="button" class="btn" onclick="saveProfileBuilder()">Save profile</button>
             </div>
         </div>
     </div>
@@ -147,7 +206,7 @@
                         <button type="button" class="menu-btn submenu-btn" data-view="account" onclick="showView('account')">Account</button>
                     </div>
                 </div>
-                <button type="button" class="menu-btn nav-tab" data-view="resume-view" onclick="showView('resume-view')">Resume</button>
+                <button type="button" class="menu-btn nav-tab" data-view="resume-builder" onclick="showView('resume-builder')">Resume</button>
                 <button type="button" class="menu-btn nav-tab" data-view="portfolio-dashboard" onclick="showView('portfolio-dashboard')">Portfolio</button>
                 <button type="button" class="menu-btn nav-tab" onclick="window.location.href='public-dashboard.html'">Public Dashboard</button>
             </div>
@@ -987,17 +1046,13 @@
                             <span>Deep dive into your project's structure, dependencies, complexity, and technical stack.</span>
                         </button>
                         
-                        <button type="button" class="dashboard-quick-action" onclick="showView('resume-view')">
+                        <button type="button" class="dashboard-quick-action" onclick="showView('resume-builder')">
                             <strong>Resume</strong>
-                            <span>View and export your resume tailored to your project history and skills.</span>
+                            <span>Build, edit, and export your resume with live preview.</span>
                         </button>
                         <button type="button" class="dashboard-quick-action" onclick="showView('portfolio-dashboard')">
                             <strong>Portfolio</strong>
                             <span>View your portfolio with skills timeline and activity heatmap</span>
-                        </button>
-                        <button type="button" class="dashboard-quick-action" onclick="showView('resume-gen')">
-                            <strong>Resume Tools</strong>
-                            <span>Generate professional resumes from your project history</span>
                         </button>
                         <button type="button" class="dashboard-quick-action" onclick="showView('preferences')">
                             <strong>Settings</strong>
@@ -1145,6 +1200,29 @@
                             </div>
                         </div>
 
+                        <!-- Resume Profile Section -->
+                        <div style="padding: 24px; background: var(--bg-card); border: 1px solid var(--border-color); border-radius: var(--radius-md);">
+                            <h4 style="margin: 0 0 12px 0; font-size: 1.1rem; font-weight: 600;">Resume Profile</h4>
+                            <p class="text-muted" style="margin: 0 0 16px 0; font-size: 14px;">This information appears on your resume. Edit and save below.</p>
+                            <div class="profile-form-grid" style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 16px;">
+                                <div><label for="settingsProfileDisplayName" style="display:block;margin-bottom:6px;font-size:14px;">Full name</label><input type="text" id="settingsProfileDisplayName" class="form-input" placeholder="e.g. Jane Doe" /></div>
+                                <div><label for="settingsProfileEmail" style="display:block;margin-bottom:6px;font-size:14px;">Email</label><input type="email" id="settingsProfileEmail" class="form-input" placeholder="e.g. jane@example.com" /></div>
+                                <div><label for="settingsProfilePhone" style="display:block;margin-bottom:6px;font-size:14px;">Phone</label><input type="tel" id="settingsProfilePhone" class="form-input" placeholder="e.g. (555) 123-4567" /></div>
+                                <div><label for="settingsProfileDegree" style="display:block;margin-bottom:6px;font-size:14px;">Degree</label><input type="text" id="settingsProfileDegree" class="form-input" placeholder="e.g. Bachelor of Science" /></div>
+                                <div><label for="settingsProfileMajor" style="display:block;margin-bottom:6px;font-size:14px;">Major</label><input type="text" id="settingsProfileMajor" class="form-input" placeholder="e.g. Computer Science" /></div>
+                                <div><label for="settingsProfileGpa" style="display:block;margin-bottom:6px;font-size:14px;">GPA</label><input type="text" id="settingsProfileGpa" class="form-input" placeholder="e.g. 4.10" /></div>
+                                <div><label for="settingsProfileGpaScale" style="display:block;margin-bottom:6px;font-size:14px;">GPA scale</label><input type="text" id="settingsProfileGpaScale" class="form-input" placeholder="e.g. 4.33" /></div>
+                                <div><label for="settingsProfileEduDates" style="display:block;margin-bottom:6px;font-size:14px;">Education dates</label><input type="text" id="settingsProfileEduDates" class="form-input" placeholder="e.g. Sep 2022 – Apr 2026" /></div>
+                                <div><label for="settingsProfileSchool" style="display:block;margin-bottom:6px;font-size:14px;">School</label><input type="text" id="settingsProfileSchool" class="form-input" placeholder="e.g. University of British Columbia" /></div>
+                                <div><label for="settingsProfileLocation" style="display:block;margin-bottom:6px;font-size:14px;">Location</label><input type="text" id="settingsProfileLocation" class="form-input" placeholder="e.g. British Columbia, CA" /></div>
+                                <div><label for="settingsProfileLinkedIn" style="display:block;margin-bottom:6px;font-size:14px;">LinkedIn</label><input type="url" id="settingsProfileLinkedIn" class="form-input" placeholder="e.g. linkedin.com/in/username" /></div>
+                                <div><label for="settingsProfileGitHub" style="display:block;margin-bottom:6px;font-size:14px;">GitHub</label><input type="text" id="settingsProfileGitHub" class="form-input" placeholder="e.g. username or URL" /></div>
+                                <div style="grid-column: 1 / -1;"><label for="settingsProfileWebsite" style="display:block;margin-bottom:6px;font-size:14px;">Website</label><input type="url" id="settingsProfileWebsite" class="form-input" placeholder="e.g. https://yourportfolio.com" /></div>
+                            </div>
+                            <button type="button" class="btn" onclick="saveSettingsProfile()">Save Profile</button>
+                            <span id="settingsProfileResult" class="result" style="margin-left:12px;font-size:14px;"></span>
+                        </div>
+
                         <!-- Account Info Section -->
                         <div style="padding: 24px; background: var(--bg-card); border: 1px solid var(--border-color); border-radius: var(--radius-md);">
                             <h4 style="margin: 0 0 12px 0; font-size: 1.1rem; font-weight: 600;">Account Information</h4>
@@ -1157,47 +1235,102 @@
                     
                     <div id="preferencesResult" class="result" style="margin-top: 24px;"></div>
                 </div>`,
-                'resume-gen': `<div class="view-panel resume-gen-panel">
-                    <h3>Generate Resume</h3>
-                    <p class="text-muted" style="margin: 0 0 20px 0; font-size: 14px;">Fill in your details and select the projects you want to include.</p>
-
-                    <div class="resume-gen-form">
-                        <div class="resume-gen-fields">
-                            <div class="resume-gen-field">
-                                <label for="resumeFullName">Full Name</label>
-                                <input type="text" id="resumeFullName" class="form-input" placeholder="e.g. Jane Doe" />
+                'resume-builder': `<div class="view-panel resume-builder-panel">
+                    <div class="rb-toolbar">
+                        <div class="rb-toolbar__row">
+                            <div class="rb-toolbar__group rb-toolbar__resume-select">
+                                <label for="resumeBuilderDropdown" class="rb-toolbar__label">Resume</label>
+                                <select id="resumeBuilderDropdown" class="rb-toolbar__select" aria-label="Select resume">
+                                    <option value="0">Master Resume</option>
+                                </select>
+                                <button type="button" class="rb-toolbar__btn rb-toolbar__btn--secondary" id="resumeBuilderTailorBtn" onclick="resumeBuilderTailorNew()">+ New resume</button>
+                                <button type="button" class="rb-toolbar__btn rb-toolbar__btn--delete" id="resumeBuilderDeleteBtn" onclick="resumeBuilderDeleteCurrent()" style="display:none;" aria-label="Delete this resume">Delete</button>
                             </div>
-                            <div class="resume-gen-field">
-                                <label for="resumeEmail">Email</label>
-                                <input type="email" id="resumeEmail" class="form-input" placeholder="e.g. jane@example.com" />
-                            </div>
-                            <div class="resume-gen-field">
-                                <label for="resumeSchool">School / University</label>
-                                <input type="text" id="resumeSchool" class="form-input" placeholder="e.g. University of Central Florida" />
-                            </div>
-                            <div class="resume-gen-field">
-                                <label for="resumeAge">Age</label>
-                                <input type="number" id="resumeAge" class="form-input" placeholder="e.g. 22" min="1" max="120" />
-                            </div>
-                        </div>
-
-                        <div class="resume-gen-projects-section">
-                            <label class="resume-gen-projects-label">Select Projects to Include</label>
-                            <div class="resume-gen-projects-controls">
-                                <button type="button" class="btn btn-secondary btn-sm" onclick="resumeGenSelectAll(true)">Select All</button>
-                                <button type="button" class="btn btn-secondary btn-sm" onclick="resumeGenSelectAll(false)">Deselect All</button>
-                            </div>
-                            <div id="resumeGenProjectsList" class="resume-gen-projects-list">
-                                <div class="text-muted" style="padding: 20px; text-align: center;">Loading projects...</div>
+                            <div class="rb-toolbar__group rb-toolbar__actions">
+                                <button type="button" class="rb-toolbar__btn rb-toolbar__btn--save" id="resumeBuilderSaveBtn" onclick="resumeBuilderSaveFromCard()" disabled title="Select a tailored resume to save">Save resume</button>
+                                <div class="rb-toolbar__export-wrap" id="resumeBuilderExportWrap">
+                                    <button type="button" class="rb-toolbar__btn rb-toolbar__btn--primary" id="resumeBuilderExportBtn" aria-haspopup="true" onclick="toggleResumeExportDropdown()">Export</button>
+                                    <div id="resumeBuilderExportMenu" class="rb-export-menu" role="menu">
+                                        <button type="button" class="rb-export-menu__item" role="menuitem" onclick="resumeExport('pdf')">Download PDF</button>
+                                        <button type="button" class="rb-export-menu__item" role="menuitem" onclick="resumeExport('html')">Download HTML</button>
+                                        <button type="button" class="rb-export-menu__item" role="menuitem" onclick="resumeExport('markdown')">Download Markdown</button>
+                                    </div>
+                                </div>
                             </div>
                         </div>
-
-                        <button class="btn" id="resumeGenBtn" onclick="generateResume()">Generate Resume</button>
                     </div>
-                    <div id="resumeGenResult" class="result"></div>
+                    <div class="rb-main">
+                        <div class="rb-editor card">
+                            <p class="rb-editor__hint">Edit your resume below. Changes appear in the preview. Use <strong>Save resume</strong> above to keep changes (for tailored resumes only).</p>
+                            <div class="rb-editor__tabs" role="tablist">
+                                <button type="button" class="rb-editor__tab active" role="tab" data-tab="personal" onclick="switchResumeEditorTab('personal')">Personal</button>
+                                <button type="button" class="rb-editor__tab" role="tab" data-tab="education" onclick="switchResumeEditorTab('education')">Education</button>
+                                <button type="button" class="rb-editor__tab" role="tab" data-tab="experience" onclick="switchResumeEditorTab('experience')">Experience</button>
+                                <button type="button" class="rb-editor__tab" role="tab" data-tab="projects" onclick="switchResumeEditorTab('projects')">Projects</button>
+                                <button type="button" class="rb-editor__tab" role="tab" data-tab="skills" onclick="switchResumeEditorTab('skills')">Skills</button>
+                                <button type="button" class="rb-editor__tab" role="tab" data-tab="summary" onclick="switchResumeEditorTab('summary')">Summary</button>
+                            </div>
+                            <div id="resumeEditorPersonal" class="rb-editor__panel active" role="tabpanel">
+                                <div class="rb-form">
+                                    <div class="rb-form__group"><label for="rbContactName">Full name</label><input type="text" id="rbContactName" class="rb-form__input" placeholder="Your name" /></div>
+                                    <div class="rb-form__group"><label for="rbContactEmail">Email</label><input type="email" id="rbContactEmail" class="rb-form__input" placeholder="email@example.com" /></div>
+                                    <div class="rb-form__group"><label for="rbContactPhone">Phone</label><input type="text" id="rbContactPhone" class="rb-form__input" placeholder="Optional" /></div>
+                                    <div class="rb-form__group"><label for="rbContactLocation">Location</label><input type="text" id="rbContactLocation" class="rb-form__input" placeholder="City, Country" /></div>
+                                    <div class="rb-form__group"><label for="rbLinkedIn">LinkedIn</label><input type="url" id="rbLinkedIn" class="rb-form__input" placeholder="https://linkedin.com/in/..." /></div>
+                                    <div class="rb-form__group"><label for="rbGitHub">GitHub</label><input type="url" id="rbGitHub" class="rb-form__input" placeholder="https://github.com/..." /></div>
+                                    <div class="rb-form__group"><label for="rbPortfolio">Portfolio</label><input type="url" id="rbPortfolio" class="rb-form__input" placeholder="https://..." /></div>
+                                </div>
+                            </div>
+                            <div id="resumeEditorEducation" class="rb-editor__panel" role="tabpanel" hidden>
+                                <div id="resumeEditorEducationList" class="rb-editor__list"></div>
+                                <button type="button" class="rb-editor__add" onclick="resumeEditorAddEducation()">+ Add education</button>
+                            </div>
+                            <div id="resumeEditorExperience" class="rb-editor__panel" role="tabpanel" hidden>
+                                <div id="resumeEditorExperienceList" class="rb-editor__list"></div>
+                                <button type="button" class="rb-editor__add" onclick="resumeEditorAddExperience()">+ Add experience</button>
+                            </div>
+                            <div id="resumeEditorProjects" class="rb-editor__panel" role="tabpanel" hidden>
+                                <p class="rb-editor__desc">Edit each project’s title, dates, skills, and bullets. Changes update the preview and are saved when you click <strong>Save resume</strong>.</p>
+                                <div id="resumeBuilderEditProjects" class="rb-projects"></div>
+                            </div>
+                            <div id="resumeEditorSkills" class="rb-editor__panel" role="tabpanel" hidden>
+                                <p class="rb-editor__desc">List skills separated by commas. These appear in the Technical Skills section.</p>
+                                <div class="rb-form__group">
+                                    <label for="resumeBuilderEditSkills">Skills</label>
+                                    <textarea id="resumeBuilderEditSkills" class="rb-form__input rb-form__textarea" rows="4" placeholder="e.g. Python, React, SQL, Git"></textarea>
+                                </div>
+                            </div>
+                            <div id="resumeEditorSummary" class="rb-editor__panel" role="tabpanel" hidden>
+                                <div class="rb-form__group">
+                                    <label for="rbSummary">Professional summary</label>
+                                    <textarea id="rbSummary" class="rb-form__input rb-form__textarea" rows="5" placeholder="A brief summary for recruiters (2–3 sentences)."></textarea>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="rb-preview card">
+                            <div id="resumeBuilderEmpty" class="rb-empty" style="display:none;">
+                                <p class="rb-empty__title">No resume loaded</p>
+                                <p class="rb-empty__text">Choose a resume from the dropdown above or create a new one.</p>
+                            </div>
+                            <iframe id="resumePreviewFrame" class="rb-preview__iframe" title="Resume preview" sandbox="allow-same-origin" srcdoc=""></iframe>
+                        </div>
+                    </div>
+                    <div id="resumeBuilderTailorModal" class="modal-overlay" style="display:none;" onclick="closeResumeBuilderTailorModal()">
+                        <div class="modal-content rb-modal" onclick="event.stopPropagation()">
+                            <h2 class="modal-title">Create new resume</h2>
+                            <p class="modal-subtitle">Select projects to include, then name your resume.</p>
+                            <div id="resumeBuilderTailorProjectsList" class="resume-gen-projects-list" style="max-height:320px;overflow:auto;"></div>
+                            <div class="form-group" style="margin-top:16px;">
+                                <label for="resumeBuilderTailorName">Resume name</label>
+                                <input type="text" id="resumeBuilderTailorName" class="form-input" placeholder="e.g. Software Engineer Resume" />
+                            </div>
+                            <div class="modal-actions" style="margin-top:20px;">
+                                <button type="button" class="btn btn-secondary" onclick="closeResumeBuilderTailorModal()">Cancel</button>
+                                <button type="button" class="btn" id="resumeBuilderTailorSubmitBtn" onclick="resumeBuilderTailorSubmit()">Create</button>
+                            </div>
+                        </div>
+                    </div>
                 </div>`,
-                'resume-view': `<div class="view-panel resume-view-panel"><div class="resume-header"><h3>Resume</h3><div class="resume-actions"><button type="button" class="btn" id="resumeSaveBtn" onclick="saveResume()" disabled>Save</button><button type="button" class="btn btn-secondary" id="resumeRegenerateBtn" onclick="regenerateResume()" disabled>Regenerate from Projects</button><select id="resumeExportFormat" class="resume-export-select" aria-label="Export format"><option value="pdf">.pdf</option><option value="md" selected>.md</option><option value="txt">.txt</option><option value="json">.json</option></select><button type="button" class="btn" id="resumeExportBtn" onclick="exportResume()" disabled>Export</button></div></div><textarea id="resumeTextBox" class="resume-textbox" rows="18" disabled aria-live="polite">Loading resume...</textarea><div id="resumePdfRender" class="resume-pdf-render" aria-hidden="true"></div></div>`,
-                'resume-delete': `<div class="view-panel"><h3>Delete Resume</h3><button class="btn" onclick="deleteResume()">Delete</button><div id="resumeDeleteResult" class="result"></div></div>`,
                 'portfolio-dashboard': `<div class="portfolio-dashboard-wrapper">
                     <div class="pd-header">
                         <div class="pd-header-left">
@@ -1361,11 +1494,8 @@
                     loadPreferences();
                 }, 50);
             }
-            if (viewName === 'resume-gen') {
-                setTimeout(() => loadResumeGenProjects(), 100);
-            }
-            if (viewName === 'resume-view'){
-                setTimeout(() => viewResume(), 100);
+            if (viewName === 'resume-builder') {
+                setTimeout(() => loadResumeBuilder(), 100);
             }
             if (viewName === 'upload') {
                 setTimeout(() => {
@@ -1473,9 +1603,6 @@
                 fileInfo.style.display = 'none';
                 mergeBtn.disabled = true;
                 clearBtn.style.display = 'none';
-            }
-            if (viewName === 'resume-view') {
-                setTimeout(() => viewResume(), 0);
             }
         }
 
@@ -1960,12 +2087,107 @@
                 }
                 llmEnabled = res.data.llm_enabled;
                 applyLlmConsentToUi();
-                if (llmEnabled === null || llmEnabled === undefined) {
-                    const modal = document.getElementById('llmConsentModal');
-                    if (modal) modal.classList.add('show');
+
+                const profileRes = await apiCall(`/api/settings/profile?username=${encodeURIComponent(currentUser.user_name)}`);
+                const hasProfile = profileRes.ok && profileRes.data?.has_profile === true;
+                const needLlm = llmEnabled === null || llmEnabled === undefined;
+
+                if (needLlm) {
+                    document.getElementById('llmConsentModal').classList.add('show');
+                } else if (!hasProfile) {
+                    openProfileBuilderModal();
                 }
             } catch (e) {
                 console.warn('Error initializing LLM consent:', e);
+            }
+        }
+
+        async function setLlmConsentThenMaybeProfile(llmEnabled) {
+            try {
+                await setLlmConsent(!!llmEnabled);
+                const profileRes = await apiCall(`/api/settings/profile?username=${encodeURIComponent(currentUser.user_name)}`);
+                const hasProfile = profileRes.ok && profileRes.data?.has_profile === true;
+                if (!hasProfile) {
+                    openProfileBuilderModal();
+                }
+            } catch (e) {
+                showMessage(e.message || 'Failed', 'error');
+            }
+        }
+
+        async function openProfileBuilderModal() {
+            const modal = document.getElementById('profileBuilderModal');
+            if (!modal) return;
+            try {
+                const profileRes = await apiCall(`/api/settings/profile?username=${encodeURIComponent(currentUser.user_name)}`);
+                const p = (profileRes.ok && profileRes.data?.profile) ? profileRes.data.profile : {};
+                document.getElementById('profileDisplayName').value = p.display_name || '';
+                document.getElementById('profileEmail').value = p.email || '';
+                document.getElementById('profilePhone').value = p.phone || '';
+                const edu = (p.education && p.education[0]) ? p.education[0] : {};
+                document.getElementById('profileDegree').value = edu.degree || '';
+                document.getElementById('profileMajor').value = edu.major || '';
+                document.getElementById('profileGpa').value = edu.gpa || '';
+                document.getElementById('profileGpaScale').value = edu.gpa_scale || '';
+                document.getElementById('profileEduDates').value = edu.dates || '';
+                document.getElementById('profileSchool').value = edu.school || '';
+                document.getElementById('profileLocation').value = edu.location || '';
+                document.getElementById('profileLinkedIn').value = p.linkedin || '';
+                document.getElementById('profileGitHub').value = p.github || '';
+                document.getElementById('profileWebsite').value = p.website || '';
+            } catch (_) {}
+            modal.style.display = 'flex';
+            modal.classList.add('show');
+        }
+
+        function closeProfileBuilderModal() {
+            const modal = document.getElementById('profileBuilderModal');
+            if (modal) { modal.style.display = 'none'; modal.classList.remove('show'); }
+        }
+
+        function skipProfileBuilder() {
+            closeProfileBuilderModal();
+        }
+
+        async function saveProfileBuilder() {
+            const displayName = (document.getElementById('profileDisplayName')?.value || '').trim();
+            const email = (document.getElementById('profileEmail')?.value || '').trim();
+            const phone = (document.getElementById('profilePhone')?.value || '').trim();
+            const degree = (document.getElementById('profileDegree')?.value || '').trim();
+            const major = (document.getElementById('profileMajor')?.value || '').trim();
+            const gpa = (document.getElementById('profileGpa')?.value || '').trim();
+            const gpaScale = (document.getElementById('profileGpaScale')?.value || '').trim();
+            const eduDates = (document.getElementById('profileEduDates')?.value || '').trim();
+            const school = (document.getElementById('profileSchool')?.value || '').trim();
+            const location = (document.getElementById('profileLocation')?.value || '').trim();
+            const linkedin = (document.getElementById('profileLinkedIn')?.value || '').trim();
+            const github = (document.getElementById('profileGitHub')?.value || '').trim();
+            const website = (document.getElementById('profileWebsite')?.value || '').trim();
+            const username = (currentUser && currentUser.user_name) ? encodeURIComponent(currentUser.user_name) : '';
+            if (!username) return;
+            const hasEdu = degree || major || gpa || gpaScale || eduDates || school || location;
+            const education = hasEdu ? [{ degree, major, gpa: gpa || undefined, gpa_scale: gpaScale || undefined, dates: eduDates, school, location }] : [];
+            try {
+                const profileRes = await apiCall(`/api/settings/profile?username=${username}`, {
+                    method: 'POST',
+                    body: JSON.stringify({
+                        display_name: displayName || undefined,
+                        email: email || undefined,
+                        phone: phone || undefined,
+                        education: education.length ? education : undefined,
+                        linkedin: linkedin || undefined,
+                        github: github || undefined,
+                        website: website || undefined
+                    })
+                });
+                if (profileRes.ok) {
+                    closeProfileBuilderModal();
+                    showMessage('Profile saved. It will be used for your resume.', 'success');
+                } else {
+                    showMessage(profileRes.error || 'Failed to save profile', 'error');
+                }
+            } catch (e) {
+                showMessage(e.message || 'Failed to save profile', 'error');
             }
         }
 
@@ -2053,8 +2275,75 @@
                         gitUsernameInput.value = prefs.git_username || '';
                     }
                 }
+                loadSettingsProfile();
             } catch (e) {
                 console.error('Failed to load preferences:', e);
+            }
+        }
+
+        async function loadSettingsProfile() {
+            try {
+                const res = await apiCall(`/api/settings/profile?username=${encodeURIComponent(currentUser.user_name)}`);
+                const p = (res.ok && res.data?.profile) ? res.data.profile : {};
+                const edu = (p.education && p.education[0]) ? p.education[0] : {};
+                const set = (id, val) => { const el = document.getElementById(id); if (el) el.value = val || ''; };
+                set('settingsProfileDisplayName', p.display_name);
+                set('settingsProfileEmail', p.email);
+                set('settingsProfilePhone', p.phone);
+                set('settingsProfileDegree', edu.degree);
+                set('settingsProfileMajor', edu.major);
+                set('settingsProfileGpa', edu.gpa);
+                set('settingsProfileGpaScale', edu.gpa_scale);
+                set('settingsProfileEduDates', edu.dates);
+                set('settingsProfileSchool', edu.school);
+                set('settingsProfileLocation', edu.location);
+                set('settingsProfileLinkedIn', p.linkedin);
+                set('settingsProfileGitHub', p.github);
+                set('settingsProfileWebsite', p.website);
+                const resultEl = document.getElementById('settingsProfileResult');
+                if (resultEl) resultEl.textContent = '';
+            } catch (e) {
+                console.error('Failed to load profile:', e);
+            }
+        }
+
+        async function saveSettingsProfile() {
+            const displayName = (document.getElementById('settingsProfileDisplayName')?.value || '').trim();
+            const email = (document.getElementById('settingsProfileEmail')?.value || '').trim();
+            const phone = (document.getElementById('settingsProfilePhone')?.value || '').trim();
+            const degree = (document.getElementById('settingsProfileDegree')?.value || '').trim();
+            const major = (document.getElementById('settingsProfileMajor')?.value || '').trim();
+            const gpa = (document.getElementById('settingsProfileGpa')?.value || '').trim();
+            const gpaScale = (document.getElementById('settingsProfileGpaScale')?.value || '').trim();
+            const eduDates = (document.getElementById('settingsProfileEduDates')?.value || '').trim();
+            const school = (document.getElementById('settingsProfileSchool')?.value || '').trim();
+            const location = (document.getElementById('settingsProfileLocation')?.value || '').trim();
+            const linkedin = (document.getElementById('settingsProfileLinkedIn')?.value || '').trim();
+            const github = (document.getElementById('settingsProfileGitHub')?.value || '').trim();
+            const website = (document.getElementById('settingsProfileWebsite')?.value || '').trim();
+            const hasEdu = degree || major || gpa || gpaScale || eduDates || school || location;
+            const education = hasEdu ? [{ degree, major, gpa: gpa || undefined, gpa_scale: gpaScale || undefined, dates: eduDates, school, location }] : [];
+            const resultEl = document.getElementById('settingsProfileResult');
+            try {
+                const res = await apiCall(`/api/settings/profile?username=${encodeURIComponent(currentUser.user_name)}`, {
+                    method: 'POST',
+                    body: JSON.stringify({
+                        display_name: displayName || undefined,
+                        email: email || undefined,
+                        phone: phone || undefined,
+                        education: education.length ? education : undefined,
+                        linkedin: linkedin || undefined,
+                        github: github || undefined,
+                        website: website || undefined
+                    })
+                });
+                if (res.ok) {
+                    if (resultEl) { resultEl.textContent = 'Saved.'; resultEl.style.color = 'var(--success-color, green)'; }
+                } else {
+                    if (resultEl) { resultEl.textContent = res.error || 'Failed'; resultEl.style.color = 'var(--error-color, red)'; }
+                }
+            } catch (e) {
+                if (resultEl) { resultEl.textContent = e.message || 'Failed'; resultEl.style.color = 'var(--error-color, red)'; }
             }
         }
 
@@ -2573,587 +2862,584 @@
             }
         }
 
-        function loadResumeGenProjects() {
-            const container = document.getElementById('resumeGenProjectsList');
-            if (!container) return;
-            if (!projects || !projects.length) {
-                container.innerHTML = '<div class="text-muted" style="padding: 20px; text-align: center;">No projects found. Upload projects first.</div>';
-                return;
+        const RESUME_BUILDER_BASE = '/api/resume-builder';
+        let resumeBuilderList = [];
+        let resumeBuilderActiveId = 0;
+        let resumeBuilderContent = null;
+
+        async function loadResumeBuilder() {
+            if (!currentUser?.user_name) return;
+            const dropdown = document.getElementById('resumeBuilderDropdown');
+            const emptyEl = document.getElementById('resumeBuilderEmpty');
+            const tailorBtn = document.getElementById('resumeBuilderTailorBtn');
+            try {
+                const res = await apiCall(`${RESUME_BUILDER_BASE}/resume_names?user_name=${encodeURIComponent(currentUser.user_name)}`);
+                if (!res.ok) { if (dropdown) dropdown.innerHTML = '<option value="0">Master Resume</option>'; return; }
+                resumeBuilderList = res.data.resumes || [];
+                if (dropdown) {
+                    const hasMaster = resumeBuilderList.some(r => r.id === 0 || r.id === '0');
+                    const options = hasMaster ? resumeBuilderList : [{ id: 0, name: 'Master Resume' }, ...resumeBuilderList];
+                    dropdown.innerHTML = options.map(r => `<option value="${r.id}">${escapeHtml(r.name || (r.id === 0 ? 'Master Resume' : 'Resume ' + r.id))}</option>`).join('');
+                    dropdown.value = String(resumeBuilderActiveId);
+                    dropdown.onchange = function() { resumeBuilderSelectResume(Number(dropdown.value)); };
+                }
+                const hasProjects = await fetchProjectCount() > 0;
+                if (tailorBtn) tailorBtn.disabled = !hasProjects;
+                if (resumeBuilderList.length > 0) {
+                    resumeBuilderActiveId = resumeBuilderList[0].id;
+                } else {
+                    resumeBuilderActiveId = 0;
+                }
+                if (dropdown) dropdown.value = String(resumeBuilderActiveId);
+                await loadResumeBuilderContent(resumeBuilderActiveId);
+                if (resumeBuilderContent && (resumeBuilderContent.name || resumeBuilderContent.projects?.length || resumeBuilderContent.education?.length)) {
+                    initResumeEditor(resumeBuilderContent);
+                    populateResumeBuilderEditCard(resumeBuilderContent);
+                    syncResumePreview();
+                    if (emptyEl) emptyEl.style.display = 'none';
+                    const frame = document.getElementById('resumePreviewFrame');
+                    if (frame) { frame.style.display = 'block'; frame.style.visibility = 'visible'; }
+                } else {
+                    if (emptyEl) emptyEl.style.display = 'block';
+                    const frame = document.getElementById('resumePreviewFrame');
+                    if (frame) { frame.style.display = 'none'; frame.srcdoc = ''; }
+                }
+                updateResumeBuilderToolbarState();
+            } catch (e) {
+                if (dropdown) dropdown.innerHTML = '<option value="0">Master Resume</option>';
             }
-            container.innerHTML = projects.map(p => {
-                const name = escapeHtml(p.filename || `Project ${p.id}`);
-                const fileCount = p.file_count || 0;
-                return `<label class="resume-gen-project-item">
-                    <input type="checkbox" value="${p.id}" checked />
-                    <span class="resume-gen-project-info">
-                        <strong>${name}</strong>
-                        <small>${fileCount} files</small>
-                    </span>
-                </label>`;
+        }
+        function updateResumeBuilderToolbarState() {
+            const isMaster = (resumeBuilderActiveId === 0 || resumeBuilderActiveId === undefined);
+            const saveBtn = document.getElementById('resumeBuilderSaveBtn');
+            const deleteBtn = document.getElementById('resumeBuilderDeleteBtn');
+            if (saveBtn) {
+                saveBtn.disabled = isMaster;
+                saveBtn.title = isMaster ? 'Create a tailored resume to save edits' : 'Save your changes to this resume';
+            }
+            if (deleteBtn) deleteBtn.style.display = isMaster ? 'none' : 'inline-flex';
+        }
+        function resumeBuilderDeleteCurrent() {
+            if (resumeBuilderActiveId === 0 || resumeBuilderActiveId === undefined) return;
+            resumeBuilderDelete(resumeBuilderActiveId);
+        }
+
+        async function fetchProjectCount() {
+            try {
+                const res = await apiCall(`/api/projects?user_name=${encodeURIComponent(currentUser.user_name)}`);
+                return (res.ok && res.data?.projects) ? res.data.projects.length : 0;
+            } catch (_) { return 0; }
+        }
+
+        async function resumeBuilderSelectResume(id) {
+            resumeBuilderActiveId = id;
+            const dropdown = document.getElementById('resumeBuilderDropdown');
+            if (dropdown) dropdown.value = String(id);
+            await loadResumeBuilderContent(id);
+            const emptyEl = document.getElementById('resumeBuilderEmpty');
+            if (resumeBuilderContent && (resumeBuilderContent.name || resumeBuilderContent.projects?.length || resumeBuilderContent.education?.length)) {
+                initResumeEditor(resumeBuilderContent);
+                populateResumeBuilderEditCard(resumeBuilderContent);
+                syncResumePreview();
+                if (emptyEl) emptyEl.style.display = 'none';
+                const frame = document.getElementById('resumePreviewFrame');
+                if (frame) { frame.style.display = 'block'; frame.style.visibility = 'visible'; }
+            } else {
+                if (emptyEl) emptyEl.style.display = 'block';
+                const frame = document.getElementById('resumePreviewFrame');
+                if (frame) { frame.style.display = 'none'; frame.srcdoc = ''; }
+            }
+            updateResumeBuilderToolbarState();
+        }
+
+        async function loadResumeBuilderContent(id) {
+            if (!currentUser?.user_name) return;
+            const url = id === 0 || id === undefined
+                ? `${RESUME_BUILDER_BASE}/resume?user_name=${encodeURIComponent(currentUser.user_name)}`
+                : `${RESUME_BUILDER_BASE}/resume/${id}?user_name=${encodeURIComponent(currentUser.user_name)}`;
+            const res = await apiCall(url);
+            if (res.ok && res.data) resumeBuilderContent = res.data;
+            else resumeBuilderContent = null;
+        }
+
+        function formatEducationLine(e) {
+            const degree = e.degree || '';
+            const major = e.major || '';
+            const gpa = (e.gpa || '').toString().trim();
+            const scale = (e.gpa_scale || '').toString().trim();
+            const dates = e.dates || '';
+            const school = e.school || '';
+            const location = (e.location || '').toString().trim();
+            const degreeMajor = [degree, major].filter(Boolean).join(' - ');
+            const gpaPart = (gpa && scale) ? ` (GPA: ${gpa}/${scale})` : (gpa ? ` (GPA: ${gpa})` : '');
+            const line1 = [degreeMajor + gpaPart, dates].filter(Boolean).join(' ');
+            const line2 = [school, location].filter(Boolean).join(' ');
+            return { line1, line2 };
+        }
+        function renderResumeBuilderPreview(container, data) {
+            if (!container || !data) return;
+            const educationBlock = (data.education || []).length
+                ? (data.education || []).map(e => {
+                    const { line1, line2 } = formatEducationLine(e);
+                    return `<div class="resume-preview__education-entry"><p class="resume-preview__education-line1">${escapeHtml(line1)}</p><p class="resume-preview__education-line2">${escapeHtml(line2)}</p></div>`;
+                }).join('')
+                : '';
+            const projectsHtml = (data.projects || []).map(p => {
+                const pid = (p.project_id != null) ? String(p.project_id) : '';
+                const title = escapeHtml(p.title || '');
+                const dates = escapeHtml(p.dates || '');
+                const skillsStr = (p.skills || []).map(s => escapeHtml(s)).join(', ');
+                const bulletsHtml = (p.bullets || []).map(b => `<li>${escapeHtml(b)}</li>`).join('');
+                return `<div class="resume-preview__project" data-project-id="${escapeHtml(pid)}">
+                    <div class="resume-preview__project-header">
+                        <p class="resume-preview__project-title">${title}</p>
+                        <span class="resume-preview__project-dates">${dates}</span>
+                    </div>
+                    <p class="resume-preview__project-skills">Skills: ${(p.skills || []).map(s => `<span class="resume-preview__skill-inline">${escapeHtml(s)}</span>`).join(', ')}</p>
+                    <ul class="resume-preview__project-bullets">${bulletsHtml}</ul>
+                </div>`;
+            }).join('');
+            const skillsListContent = (data.skills?.Skills || []).map(s => escapeHtml(s)).join(', ');
+            container.innerHTML = `
+                <header class="resume-preview__header">
+                    <h1 class="resume-preview__name">${escapeHtml(data.name || '')}</h1>
+                    <p class="resume-preview__contact"><a href="mailto:${escapeHtml(data.email || '')}">${escapeHtml(data.email || '')}</a></p>
+                    ${(data.links || []).length ? `<p class="resume-preview__links">${data.links.map(l => `<a href="${escapeHtml(l.url)}" target="_blank" rel="noopener">${escapeHtml(l.label)}</a>`).join(' ')}</p>` : ''}
+                </header>
+                ${educationBlock ? `<section class="resume-preview__section"><h2 class="resume-preview__heading">Education</h2>${educationBlock}</section>` : ''}
+                <section class="resume-preview__section"><h2 class="resume-preview__heading">Skills</h2><div class="resume-preview__skills-row"><span class="resume-preview__skills-label">Skills:</span><p class="resume-preview__skills-list">${skillsListContent}</p></div></section>
+                <section class="resume-preview__section"><h2 class="resume-preview__heading">Projects / Experience</h2>${projectsHtml}</section>`;
+        }
+
+        function populateResumeBuilderEditCard(data) {
+            const skillsEl = document.getElementById('resumeBuilderEditSkills');
+            const container = document.getElementById('resumeBuilderEditProjects');
+            if (!container) return;
+            if (skillsEl) skillsEl.value = (data.skills?.Skills || []).join(', ');
+            const projects = data.projects || [];
+            const attr = (s) => String(s || '').replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;');
+            container.innerHTML = projects.map((p, idx) => {
+                const pid = (p.project_id != null) ? String(p.project_id) : '';
+                const title = attr(p.title || '');
+                const dates = attr(p.dates || '');
+                const skillsStr = attr((p.skills || []).join(', '));
+                const bulletsStr = (p.bullets || []).join('\n');
+                return `<div class="resume-builder__edit-project-block" data-project-id="${escapeHtml(pid)}">
+                    <h4 class="resume-builder__edit-project-heading">Project ${idx + 1}</h4>
+                    <div class="form-group"><label>Title</label><input type="text" class="resume-edit-project-title form-input" value="${title}" oninput="resumeBuilderSyncPreviewFromCard()" /></div>
+                    <div class="form-group"><label>Dates</label><input type="text" class="resume-edit-project-dates form-input" value="${dates}" placeholder="e.g. Jan 2023 – Present" oninput="resumeBuilderSyncPreviewFromCard()" /></div>
+                    <div class="form-group"><label>Skills (comma-separated)</label><input type="text" class="resume-edit-project-skills form-input" value="${skillsStr}" oninput="resumeBuilderSyncPreviewFromCard()" /></div>
+                    <div class="form-group"><label>Bullets (one per line)</label><textarea class="resume-edit-project-bullets form-input" rows="3" oninput="resumeBuilderSyncPreviewFromCard()">${escapeHtml(bulletsStr)}</textarea></div>
+                </div>`;
+            }).join('');
+            const skillsInput = document.getElementById('resumeBuilderEditSkills');
+            if (skillsInput) skillsInput.oninput = resumeBuilderSyncPreviewFromCard;
+        }
+
+        function resumeBuilderGetDisplayData() {
+            const base = resumeBuilderContent || {};
+            const skillsEl = document.getElementById('resumeBuilderEditSkills');
+            const skills = skillsEl ? skillsEl.value.replace(/\s+/g, ' ').split(',').map(s => s.trim()).filter(Boolean) : (base.skills?.Skills || []);
+            const container = document.getElementById('resumeBuilderEditProjects');
+            let projects = base.projects || [];
+            if (container) {
+                const blocks = container.querySelectorAll('.resume-builder__edit-project-block');
+                projects = [];
+                blocks.forEach(block => {
+                    const pid = block.getAttribute('data-project-id');
+                    if (!pid) return;
+                    const title = (block.querySelector('.resume-edit-project-title')?.value || '').trim();
+                    const dates = (block.querySelector('.resume-edit-project-dates')?.value || '').trim();
+                    const skillsStr = (block.querySelector('.resume-edit-project-skills')?.value || '').trim();
+                    const bulletsRaw = (block.querySelector('.resume-edit-project-bullets')?.value || '').trim();
+                    const projectSkills = skillsStr ? skillsStr.split(',').map(s => s.trim()).filter(Boolean) : [];
+                    const bullets = bulletsRaw ? bulletsRaw.split('\n').map(b => b.trim()).filter(Boolean) : [];
+                    projects.push({ project_id: pid, title, dates, skills: projectSkills, bullets });
+                });
+            }
+            return { ...base, skills: { Skills: skills }, projects };
+        }
+
+        let resumeSyncPreviewTimer = null;
+        function resumeBuilderSyncPreviewFromCard() {
+            if (resumeSyncPreviewTimer) clearTimeout(resumeSyncPreviewTimer);
+            resumeSyncPreviewTimer = setTimeout(syncResumePreview, 150);
+        }
+        function syncResumePreview() {
+            const data = getResumeEditorData();
+            const frame = document.getElementById('resumePreviewFrame');
+            if (!frame || !data) return;
+            frame.srcdoc = buildResumeHTML(data);
+        }
+        function getResumeEditorData() {
+            const base = resumeBuilderContent || {};
+            let name = (document.getElementById('rbContactName')?.value || '').trim() || base.name;
+            let email = (document.getElementById('rbContactEmail')?.value || '').trim() || base.email;
+            const phone = (document.getElementById('rbContactPhone')?.value || '').trim();
+            const location = (document.getElementById('rbContactLocation')?.value || '').trim();
+            const linkedin = (document.getElementById('rbLinkedIn')?.value || '').trim();
+            const github = (document.getElementById('rbGitHub')?.value || '').trim();
+            const portfolio = (document.getElementById('rbPortfolio')?.value || '').trim();
+            const links = [];
+            if (linkedin) links.push({ label: 'LinkedIn', url: linkedin });
+            if (github) links.push({ label: 'GitHub', url: github });
+            if (portfolio) links.push({ label: 'Website', url: portfolio });
+            if (!name && base.name) name = base.name;
+            if (!email && base.email) email = base.email;
+            const skillsEl = document.getElementById('resumeBuilderEditSkills');
+            const skills = skillsEl ? skillsEl.value.replace(/\s+/g, ' ').split(',').map(s => s.trim()).filter(Boolean) : (base.skills?.Skills || []);
+            const projectsContainer = document.getElementById('resumeBuilderEditProjects');
+            let projects = base.projects || [];
+            if (projectsContainer) {
+                const blocks = projectsContainer.querySelectorAll('.resume-builder__edit-project-block');
+                projects = [];
+                blocks.forEach(block => {
+                    const pid = block.getAttribute('data-project-id');
+                    if (!pid) return;
+                    const title = (block.querySelector('.resume-edit-project-title')?.value || '').trim();
+                    const dates = (block.querySelector('.resume-edit-project-dates')?.value || '').trim();
+                    const skillsStr = (block.querySelector('.resume-edit-project-skills')?.value || '').trim();
+                    const bulletsRaw = (block.querySelector('.resume-edit-project-bullets')?.value || '').trim();
+                    projects.push({
+                        project_id: pid,
+                        title,
+                        dates,
+                        skills: skillsStr ? skillsStr.split(',').map(s => s.trim()).filter(Boolean) : [],
+                        bullets: bulletsRaw ? bulletsRaw.split('\n').map(b => b.trim()).filter(Boolean) : []
+                    });
+                });
+            }
+            const education = resumeEditorGetEducationList();
+            const experience = resumeEditorGetExperienceList();
+            const summary = (document.getElementById('rbSummary')?.value || '').trim() || base.summary || '';
+            const contact = { name, email, phone: phone || null, location: location || null, linkedin_url: linkedin || null, github_url: github || null, portfolio_url: portfolio || null };
+            return { name, email, contact, links, education, experience, skills: { Skills: skills }, projects, summary };
+        }
+        function initResumeEditor(data) {
+            if (!data) return;
+            const set = (id, val) => { const el = document.getElementById(id); if (el) el.value = (val || '').trim(); };
+            set('rbContactName', data.name);
+            set('rbContactEmail', data.email);
+            set('rbSummary', data.summary);
+            const linkMap = {};
+            (data.links || []).forEach(l => { linkMap[(l.label || '').toLowerCase()] = l.url; });
+            set('rbLinkedIn', linkMap.linkedin);
+            set('rbGitHub', linkMap.github);
+            set('rbPortfolio', linkMap.website);
+            set('rbContactPhone', data.phone);
+            set('rbContactLocation', data.location);
+            resumeEditorSetEducationList(data.education || []);
+            resumeEditorSetExperienceList(data.experience || []);
+            const skillsStr = (data.skills?.Skills || []).join(', ');
+            set('resumeBuilderEditSkills', skillsStr);
+            const rbSummary = document.getElementById('rbSummary');
+            if (rbSummary) rbSummary.oninput = resumeBuilderSyncPreviewFromCard;
+            ['rbContactName','rbContactEmail','rbContactPhone','rbContactLocation','rbLinkedIn','rbGitHub','rbPortfolio'].forEach(id => {
+                const el = document.getElementById(id);
+                if (el) el.oninput = resumeBuilderSyncPreviewFromCard;
+            });
+            const skillsEl = document.getElementById('resumeBuilderEditSkills');
+            if (skillsEl) skillsEl.oninput = resumeBuilderSyncPreviewFromCard;
+        }
+        function switchResumeEditorTab(tabId) {
+            document.querySelectorAll('.rb-editor__tab').forEach(t => {
+                t.classList.toggle('active', t.dataset.tab === tabId);
+                t.setAttribute('aria-selected', t.dataset.tab === tabId ? 'true' : 'false');
+            });
+            document.querySelectorAll('.rb-editor__panel').forEach(p => {
+                const panelId = 'resumeEditor' + tabId.charAt(0).toUpperCase() + tabId.slice(1);
+                const match = p.id === panelId;
+                p.classList.toggle('active', match);
+                p.hidden = !match;
+            });
+        }
+        let resumeEditorEducationIndex = 0;
+        function resumeEditorSetEducationList(list) {
+            const container = document.getElementById('resumeEditorEducationList');
+            if (!container) return;
+            container.innerHTML = list.map((e, i) => {
+                const s = (v) => String(v || '').replace(/"/g, '&quot;').replace(/</g, '&lt;');
+                return `<div class="resume-editor__entry" data-edu-index="${i}">
+                    <div class="form-group"><label>Institution</label><input type="text" class="form-input rb-edu-school" value="${s(e.school || e.institution)}" oninput="resumeBuilderSyncPreviewFromCard()" /></div>
+                    <div class="form-group"><label>Degree</label><input type="text" class="form-input rb-edu-degree" value="${s(e.degree)}" oninput="resumeBuilderSyncPreviewFromCard()" /></div>
+                    <div class="form-group"><label>Field / Major</label><input type="text" class="form-input rb-edu-major" value="${s(e.major || e.field_of_study)}" oninput="resumeBuilderSyncPreviewFromCard()" /></div>
+                    <div class="form-group"><label>Dates</label><input type="text" class="form-input rb-edu-dates" value="${s(e.dates)}" placeholder="e.g. Sep 2022 – Apr 2026" oninput="resumeBuilderSyncPreviewFromCard()" /></div>
+                    <div class="form-group"><label>GPA</label><input type="text" class="form-input rb-edu-gpa" value="${s(e.gpa)}" placeholder="e.g. 4.10/4.33" oninput="resumeBuilderSyncPreviewFromCard()" /></div>
+                    <div class="form-group"><label>Location</label><input type="text" class="form-input rb-edu-location" value="${s(e.location)}" oninput="resumeBuilderSyncPreviewFromCard()" /></div>
+                    <button type="button" class="btn btn-secondary btn-sm" onclick="resumeEditorRemoveEducation(this)">Remove</button>
+                </div>`;
             }).join('');
         }
-
-        function resumeGenSelectAll(checked) {
-            const boxes = document.querySelectorAll('#resumeGenProjectsList input[type="checkbox"]');
-            boxes.forEach(cb => cb.checked = checked);
+        function resumeEditorGetEducationList() {
+            const container = document.getElementById('resumeEditorEducationList');
+            if (!container) return [];
+            return Array.from(container.querySelectorAll('.resume-editor__entry')).map(block => ({
+                school: block.querySelector('.rb-edu-school')?.value?.trim() || '',
+                degree: block.querySelector('.rb-edu-degree')?.value?.trim() || '',
+                major: block.querySelector('.rb-edu-major')?.value?.trim() || '',
+                dates: block.querySelector('.rb-edu-dates')?.value?.trim() || '',
+                gpa: block.querySelector('.rb-edu-gpa')?.value?.trim() || '',
+                location: block.querySelector('.rb-edu-location')?.value?.trim() || ''
+            })).filter(e => e.school || e.degree);
         }
-
-        async function generateResume() {
-            const resultDiv = document.getElementById('resumeGenResult');
-            const genBtn = document.getElementById('resumeGenBtn');
-
-            const fullName = (document.getElementById('resumeFullName')?.value || '').trim();
-            const email = (document.getElementById('resumeEmail')?.value || '').trim();
-            const school = (document.getElementById('resumeSchool')?.value || '').trim();
-            const age = document.getElementById('resumeAge')?.value ? parseInt(document.getElementById('resumeAge').value) : null;
-
-            const selectedBoxes = document.querySelectorAll('#resumeGenProjectsList input[type="checkbox"]:checked');
-            const selectedIds = Array.from(selectedBoxes).map(cb => parseInt(cb.value));
-
-            if (!selectedIds.length) {
-                renderError(resultDiv, 'Please select at least one project to include in the resume.');
-                return;
-            }
-
-            resultDiv.innerHTML = 'Generating resume...';
-            if (genBtn) genBtn.disabled = true;
-
-            try {
-                const body = {
-                    selected_project_ids: selectedIds,
-                    top_projects_count: selectedIds.length
+        function resumeEditorAddEducation() {
+            const list = resumeEditorGetEducationList();
+            list.push({ school: '', degree: '', major: '', dates: '', gpa: '', location: '' });
+            resumeEditorSetEducationList(list);
+            resumeBuilderSyncPreviewFromCard();
+        }
+        function resumeEditorRemoveEducation(btn) {
+            btn.closest('.resume-editor__entry')?.remove();
+            resumeBuilderSyncPreviewFromCard();
+        }
+        function resumeEditorSetExperienceList(list) {
+            const container = document.getElementById('resumeEditorExperienceList');
+            if (!container) return;
+            container.innerHTML = list.map((e, i) => {
+                const s = (v) => String(v || '').replace(/"/g, '&quot;').replace(/</g, '&lt;');
+                const bullets = (e.responsibilities || []).concat(e.achievements || []).join('\n');
+                return `<div class="resume-editor__entry" data-exp-index="${i}">
+                    <div class="form-group"><label>Company</label><input type="text" class="form-input rb-exp-company" value="${s(e.company_name)}" oninput="resumeBuilderSyncPreviewFromCard()" /></div>
+                    <div class="form-group"><label>Job title</label><input type="text" class="form-input rb-exp-title" value="${s(e.job_title)}" oninput="resumeBuilderSyncPreviewFromCard()" /></div>
+                    <div class="form-group"><label>Dates</label><input type="text" class="form-input rb-exp-dates" value="${s(e.start_date && e.end_date ? e.start_date + ' – ' + e.end_date : '')}" placeholder="e.g. Jan 2023 – Present" oninput="resumeBuilderSyncPreviewFromCard()" /></div>
+                    <div class="form-group"><label>Location</label><input type="text" class="form-input rb-exp-location" value="${s(e.location)}" oninput="resumeBuilderSyncPreviewFromCard()" /></div>
+                    <div class="form-group"><label>Bullets (one per line)</label><textarea class="form-input rb-exp-bullets" rows="2" oninput="resumeBuilderSyncPreviewFromCard()">${escapeHtml(bullets)}</textarea></div>
+                    <button type="button" class="btn btn-secondary btn-sm" onclick="resumeEditorRemoveExperience(this)">Remove</button>
+                </div>`;
+            }).join('');
+        }
+        function resumeEditorGetExperienceList() {
+            const container = document.getElementById('resumeEditorExperienceList');
+            if (!container) return [];
+            return Array.from(container.querySelectorAll('.resume-editor__entry')).map(block => {
+                const dates = block.querySelector('.rb-exp-dates')?.value?.trim() || '';
+                const [start_date, end_date] = dates.includes('–') ? dates.split('–').map(s => s.trim()) : [dates, ''];
+                const bullets = (block.querySelector('.rb-exp-bullets')?.value || '').split('\n').map(b => b.trim()).filter(Boolean);
+                return {
+                    company_name: block.querySelector('.rb-exp-company')?.value?.trim() || '',
+                    job_title: block.querySelector('.rb-exp-title')?.value?.trim() || '',
+                    start_date,
+                    end_date: end_date || null,
+                    location: block.querySelector('.rb-exp-location')?.value?.trim() || '',
+                    responsibilities: bullets,
+                    achievements: []
                 };
-                const pi = {};
-                if (fullName) pi.full_name = fullName;
-                if (email) pi.email = email;
-                if (school) pi.school = school;
-                if (age) pi.age = age;
-                if (Object.keys(pi).length) body.personal_info = pi;
-
-                const res = await apiCall(`/api/resume/generate?user_name=${currentUser.user_name}`, {
-                    method: 'POST',
-                    body: JSON.stringify(body)
-                });
-                if (!res.ok) { renderError(resultDiv, res.error || 'Failed to generate resume'); return; }
-                const data = res.data;
-                if (data.success) {
-                    renderSuccess(resultDiv, `Resume generated! Projects: ${data.resume.top_projects_displayed}, Skills: ${data.resume.all_skills?.length || 0}`);
-                }
-            } catch (e) {
-                renderError(resultDiv, e.message);
-            } finally {
-                if (genBtn) genBtn.disabled = false;
-            }
+            }).filter(e => e.company_name || e.job_title);
         }
-
-        function formatResumeMarkdown(resumeData) {
-            const safeName = resumeData?.display_name || resumeData?.user_name || 'Your Name';
-            const lines = [];
-            lines.push(`# ${safeName}`);
-            lines.push('');
-
-            const pi = resumeData?.personal_info || {};
-            const contactParts = [];
-            if (pi.email) contactParts.push(pi.email);
-            if (pi.age) contactParts.push(`Age: ${pi.age}`);
-            if (contactParts.length) {
-                lines.push(contactParts.join(' | '));
-                lines.push('');
-            }
-
-            if (pi.school) {
-                lines.push('## Education');
-                lines.push(pi.school);
-                lines.push('');
-            }
-
-            const generatedAt = resumeData?.generated_at ? String(resumeData.generated_at).slice(0, 10) : 'Unknown';
-            lines.push(`*Generated: ${generatedAt}*`);
-            lines.push('');
-
-            const total = resumeData?.total_projects_analyzed ?? 0;
-            const shown = resumeData?.top_projects_displayed ?? 0;
-            lines.push(`**Projects Analyzed:** ${total}`);
-            lines.push(`**Projects Shown:** ${shown}`);
-            lines.push('');
-
-            const categorized = resumeData?.categorized_skills || {};
-            const categories = Object.keys(categorized);
-            if (categories.length) {
-                lines.push('## Skills');
-                categories.forEach(category => {
-                    const skills = categorized[category] || [];
-                    if (!skills.length) return;
-                    lines.push(`### ${category}`);
-                    lines.push(skills.map(s => `- ${s}`).join('\n'));
-                    lines.push('');
-                });
-            } else if ((resumeData?.all_skills || []).length) {
-                lines.push('## Skills');
-                lines.push((resumeData.all_skills || []).map(s => `- ${s}`).join('\n'));
-                lines.push('');
-            }
-
-            if ((resumeData?.languages || []).length) {
-                lines.push('## Languages');
-                lines.push(resumeData.languages.map(l => `- ${l}`).join('\n'));
-                lines.push('');
-            }
-
-            if ((resumeData?.frameworks || []).length) {
-                lines.push('## Frameworks');
-                lines.push(resumeData.frameworks.map(f => `- ${f}`).join('\n'));
-                lines.push('');
-            }
-
-            const projects = resumeData?.top_projects || [];
-            if (projects.length) {
-                lines.push('## Top Projects');
-                projects.forEach(project => {
-                    const title = project?.project_name || project?.name || 'Project';
-                    lines.push(`### ${title}`);
-                    if (project?.summary) {
-                        lines.push(project.summary);
-                        lines.push('');
-                    }
-                    const tech = project?.technologies || project?.skills || [];
-                    if (tech.length) {
-                        lines.push(`**Tech:** ${tech.join(', ')}`);
-                    }
-                    const evidence = project?.evidence || [];
-                    if (evidence.length) {
-                        lines.push('**Highlights:**');
-                        lines.push(evidence.map(item => `- ${item}`).join('\n'));
-                    }
-                    lines.push('');
-                });
-            }
-
-            return lines.join('\n').trim() || 'No resume data available.';
+        function resumeEditorAddExperience() {
+            const list = resumeEditorGetExperienceList();
+            list.push({ company_name: '', job_title: '', start_date: '', end_date: '', location: '', responsibilities: [], achievements: [] });
+            resumeEditorSetExperienceList(list);
+            resumeBuilderSyncPreviewFromCard();
         }
-
-        function renderResumeMarkdown(textbox, markdown) {
-            if (!textbox) return;
-            textbox.value = markdown;
-            textbox.disabled = false;
-            const saveBtn = document.getElementById('resumeSaveBtn');
-            if (saveBtn) saveBtn.disabled = false;
-            const regenBtn = document.getElementById('resumeRegenerateBtn');
-            if (regenBtn) regenBtn.disabled = false;
-            const exportBtn = document.getElementById('resumeExportBtn');
-            if (exportBtn) exportBtn.disabled = false;
+        function resumeEditorRemoveExperience(btn) {
+            btn.closest('.resume-editor__entry')?.remove();
+            resumeBuilderSyncPreviewFromCard();
         }
-
-        async function viewResume() {
-            const textbox = document.getElementById('resumeTextBox');
-            const saveBtn = document.getElementById('resumeSaveBtn');
-            const regenBtn = document.getElementById('resumeRegenerateBtn');
-            const exportBtn = document.getElementById('resumeExportBtn');
-            if (!textbox) return;
-            if (!currentUser?.user_name) {
-                textbox.value = 'User not loaded. Please sign in again.';
-                return;
+        function toggleResumeExportDropdown() {
+            const menu = document.getElementById('resumeBuilderExportMenu');
+            if (menu) menu.classList.toggle('show');
+        }
+        document.addEventListener('click', function(e) {
+            if (!e.target.closest('#resumeBuilderExportWrap')) {
+                document.getElementById('resumeBuilderExportMenu')?.classList.remove('show');
             }
-
-            textbox.value = 'Generating resume...';
-            textbox.disabled = true;
-            if (saveBtn) saveBtn.disabled = true;
-            if (regenBtn) regenBtn.disabled = true;
-            if (exportBtn) exportBtn.disabled = true;
+        });
+        async function resumeExport(format) {
+            const data = getResumeEditorData();
+            if (!data || (!data.name && !data.projects?.length && !data.education?.length)) { showMessage('Nothing to export.', 'info'); return; }
+            document.getElementById('resumeBuilderExportMenu')?.classList.remove('show');
             try {
-                let resumeData = null;
-                let getRes = await apiCall(`/api/resume/${currentUser.user_name}`);
-                if (getRes.ok && getRes.data?.success) {
-                    resumeData = getRes.data.resume?.resume_data;
-                } else if (getRes.status !== 404) {
-                    textbox.value = getRes.error || 'Failed to load resume';
-                    textbox.disabled = true;
-                    return;
-                }
-
-                if (!resumeData) {
-                    const genRes = await apiCall(`/api/resume/generate?user_name=${currentUser.user_name}`, {
-                        method: 'POST',
-                        body: JSON.stringify({ top_projects_count: 5 })
-                    });
-                    if (genRes.ok && genRes.data?.success) {
-                        resumeData = genRes.data.resume;
-                    } else {
-                        textbox.value = genRes.error || 'Failed to generate resume';
-                        textbox.disabled = true;
-                        return;
-                    }
-                }
-
-                const markdown = resumeData?.custom_markdown || formatResumeMarkdown(resumeData);
-                renderResumeMarkdown(textbox, markdown);
+                const base = (typeof API_BASE_URL !== 'undefined' ? API_BASE_URL : '');
+                const res = await fetch(`${base}${RESUME_BUILDER_BASE}/resume/export?format=${encodeURIComponent(format)}&user_name=${encodeURIComponent(currentUser?.user_name || '')}`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(data)
+                });
+                if (!res.ok) { const t = await res.text(); throw new Error(t || res.statusText); }
+                const blob = await res.blob();
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = format === 'markdown' ? 'resume.md' : format === 'html' ? 'resume.html' : 'resume.pdf';
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                URL.revokeObjectURL(url);
+                showMessage('Download started.', 'success');
             } catch (e) {
-                textbox.value = e.message || 'Failed to load resume';
-                textbox.disabled = true;
+                showMessage(e.message || 'Export failed', 'error');
             }
         }
 
-        async function saveResume() {
-            const textbox = document.getElementById('resumeTextBox');
-            const saveBtn = document.getElementById('resumeSaveBtn');
-            const regenBtn = document.getElementById('resumeRegenerateBtn');
-            const exportBtn = document.getElementById('resumeExportBtn');
-            if (!textbox || !currentUser?.user_name) return;
-
-            const markdown = textbox.value || '';
-            if (!markdown.trim()) {
-                showMessage('Resume is empty. Nothing to save.', 'error');
-                return;
-            }
-
-            if (saveBtn) saveBtn.disabled = true;
-            if (regenBtn) regenBtn.disabled = true;
-            if (exportBtn) exportBtn.disabled = true;
-            textbox.disabled = true;
+        async function resumeBuilderSaveFromCard() {
+            if (resumeBuilderActiveId === 0 || resumeBuilderActiveId === undefined) return;
+            const data = getResumeEditorData();
+            const payload = {
+                contact: data.contact,
+                summary: data.summary || null,
+                education: (data.education || []).map(e => ({
+                    school: e.school,
+                    degree: e.degree,
+                    major: e.major,
+                    location: e.location,
+                    dates: e.dates,
+                    gpa: e.gpa
+                })),
+                experience: (data.experience || []).map(exp => ({
+                    company_name: exp.company_name,
+                    job_title: exp.job_title,
+                    location: exp.location,
+                    is_remote: exp.is_remote || false,
+                    start_date: exp.start_date,
+                    end_date: exp.end_date,
+                    is_current: exp.is_current || false,
+                    responsibilities: exp.responsibilities || [],
+                    achievements: exp.achievements || []
+                })),
+                skills: data.skills?.Skills ? { Skills: data.skills.Skills } : {},
+                projects: (data.projects || []).map(p => ({
+                    project_id: parseInt(p.project_id, 10),
+                    project_name: p.title,
+                    title: p.title,
+                    start_date: null,
+                    end_date: null,
+                    skills: p.skills || [],
+                    bullets: p.bullets || []
+                }))
+            };
+            const btn = document.getElementById('resumeBuilderEditSaveBtn');
+            if (btn) btn.disabled = true;
             try {
-                const res = await apiCall(`/api/resume/${currentUser.user_name}/markdown`, {
+                const res = await apiCall(`${RESUME_BUILDER_BASE}/resume/${resumeBuilderActiveId}/edit?user_name=${encodeURIComponent(currentUser.user_name)}`, {
                     method: 'POST',
-                    body: JSON.stringify({ markdown })
+                    body: JSON.stringify(payload)
                 });
-                if (!res.ok) {
-                    showMessage(res.error || 'Failed to save resume', 'error');
-                    return;
+                if (!res.ok) { showMessage(res.error || 'Failed to save', 'error'); return; }
+                await loadResumeBuilderContent(resumeBuilderActiveId);
+                if (resumeBuilderContent) {
+                    initResumeEditor(resumeBuilderContent);
+                    populateResumeBuilderEditCard(resumeBuilderContent);
+                    syncResumePreview();
                 }
                 showMessage('Resume saved.', 'success');
             } catch (e) {
                 showMessage(e.message || 'Failed to save resume', 'error');
             } finally {
-                textbox.disabled = false;
-                if (saveBtn) saveBtn.disabled = false;
-                if (regenBtn) regenBtn.disabled = false;
-                if (exportBtn) exportBtn.disabled = false;
+                if (btn) btn.disabled = false;
             }
         }
 
-        async function regenerateResume() {
-            const textbox = document.getElementById('resumeTextBox');
-            const saveBtn = document.getElementById('resumeSaveBtn');
-            const regenBtn = document.getElementById('resumeRegenerateBtn');
-            const exportBtn = document.getElementById('resumeExportBtn');
-            if (!textbox || !currentUser?.user_name) return;
+        function formatDateStr(s) {
+            if (!s || typeof s !== 'string') return '';
+            s = s.trim();
+            if (s.length >= 7 && s[4] === '-') {
+                const parts = s.substring(0, 7).split('-');
+                const m = parseInt(parts[1], 10);
+                const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+                if (m >= 1 && m <= 12) return months[m - 1] + ' ' + parts[0];
+            }
+            return s;
+        }
+        function buildResumeHTML(data) {
+            if (!data) return '';
+            const esc = (s) => String(s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+            const c = data.contact || {};
+            const name = esc(c.name || data.name || '');
+            const email = esc(c.email || data.email || '');
+            const contactParts = [];
+            if (c.phone) contactParts.push(esc(c.phone));
+            if (c.email || email) contactParts.push('<a href="mailto:' + (c.email || data.email || '') + '">' + (c.email || data.email || '') + '</a>');
+            if (c.linkedin_url) contactParts.push('<a href="' + esc(c.linkedin_url) + '">LinkedIn</a>');
+            if (c.github_url) contactParts.push('<a href="' + esc(c.github_url) + '">GitHub</a>');
+            if (c.portfolio_url) contactParts.push('<a href="' + esc(c.portfolio_url) + '">Portfolio</a>');
+            if (c.location) contactParts.push(esc(c.location));
+            const contactRow = contactParts.length ? contactParts.join(' <span class="sep">|</span> ') : '';
+            let summaryHtml = '';
+            if (data.summary) summaryHtml = `<div class="section"><div class="section-title">SUMMARY</div><p>${esc(data.summary)}</p></div>`;
+            const educationHtml = (data.education || []).length ? (data.education || []).map(e => {
+                const dates = (e.start_date && e.end_date) ? (formatDateStr(e.start_date) + ' – ' + formatDateStr(e.end_date)) : (e.dates || '');
+                const inst = esc(e.school || e.institution);
+                const degree = esc(e.degree || '') + (e.major ? ' in ' + esc(e.major) : '');
+                const loc = e.location ? esc(e.location) : '';
+                return `<div class="entry"><div class="entry-header"><span class="entry-org">${inst}</span><span class="entry-date">${esc(dates)}</span></div><div class="entry-sub"><span class="entry-title">${degree}</span>${loc ? '<span class="entry-location">' + loc + '</span>' : ''}</div>${e.gpa ? '<div class="entry-gpa">GPA: ' + esc(e.gpa) + '</div>' : ''}</div>`;
+            }).join('') : '';
+            const experienceHtml = (data.experience || []).length ? (data.experience || []).map(exp => {
+                const dates = (exp.start_date && exp.end_date) ? (formatDateStr(exp.start_date) + ' – ' + formatDateStr(exp.end_date)) : (exp.start_date || '');
+                const bullets = (exp.responsibilities || []).concat(exp.achievements || []).map(b => `<li>${esc(b)}</li>`).join('');
+                return `<div class="entry"><div class="entry-header"><span class="entry-org">${esc(exp.company_name)}</span><span class="entry-date">${dates}</span></div><div class="entry-sub"><span class="entry-title">${esc(exp.job_title)}${exp.is_remote ? ' (Remote)' : ''}</span>${exp.location ? '<span class="entry-location">' + esc(exp.location) + '</span>' : ''}</div>${bullets ? '<ul class="bullets">' + bullets + '</ul>' : ''}</div>`;
+            }).join('') : '';
+            const projectsHtml = (data.projects || []).map(p => {
+                const bullets = (p.bullets || p.highlights || []).map(b => `<li>${esc(b)}</li>`).join('');
+                const tech = (p.skills || p.technologies || []).map(s => esc(s)).join(', ');
+                return `<div class="entry"><div class="project-header"><span><span class="project-title">${esc(p.title || '')}</span>${tech ? ' <span class="project-tech">| ' + tech + '</span>' : ''}</span><span class="entry-date">${esc(p.dates || p.date_label || '')}</span></div>${bullets ? '<ul class="bullets">' + bullets + '</ul>' : ''}</div>`;
+            }).join('');
+            const skillsHtml = (data.skills && Object.keys(data.skills).length) ? Object.entries(data.skills).map(([cat, arr]) => `<div class="skills-row"><strong>${esc(cat)}:</strong> ${(arr || []).map(s => esc(s)).join(', ')}</div>`).join('') : '';
+            const css = `*{margin:0;padding:0;box-sizing:border-box}body{font-family:'Times New Roman',Times,serif;font-size:11pt;color:#000;background:#fff;padding:.5in;line-height:1.2}.header{text-align:center;margin-bottom:4px}.header h1{font-size:22pt;font-weight:bold;letter-spacing:1px;margin-bottom:4px}.contact-row{font-size:10pt;text-align:center}.contact-row a{color:#000;text-decoration:none}.contact-row .sep{margin:0 4px}.section{margin-top:8px}.section-title{font-size:12pt;font-weight:bold;text-transform:uppercase;letter-spacing:.5px;border-bottom:1px solid #000;padding-bottom:1px;margin-bottom:4px}.entry-header{display:flex;justify-content:space-between;align-items:baseline}.entry-org{font-weight:bold}.entry-date{font-style:italic;white-space:nowrap}.entry-sub{display:flex;justify-content:space-between;align-items:baseline}.entry-title{font-style:italic}.entry-location{font-style:italic;white-space:nowrap}ul.bullets{margin-left:0;margin-top:2px;padding-left:0;list-style:none}ul.bullets li{margin-bottom:2px}.entry-gpa{font-style:italic}.project-header{display:flex;justify-content:space-between;align-items:baseline}.project-title{font-weight:bold}.project-tech{font-style:italic}.skills-row{margin-bottom:2px}.entry{margin-bottom:4px}`;
+            return `<!DOCTYPE html><html><head><meta charset="UTF-8"><title>${name || 'Resume'}</title><style>${css}</style></head><body>
+<div class="header"><h1>${name}</h1>${contactRow ? '<div class="contact-row">' + contactRow + '</div>' : ''}</div>
+${summaryHtml}
+${educationHtml ? '<div class="section"><div class="section-title">EDUCATION</div>' + educationHtml + '</div>' : ''}
+${experienceHtml ? '<div class="section"><div class="section-title">EXPERIENCE</div>' + experienceHtml + '</div>' : ''}
+${projectsHtml ? '<div class="section"><div class="section-title">PROJECTS</div>' + projectsHtml + '</div>' : ''}
+${skillsHtml ? '<div class="section"><div class="section-title">TECHNICAL SKILLS</div>' + skillsHtml + '</div>' : ''}
+</body></html>`;
+        }
 
-            textbox.value = 'Regenerating resume from projects...';
-            textbox.disabled = true;
-            if (saveBtn) saveBtn.disabled = true;
-            if (regenBtn) regenBtn.disabled = true;
-            if (exportBtn) exportBtn.disabled = true;
+        function resumeBuilderTailorNew() {
+            const modal = document.getElementById('resumeBuilderTailorModal');
+            const listEl = document.getElementById('resumeBuilderTailorProjectsList');
+            if (!modal || !listEl) return;
+            listEl.innerHTML = 'Loading...';
+            modal.style.display = 'flex';
+            apiCall(`/api/projects?user_name=${encodeURIComponent(currentUser.user_name)}`).then(res => {
+                if (!res.ok || !res.data?.projects) { listEl.innerHTML = 'No projects'; return; }
+                const projects = res.data.projects;
+                listEl.innerHTML = projects.map(p => `<label class="resume-gen-project-item"><input type="checkbox" data-id="${p.id}" /> <span class="resume-gen-project-info"><strong>${escapeHtml(p.filename || 'Project ' + p.id)}</strong><br><small>ID: ${p.id}</small></span></label>`).join('');
+            });
+        }
 
+        function closeResumeBuilderTailorModal() {
+            const modal = document.getElementById('resumeBuilderTailorModal');
+            if (modal) modal.style.display = 'none';
+        }
+
+        async function resumeBuilderTailorSubmit() {
+            const nameInput = document.getElementById('resumeBuilderTailorName');
+            const name = (nameInput?.value || '').trim();
+            if (!name) { showMessage('Enter a resume name', 'error'); return; }
+            const checked = document.querySelectorAll('#resumeBuilderTailorProjectsList input[type=checkbox]:checked');
+            const projectIds = Array.from(checked).map(c => parseInt(c.dataset.id, 10)).filter(Boolean);
+            if (projectIds.length === 0) { showMessage('Select at least one project', 'error'); return; }
+            const btn = document.getElementById('resumeBuilderTailorSubmitBtn');
+            if (btn) btn.disabled = true;
             try {
-                const delRes = await apiCall(`/api/resume/${currentUser.user_name}`, { method: 'DELETE' });
-                if (!delRes.ok && delRes.status !== 404) {
-                    textbox.value = delRes.error || 'Failed to clear existing resume';
-                    textbox.disabled = true;
-                    return;
-                }
-
-                const genRes = await apiCall(`/api/resume/generate?user_name=${currentUser.user_name}`, {
+                const res = await apiCall(`${RESUME_BUILDER_BASE}/resume?user_name=${encodeURIComponent(currentUser.user_name)}`, {
                     method: 'POST',
-                    body: JSON.stringify({ top_projects_count: 5 })
+                    body: JSON.stringify({ name, project_ids: projectIds })
                 });
-
-                if (!genRes.ok || !genRes.data?.success) {
-                    textbox.value = genRes.error || 'Failed to regenerate resume';
-                    textbox.disabled = true;
-                    return;
-                }
-
-                const markdown = formatResumeMarkdown(genRes.data.resume);
-                renderResumeMarkdown(textbox, markdown);
+                if (!res.ok) { showMessage(res.error || 'Failed to create resume', 'error'); return; }
+                closeResumeBuilderTailorModal();
+                nameInput.value = '';
+                const newId = res.data.resume_id;
+                await loadResumeBuilder();
+                resumeBuilderSelectResume(newId);
             } catch (e) {
-                textbox.value = e.message || 'Failed to regenerate resume';
-                textbox.disabled = true;
+                showMessage(e.message || 'Failed', 'error');
             } finally {
-                if (saveBtn) saveBtn.disabled = false;
-                if (regenBtn) regenBtn.disabled = false;
-                if (exportBtn) exportBtn.disabled = false;
+                if (btn) btn.disabled = false;
             }
         }
 
-        function downloadBlob(filename, blob) {
-            const url = URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            a.href = url;
-            a.download = filename;
-            document.body.appendChild(a);
-            a.click();
-            a.remove();
-            setTimeout(() => URL.revokeObjectURL(url), 1000);
-        }
-
-        function sanitizeFilename(name) {
-            return String(name || 'resume')
-                .replaceAll(/[^a-z0-9_\-]+/gi, '_')
-                .replaceAll(/^_+|_+$/g, '')
-                .slice(0, 60) || 'resume';
-        }
-
-        function wrapLines(text, maxLen = 90) {
-            const lines = [];
-            const input = String(text || '').split('\n');
-            input.forEach(line => {
-                if (line.length <= maxLen) {
-                    lines.push(line);
-                    return;
-                }
-                let start = 0;
-                while (start < line.length) {
-                    lines.push(line.slice(start, start + maxLen));
-                    start += maxLen;
-                }
-            });
-            return lines;
-        }
-
-        function escapePdfText(text) {
-            return String(text || '')
-                .replaceAll('\\', '\\\\')
-                .replaceAll('(', '\\(')
-                .replaceAll(')', '\\)');
-        }
-
-        function createSimplePdf(text) {
-            const pageWidth = 612;
-            const pageHeight = 792;
-            const marginX = 72;
-            const marginY = 72;
-            const fontSize = 12;
-            const lineHeight = 14;
-            const linesPerPage = Math.floor((pageHeight - marginY * 2) / lineHeight);
-            const lines = wrapLines(text, 90);
-            const pages = [];
-
-            for (let i = 0; i < lines.length; i += linesPerPage) {
-                pages.push(lines.slice(i, i + linesPerPage));
-            }
-
-            let objects = [];
-            const xref = [];
-            const addObject = (content) => {
-                xref.push(objects.join('').length);
-                objects.push(`${objects.length + 1} 0 obj\n${content}\nendobj\n`);
-                return objects.length;
-            };
-
-            const pageRefs = [];
-            const contentsRefs = [];
-
-            // Font object
-            const fontRef = addObject('<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>');
-
-            pages.forEach(pageLines => {
-                const textLines = pageLines.map(l => `(${escapePdfText(l)}) Tj T*`).join('\n');
-                const stream = [
-                    'BT',
-                    `/F1 ${fontSize} Tf`,
-                    `${lineHeight} TL`,
-                    `${marginX} ${pageHeight - marginY} Td`,
-                    textLines,
-                    'ET'
-                ].join('\n');
-                const contentRef = addObject(`<< /Length ${stream.length} >>\nstream\n${stream}\nendstream`);
-                contentsRefs.push(contentRef);
-            });
-
-            const pagesRef = addObject(`<< /Type /Pages /Kids [${pages.map((_, idx) => `${idx + 3} 0 R`).join(' ')}] /Count ${pages.length} >>`);
-            pages.forEach((_, idx) => {
-                const contentRef = contentsRefs[idx];
-                const pageObj = `<< /Type /Page /Parent ${pagesRef} 0 R /MediaBox [0 0 ${pageWidth} ${pageHeight}] /Resources << /Font << /F1 ${fontRef} 0 R >> >> /Contents ${contentRef} 0 R >>`;
-                addObject(pageObj);
-            });
-
-            const catalogRef = addObject(`<< /Type /Catalog /Pages ${pagesRef} 0 R >>`);
-
-            let pdf = '%PDF-1.4\n';
-            const offsets = [0];
-            objects.forEach(obj => {
-                offsets.push(pdf.length);
-                pdf += obj;
-            });
-            const xrefOffset = pdf.length;
-            pdf += 'xref\n';
-            pdf += `0 ${offsets.length}\n`;
-            pdf += '0000000000 65535 f \n';
-            for (let i = 1; i < offsets.length; i++) {
-                pdf += `${String(offsets[i]).padStart(10, '0')} 00000 n \n`;
-            }
-            pdf += 'trailer\n';
-            pdf += `<< /Size ${offsets.length} /Root ${catalogRef} 0 R >>\n`;
-            pdf += 'startxref\n';
-            pdf += `${xrefOffset}\n%%EOF`;
-
-            return new Blob([pdf], { type: 'application/pdf' });
-        }
-
-        async function exportResume() {
-            const textbox = document.getElementById('resumeTextBox');
-            const formatSelect = document.getElementById('resumeExportFormat');
-            if (!textbox || !formatSelect) return;
-
-            const markdown = textbox.value || '';
-            if (!markdown.trim()) {
-                showMessage('Resume is empty. Nothing to export.', 'error');
-                return;
-            }
-
-            const baseName = sanitizeFilename(currentUser?.user_name || 'resume');
-            const format = formatSelect.value;
-
-            if (format === 'pdf') {
-                const filename = `${baseName}.pdf`;
-                const ok = await exportMarkdownPdf(markdown, filename);
-                if (!ok) {
-                    const blob = createSimplePdf(markdown);
-                    downloadBlob(filename, blob);
-                }
-                return;
-            }
-
-            if (format === 'json') {
-                const payload = {
-                    user_name: currentUser?.user_name || null,
-                    exported_at: new Date().toISOString(),
-                    markdown
-                };
-                const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
-                downloadBlob(`${baseName}.json`, blob);
-                return;
-            }
-
-            const ext = format === 'txt' ? 'txt' : 'md';
-            const mime = format === 'txt' ? 'text/plain' : 'text/markdown';
-            const blob = new Blob([markdown], { type: `${mime};charset=utf-8` });
-            downloadBlob(`${baseName}.${ext}`, blob);
-        }
-
-        async function exportMarkdownPdf(markdown, filename) {
-            const jsPDFClass = (window.jspdf && window.jspdf.jsPDF) || (typeof jsPDF !== 'undefined' ? jsPDF : null);
-            if (!jsPDFClass) {
-                showMessage('PDF export library not available, using text fallback.', 'error');
-                return false;
-            }
-
+        async function resumeBuilderDelete(id) {
+            if (id === 0 || id === undefined) return;
+            if (!confirm('Delete this resume?')) return;
             try {
-                const doc = new jsPDFClass({ unit: 'pt', format: 'letter' });
-                const pageW = doc.internal.pageSize.getWidth();
-                const pageH = doc.internal.pageSize.getHeight();
-                const margin = 54;
-                const usable = pageW - margin * 2;
-                let y = margin;
-
-                function checkPage(needed) {
-                    if (y + needed > pageH - margin) {
-                        doc.addPage();
-                        y = margin;
-                    }
-                }
-
-                const lines = markdown.split('\n');
-                for (const raw of lines) {
-                    const line = raw.replace(/\r$/, '');
-
-                    if (line.startsWith('# ')) {
-                        checkPage(28);
-                        doc.setFont('helvetica', 'bold');
-                        doc.setFontSize(20);
-                        doc.setTextColor(17, 17, 17);
-                        doc.text(line.slice(2), margin, y);
-                        y += 10;
-                        doc.setDrawColor(60, 60, 60);
-                        doc.setLineWidth(1.2);
-                        doc.line(margin, y, pageW - margin, y);
-                        y += 18;
-                        continue;
-                    }
-                    if (line.startsWith('## ')) {
-                        checkPage(24);
-                        y += 8;
-                        doc.setFont('helvetica', 'bold');
-                        doc.setFontSize(14);
-                        doc.setTextColor(34, 34, 34);
-                        doc.text(line.slice(3), margin, y);
-                        y += 6;
-                        doc.setDrawColor(180, 180, 180);
-                        doc.setLineWidth(0.5);
-                        doc.line(margin, y, pageW - margin, y);
-                        y += 14;
-                        continue;
-                    }
-                    if (line.startsWith('### ')) {
-                        checkPage(20);
-                        y += 4;
-                        doc.setFont('helvetica', 'bold');
-                        doc.setFontSize(12);
-                        doc.setTextColor(51, 51, 51);
-                        doc.text(line.slice(4), margin, y);
-                        y += 16;
-                        continue;
-                    }
-                    if (line.trim() === '') {
-                        y += 6;
-                        continue;
-                    }
-
-                    doc.setFont('helvetica', 'normal');
-                    doc.setFontSize(10);
-                    doc.setTextColor(33, 33, 33);
-
-                    let text = line;
-                    let xOffset = margin;
-                    if (text.startsWith('- ')) {
-                        text = text.slice(2);
-                        checkPage(14);
-                        doc.setFontSize(10);
-                        doc.text('\u2022', margin, y);
-                        xOffset = margin + 12;
-                    }
-
-                    const isBoldLine = text.startsWith('**') && text.endsWith('**');
-                    const hasBoldPrefix = /^\*\*[^*]+\*\*/.test(text);
-                    if (isBoldLine) {
-                        doc.setFont('helvetica', 'bold');
-                        text = text.replace(/\*\*/g, '');
-                    } else if (hasBoldPrefix) {
-                        text = text.replace(/\*\*/g, '');
-                    } else {
-                        text = text.replace(/\*\*/g, '').replace(/\*/g, '');
-                    }
-
-                    const wrapped = doc.splitTextToSize(text, usable - (xOffset - margin));
-                    for (const wl of wrapped) {
-                        checkPage(14);
-                        doc.text(wl, xOffset, y);
-                        y += 13;
-                        xOffset = margin + (line.startsWith('- ') ? 12 : 0);
-                    }
-                }
-
-                doc.save(filename);
-                return true;
+                const res = await apiCall(`${RESUME_BUILDER_BASE}/resume/${id}?user_name=${encodeURIComponent(currentUser.user_name)}`, { method: 'DELETE' });
+                if (res.ok) await loadResumeBuilder();
+                else showMessage(res.error || 'Failed to delete', 'error');
             } catch (e) {
-                console.error('PDF export error:', e);
-                showMessage('PDF export failed: ' + e.message, 'error');
-                return false;
-            }
-        }
-
-        async function deleteResume() {
-            const resultDiv = document.getElementById('resumeDeleteResult');
-            if (!confirm('Delete your resume?')) return;
-            resultDiv.innerHTML = 'Deleting...';
-            try {
-                const res = await apiCall(`/api/resume/${currentUser.user_name}`, { method: 'DELETE' });
-                if (!res.ok) { renderError(resultDiv, res.error || 'Failed to delete resume'); return; }
-                const data = res.data;
-                if (data.success) {
-                    renderSuccess(resultDiv, 'Resume deleted');
-                }
-            } catch (e) {
-                resultDiv.innerHTML = `Error: ${e.message}`;
+                showMessage(e.message || 'Failed', 'error');
             }
         }
 
