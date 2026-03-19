@@ -508,6 +508,8 @@ def apply_public_filters(
         source["skills_timeline"] = skills_timeline
     if "activity_heatmap" in source:
         source["activity_heatmap"] = activity_heatmap
+    if "top_project_evolution" in source:
+        source["top_project_evolution"] = top_project_evolution
     if "showcases" in source:
         source["showcases"] = showcases
     return source
