@@ -10,6 +10,14 @@ import logging
 from io import BytesIO
 
 logger = logging.getLogger(__name__)
+SKILL_EXPERTISE_ORDER = ("expert", "proficient", "familiar", "exposure")
+SKILL_EXPERTISE_LABELS = {
+    "expert": "Expert",
+    "proficient": "Proficient",
+    "familiar": "Familiar",
+    "exposure": "Exposure",
+}
+MAX_SKILLS_PER_EXPERTISE_LINE = 6
 
 
 def materialize_blob_to_tempfile(blob, default_ext=".png"):
@@ -321,10 +329,19 @@ def _normalize_resume_filters(filters: dict) -> dict:
         "show_evidence": _as_bool(raw.get("show_evidence"), True),
         "show_education": _as_bool(raw.get("show_education"), True),
         "show_awards": _as_bool(raw.get("show_awards"), True),
+        "show_skills_by_expertise": _as_bool(raw.get("show_skills_by_expertise"), True),
     }
 
     # Backward compatibility logic
-    new_keys = {"show_project_profile", "show_metrics", "show_tech_stack", "show_evidence", "show_education", "show_awards"}
+    new_keys = {
+        "show_project_profile",
+        "show_metrics",
+        "show_tech_stack",
+        "show_evidence",
+        "show_education",
+        "show_awards",
+        "show_skills_by_expertise",
+    }
     if (
         not any(k in raw for k in new_keys)
         and not out["show_summary"]
@@ -357,6 +374,7 @@ def export_resume_item_pdf_bytes(resume_item: dict, filters: dict = None) -> byt
     show_evidence = opts["show_evidence"]
     show_education = opts["show_education"]
     show_awards = opts["show_awards"]
+    show_skills_by_expertise = opts["show_skills_by_expertise"]
 
     content = resume_item.get("content") or {}
     if not isinstance(content, dict):
@@ -478,6 +496,44 @@ def export_resume_item_pdf_bytes(resume_item: dict, filters: dict = None) -> byt
                 text = f"• {title_awd} - {issuer} ({yr})"
                 elements.append(Paragraph(text, styles["Normal"]))
             elements.append(Spacer(1, 12))
+
+    if show_skills_by_expertise:
+        raw_buckets = resume_item.get("skills_by_expertise")
+        skill_buckets = raw_buckets if isinstance(raw_buckets, dict) else {}
+        has_grouped_skills = any(
+            isinstance(skill_buckets.get(level), list) and bool(skill_buckets.get(level))
+            for level in SKILL_EXPERTISE_ORDER
+        )
+        if has_grouped_skills:
+            elements.append(Paragraph("Skills by Expertise", styles["Heading2"]))
+            elements.append(Spacer(1, 6))
+
+            for level in SKILL_EXPERTISE_ORDER:
+                rows = skill_buckets.get(level) or []
+                if not isinstance(rows, list) or not rows:
+                    continue
+
+                names = []
+                for row in rows:
+                    if isinstance(row, dict):
+                        name = str(row.get("name") or row.get("skill") or "").strip()
+                    else:
+                        name = str(row).strip()
+                    if name:
+                        names.append(name)
+
+                if not names:
+                    continue
+
+                visible = names[:MAX_SKILLS_PER_EXPERTISE_LINE]
+                overflow = max(0, len(names) - len(visible))
+                line = f"{SKILL_EXPERTISE_LABELS[level]}: {', '.join(visible)}"
+                if overflow > 0:
+                    line += f" (+{overflow} more)"
+                elements.append(Paragraph(line, styles["Normal"]))
+                elements.append(Spacer(1, 4))
+
+            elements.append(Spacer(1, 8))
 
     if show_metrics:
         metrics = content.get("metrics") if isinstance(content.get("metrics"), dict) else {}
