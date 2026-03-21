@@ -1,4 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { Moon, Sun } from 'lucide-react';
 import { API_BASE_URL, authApi, dashboardApi, projectApi, resumeApi, userConfigApi } from './api';
 
 const TOKEN_STORAGE_KEY = 'artifactMiner.authToken';
@@ -388,7 +390,27 @@ function getSnapshotStatus(snapshotId, snapshotAnalyses) {
   return summarizeSnapshotAnalyses(entry);
 }
 
+function parseFractionProgress(progressText) {
+  if (typeof progressText !== 'string') return null;
+  const match = progressText.match(/(\d+)\s*\/\s*(\d+)/);
+  if (!match) return null;
+
+  const completed = Number(match[1]);
+  const total = Number(match[2]);
+  if (!Number.isFinite(completed) || !Number.isFinite(total) || total <= 0) return null;
+
+  const rawRatio = completed / total;
+  const ratio = Math.max(0, Math.min(1, rawRatio));
+  return {
+    completed,
+    total,
+    ratio,
+    percent: Math.round(ratio * 100),
+  };
+}
+
 function Homepage() {
+  const [themeMode, setThemeMode] = useState(() => localStorage.getItem('artifactMiner.themeMode') || 'light');
   const [token, setToken] = useState(() => localStorage.getItem(TOKEN_STORAGE_KEY) || '');
   const [currentUser, setCurrentUser] = useState(null);
   const [sessionLoading, setSessionLoading] = useState(true);
@@ -478,8 +500,35 @@ function Homepage() {
   const [dashboardModeActionBusy, setDashboardModeActionBusy] = useState(false);
   const [dashboardModeError, setDashboardModeError] = useState('');
 
+  useEffect(() => {
+    localStorage.setItem('artifactMiner.themeMode', themeMode);
+  }, [themeMode]);
+
   const isAuthenticated = Boolean(token && currentUser);
   const currentUserId = currentUser?.user_id || null;
+
+  const renderAnalysisProgress = useCallback((progressText) => {
+    const parsed = parseFractionProgress(progressText);
+    if (!parsed) {
+      return <p className="muted">{progressText}</p>;
+    }
+
+    return (
+      <div className="analysis-progress-wrap" aria-label={`Analysis progress ${parsed.completed} of ${parsed.total}`}>
+        <div className="analysis-progress-track">
+          <motion.div
+            className="analysis-progress-fill"
+            initial={{ width: 0 }}
+            animate={{ width: `${parsed.percent}%` }}
+            transition={{ duration: 0.35, ease: 'easeOut' }}
+          />
+        </div>
+        <p className="analysis-progress-label muted">
+          {parsed.completed}/{parsed.total} complete
+        </p>
+      </div>
+    );
+  }, []);
 
   const clearDashboardState = useCallback(() => {
     setPortfolioId(null);
@@ -2157,47 +2206,98 @@ function Homepage() {
   }
 
   return (
-    <div className="screen-shell">
-      <div className="dashboard-shell">
-        <header className="dashboard-header">
+    <div className={`app-layout ${themeMode === 'dark' ? 'theme-dark' : 'theme-light'}`}>
+      <aside className="sidebar">
+        <div className="sidebar-top">
+          <div className="sidebar-avatar">{(currentUser.display_name || currentUser.email || '?')[0].toUpperCase()}</div>
           <div>
-            <p className="eyebrow">Signed in as</p>
-            <h1>{currentUser.display_name || currentUser.email}</h1>
+            <p className="sidebar-name">{currentUser.display_name || currentUser.email}</p>
+            <p className="sidebar-role">Student Portfolio</p>
           </div>
-          <div className="dashboard-header-actions">
-            <button className="ghost-btn" type="button" onClick={handleLogout}>
-              Log Out
-            </button>
-          </div>
-        </header>
+        </div>
 
-        <nav className="dashboard-nav">
-          {navButtons.map((item) => (
+        <nav className="sidebar-nav">
+          <p className="sidebar-section-label">Main</p>
+          {navButtons.slice(0, 4).map((item) => (
             <button
               key={item.id}
               type="button"
-              className={view === item.id ? 'nav-btn active' : 'nav-btn'}
+              className={view === item.id ? 'sidebar-btn active' : 'sidebar-btn'}
               onClick={() => setView(item.id)}
             >
+              <span className="sidebar-dot" />
+              {item.label}
+            </button>
+          ))}
+          <p className="sidebar-section-label" style={{ marginTop: '1.25rem' }}>Output</p>
+          {navButtons.slice(4).map((item) => (
+            <button
+              key={item.id}
+              type="button"
+              className={view === item.id ? 'sidebar-btn active' : 'sidebar-btn'}
+              onClick={() => setView(item.id)}
+            >
+              <span className="sidebar-dot" />
               {item.label}
             </button>
           ))}
         </nav>
 
+        <div className="sidebar-footer">
+          <div className="theme-toggle" role="group" aria-label="Theme mode">
+            <button
+              type="button"
+              className={themeMode === 'light' ? 'theme-toggle-btn active' : 'theme-toggle-btn'}
+              onClick={() => setThemeMode('light')}
+              aria-label="Switch to light mode"
+              title="Light mode"
+            >
+              <Sun size={14} strokeWidth={2} />
+            </button>
+            <button
+              type="button"
+              className={themeMode === 'dark' ? 'theme-toggle-btn active' : 'theme-toggle-btn'}
+              onClick={() => setThemeMode('dark')}
+              aria-label="Switch to dark mode"
+              title="Dark mode"
+            >
+              <Moon size={14} strokeWidth={2} />
+            </button>
+          </div>
+          <button className="sidebar-logout" type="button" onClick={handleLogout}>
+            ↩ Log out
+          </button>
+        </div>
+      </aside>
+
+      <div className="main-content">
         {flashMessage && <p className="success-banner">{flashMessage}</p>}
         {dashboardError && <p className="error-banner">{dashboardError}</p>}
 
         <main className="dashboard-main">
           {view === 'projects' && (
-            <section className="panel">
+            <AnimatePresence mode="wait">
+              <motion.section
+                key={view}
+                className="panel"
+                initial={{ opacity: 0, x: 16 }}
+                animate={{ opacity: 1, x: 0 }}
+                exit={{ opacity: 0, x: -16 }}
+                transition={{ duration: 0.25 }}
+              >
               <h2>Your Projects</h2>
               {loading ? (
                 <p>Loading projects...</p>
-              ) : projects.length === 0 ? (
-                <p>No projects yet. Upload a ZIP to begin.</p>
               ) : (
                 <div className="project-grid">
-                  {projects.map((project) => {
+                  <article className="project-card add-project-card">
+                    <button className="add-project-btn" type="button" onClick={() => setView('upload')}>
+                      <span className="add-project-plus" aria-hidden="true">+</span>
+                      <span className="add-project-title">Add Project</span>
+                      <span className="add-project-subtitle">Upload a ZIP snapshot</span>
+                    </button>
+                  </article>
+                  {projects.map((project, index) => {
                     const totalCommits = normalizeMetricCount(project.metrics?.total_commits);
                     const userCommits = normalizeMetricCount(project.metrics?.user_commits);
                     const contributorCount = normalizeMetricCount(project.metrics?.contributor_count);
@@ -2205,7 +2305,14 @@ function Homepage() {
                     const analysisStatus = getSnapshotStatus(project.latest_snapshot?.id, snapshotAnalyses);
 
                     return (
-                      <article key={project.id} className="project-card">
+                      <motion.article
+                        key={project.id}
+                        className="project-card"
+                        initial={{ opacity: 0, y: 24 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ duration: 0.35, delay: index * 0.07 }}
+                        whileHover={{ y: -4, boxShadow: '0 16px 32px rgba(46,108,244,0.13)' }}
+                      >
                         {projectThumbnails[project.id]?.loading ? (
                           <p className="muted">Loading thumbnail...</p>
                         ) : projectThumbnails[project.id]?.hasImage ? (
@@ -2233,7 +2340,7 @@ function Homepage() {
                         <p className={analysisStatus.isRunning ? 'analysis-pill analysis-pill-running' : 'analysis-pill'}>
                           {analysisStatus.badge}
                         </p>
-                        {analysisStatus.progress && <p className="muted">{analysisStatus.progress}</p>}
+                        {analysisStatus.progress && renderAnalysisProgress(analysisStatus.progress)}
                         {analysisStatus.detail && <p className="muted">{analysisStatus.detail}</p>}
                         {project.metrics?.rank_score != null && (
                           <p className="rank-pill">Rank score {project.metrics.rank_score.toFixed(2)}</p>
@@ -2254,16 +2361,25 @@ function Homepage() {
                             {deletingProjectId === project.id ? 'Deleting...' : 'Delete Project'}
                           </button>
                         </div>
-                      </article>
+                      </motion.article>
                     );
                   })}
                 </div>
               )}
-            </section>
+              </motion.section>
+            </AnimatePresence>
           )}
 
           {view === 'dashboardMode' && (
-            <section className="panel">
+            <AnimatePresence mode="wait">
+              <motion.section
+                key={view}
+                className="panel"
+                initial={{ opacity: 0, x: 16 }}
+                animate={{ opacity: 1, x: 0 }}
+                exit={{ opacity: 0, x: -16 }}
+                transition={{ duration: 0.25 }}
+              >
               <h2>Dashboard Mode</h2>
               <div className="stack-block">
                 <div className="panel-title-row">
@@ -2378,11 +2494,20 @@ function Homepage() {
                 </div>
                 {dashboardModeError && <p className="error-banner inline-error">{dashboardModeError}</p>}
               </div>
-            </section>
+              </motion.section>
+            </AnimatePresence>
           )}
 
           {view === 'preferences' && (
-            <section className="panel">
+            <AnimatePresence mode="wait">
+              <motion.section
+                key={view}
+                className="panel"
+                initial={{ opacity: 0, x: 16 }}
+                animate={{ opacity: 1, x: 0 }}
+                exit={{ opacity: 0, x: -16 }}
+                transition={{ duration: 0.25 }}
+              >
               <h2>Preferences</h2>
               <div className="stack-block">
                 <h3>Representation Preferences</h3>
@@ -2611,11 +2736,20 @@ function Homepage() {
                   </>
                 )}
               </div>
-            </section>
+              </motion.section>
+            </AnimatePresence>
           )}
 
           {view === 'compare' && (
-            <section className="panel">
+            <AnimatePresence mode="wait">
+              <motion.section
+                key={view}
+                className="panel"
+                initial={{ opacity: 0, x: 16 }}
+                animate={{ opacity: 1, x: 0 }}
+                exit={{ opacity: 0, x: -16 }}
+                transition={{ duration: 0.25 }}
+              >
               <h2>Compare Projects</h2>
               <p className="muted">
                 Choose projects and run compare. Returned fields follow your saved Comparison Attributes from
@@ -2698,11 +2832,20 @@ function Homepage() {
                   )}
                 </>
               )}
-            </section>
+              </motion.section>
+            </AnimatePresence>
           )}
 
           {view === 'upload' && (
-            <section className="panel">
+            <AnimatePresence mode="wait">
+              <motion.section
+                key={view}
+                className="panel"
+                initial={{ opacity: 0, x: 16 }}
+                animate={{ opacity: 1, x: 0 }}
+                exit={{ opacity: 0, x: -16 }}
+                transition={{ duration: 0.25 }}
+              >
               <h2>Upload Project ZIP</h2>
               <p className="muted">Active portfolio: {portfolioId || 'default'}</p>
               <div className="upload-mode-toggle">
@@ -2832,11 +2975,20 @@ function Homepage() {
               >
                 {uploading ? 'Uploading...' : uploadMode === 'incremental' ? 'Upload Incremental Snapshot' : 'Upload Project'}
               </button>
-            </section>
+              </motion.section>
+            </AnimatePresence>
           )}
 
           {view === 'report' && selectedProject && (
-            <section className="panel">
+            <AnimatePresence mode="wait">
+              <motion.section
+                key={view}
+                className="panel"
+                initial={{ opacity: 0, x: 16 }}
+                animate={{ opacity: 1, x: 0 }}
+                exit={{ opacity: 0, x: -16 }}
+                transition={{ duration: 0.25 }}
+              >
               <div className="panel-title-row">
                 <button className="ghost-btn" type="button" onClick={() => setView('projects')}>
                   Back to Projects
@@ -2858,7 +3010,7 @@ function Homepage() {
                         >
                           {selectedProjectStatus.badge}
                         </p>
-                        {selectedProjectStatus.progress && <p>{selectedProjectStatus.progress}</p>}
+                        {selectedProjectStatus.progress && renderAnalysisProgress(selectedProjectStatus.progress)}
                         {selectedProjectStatus.detail && <p className="muted">{selectedProjectStatus.detail}</p>}
                       </>
                     )}
@@ -3325,11 +3477,20 @@ function Homepage() {
                     </div>
                 </>
               )}
-            </section>
+              </motion.section>
+            </AnimatePresence>
           )}
 
           {view === 'top' && (
-            <section className="panel">
+            <AnimatePresence mode="wait">
+              <motion.section
+                key={view}
+                className="panel"
+                initial={{ opacity: 0, x: 16 }}
+                animate={{ opacity: 1, x: 0 }}
+                exit={{ opacity: 0, x: -16 }}
+                transition={{ duration: 0.25 }}
+              >
               <h2>Top Ranked Projects</h2>
               {loading ? (
                 <p>Loading top projects...</p>
@@ -3352,11 +3513,20 @@ function Homepage() {
                   ))}
                 </div>
               )}
-            </section>
+              </motion.section>
+            </AnimatePresence>
           )}
 
           {view === 'skills' && (
-            <section className="panel">
+            <AnimatePresence mode="wait">
+              <motion.section
+                key={view}
+                className="panel"
+                initial={{ opacity: 0, x: 16 }}
+                animate={{ opacity: 1, x: 0 }}
+                exit={{ opacity: 0, x: -16 }}
+                transition={{ duration: 0.25 }}
+              >
               <h2>Skills Timeline</h2>
               {loading ? (
                 <p>Loading skills timeline...</p>
@@ -3376,10 +3546,18 @@ function Homepage() {
                   ))}
                 </div>
               )}
-            </section>
+              </motion.section>
+            </AnimatePresence>
           )}
           {view === 'resume' && (
-            <>
+            <AnimatePresence mode="wait">
+              <motion.div
+                key={view}
+                initial={{ opacity: 0, x: 16 }}
+                animate={{ opacity: 1, x: 0 }}
+                exit={{ opacity: 0, x: -16 }}
+                transition={{ duration: 0.25 }}
+              >
               {resumeLoading ? <section className="panel"><p>Loading resume data...</p></section> : (
                 <>
                   <section className="panel">
@@ -3521,7 +3699,8 @@ function Homepage() {
                   )}
                 </>
               )}
-            </>
+              </motion.div>
+            </AnimatePresence>
           )}
         </main>
       </div>
