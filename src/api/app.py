@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 import base64
-from collections import Counter
+from collections import Counter, defaultdict
 import hashlib
 import hmac
 import json
@@ -2163,10 +2163,10 @@ def download_resume_pdf(resume_id: str):
     try:
         # 1. Get the core project resume data
         item = get_resume_item(engine=engine, resume_id=resume_id)
-        
+
         from sqlalchemy import text
         with engine.connect() as conn:
-            # --- NEW: Get User ID first to fetch their data ---
+            # Resolve owning user so all resume sections come from one payload source.
             user_row = conn.execute(text("""
                 SELECT po.user_id 
                 FROM portfolios po
@@ -2177,33 +2177,21 @@ def download_resume_pdf(resume_id: str):
             
             if not user_row:
                 raise HTTPException(status_code=404, detail="User not found for this resume")
-            
-            uid = user_row["user_id"]
 
-            # --- NEW: Fetch Education and Awards ---
-            edu_rows = conn.execute(text("""
-                SELECT institution, degree, field_of_study, start_year, end_year, is_current, description
-                FROM education_entries WHERE user_id = :uid
-                ORDER BY start_year DESC NULLS LAST
-            """), {"uid": uid}).mappings().all()
+            uid = str(user_row["user_id"])
+            payload = _build_resume_payload_for_user(user_id=uid, db=conn)
 
-            award_rows = conn.execute(text("""
-                SELECT title, issuer, awarded_year, description
-                FROM award_entries WHERE user_id = :uid
-                ORDER BY awarded_year DESC NULLS LAST
-            """), {"uid": uid}).mappings().all()
-
-            # --- Existing Config/Filters Logic ---
             config_result = conn.execute(text("""
                 SELECT config_json FROM user_config WHERE user_id = :uid
             """), {"uid": uid}).mappings().first()
-            
+
             user_config = config_result["config_json"] if config_result else {}
             filters = user_config.get("resume_filters", {})
 
-        # 2. Inject the data into the 'item' dict so the exporter sees it
-        item["education"] = [dict(r) for r in edu_rows]
-        item["awards"] = [dict(r) for r in award_rows]
+        # 2. Inject standardized payload sections for exporter rendering.
+        item["education"] = payload.get("education") or []
+        item["awards"] = payload.get("awards") or []
+        item["skills_by_expertise"] = payload.get("skills_by_expertise") or _empty_skills_by_expertise()
 
     except KeyError:
         raise HTTPException(status_code=404, detail="Resume item not found")
@@ -3252,6 +3240,7 @@ SKILL_EXPERTISE_THRESHOLDS = {
     "familiar":      0.30,
     # anything below 0.30 → "exposure"
 }
+SKILL_EXPERTISE_ORDER = ("expert", "proficient", "familiar", "exposure")
 
 
 def bucket_skill_expertise(probability: float) -> str:
@@ -3298,6 +3287,70 @@ def _bucket_skills_from_rows(skill_rows: list) -> List[Dict[str, Any]]:
         })
     bucketed.sort(key=lambda x: x["probability"], reverse=True)
     return bucketed
+
+
+def _empty_skills_by_expertise() -> Dict[str, List[Dict[str, Any]]]:
+    return {level: [] for level in SKILL_EXPERTISE_ORDER}
+
+
+def _group_skills_by_expertise(projects: List[Dict[str, Any]]) -> Dict[str, List[Dict[str, Any]]]:
+    """
+    Build deterministic expertise buckets from projects[*].skills.
+
+    Rules:
+    - dedupe by case-insensitive skill name
+    - keep the highest-probability instance
+    - each skill appears in exactly one expertise bucket
+    - sort each bucket by probability DESC then name ASC (case-insensitive)
+    """
+    best_by_name: Dict[str, Dict[str, Any]] = {}
+
+    for project in projects or []:
+        skills = project.get("skills") or []
+        if not isinstance(skills, list):
+            continue
+
+        for raw_skill in skills:
+            if not isinstance(raw_skill, dict):
+                continue
+
+            name = str(raw_skill.get("name") or "").strip()
+            if not name:
+                continue
+
+            try:
+                prob = float(raw_skill.get("probability") or 0.0)
+            except (TypeError, ValueError):
+                prob = 0.0
+            prob = min(max(prob, 0.0), 1.0)
+
+            raw_expertise = str(raw_skill.get("expertise") or "").strip().casefold()
+            expertise = raw_expertise if raw_expertise in SKILL_EXPERTISE_ORDER else bucket_skill_expertise(prob)
+
+            candidate = {
+                "name": name,
+                "probability": prob,
+                "expertise": expertise,
+            }
+            key = name.casefold()
+            existing = best_by_name.get(key)
+            if not existing:
+                best_by_name[key] = candidate
+                continue
+
+            if candidate["probability"] > existing["probability"]:
+                best_by_name[key] = candidate
+            elif candidate["probability"] == existing["probability"] and candidate["name"].casefold() < existing["name"].casefold():
+                best_by_name[key] = candidate
+
+    grouped = _empty_skills_by_expertise()
+    for skill in best_by_name.values():
+        grouped[skill["expertise"]].append(skill)
+
+    for level in SKILL_EXPERTISE_ORDER:
+        grouped[level].sort(key=lambda row: (-float(row.get("probability") or 0.0), str(row.get("name") or "").casefold()))
+
+    return grouped
 
 
 def _normalize_evidence(evidence_json: Optional[Dict[str, Any]]) -> Dict[str, Any]:
@@ -3560,26 +3613,16 @@ def _award_row_to_out(row) -> Dict[str, Any]:
         "updated_at": r["updated_at"].isoformat() if hasattr(r["updated_at"], "isoformat") else str(r["updated_at"]),
     }
 
-# ---------------------------------------------------------------------------
-# Resume composite payload
-# GET /users/{user_id}/resume-payload
-# ---------------------------------------------------------------------------
 
-@app.get("/users/{user_id}/resume-payload")
-def get_resume_payload(user_id: str, db: Session = Depends(get_db)):
+def _build_resume_payload_for_user(user_id: str, db) -> Dict[str, Any]:
     """
-    Returns the full one-page resume data contract:
-      - education entries
-      - awards entries
-      - bucketed skills (derived from latest analysis per project)
-      - normalized contribution/impact evidence per project
+    Returns the full one-page resume payload for a user.
+    Shared by GET /users/{user_id}/resume-payload and resume PDF generation.
     """
-    # 1. Verify user exists
     row = db.execute(text("SELECT 1 FROM users WHERE id = :uid"), {"uid": user_id}).scalar()
     if not row:
         raise HTTPException(status_code=404, detail="User not found")
 
-    # 2. Education
     edu_rows = db.execute(
         text(
             """
@@ -3593,7 +3636,6 @@ def get_resume_payload(user_id: str, db: Session = Depends(get_db)):
         {"uid": user_id},
     ).mappings().all()
 
-    # 3. Awards
     award_rows = db.execute(
         text(
             """
@@ -3606,7 +3648,6 @@ def get_resume_payload(user_id: str, db: Session = Depends(get_db)):
         {"uid": user_id},
     ).mappings().all()
 
-    # 4. Projects with their evidence payloads
     project_rows = db.execute(
         text(
             """
@@ -3624,24 +3665,23 @@ def get_resume_payload(user_id: str, db: Session = Depends(get_db)):
         {"uid": user_id},
     ).mappings().all()
 
-    # 5. Skills via normalized tables: latest analysis per project → analysis_skills → skills
     skill_rows = db.execute(
         text(
             """
             SELECT
-                p.id        AS project_id,
+                p.id AS project_id,
                 sk.skill_name,
                 ask.confidence
             FROM projects p
             JOIN portfolios pf ON pf.id = p.portfolio_id
-            JOIN snapshots sn ON sn.project_id = p.id
             JOIN LATERAL (
-                SELECT id
-                FROM analyses
-                WHERE snapshot_id IN (
-                    SELECT id FROM snapshots WHERE project_id = p.id
-                )
-                ORDER BY created_at DESC
+                SELECT a.id
+                FROM analyses a
+                JOIN snapshots s ON s.id = a.snapshot_id
+                WHERE s.project_id = p.id
+                  AND a.analysis_type = 'local_ml'
+                  AND a.status = 'complete'
+                ORDER BY a.completed_at DESC NULLS LAST, a.created_at DESC, a.id DESC
                 LIMIT 1
             ) latest_a ON true
             JOIN analysis_skills ask ON ask.analysis_id = latest_a.id
@@ -3652,8 +3692,6 @@ def get_resume_payload(user_id: str, db: Session = Depends(get_db)):
         {"uid": user_id},
     ).mappings().all()
 
-    # Group skills by project_id for O(1) lookup below
-    from collections import defaultdict
     skills_by_project: Dict[str, list] = defaultdict(list)
     for sr in skill_rows:
         skills_by_project[str(sr["project_id"])].append(sr)
@@ -3665,17 +3703,37 @@ def get_resume_payload(user_id: str, db: Session = Depends(get_db)):
         if isinstance(evidence_json, str):
             evidence_json = json.loads(evidence_json)
 
-        projects_out.append({
-            "project_id": pid,
-            "project_name": pr.get("project_name"),
-            "user_role": pr.get("user_role"),
-            "skills": _bucket_skills_from_rows(skills_by_project[pid]),
-            "evidence": _normalize_evidence(evidence_json),
-        })
+        projects_out.append(
+            {
+                "project_id": pid,
+                "project_name": pr.get("project_name"),
+                "user_role": pr.get("user_role"),
+                "skills": _bucket_skills_from_rows(skills_by_project[pid]),
+                "evidence": _normalize_evidence(evidence_json),
+            }
+        )
 
     return {
         "user_id": user_id,
         "education": [_education_row_to_out(r) for r in edu_rows],
         "awards": [_award_row_to_out(r) for r in award_rows],
         "projects": projects_out,
+        "skills_by_expertise": _group_skills_by_expertise(projects_out),
     }
+
+
+# ---------------------------------------------------------------------------
+# Resume composite payload
+# GET /users/{user_id}/resume-payload
+# ---------------------------------------------------------------------------
+
+@app.get("/users/{user_id}/resume-payload")
+def get_resume_payload(user_id: str, db: Session = Depends(get_db)):
+    """
+    Returns the full one-page resume data contract:
+      - education entries
+      - awards entries
+      - bucketed skills (derived from latest analysis per project)
+      - normalized contribution/impact evidence per project
+    """
+    return _build_resume_payload_for_user(user_id=user_id, db=db)

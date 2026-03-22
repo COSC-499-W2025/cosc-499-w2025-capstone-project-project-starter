@@ -2217,7 +2217,12 @@ def test_portfolio_showcase_upsert_logic(engine):
         assert final_content["description"] == "Updated Version"
 
 
-from src.api.app import bucket_skill_expertise, _normalize_evidence, _bucket_skills_from_rows
+from src.api.app import (
+    bucket_skill_expertise,
+    _normalize_evidence,
+    _bucket_skills_from_rows,
+    _group_skills_by_expertise,
+)
 
 
 # ---------------------------------------------------------------------------
@@ -2332,6 +2337,37 @@ def test_bucket_skills_from_rows_null_confidence():
     rows = [{"skill_name": "Go", "confidence": None}]
     result = _bucket_skills_from_rows(rows)
     assert result[0]["expertise"] == "exposure"
+
+
+def test_group_skills_by_expertise_dedupes_and_sorts():
+    projects = [
+        {
+            "project_id": "p1",
+            "skills": [
+                {"name": "Python", "probability": 0.72, "expertise": "proficient"},
+                {"name": "React", "probability": 0.50, "expertise": "familiar"},
+            ],
+        },
+        {
+            "project_id": "p2",
+            "skills": [
+                {"name": "python", "probability": 0.91, "expertise": "expert"},
+                {"name": "Rust", "probability": 0.91, "expertise": "expert"},
+            ],
+        },
+    ]
+
+    grouped = _group_skills_by_expertise(projects)
+
+    # Python appears once with highest confidence and assigned to one bucket.
+    assert grouped["expert"][0]["name"] == "python"
+    assert grouped["expert"][0]["probability"] == 0.91
+    assert [row["name"] for row in grouped["proficient"]] == []
+
+    # Tie on probability uses name ASC.
+    assert [row["name"] for row in grouped["expert"]] == ["python", "Rust"]
+    assert [row["name"] for row in grouped["familiar"]] == ["React"]
+    assert grouped["exposure"] == []
 
 
 # ---------------------------------------------------------------------------
@@ -2513,6 +2549,8 @@ def test_resume_payload_shape(client, engine):
     assert "education" in payload
     assert "awards" in payload
     assert "projects" in payload
+    assert "skills_by_expertise" in payload
+    assert set(payload["skills_by_expertise"].keys()) == {"expert", "proficient", "familiar", "exposure"}
 
     # Education present
     assert any(e["institution"] == "State University" for e in payload["education"])
@@ -2551,6 +2589,160 @@ def test_resume_payload_project_evidence_schema(client, engine):
         assert "contributions" in evidence
         assert "impact" in evidence
         assert "extra" in evidence
+
+
+def test_resume_payload_skills_by_expertise_deduped_and_sorted(client, engine):
+    info = _register_user(client, email="resume_skills_grouping@example.com")
+    user_id = info["user_id"]
+    portfolio_id = info["portfolio_id"]
+    project_a = _u()
+    project_b = _u()
+    snapshot_a = _u()
+    snapshot_b = _u()
+
+    with engine.begin() as conn:
+        conn.execute(
+            text("INSERT INTO projects (id, portfolio_id, name) VALUES (:id, :pf, 'Resume A')"),
+            {"id": project_a, "pf": portfolio_id},
+        )
+        conn.execute(
+            text("INSERT INTO projects (id, portfolio_id, name) VALUES (:id, :pf, 'Resume B')"),
+            {"id": project_b, "pf": portfolio_id},
+        )
+        conn.execute(
+            text(
+                """
+                INSERT INTO snapshots (id, project_id, source_zip_name, source_zip_sha256, snapshot_label)
+                VALUES
+                    (:s1, :p1, 'a.zip', :sha1, 'A'),
+                    (:s2, :p2, 'b.zip', :sha2, 'B')
+                """
+            ),
+            {"s1": snapshot_a, "p1": project_a, "sha1": "a" * 64, "s2": snapshot_b, "p2": project_b, "sha2": "b" * 64},
+        )
+
+        conn.execute(
+            text(
+                """
+                INSERT INTO analyses (id, snapshot_id, analysis_type, status, output_json, created_at, completed_at)
+                VALUES
+                    (:a1, :s1, 'local_ml', 'complete', '{}'::jsonb, NOW() - INTERVAL '2 minute', NOW() - INTERVAL '2 minute'),
+                    (:a2, :s2, 'local_ml', 'complete', '{}'::jsonb, NOW() - INTERVAL '1 minute', NOW() - INTERVAL '1 minute')
+                """
+            ),
+            {"a1": _u(), "s1": snapshot_a, "a2": _u(), "s2": snapshot_b},
+        )
+        conn.execute(
+            text(
+                """
+                INSERT INTO skills (skill_name, category)
+                VALUES ('python', 'language'), ('rust', 'language'), ('react', 'framework')
+                ON CONFLICT DO NOTHING
+                """
+            )
+        )
+        py_id = conn.execute(text("SELECT id FROM skills WHERE skill_name='python'")).scalar_one()
+        rs_id = conn.execute(text("SELECT id FROM skills WHERE skill_name='rust'")).scalar_one()
+        re_id = conn.execute(text("SELECT id FROM skills WHERE skill_name='react'")).scalar_one()
+        analysis_rows = conn.execute(
+            text(
+                """
+                SELECT id, snapshot_id
+                FROM analyses
+                WHERE (snapshot_id = :s1 OR snapshot_id = :s2)
+                  AND analysis_type = 'local_ml'
+                """
+            ),
+            {"s1": snapshot_a, "s2": snapshot_b},
+        ).mappings().all()
+        analysis_by_snapshot = {str(row["snapshot_id"]): str(row["id"]) for row in analysis_rows}
+        analysis_a = analysis_by_snapshot[snapshot_a]
+        analysis_b = analysis_by_snapshot[snapshot_b]
+        conn.execute(
+            text(
+                """
+                INSERT INTO analysis_skills (analysis_id, skill_id, confidence)
+                VALUES
+                    (:a1, :py, 0.62),
+                    (:a1, :re, 0.52),
+                    (:a2, :py, 0.93),
+                    (:a2, :rs, 0.93)
+                """
+            ),
+            {"a1": analysis_a, "a2": analysis_b, "py": py_id, "re": re_id, "rs": rs_id},
+        )
+
+    r = client.get(f"/users/{user_id}/resume-payload")
+    assert r.status_code == 200
+    grouped = r.json()["skills_by_expertise"]
+
+    # Python deduped to highest probability and appears once in expert.
+    assert [row["name"] for row in grouped["expert"]] == ["python", "rust"]
+    assert [row["name"] for row in grouped["proficient"]] == []
+    assert [row["name"] for row in grouped["familiar"]] == ["react"]
+
+
+def test_resume_payload_prefers_latest_completed_local_ml_for_skills(client, engine):
+    info = _register_user(client, email="resume_local_ml_preferred@example.com")
+    user_id = info["user_id"]
+    portfolio_id = info["portfolio_id"]
+    project_id = _u()
+    snapshot_id = _u()
+    local_ml_id = _u()
+    external_llm_id = _u()
+
+    with engine.begin() as conn:
+        conn.execute(
+            text("INSERT INTO projects (id, portfolio_id, name) VALUES (:id, :pf, 'Resume Local ML Preferred')"),
+            {"id": project_id, "pf": portfolio_id},
+        )
+        conn.execute(
+            text(
+                """
+                INSERT INTO snapshots (id, project_id, source_zip_name, source_zip_sha256, snapshot_label)
+                VALUES (:sid, :pid, 'resume.zip', :sha, 'S1')
+                """
+            ),
+            {"sid": snapshot_id, "pid": project_id, "sha": "c" * 64},
+        )
+        conn.execute(
+            text(
+                """
+                INSERT INTO analyses (id, snapshot_id, analysis_type, status, output_json, created_at, completed_at)
+                VALUES
+                    (:ml, :sid, 'local_ml', 'complete', '{}'::jsonb, NOW() - INTERVAL '2 minute', NOW() - INTERVAL '2 minute'),
+                    (:ext, :sid, 'external_llm', 'complete', '{}'::jsonb, NOW() - INTERVAL '1 minute', NOW() - INTERVAL '1 minute')
+                """
+            ),
+            {"ml": local_ml_id, "ext": external_llm_id, "sid": snapshot_id},
+        )
+        conn.execute(
+            text(
+                """
+                INSERT INTO skills (skill_name, category)
+                VALUES ('python', 'language')
+                ON CONFLICT DO NOTHING
+                """
+            )
+        )
+        py_id = conn.execute(text("SELECT id FROM skills WHERE skill_name='python'")).scalar_one()
+        conn.execute(
+            text(
+                """
+                INSERT INTO analysis_skills (analysis_id, skill_id, confidence)
+                VALUES (:aid, :sid, 0.91)
+                """
+            ),
+            {"aid": local_ml_id, "sid": py_id},
+        )
+
+    r = client.get(f"/users/{user_id}/resume-payload")
+    assert r.status_code == 200
+    payload = r.json()
+
+    project = next(p for p in payload["projects"] if p["project_id"] == project_id)
+    assert [row["name"] for row in project["skills"]] == ["python"]
+    assert [row["name"] for row in payload["skills_by_expertise"]["expert"]] == ["python"]
 
 
 def test_resume_payload_unknown_user_returns_404(client):
@@ -2677,6 +2869,12 @@ def test_export_resume_item_pdf_education_awards_content():
                 "awarded_year": "2025"
             }
         ],
+        "skills_by_expertise": {
+            "expert": [{"name": "Rust"}, {"name": "PostgreSQL"}],
+            "proficient": [{"name": "Python"}],
+            "familiar": [],
+            "exposure": [],
+        },
         "content": {
             "summary_text": "A full-stack developer focusing on React and Python.",
             "project": {"name": "Artifact Miner", "id": "proj-999"}
@@ -2704,6 +2902,7 @@ def test_export_resume_item_pdf_education_awards_content():
     assert "Artifact Miner" in page_text
     assert "Education" in page_text
     assert "Awards & Honors" in page_text
+    assert "Skills by Expertise" in page_text
 
     
     assert "University of British Columbia" in page_text
@@ -2715,11 +2914,17 @@ def test_export_resume_item_pdf_education_awards_content():
     assert "Hackathon Winner" in page_text
     assert "Major League Hacking" in page_text
     assert "(2025)" in page_text
+    assert "Expert:" in page_text
+    assert "Rust" in page_text
+    assert "PostgreSQL" in page_text
+    assert "Proficient:" in page_text
+    assert "Python" in page_text
 
 def test_resume_pdf_filters_toggles():
     """Verifies that sections are omitted when filters are set to False."""
     mock_resume_item = {
         "education": [{"institution": "UBC", "degree": "CS", "end_year": "2026"}],
+        "skills_by_expertise": {"expert": [{"name": "Rust"}]},
         "content": {"project": {"name": "Hidden Project"}}
     }
     
@@ -2732,3 +2937,49 @@ def test_resume_pdf_filters_toggles():
     
     assert "Education" not in page_text
     assert "UBC" not in page_text
+
+
+def test_resume_pdf_skills_by_expertise_cap_and_overflow_note():
+    mock_resume_item = {
+        "skills_by_expertise": {
+            "expert": [
+                {"name": "Rust"},
+                {"name": "Python"},
+                {"name": "Go"},
+                {"name": "SQL"},
+                {"name": "TypeScript"},
+                {"name": "React"},
+                {"name": "FastAPI"},
+            ]
+        },
+        "content": {"project": {"name": "Skill Dense Project"}},
+    }
+
+    pdf_bytes = export_resume_item_pdf_bytes(mock_resume_item, filters={"show_skills_by_expertise": True})
+    page_text = PdfReader(io.BytesIO(pdf_bytes)).pages[0].extract_text()
+
+    assert "Skills by Expertise" in page_text
+    assert "Expert:" in page_text
+    for name in ["Rust", "Python", "Go", "SQL", "TypeScript", "React"]:
+        assert name in page_text
+    assert "+1 more" in page_text
+    assert "FastAPI" not in page_text
+
+
+def test_resume_pdf_skills_by_expertise_toggle_hidden():
+    mock_resume_item = {
+        "skills_by_expertise": {
+            "expert": [{"name": "Rust"}],
+            "proficient": [{"name": "Python"}],
+        },
+        "content": {"project": {"name": "Hidden Skills Project"}},
+    }
+
+    pdf_bytes = export_resume_item_pdf_bytes(
+        mock_resume_item,
+        filters={"show_skills_by_expertise": False},
+    )
+    page_text = PdfReader(io.BytesIO(pdf_bytes)).pages[0].extract_text()
+
+    assert "Skills by Expertise" not in page_text
+    assert "Expert: Rust" not in page_text
