@@ -4,6 +4,7 @@ import { Moon, Sun } from 'lucide-react';
 import { API_BASE_URL, authApi, dashboardApi, projectApi, resumeApi, userConfigApi } from './api';
 
 const TOKEN_STORAGE_KEY = 'artifactMiner.authToken';
+const THEME_STORAGE_KEY = 'artifactMiner.themeMode';
 const ANALYSIS_POLL_INTERVAL_MS = 5000;
 const ACTIVE_ANALYSIS_STATUSES = new Set(['pending', 'running']);
 const ANALYSIS_TYPE_LABELS = {
@@ -27,6 +28,17 @@ const COMPARISON_ATTRIBUTE_OPTIONS = [
 
 function normalizeProjectName(filename) {
   return filename.replace(/\.zip$/i, '');
+}
+
+function applyDocumentTheme(themeMode) {
+  const isDarkMode = themeMode === 'dark';
+  const root = document.documentElement;
+
+  root.setAttribute('data-theme-mode', isDarkMode ? 'dark' : 'light');
+  root.style.colorScheme = isDarkMode ? 'dark' : 'light';
+  root.style.background = isDarkMode
+    ? 'radial-gradient(circle at top left, #1b2233 0%, #111827 45%, #0b1323 100%)'
+    : 'radial-gradient(circle at top left, #f4f7ff 0%, #eef2ff 30%, #f7f9fc 100%)';
 }
 
 const YEAR_MIN = 1900;
@@ -410,7 +422,7 @@ function parseFractionProgress(progressText) {
 }
 
 function Homepage() {
-  const [themeMode, setThemeMode] = useState(() => localStorage.getItem('artifactMiner.themeMode') || 'light');
+  const [themeMode, setThemeMode] = useState(() => localStorage.getItem(THEME_STORAGE_KEY) || 'light');
   const [token, setToken] = useState(() => localStorage.getItem(TOKEN_STORAGE_KEY) || '');
   const [currentUser, setCurrentUser] = useState(null);
   const [sessionLoading, setSessionLoading] = useState(true);
@@ -501,7 +513,8 @@ function Homepage() {
   const [dashboardModeError, setDashboardModeError] = useState('');
 
   useEffect(() => {
-    localStorage.setItem('artifactMiner.themeMode', themeMode);
+    applyDocumentTheme(themeMode);
+    localStorage.setItem(THEME_STORAGE_KEY, themeMode);
   }, [themeMode]);
 
   const isAuthenticated = Boolean(token && currentUser);
