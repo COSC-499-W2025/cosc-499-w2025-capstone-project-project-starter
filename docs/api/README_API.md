@@ -128,7 +128,10 @@ Resume PDF filters are read from `config.resume_filters` (optional):
   "show_project_profile": true,
   "show_metrics": true,
   "show_tech_stack": true,
-  "show_evidence": true
+  "show_evidence": true,
+  "show_education": true,
+  "show_awards": true,
+  "show_skills_by_expertise": true
 }
 ```
 
@@ -325,9 +328,34 @@ Resume PDF filters are read from `config.resume_filters` (optional):
 - `GET /resume/{resume_id}/pdf`
   - Returns PDF bytes.
   - Reads display/toggle filters from owning user's `user_config.resume_filters`.
+  - Includes `Education`, `Awards & Honors`, and `Skills by Expertise` sections when enabled by filters and data is present.
 
 - `DELETE /resume/{resume_id}`
   - Deletes stored resume artifact.
+
+- `POST /users/{user_id}/education`
+- `GET /users/{user_id}/education`
+- `PUT /users/{user_id}/education/{entry_id}`
+- `DELETE /users/{user_id}/education/{entry_id}`
+  - Manage education entries used by one-page resume composition.
+
+- `POST /users/{user_id}/awards`
+- `GET /users/{user_id}/awards`
+- `PUT /users/{user_id}/awards/{entry_id}`
+- `DELETE /users/{user_id}/awards/{entry_id}`
+  - Manage awards entries used by one-page resume composition.
+
+- `GET /users/{user_id}/resume-payload`
+  - Returns a normalized payload for one-page resume rendering.
+  - Shape:
+    - `user_id`
+    - `education[]`
+    - `awards[]`
+    - `projects[]` (each project contains `skills[]` + normalized `evidence`)
+    - `skills_by_expertise`:
+      - `expert[]`, `proficient[]`, `familiar[]`, `exposure[]`
+      - deterministic dedupe by case-insensitive skill name (keeps highest probability)
+      - per-bucket sort: probability desc, then name asc (case-insensitive)
 
 ### Identity and Linking
 - `POST /users/{user_id}/identity/rules`

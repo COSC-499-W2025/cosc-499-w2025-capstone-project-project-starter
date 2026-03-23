@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { API_BASE_URL, authApi, dashboardApi, projectApi, resumeApi, userConfigApi } from './api';
+import ResumeSkillsSection from './ResumeSkillsSection';
 
 const TOKEN_STORAGE_KEY = 'artifactMiner.authToken';
 const ANALYSIS_POLL_INTERVAL_MS = 5000;
@@ -1790,6 +1791,7 @@ function Homepage() {
   const [resumeEducation, setResumeEducation] = useState([]);
   const [resumeAwards, setResumeAwards] = useState([]);
   const [resumeProjects, setResumeProjects] = useState([]);
+  const [resumeSkillsByExpertise, setResumeSkillsByExpertise] = useState(null);
   const [resumeLoading, setResumeLoading] = useState(false);
   const [resumeSaving, setResumeSaving] = useState(false);
   const [editingEduId, setEditingEduId] = useState(null);
@@ -1810,6 +1812,7 @@ function Homepage() {
       setResumeEducation(data.education || []);
       setResumeAwards(data.awards || []);
       setResumeProjects(data.projects || []);
+      setResumeSkillsByExpertise(data.skills_by_expertise || null);
     } catch (err) {
       setDashboardError(err.message || 'Unable to load resume data.');
     } finally {
@@ -3499,26 +3502,10 @@ function Homepage() {
                     ))}
                   </section>
 
-                  {resumeProjects.some((p) => p.skills.length > 0) && (
-                    <section className="panel">
-                      <h2>Skills by Project</h2>
-                      <p className="muted">Derived from your project analyses. Included when generating your resume PDF.</p>
-                      <div className="stack-block">
-                        {resumeProjects.map((p) => (
-                          p.skills.length > 0 && (
-                            <div key={p.project_id}>
-                              <h3>{p.project_name || p.project_id}</h3>
-                              <div className="badge-row">
-                                {p.skills.map((s, i) => (
-                                  <span key={i} className="skill-badge">{s.name} <span className="muted">· {s.expertise}</span></span>
-                                ))}
-                              </div>
-                            </div>
-                          )
-                        ))}
-                      </div>
-                    </section>
-                  )}
+                  <ResumeSkillsSection
+                    skillsByExpertise={resumeSkillsByExpertise}
+                    projects={resumeProjects}
+                  />
                 </>
               )}
             </>
