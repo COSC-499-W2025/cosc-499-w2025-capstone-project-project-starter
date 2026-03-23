@@ -1,5 +1,5 @@
 import os
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Dict, List, Optional
 
@@ -213,12 +213,18 @@ class GitGrouping:
             return None
 
         if isinstance(commit_date, datetime):
-            return commit_date
+            dt = commit_date
+            if dt.tzinfo is None:
+                return dt.replace(tzinfo=timezone.utc)
+            return dt.astimezone(timezone.utc)
 
         if isinstance(commit_date, str):
             normalized = commit_date.strip().replace("Z", "+00:00")
             try:
-                return datetime.fromisoformat(normalized)
+                dt = datetime.fromisoformat(normalized)
+                if dt.tzinfo is None:
+                    return dt.replace(tzinfo=timezone.utc)
+                return dt.astimezone(timezone.utc)
             except ValueError:
                 return None
 
