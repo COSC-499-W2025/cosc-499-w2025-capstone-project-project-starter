@@ -26,7 +26,7 @@ const COMPARISON_ATTRIBUTE_OPTIONS = [
 function normalizeProjectName(filename) {
   return filename.replace(/\.zip$/i, '');
 }
-
+    
 const YEAR_MIN = 1900;
 const YEAR_MAX_OFFSET_EDU = 10; // allow up to 10 years in the future for expected graduation, covers almost any realistic grad timeline
 
