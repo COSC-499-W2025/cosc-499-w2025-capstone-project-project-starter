@@ -35,30 +35,31 @@ Output Format (Milestone 1): Text-based (CSV, JSON, or plain text)
 
 ## How to Run
 
-The system is designed to run as a single interactive application. The client (`api_main.py`) will automatically start the backend API server for you. As some of our processes are not integrated into our api, there are additional features such as project manipulation that can be ran locally by running (`main.py`).
+**Prerequisites:** You must have Python and Node.js downloaded and installed on your machine to run this application.
 
-### Option 1: Docker (Recommended)
+*   [Download Python](https://www.python.org/downloads/) (Make sure to check "Add python.exe to PATH" during installation on Windows)
+*   [Download Node.js](https://nodejs.org/) (Includes `npm`)
 
-Run the following commands to build and launch the interactive client inside a container:
+### Option 1: The Easy Way (One-Click Start)
 
-```bash
-docker compose build
-docker compose run --rm -it skillscope python api_main.py
+We have provided startup scripts that will automatically install dependencies, start the backend API, and boot up the UI.
+
+**For Windows:**
+Double-click `start_windows.bat` or run it in your terminal:
+```cmd
+.\start_windows.bat
 ```
 
-Alternatively, if you have issues with Docker, you can run the project locally.
-### Option 2: Locally
-
-First, install the dependencies from `requirements.txt`:
+**For Mac/Linux:**
+Run the shell script in your terminal:
 ```bash
-pip install -r requirements.txt
-```
-Then, run the application from the project root:
-```bash
-python src/main.py
+chmod +x start_mac_linux.sh
+./start_mac_linux.sh
 ```
 
-### Option 3: Connected to API
+### Option 2: Command Line Interface (CLI)
+
+If you prefer to run the text-based CLI version without the React UI:
 
 First, install the dependencies from `requirements.txt`:
 ```bash
