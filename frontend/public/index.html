@@ -15,6 +15,28 @@
       user's mobile device or desktop. See https://developers.google.com/web/fundamentals/web-app-manifest/
     -->
     <link rel="manifest" href="%PUBLIC_URL%/manifest.json" />
+    <script>
+      (function () {
+        var storageKey = 'artifactMiner.themeMode';
+        var fallbackTheme = 'light';
+        var darkBackground = 'radial-gradient(circle at top left, #1b2233 0%, #111827 45%, #0b1323 100%)';
+        var lightBackground = 'radial-gradient(circle at top left, #f4f7ff 0%, #eef2ff 30%, #f7f9fc 100%)';
+
+        try {
+          var storedTheme = window.localStorage.getItem(storageKey);
+          var theme = storedTheme === 'dark' || storedTheme === 'light' ? storedTheme : fallbackTheme;
+          var root = document.documentElement;
+
+          root.setAttribute('data-theme-mode', theme);
+          root.style.colorScheme = theme;
+          root.style.background = theme === 'dark' ? darkBackground : lightBackground;
+        } catch (error) {
+          document.documentElement.setAttribute('data-theme-mode', fallbackTheme);
+          document.documentElement.style.colorScheme = fallbackTheme;
+          document.documentElement.style.background = lightBackground;
+        }
+      }());
+    </script>
     <!--
       Notice the use of %PUBLIC_URL% in the tags above.
       It will be replaced with the URL of the `public` folder during the build.
