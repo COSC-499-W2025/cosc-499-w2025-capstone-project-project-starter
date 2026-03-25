@@ -5,8 +5,10 @@ This module keeps the existing scan endpoints while adding project/resume/portfo
 endpoints for milestone requirements.
 """
 
+import base64
 import json
 import logging
+import mimetypes
 import os
 import tempfile
 from collections import Counter
@@ -1511,6 +1513,16 @@ def create_app() -> FastAPI:
                 name = item.get("project_name", "Unknown Project")
                 lines.append(f"### {name}")
                 
+                if item.get("thumbnail"):
+                    thumb_path = os.path.join(THUMBNAILS_DIR, item["thumbnail"])
+                    if os.path.exists(thumb_path):
+                        mime_type, _ = mimetypes.guess_type(thumb_path)
+                        mime_type = mime_type or "image/png"
+                        with open(thumb_path, "rb") as img_file:
+                            b64_encoded = base64.b64encode(img_file.read()).decode("utf-8")
+                        lines.append(f'<img src="data:{mime_type};base64,{b64_encoded}" alt="{name} thumbnail" width="500"/>')
+                        lines.append("")
+
                 if item.get("project_description"):
                     lines.append(f"- **Description:** {item['project_description']}")
                 
