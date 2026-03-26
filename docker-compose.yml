@@ -1,0 +1,11 @@
+services:
+  cli:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    working_dir: /app
+    env_file:
+      - .env
+    command: ["python", "-m", "src.cli.textual_app"]
+    tty: true
+    stdin_open: true
