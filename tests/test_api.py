@@ -2983,3 +2983,219 @@ def test_resume_pdf_skills_by_expertise_toggle_hidden():
 
     assert "Skills by Expertise" not in page_text
     assert "Expert: Rust" not in page_text
+
+
+def test_top_project_showcase_returns_exactly_three_ranked_projects(client, engine):
+    account = _register_user(client, email="top_showcase_rank@example.com")
+    headers = {"Authorization": f"Bearer {account['token']}"}
+
+    project_ids = [_u(), _u(), _u(), _u()]
+    snapshot_ids = [_u(), _u(), _u(), _u()]
+    contributor_ids = [_u(), _u(), _u(), _u()]
+    event_ids = [_u(), _u(), _u(), _u()]
+
+    # Commit counts map directly to ranking score under default ranking mode.
+    commit_counts = [50, 30, 20, 10]
+
+    with engine.begin() as conn:
+        for i, pid in enumerate(project_ids):
+            conn.execute(
+                text("INSERT INTO projects (id, portfolio_id, name) VALUES (:id, :pf, :name)"),
+                {"id": pid, "pf": account["portfolio_id"], "name": f"Ranked {i + 1}"},
+            )
+            conn.execute(
+                text(
+                    """
+                    INSERT INTO snapshots (id, project_id, source_zip_name, source_zip_sha256, ingested_at, snapshot_label)
+                    VALUES (:sid, :pid, :zip_name, :sha, NOW() - (:offset || ' day')::interval, :label)
+                    """
+                ),
+                {
+                    "sid": snapshot_ids[i],
+                    "pid": pid,
+                    "zip_name": f"p{i + 1}.zip",
+                    "sha": str(i + 1) * 64,
+                    "offset": str(4 - i),
+                    "label": f"v{i + 1}",
+                },
+            )
+            conn.execute(
+                text("INSERT INTO contributors (id, canonical_name, email) VALUES (:id, :name, :email)"),
+                {
+                    "id": contributor_ids[i],
+                    "name": f"Contributor {i + 1}",
+                    "email": f"c{i + 1}@example.com",
+                },
+            )
+            conn.execute(
+                text(
+                    "INSERT INTO project_contributors (project_id, contributor_id, is_user) VALUES (:pid, :cid, TRUE)"
+                ),
+                {"pid": pid, "cid": contributor_ids[i]},
+            )
+            conn.execute(
+                text(
+                    """
+                    INSERT INTO contribution_events (id, snapshot_id, contributor_id, activity_type, commit_count, file_change_count, lines_added, lines_deleted)
+                    VALUES (:id, :sid, :cid, 'code', :commits, 0, 0, 0)
+                    """
+                ),
+                {
+                    "id": event_ids[i],
+                    "sid": snapshot_ids[i],
+                    "cid": contributor_ids[i],
+                    "commits": commit_counts[i],
+                },
+            )
+
+    response = client.get(
+        f"/portfolio/{account['portfolio_id']}/top-project-showcase",
+        headers=headers,
+    )
+    assert response.status_code == 200
+    body = response.json()
+
+    assert body["limit"] == 3
+    assert len(body["projects"]) == 3
+
+    returned_ids = [row["project_id"] for row in body["projects"]]
+    assert returned_ids == project_ids[:3]
+
+
+def test_top_project_showcase_includes_process_and_timeline_evidence(client, engine):
+    account = _register_user(client, email="top_showcase_evolution@example.com")
+    headers = {"Authorization": f"Bearer {account['token']}"}
+
+    project_id = _u()
+    snapshot_a = _u()
+    snapshot_b = _u()
+    contributor_id = _u()
+
+    with engine.begin() as conn:
+        conn.execute(
+            text("INSERT INTO projects (id, portfolio_id, name) VALUES (:id, :pf, 'Evolution Project')"),
+            {"id": project_id, "pf": account["portfolio_id"]},
+        )
+        conn.execute(
+            text("INSERT INTO contributors (id, canonical_name, email) VALUES (:id, 'Evo User', 'evo@example.com')"),
+            {"id": contributor_id},
+        )
+        conn.execute(
+            text("INSERT INTO project_contributors (project_id, contributor_id, is_user) VALUES (:pid, :cid, TRUE)"),
+            {"pid": project_id, "cid": contributor_id},
+        )
+        conn.execute(
+            text(
+                """
+                INSERT INTO snapshots (id, project_id, source_zip_name, source_zip_sha256, ingested_at, snapshot_label)
+                VALUES
+                  (:s1, :pid, 'e1.zip', :sha1, NOW() - INTERVAL '2 day', 'initial'),
+                  (:s2, :pid, 'e2.zip', :sha2, NOW() - INTERVAL '1 day', 'latest')
+                """
+            ),
+            {"s1": snapshot_a, "s2": snapshot_b, "pid": project_id, "sha1": "a" * 64, "sha2": "b" * 64},
+        )
+        conn.execute(
+            text(
+                """
+                INSERT INTO contribution_events (id, snapshot_id, contributor_id, activity_type, commit_count, file_change_count, lines_added, lines_deleted)
+                VALUES
+                  (:e1, :s1, :cid, 'code', 5, 0, 0, 0),
+                  (:e2, :s2, :cid, 'code', 7, 0, 0, 0)
+                """
+            ),
+            {"e1": _u(), "e2": _u(), "s1": snapshot_a, "s2": snapshot_b, "cid": contributor_id},
+        )
+
+    response = client.get(
+        f"/portfolio/{account['portfolio_id']}/top-project-showcase",
+        headers=headers,
+    )
+    assert response.status_code == 200
+    projects = response.json()["projects"]
+    assert len(projects) == 1
+
+    first = projects[0]
+    assert isinstance(first.get("process_narrative"), str)
+    assert first.get("process_narrative")
+    assert isinstance(first.get("milestones"), list)
+    assert len(first["milestones"]) >= 1
+
+
+def test_top_project_showcase_keeps_all_incremental_snapshot_milestones(client, engine):
+    account = _register_user(client, email="top_showcase_incremental@example.com")
+    headers = {"Authorization": f"Bearer {account['token']}"}
+
+    project_id = _u()
+    snapshots = [_u(), _u(), _u()]
+    contributor_id = _u()
+
+    with engine.begin() as conn:
+        conn.execute(
+            text("INSERT INTO projects (id, portfolio_id, name) VALUES (:id, :pf, 'Incremental Evolution Project')"),
+            {"id": project_id, "pf": account["portfolio_id"]},
+        )
+        conn.execute(
+            text("INSERT INTO contributors (id, canonical_name, email) VALUES (:id, 'Inc User', 'inc@example.com')"),
+            {"id": contributor_id},
+        )
+        conn.execute(
+            text("INSERT INTO project_contributors (project_id, contributor_id, is_user) VALUES (:pid, :cid, TRUE)"),
+            {"pid": project_id, "cid": contributor_id},
+        )
+        conn.execute(
+            text(
+                """
+                INSERT INTO snapshots (id, project_id, source_zip_name, source_zip_sha256, ingested_at, snapshot_label)
+                VALUES
+                  (:s1, :pid, 'inc1.zip', :sha1, NOW() - INTERVAL '3 day', 'initial'),
+                  (:s2, :pid, 'inc2.zip', :sha2, NOW() - INTERVAL '2 day', 'update-1'),
+                  (:s3, :pid, 'inc3.zip', :sha3, NOW() - INTERVAL '1 day', 'update-2')
+                """
+            ),
+            {
+                "s1": snapshots[0],
+                "s2": snapshots[1],
+                "s3": snapshots[2],
+                "pid": project_id,
+                "sha1": "1" * 64,
+                "sha2": "2" * 64,
+                "sha3": "3" * 64,
+            },
+        )
+        conn.execute(
+            text(
+                """
+                INSERT INTO contribution_events (id, snapshot_id, contributor_id, activity_type, commit_count, file_change_count, lines_added, lines_deleted)
+                VALUES
+                  (:e1, :s1, :cid, 'code', 2, 0, 0, 0),
+                  (:e2, :s2, :cid, 'code', 4, 0, 0, 0),
+                  (:e3, :s3, :cid, 'code', 6, 0, 0, 0)
+                """
+            ),
+            {
+                "e1": _u(),
+                "e2": _u(),
+                "e3": _u(),
+                "s1": snapshots[0],
+                "s2": snapshots[1],
+                "s3": snapshots[2],
+                "cid": contributor_id,
+            },
+        )
+
+    response = client.get(
+        f"/portfolio/{account['portfolio_id']}/top-project-showcase",
+        headers=headers,
+    )
+    assert response.status_code == 200
+    projects = response.json()["projects"]
+    assert len(projects) == 1
+
+    milestones = projects[0].get("milestones") or []
+    assert len(milestones) == 3
+    assert [m.get("snapshot_id") for m in milestones] == snapshots
+    assert milestones[0].get("type") == "project_started"
+    assert milestones[1].get("type") == "snapshot_update"
+    assert milestones[1].get("snapshot_label") == "update-1"
+    assert milestones[-1].get("type") == "latest_state"

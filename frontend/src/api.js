@@ -166,6 +166,8 @@ export const projectApi = {
     apiRequest(`/snapshots/${snapshotId}/skills?limit=${limit}`, { token }),
   getPortfolioTopProjects: (token, portfolioId, limit = 5) =>
     apiRequest(`/portfolio/${portfolioId}/top-projects?limit=${limit}`, { token }),
+  getPortfolioTopProjectShowcase: (token, portfolioId) =>
+    apiRequest(`/portfolio/${portfolioId}/top-project-showcase`, { token }),
   getPortfolioSkillTimeline: (token, portfolioId, limit = 50) =>
     apiRequest(`/portfolio/${portfolioId}/skills/chronological?limit=${limit}`, { token }),
   generateResume: (token, projectId) =>

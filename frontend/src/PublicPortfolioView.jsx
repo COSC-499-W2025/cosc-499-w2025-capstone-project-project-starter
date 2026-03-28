@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { dashboardApi } from './api';
+import TopProjectShowcase from './TopProjectShowcase';
 
 function toCsvList(value) {
   return String(value || '')
@@ -114,6 +115,7 @@ function PublicPortfolioView({ publicSlug }) {
   ].filter(Boolean);
   const projects = dashboard.projects || [];
   const topProjects = dashboard.top_projects || [];
+  const topProjectShowcase = dashboard.top_project_showcase || [];
   const skillsTimeline = dashboard.skills_timeline || [];
 
   useEffect(() => {
@@ -208,7 +210,12 @@ function PublicPortfolioView({ publicSlug }) {
 
             {visibility.top_projects && view === 'top' && (
               <Section title="Top Projects" empty={topProjects.length === 0 ? 'No top projects available.' : ''}>
-              <div className="top-list">{topProjects.map((project) => <article key={project.project_id} className="top-card"><h3>{project.project_name || project.name || project.project_id}</h3><p>Rank score: {project.rank_score ?? 'N/A'}</p></article>)}</div>
+              <TopProjectShowcase
+                projects={topProjectShowcase.length ? topProjectShowcase : topProjects}
+                loading={false}
+                emptyText="No top projects available."
+                title="Top 3 Public Project Showcase"
+              />
               </Section>
             )}
 

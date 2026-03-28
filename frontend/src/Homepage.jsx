@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Moon, Sun } from 'lucide-react';
 import { API_BASE_URL, authApi, dashboardApi, projectApi, resumeApi, userConfigApi } from './api';
 import ResumeSkillsSection from './ResumeSkillsSection';
+import TopProjectShowcase from './TopProjectShowcase';
 
 const TOKEN_STORAGE_KEY = 'artifactMiner.authToken';
 const THEME_STORAGE_KEY = 'artifactMiner.themeMode';
@@ -761,9 +762,31 @@ function Homepage() {
     setLoading(true);
     setDashboardError('');
     try {
-      const data = await projectApi.getPortfolioTopProjects(token, portfolioId, 5);
-      setTopProjects(data.top_projects || []);
+      const data = await projectApi.getPortfolioTopProjectShowcase(token, portfolioId);
+      setTopProjects(data.projects || []);
     } catch (error) {
+      // Backward compatibility: older backend images may not have /top-project-showcase yet.
+      if (error?.status === 404) {
+        try {
+          const fallback = await projectApi.getPortfolioTopProjects(token, portfolioId, 3);
+          const normalized = (fallback.top_projects || []).slice(0, 3).map((project) => ({
+            project_id: project.project_id,
+            project_name: project.name || project.project_name || project.project_id,
+            rank_score: project.rank_score,
+            selection_features: project.features || {},
+            process_narrative:
+              project.summary?.top_languages || project.summary?.top_skills
+                ? `Highlights: ${[project.summary?.top_languages, project.summary?.top_skills].filter(Boolean).join(' | ')}`
+                : 'Process narrative unavailable on this backend version.',
+            milestones: [],
+          }));
+          setTopProjects(normalized);
+          return;
+        } catch (fallbackError) {
+          setDashboardError(fallbackError.message || 'Unable to load top projects.');
+          return;
+        }
+      }
       setDashboardError(error.message || 'Unable to load top projects.');
     } finally {
       setLoading(false);
@@ -3508,27 +3531,12 @@ function Homepage() {
                 transition={{ duration: 0.25 }}
               >
               <h2>Top Ranked Projects</h2>
-              {loading ? (
-                <p>Loading top projects...</p>
-              ) : topProjects.length === 0 ? (
-                <p>No ranked projects yet.</p>
-              ) : (
-                <div className="top-list">
-                  {topProjects.map((project, index) => (
-                    <article key={project.project_id} className="top-card">
-                      <p className="top-rank">#{index + 1}</p>
-                      <div>
-                        <h3>{project.name}</h3>
-                        <p>Score: {project.rank_score?.toFixed(2) || 'N/A'}</p>
-                        <p>Your commits: {project.features?.user_commits || 0}</p>
-                        <p>Total commits: {project.features?.total_commits || 0}</p>
-                        {project.summary?.top_languages && <p>Languages: {project.summary.top_languages}</p>}
-                        {project.summary?.top_skills && <p>Skills: {project.summary.top_skills}</p>}
-                      </div>
-                    </article>
-                  ))}
-                </div>
-              )}
+              <TopProjectShowcase
+                projects={topProjects}
+                loading={loading}
+                emptyText="No ranked projects yet."
+                title="Top 3 Projects by Ranking Rules"
+              />
               </motion.section>
             </AnimatePresence>
           )}

@@ -785,6 +785,250 @@ thead th {
   color: #21417e;
 }
 
+.top-showcase-shell {
+  display: grid;
+  gap: 0.9rem;
+}
+
+.top-showcase-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.top-showcase-header h3 {
+  margin: 0;
+}
+
+.top-showcase-layout-toggle {
+  display: inline-flex;
+  align-items: center;
+  border: 1px solid #cfe0ff;
+  border-radius: 999px;
+  padding: 0.2rem;
+  background: #eef4ff;
+}
+
+.top-showcase-layout-toggle button {
+  border: none;
+  background: transparent;
+  color: #21417e;
+  font-weight: 600;
+  padding: 0.35rem 0.7rem;
+  border-radius: 999px;
+  cursor: pointer;
+}
+
+.top-showcase-layout-toggle button.active {
+  background: #356ff2;
+  color: #ffffff;
+}
+
+.top-showcase-grid {
+  display: grid;
+  gap: 0.8rem;
+}
+
+.top-showcase-grid.comparison {
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+}
+
+.top-showcase-card {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 0.85rem;
+  align-items: start;
+  border: 1px solid #d8e5ff;
+  border-radius: 12px;
+  background: linear-gradient(150deg, #fbfdff 0%, #f2f6ff 100%);
+  padding: 0.9rem;
+}
+
+.top-showcase-rank {
+  width: 2.2rem;
+  height: 2.2rem;
+  border-radius: 999px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: #ffffff;
+  background: linear-gradient(135deg, #356ff2 0%, #5b90ff 100%);
+  font-weight: 700;
+  font-size: 0.95rem;
+}
+
+.top-showcase-main h4 {
+  margin: 0 0 0.25rem;
+}
+
+.top-showcase-score {
+  margin: 0;
+  color: #21417e;
+  font-weight: 600;
+}
+
+.top-showcase-metrics {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+  margin-top: 0.45rem;
+}
+
+.top-showcase-metrics span {
+  border: 1px solid #cfe0ff;
+  border-radius: 999px;
+  background: #eef4ff;
+  color: #21417e;
+  padding: 0.2rem 0.55rem;
+  font-size: 0.8rem;
+  font-weight: 600;
+}
+
+.top-showcase-narrative {
+  margin: 0.55rem 0;
+  color: #2b3958;
+}
+
+.top-showcase-timeline {
+  border-top: 1px solid #d8e5ff;
+  margin-top: 0.4rem;
+  padding-top: 0.5rem;
+}
+
+.top-showcase-timeline-title {
+  margin: 0 0 0.35rem;
+  font-weight: 700;
+  color: #21417e;
+}
+
+.top-showcase-timeline ul {
+  margin: 0;
+  padding-left: 0;
+  list-style: none;
+  display: grid;
+  gap: 0.65rem;
+  position: relative;
+}
+
+.top-showcase-timeline ul::before {
+  content: '';
+  position: absolute;
+  left: 0.45rem;
+  top: 0.1rem;
+  bottom: 0.35rem;
+  width: 2px;
+  background: linear-gradient(180deg, #a9c5ff 0%, #d7e5ff 100%);
+}
+
+.top-showcase-timeline li {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 0.6rem;
+  align-items: start;
+}
+
+.top-showcase-timeline .milestone-dot {
+  width: 0.95rem;
+  height: 0.95rem;
+  border-radius: 999px;
+  margin-top: 0.25rem;
+  background: #356ff2;
+  border: 3px solid #eaf1ff;
+  box-shadow: 0 0 0 2px #356ff2;
+  z-index: 1;
+}
+
+.top-showcase-timeline .milestone-content {
+  display: grid;
+  gap: 0.22rem;
+  background: #f7faff;
+  border: 1px solid #d9e7ff;
+  border-radius: 10px;
+  padding: 0.5rem 0.6rem;
+}
+
+.top-showcase-timeline .milestone-toggle {
+  border: none;
+  background: transparent;
+  padding: 0;
+  margin: 0;
+  display: grid;
+  gap: 0.22rem;
+  text-align: left;
+  cursor: pointer;
+}
+
+.top-showcase-timeline .milestone-date {
+  color: #21417e;
+  font-weight: 700;
+  font-size: 0.78rem;
+}
+
+.top-showcase-timeline .milestone-type {
+  justify-self: start;
+  border: 1px solid #c9dcff;
+  border-radius: 999px;
+  background: #e9f1ff;
+  color: #2e5fb8;
+  font-size: 0.72rem;
+  font-weight: 700;
+  padding: 0.12rem 0.45rem;
+}
+
+.top-showcase-timeline .milestone-label {
+  justify-self: start;
+  border: 1px dashed #9dbcfb;
+  border-radius: 999px;
+  background: #f1f7ff;
+  color: #21417e;
+  font-size: 0.72rem;
+  font-weight: 700;
+  padding: 0.12rem 0.45rem;
+}
+
+.top-showcase-timeline .milestone-summary {
+  color: #2b3958;
+  line-height: 1.35;
+}
+
+.top-showcase-timeline .milestone-expand-hint {
+  color: #356ff2;
+  font-size: 0.72rem;
+  font-weight: 700;
+}
+
+.top-showcase-timeline .milestone-details {
+  border-top: 1px dashed #c9dcff;
+  margin-top: 0.25rem;
+  padding-top: 0.35rem;
+  color: #2b3958;
+  display: grid;
+  gap: 0.25rem;
+}
+
+.top-showcase-timeline .milestone-details p {
+  margin: 0;
+  font-size: 0.78rem;
+}
+
+.top-showcase-timeline .milestone-metrics {
+  display: flex;
+  gap: 0.35rem;
+  flex-wrap: wrap;
+}
+
+.top-showcase-timeline .milestone-metrics span {
+  border: 1px solid #c9dcff;
+  border-radius: 999px;
+  background: #e9f1ff;
+  color: #2e5fb8;
+  font-size: 0.72rem;
+  font-weight: 700;
+  padding: 0.1rem 0.45rem;
+}
+
 .evidence-section {
   margin-top: 0.3rem;
   padding: 0.85rem;
@@ -994,6 +1238,78 @@ pre {
   color: #9db0d4;
 }
 
+.app-layout.theme-dark .top-showcase-layout-toggle {
+  border-color: #35528a;
+  background: #152547;
+}
+
+.app-layout.theme-dark .top-showcase-layout-toggle button {
+  color: #c4d2f7;
+}
+
+.app-layout.theme-dark .top-showcase-layout-toggle button.active {
+  background: #356ff2;
+  color: #ffffff;
+}
+
+.app-layout.theme-dark .top-showcase-card {
+  border-color: #31446f;
+  background: linear-gradient(160deg, #131f39 0%, #0f172c 100%);
+}
+
+.app-layout.theme-dark .top-showcase-score,
+.app-layout.theme-dark .top-showcase-timeline-title,
+.app-layout.theme-dark .top-showcase-timeline .milestone-date {
+  color: #8fb1ff;
+}
+
+.app-layout.theme-dark .top-showcase-timeline ul::before {
+  background: linear-gradient(180deg, #365ca8 0%, #2a3f68 100%);
+}
+
+.app-layout.theme-dark .top-showcase-timeline .milestone-dot {
+  background: #78a5ff;
+  border-color: #131f39;
+  box-shadow: 0 0 0 2px #78a5ff;
+}
+
+.app-layout.theme-dark .top-showcase-timeline .milestone-content {
+  background: #152547;
+  border-color: #35528a;
+}
+
+.app-layout.theme-dark .top-showcase-timeline .milestone-expand-hint {
+  color: #8fb1ff;
+}
+
+.app-layout.theme-dark .top-showcase-timeline .milestone-details {
+  border-top-color: #46659f;
+  color: #c4d2f7;
+}
+
+.app-layout.theme-dark .top-showcase-timeline .milestone-metrics span {
+  border-color: #46659f;
+  background: #233a67;
+  color: #cfe0ff;
+}
+
+.app-layout.theme-dark .top-showcase-timeline .milestone-type {
+  border-color: #46659f;
+  background: #233a67;
+  color: #cfe0ff;
+}
+
+.app-layout.theme-dark .top-showcase-metrics span {
+  border-color: #35528a;
+  background: #152547;
+  color: #c4d2f7;
+}
+
+.app-layout.theme-dark .top-showcase-narrative,
+.app-layout.theme-dark .top-showcase-timeline .milestone-summary {
+  color: #c4d2f7;
+}
+
 .app-layout.theme-dark .analysis-pill-running {
   background: #4a3922;
   color: #ffdca7;
@@ -1007,6 +1323,14 @@ pre {
   .timeline-item {
     grid-template-columns: 1fr;
     gap: 0.45rem;
+  }
+
+  .top-showcase-timeline ul::before {
+    left: 0.4rem;
+  }
+
+  .top-showcase-timeline .milestone-content {
+    padding: 0.45rem 0.55rem;
   }
 }
 
