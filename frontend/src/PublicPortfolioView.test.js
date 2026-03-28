@@ -21,7 +21,16 @@ function mockDashboardPayload() {
       projects: [{ id: 'p1', name: 'Project One', created_at: '2024-01-01', metrics: { rank_score: 9.4 } }],
       top_projects: [{ project_id: 'p1', project_name: 'Project One', rank_score: 9.4 }],
       skills_timeline: [{ project_id: 'p1', project_name: 'Project One', skill: 'react', first_seen_ts: '2024-01-02' }],
-      activity_heatmap: [],
+      activity_heatmap: [
+        {
+          bucket_start: '2024-01-02T00:00:00Z',
+          bucket_date: '2024-01-02',
+          activity_count: 5,
+          snapshot_count: 2,
+          commit_count: 3,
+          project_names: ['Project One'],
+        },
+      ],
       showcases: [],
     },
   };
@@ -47,6 +56,7 @@ describe('PublicPortfolioView', () => {
     expect(screen.getByRole('button', { name: /^projects$/i })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /skills timeline/i })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /top projects/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /activity heatmap/i })).toBeInTheDocument();
 
     expect(screen.queryByText(/preferences/i)).not.toBeInTheDocument();
     expect(screen.queryByText(/upload/i)).not.toBeInTheDocument();
@@ -55,6 +65,25 @@ describe('PublicPortfolioView', () => {
   });
 
   test('search and filter apply in public mode', async () => {
+    dashboardApi.getPublicDashboard
+      .mockResolvedValueOnce(mockDashboardPayload())
+      .mockResolvedValueOnce({
+        ...mockDashboardPayload(),
+        dashboard: {
+          ...mockDashboardPayload().dashboard,
+          activity_heatmap: [
+            {
+              bucket_start: '2024-01-03T00:00:00Z',
+              bucket_date: '2024-01-03',
+              activity_count: 2,
+              snapshot_count: 1,
+              commit_count: 1,
+              project_names: ['Project One'],
+            },
+          ],
+        },
+      });
+
     render(<PublicPortfolioView publicSlug="public-test-slug" />);
 
     await waitFor(() => {
@@ -80,6 +109,11 @@ describe('PublicPortfolioView', () => {
       q: 'react',
       skills: ['react', 'node'],
     });
+
+    fireEvent.click(screen.getByRole('button', { name: /activity heatmap/i }));
+    expect(screen.getAllByRole('button', { name: /heatmap bucket/i })).toHaveLength(1);
+    expect(screen.getByRole('status')).toHaveTextContent('Activity:');
+    expect(screen.getByRole('status')).toHaveTextContent('2');
   });
 
   test('hides disabled public sections', async () => {
@@ -105,5 +139,6 @@ describe('PublicPortfolioView', () => {
     expect(screen.getByRole('button', { name: /^projects$/i })).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /skills timeline/i })).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /top projects/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /activity heatmap/i })).not.toBeInTheDocument();
   });
 });

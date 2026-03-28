@@ -168,6 +168,11 @@ export const projectApi = {
     apiRequest(`/portfolio/${portfolioId}/top-projects?limit=${limit}`, { token }),
   getPortfolioTopProjectShowcase: (token, portfolioId) =>
     apiRequest(`/portfolio/${portfolioId}/top-project-showcase`, { token }),
+  getPortfolioAnalytics: (token, portfolioId, { timelineLimit = 200, heatmapBucket = 'day', topLimit = 3 } = {}) =>
+    apiRequest(
+      `/portfolio/${portfolioId}/analytics?timeline_limit=${timelineLimit}&heatmap_bucket=${heatmapBucket}&top_limit=${topLimit}`,
+      { token }
+    ),
   getPortfolioSkillTimeline: (token, portfolioId, limit = 50) =>
     apiRequest(`/portfolio/${portfolioId}/skills/chronological?limit=${limit}`, { token }),
   generateResume: (token, projectId) =>

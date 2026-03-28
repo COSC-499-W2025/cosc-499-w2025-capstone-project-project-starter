@@ -4,6 +4,7 @@ import { Moon, Sun } from 'lucide-react';
 import { API_BASE_URL, authApi, dashboardApi, projectApi, resumeApi, userConfigApi } from './api';
 import ResumeSkillsSection from './ResumeSkillsSection';
 import TopProjectShowcase from './TopProjectShowcase';
+import ActivityHeatmap from './ActivityHeatmap';
 
 const TOKEN_STORAGE_KEY = 'artifactMiner.authToken';
 const THEME_STORAGE_KEY = 'artifactMiner.themeMode';
@@ -450,6 +451,8 @@ function Homepage() {
   const [projects, setProjects] = useState([]);
   const [topProjects, setTopProjects] = useState([]);
   const [chronologicalSkills, setChronologicalSkills] = useState([]);
+  const [activityHeatmapBuckets, setActivityHeatmapBuckets] = useState([]);
+  const [heatmapBucket, setHeatmapBucket] = useState('day');
   const [selectedProject, setSelectedProject] = useState(null);
   const [projectReport, setProjectReport] = useState(null);
   const [projectSkills, setProjectSkills] = useState(null);
@@ -550,6 +553,8 @@ function Homepage() {
     setProjects([]);
     setTopProjects([]);
     setChronologicalSkills([]);
+    setActivityHeatmapBuckets([]);
+    setHeatmapBucket('day');
     setSelectedProject(null);
     setProjectReport(null);
     setProjectSkills(null);
@@ -807,6 +812,24 @@ function Homepage() {
     }
   }, [token, portfolioId]);
 
+  const fetchActivityHeatmap = useCallback(async () => {
+    if (!token || !portfolioId) return;
+    setLoading(true);
+    setDashboardError('');
+    try {
+      const data = await projectApi.getPortfolioAnalytics(token, portfolioId, {
+        timelineLimit: 1,
+        heatmapBucket,
+        topLimit: 1,
+      });
+      setActivityHeatmapBuckets(data?.activity_heatmap?.buckets || []);
+    } catch (error) {
+      setDashboardError(error.message || 'Unable to load activity heatmap.');
+    } finally {
+      setLoading(false);
+    }
+  }, [token, portfolioId, heatmapBucket]);
+
   const fetchUploadProjectHistory = useCallback(
     async (projectId) => {
       if (!token || !projectId) return null;
@@ -834,7 +857,8 @@ function Homepage() {
     if (!isAuthenticated) return;
     if (view === 'top') fetchTopProjects();
     if (view === 'skills') fetchChronologicalSkills();
-  }, [view, isAuthenticated, fetchTopProjects, fetchChronologicalSkills]);
+    if (view === 'heatmap') fetchActivityHeatmap();
+  }, [view, isAuthenticated, fetchTopProjects, fetchChronologicalSkills, fetchActivityHeatmap]);
 
   useEffect(() => {
     if (uploadMode !== 'incremental') return;
@@ -2002,6 +2026,7 @@ function Homepage() {
       { id: 'compare', label: 'Compare' },
       { id: 'upload', label: 'Upload' },
       { id: 'skills', label: 'Skills Timeline' },
+      { id: 'heatmap', label: 'Activity Heatmap' },
       { id: 'top', label: 'Top Projects' },
       { id: 'resume', label: 'Resume' },
     ],
@@ -3570,6 +3595,37 @@ function Homepage() {
                   ))}
                 </div>
               )}
+              </motion.section>
+            </AnimatePresence>
+          )}
+
+          {view === 'heatmap' && (
+            <AnimatePresence mode="wait">
+              <motion.section
+                key={view}
+                className="panel"
+                initial={{ opacity: 0, x: 16 }}
+                animate={{ opacity: 1, x: 0 }}
+                exit={{ opacity: 0, x: -16 }}
+                transition={{ duration: 0.25 }}
+              >
+                <div className="activity-heatmap-toolbar">
+                  <h2>Project Activity Heatmap</h2>
+                  <label className="field" style={{ maxWidth: '210px' }}>
+                    Time Bucket
+                    <select value={heatmapBucket} onChange={(event) => setHeatmapBucket(event.target.value)}>
+                      <option value="day">Day</option>
+                      <option value="week">Week</option>
+                      <option value="hour">Hour</option>
+                    </select>
+                  </label>
+                </div>
+                <ActivityHeatmap
+                  buckets={activityHeatmapBuckets}
+                  loading={loading}
+                  emptyText="No activity buckets available yet."
+                  title="Activity Intensity Over Time"
+                />
               </motion.section>
             </AnimatePresence>
           )}

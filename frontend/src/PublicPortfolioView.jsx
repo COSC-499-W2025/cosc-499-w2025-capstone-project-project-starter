@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { dashboardApi } from './api';
 import TopProjectShowcase from './TopProjectShowcase';
+import ActivityHeatmap from './ActivityHeatmap';
 
 function toCsvList(value) {
   return String(value || '')
@@ -107,16 +108,19 @@ function PublicPortfolioView({ publicSlug }) {
     projects: Boolean(payload?.visibility_config?.projects ?? true),
     skills_timeline: Boolean(payload?.visibility_config?.skills_timeline ?? true),
     top_projects: Boolean(payload?.visibility_config?.top_projects ?? true),
+    activity_heatmap: Boolean(payload?.visibility_config?.activity_heatmap ?? true),
   };
   const availableViews = [
     visibility.projects ? 'projects' : null,
     visibility.skills_timeline ? 'skills' : null,
     visibility.top_projects ? 'top' : null,
+    visibility.activity_heatmap ? 'heatmap' : null,
   ].filter(Boolean);
   const projects = dashboard.projects || [];
   const topProjects = dashboard.top_projects || [];
   const topProjectShowcase = dashboard.top_project_showcase || [];
   const skillsTimeline = dashboard.skills_timeline || [];
+  const activityHeatmap = dashboard.activity_heatmap || [];
 
   useEffect(() => {
     if (availableViews.length === 0) return;
@@ -161,6 +165,15 @@ function PublicPortfolioView({ publicSlug }) {
               onClick={() => setView('top')}
             >
               Top Projects
+            </button>
+          )}
+          {visibility.activity_heatmap && (
+            <button
+              type="button"
+              className={view === 'heatmap' ? 'nav-btn active' : 'nav-btn'}
+              onClick={() => setView('heatmap')}
+            >
+              Activity Heatmap
             </button>
           )}
         </nav>
@@ -222,6 +235,17 @@ function PublicPortfolioView({ publicSlug }) {
             {visibility.skills_timeline && view === 'skills' && (
               <Section title="Skills Timeline" empty={skillsTimeline.length === 0 ? 'No timeline events for current filters.' : ''}>
               <div className="timeline">{skillsTimeline.map((event, index) => <article key={`${event.project_id}-${event.skill}-${index}`} className="timeline-item"><p className="timeline-date">{formatDateOnly(event.first_seen_ts)}</p><div><h3>{event.skill}</h3><p className="muted">{event.project_name || event.project_id}</p></div></article>)}</div>
+              </Section>
+            )}
+
+            {visibility.activity_heatmap && view === 'heatmap' && (
+              <Section title="Activity Heatmap" empty={activityHeatmap.length === 0 ? 'No activity buckets for current filters.' : ''}>
+              <ActivityHeatmap
+                buckets={activityHeatmap}
+                loading={false}
+                emptyText="No activity buckets for current filters."
+                title="Public Activity Intensity"
+              />
               </Section>
             )}
           </>
