@@ -88,9 +88,9 @@ This dataset: "test-data" was used for manual and performance testing of:
 - This file is **not required** to run tests.
 
 
-## System Functionality — Milestone 1
+# System Functionality — Milestone 3
 
-The system must be able to:
+## [Milestone 3 Demo Video](https://drive.google.com/file/d/1Dp4hVczJzV1xmCK-5Sp2-MyDS67Xzi3J/view)
 
 # Milestone 1 Requirements:
 
