@@ -1,7 +1,22 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { Moon, Sun } from 'lucide-react';
 import { dashboardApi } from './api';
 import TopProjectShowcase from './TopProjectShowcase';
 import ActivityHeatmap from './ActivityHeatmap';
+import './PublicPortfolioView.css';
+
+const THEME_STORAGE_KEY = 'artifactMiner.themeMode';
+
+function applyDocumentTheme(themeMode) {
+  const isDarkMode = themeMode === 'dark';
+  const root = document.documentElement;
+
+  root.setAttribute('data-theme-mode', isDarkMode ? 'dark' : 'light');
+  root.style.colorScheme = isDarkMode ? 'dark' : 'light';
+  root.style.background = isDarkMode
+    ? 'radial-gradient(circle at top left, #1b2233 0%, #111827 45%, #0b1323 100%)'
+    : 'radial-gradient(circle at top left, #f4f7ff 0%, #eef2ff 30%, #f7f9fc 100%)';
+}
 
 function toCsvList(value) {
   return String(value || '')
@@ -50,6 +65,9 @@ function Section({ title, empty, children }) {
 }
 
 function PublicPortfolioView({ publicSlug }) {
+  const [themeMode, setThemeMode] = useState(
+    () => localStorage.getItem(THEME_STORAGE_KEY) || document.documentElement.getAttribute('data-theme-mode') || 'light'
+  );
   const [view, setView] = useState('projects');
   const urlFilters = useMemo(() => readFiltersFromUrl(), []);
   const [q, setQ] = useState(urlFilters.q);
@@ -61,6 +79,21 @@ function PublicPortfolioView({ publicSlug }) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [payload, setPayload] = useState(null);
+
+  useEffect(() => {
+    applyDocumentTheme(themeMode);
+    localStorage.setItem(THEME_STORAGE_KEY, themeMode);
+  }, [themeMode]);
+
+  useEffect(() => {
+    const onStorage = (event) => {
+      if (event.key !== THEME_STORAGE_KEY || !event.newValue) return;
+      setThemeMode(event.newValue === 'dark' ? 'dark' : 'light');
+    };
+
+    window.addEventListener('storage', onStorage);
+    return () => window.removeEventListener('storage', onStorage);
+  }, []);
 
   const loadDashboard = useCallback(
     async (filters) => {
@@ -130,12 +163,32 @@ function PublicPortfolioView({ publicSlug }) {
   }, [availableViews, view]);
 
   return (
-    <div className="screen-shell">
+    <div className="screen-shell public-portfolio-view">
       <div className="dashboard-shell">
         <header className="dashboard-header">
           <div>
             <p className="eyebrow">Public Portfolio</p>
             <h1>Shared Dashboard</h1>
+          </div>
+          <div className="theme-toggle" role="group" aria-label="Theme mode">
+            <button
+              type="button"
+              className={themeMode === 'light' ? 'theme-toggle-btn active' : 'theme-toggle-btn'}
+              onClick={() => setThemeMode('light')}
+              aria-label="Switch to light mode"
+              title="Light mode"
+            >
+              <Sun size={14} strokeWidth={2} />
+            </button>
+            <button
+              type="button"
+              className={themeMode === 'dark' ? 'theme-toggle-btn active' : 'theme-toggle-btn'}
+              onClick={() => setThemeMode('dark')}
+              aria-label="Switch to dark mode"
+              title="Dark mode"
+            >
+              <Moon size={14} strokeWidth={2} />
+            </button>
           </div>
         </header>
 
