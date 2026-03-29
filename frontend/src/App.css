@@ -1586,6 +1586,72 @@ pre {
   color: #bdeecf;
 }
 
+/* ============================================================
+   AUTH PAGE DARK MODE
+   The auth page renders outside .app-layout so .theme-dark
+   doesn't apply. These rules use html[data-theme-mode='dark']
+   which is set by applyDocumentTheme() in Homepage.jsx.
+   ============================================================ */
+
+html[data-theme-mode='dark'] .auth-hero {
+  background: linear-gradient(145deg, #111d35 0%, #0d1728 100%);
+  border-color: #2e4676;
+  color: #e6ecff;
+}
+
+html[data-theme-mode='dark'] .auth-hero p {
+  color: #8aa4d4;
+}
+
+html[data-theme-mode='dark'] .auth-panel {
+  background: rgba(15, 23, 42, 0.96);
+  border-color: #2e4676;
+}
+
+html[data-theme-mode='dark'] .auth-toggle {
+  background: #0f1c33;
+}
+
+html[data-theme-mode='dark'] .tab {
+  color: #7a8fb0;
+}
+
+html[data-theme-mode='dark'] .tab.active {
+  background: #1c2f52;
+  color: #7faeff;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.4);
+}
+
+html[data-theme-mode='dark'] .auth-form label {
+  color: #c5d5f0;
+}
+
+html[data-theme-mode='dark'] .auth-form input {
+  background: #0f1a2e;
+  border-color: #2e446a;
+  color: #e6ecff;
+}
+
+html[data-theme-mode='dark'] .auth-form input::placeholder {
+  color: #4a607f;
+}
+
+html[data-theme-mode='dark'] .auth-form input:focus {
+  border-color: #4e75bd;
+  background: #0f1a2e;
+  box-shadow: 0 0 0 4px rgba(78, 117, 189, 0.15);
+}
+
+html[data-theme-mode='dark'] .auth-panel .primary-btn {
+  background: #2155c4;
+  color: #ffffff;
+}
+
+html[data-theme-mode='dark'] .auth-panel .primary-btn:hover {
+  background: #2e6cf4;
+  box-shadow: 0 10px 20px rgba(0, 0, 0, 0.3);
+}
+
 @media (max-width: 960px) {
   .auth-layout {
     grid-template-columns: 1fr;
