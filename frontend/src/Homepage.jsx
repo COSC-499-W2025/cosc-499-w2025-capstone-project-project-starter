@@ -662,33 +662,6 @@ function Homepage() {
     };
   }, [token, clearSession]);
 
-  //add it here?
-
-  useEffect(() => {
-    if (!token || !portfolioId || view !== 'resume') return;
-
-    const fetchResumePayload = async () => {
-      setLoading(true);
-      try {
-        // Calling the resumeApi you imported at the top
-        const data = await resumeApi.getLatest(token, portfolioId);
-        if (data) {
-          setResumeWording({
-            summary_text: data.summary_text || '',
-            resume_bullets: data.resume_bullets || []
-          });
-          setActiveResumeId(data.id);
-        }
-      } catch (error) {
-        setDashboardError(error.message || 'Unable to load resume data.');
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchResumePayload();
-  }, [token, portfolioId, view]);
-
   const fetchProjects = useCallback(async () => {
     if (!token) return;
     setLoading(true);
@@ -1956,6 +1929,11 @@ function Homepage() {
       setResumeLoading(false);
     }
   }, [token, currentUser]);
+
+  useEffect(() => {
+    if (view !== 'resume') return;
+    fetchResumePayload();
+  }, [view, fetchResumePayload]);
 
   useEffect(() => {
     if (selectedProject && thumbnailUploadFile) {
