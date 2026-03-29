@@ -1,5 +1,22 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { Moon, Sun } from 'lucide-react';
 import { dashboardApi } from './api';
+import TopProjectShowcase from './TopProjectShowcase';
+import ActivityHeatmap from './ActivityHeatmap';
+import './PublicPortfolioView.css';
+
+const THEME_STORAGE_KEY = 'artifactMiner.themeMode';
+
+function applyDocumentTheme(themeMode) {
+  const isDarkMode = themeMode === 'dark';
+  const root = document.documentElement;
+
+  root.setAttribute('data-theme-mode', isDarkMode ? 'dark' : 'light');
+  root.style.colorScheme = isDarkMode ? 'dark' : 'light';
+  root.style.background = isDarkMode
+    ? 'radial-gradient(circle at top left, #1b2233 0%, #111827 45%, #0b1323 100%)'
+    : 'radial-gradient(circle at top left, #f4f7ff 0%, #eef2ff 30%, #f7f9fc 100%)';
+}
 
 function toCsvList(value) {
   return String(value || '')
@@ -48,6 +65,9 @@ function Section({ title, empty, children }) {
 }
 
 function PublicPortfolioView({ publicSlug }) {
+  const [themeMode, setThemeMode] = useState(
+    () => localStorage.getItem(THEME_STORAGE_KEY) || document.documentElement.getAttribute('data-theme-mode') || 'light'
+  );
   const [view, setView] = useState('projects');
   const urlFilters = useMemo(() => readFiltersFromUrl(), []);
   const [q, setQ] = useState(urlFilters.q);
@@ -59,6 +79,21 @@ function PublicPortfolioView({ publicSlug }) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [payload, setPayload] = useState(null);
+
+  useEffect(() => {
+    applyDocumentTheme(themeMode);
+    localStorage.setItem(THEME_STORAGE_KEY, themeMode);
+  }, [themeMode]);
+
+  useEffect(() => {
+    const onStorage = (event) => {
+      if (event.key !== THEME_STORAGE_KEY || !event.newValue) return;
+      setThemeMode(event.newValue === 'dark' ? 'dark' : 'light');
+    };
+
+    window.addEventListener('storage', onStorage);
+    return () => window.removeEventListener('storage', onStorage);
+  }, []);
 
   const loadDashboard = useCallback(
     async (filters) => {
@@ -106,15 +141,19 @@ function PublicPortfolioView({ publicSlug }) {
     projects: Boolean(payload?.visibility_config?.projects ?? true),
     skills_timeline: Boolean(payload?.visibility_config?.skills_timeline ?? true),
     top_projects: Boolean(payload?.visibility_config?.top_projects ?? true),
+    activity_heatmap: Boolean(payload?.visibility_config?.activity_heatmap ?? true),
   };
   const availableViews = [
     visibility.projects ? 'projects' : null,
     visibility.skills_timeline ? 'skills' : null,
     visibility.top_projects ? 'top' : null,
+    visibility.activity_heatmap ? 'heatmap' : null,
   ].filter(Boolean);
   const projects = dashboard.projects || [];
   const topProjects = dashboard.top_projects || [];
+  const topProjectShowcase = dashboard.top_project_showcase || [];
   const skillsTimeline = dashboard.skills_timeline || [];
+  const activityHeatmap = dashboard.activity_heatmap || [];
 
   useEffect(() => {
     if (availableViews.length === 0) return;
@@ -124,12 +163,32 @@ function PublicPortfolioView({ publicSlug }) {
   }, [availableViews, view]);
 
   return (
-    <div className="screen-shell">
+    <div className="screen-shell public-portfolio-view">
       <div className="dashboard-shell">
         <header className="dashboard-header">
           <div>
             <p className="eyebrow">Public Portfolio</p>
             <h1>Shared Dashboard</h1>
+          </div>
+          <div className="theme-toggle" role="group" aria-label="Theme mode">
+            <button
+              type="button"
+              className={themeMode === 'light' ? 'theme-toggle-btn active' : 'theme-toggle-btn'}
+              onClick={() => setThemeMode('light')}
+              aria-label="Switch to light mode"
+              title="Light mode"
+            >
+              <Sun size={14} strokeWidth={2} />
+            </button>
+            <button
+              type="button"
+              className={themeMode === 'dark' ? 'theme-toggle-btn active' : 'theme-toggle-btn'}
+              onClick={() => setThemeMode('dark')}
+              aria-label="Switch to dark mode"
+              title="Dark mode"
+            >
+              <Moon size={14} strokeWidth={2} />
+            </button>
           </div>
         </header>
 
@@ -159,6 +218,15 @@ function PublicPortfolioView({ publicSlug }) {
               onClick={() => setView('top')}
             >
               Top Projects
+            </button>
+          )}
+          {visibility.activity_heatmap && (
+            <button
+              type="button"
+              className={view === 'heatmap' ? 'nav-btn active' : 'nav-btn'}
+              onClick={() => setView('heatmap')}
+            >
+              Activity Heatmap
             </button>
           )}
         </nav>
@@ -208,13 +276,29 @@ function PublicPortfolioView({ publicSlug }) {
 
             {visibility.top_projects && view === 'top' && (
               <Section title="Top Projects" empty={topProjects.length === 0 ? 'No top projects available.' : ''}>
-              <div className="top-list">{topProjects.map((project) => <article key={project.project_id} className="top-card"><h3>{project.project_name || project.name || project.project_id}</h3><p>Rank score: {project.rank_score ?? 'N/A'}</p></article>)}</div>
+              <TopProjectShowcase
+                projects={topProjectShowcase.length ? topProjectShowcase : topProjects}
+                loading={false}
+                emptyText="No top projects available."
+                title="Top 3 Public Project Showcase"
+              />
               </Section>
             )}
 
             {visibility.skills_timeline && view === 'skills' && (
               <Section title="Skills Timeline" empty={skillsTimeline.length === 0 ? 'No timeline events for current filters.' : ''}>
               <div className="timeline">{skillsTimeline.map((event, index) => <article key={`${event.project_id}-${event.skill}-${index}`} className="timeline-item"><p className="timeline-date">{formatDateOnly(event.first_seen_ts)}</p><div><h3>{event.skill}</h3><p className="muted">{event.project_name || event.project_id}</p></div></article>)}</div>
+              </Section>
+            )}
+
+            {visibility.activity_heatmap && view === 'heatmap' && (
+              <Section title="Activity Heatmap" empty={activityHeatmap.length === 0 ? 'No activity buckets for current filters.' : ''}>
+              <ActivityHeatmap
+                buckets={activityHeatmap}
+                loading={false}
+                emptyText="No activity buckets for current filters."
+                title="Public Activity Intensity"
+              />
               </Section>
             )}
           </>

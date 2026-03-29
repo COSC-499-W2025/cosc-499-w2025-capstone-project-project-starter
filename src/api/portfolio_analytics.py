@@ -428,25 +428,42 @@ def _build_project_evolution(conn, *, portfolio_id: str, top_limit: int) -> Dict
         milestones = []
         if snaps:
             first, last = snaps[0], snaps[-1]
-            milestones.append(
-                {
-                    "type": "project_started",
-                    "timestamp": first.get("timestamp"),
-                    "snapshot_id": first.get("snapshot_id"),
-                    "snapshot_label": first.get("snapshot_label"),
-                    "summary": f"Initial snapshot with {first['skills_detected']} skill(s) and {first['total_lines']} line(s).",
-                    "metrics": {k: first[k] for k in ("commit_count", "total_files", "total_lines", "skills_detected")},
-                }
-            )
-            if len(snaps) > 1:
+            for idx, snap in enumerate(snaps):
+                previous = snaps[idx - 1] if idx > 0 else None
+                if idx == 0:
+                    kind = "project_started"
+                    label = snap.get("snapshot_label") or "initial"
+                    summary = (
+                        f"Initial snapshot '{label}' with {snap['skills_detected']} skill(s) "
+                        f"and {snap['total_lines']} line(s)."
+                    )
+                elif idx == len(snaps) - 1:
+                    kind = "latest_state"
+                    skills_delta = snap["skills_detected"] - (previous["skills_detected"] if previous else 0)
+                    lines_delta = snap["total_lines"] - (previous["total_lines"] if previous else 0)
+                    label = snap.get("snapshot_label") or "latest"
+                    summary = (
+                        f"Latest snapshot '{label}' shows {snap['skills_detected']} skill(s) and {snap['total_lines']} line(s) "
+                        f"({skills_delta:+d} skills, {lines_delta:+d} lines since previous)."
+                    )
+                else:
+                    kind = "snapshot_update"
+                    skills_delta = snap["skills_detected"] - (previous["skills_detected"] if previous else 0)
+                    lines_delta = snap["total_lines"] - (previous["total_lines"] if previous else 0)
+                    label = snap.get("snapshot_label") or f"update {idx}"
+                    summary = (
+                        f"Incremental snapshot '{label}' captured {snap['skills_detected']} skill(s) and {snap['total_lines']} line(s) "
+                        f"({skills_delta:+d} skills, {lines_delta:+d} lines since previous)."
+                    )
+
                 milestones.append(
                     {
-                        "type": "latest_state",
-                        "timestamp": last.get("timestamp"),
-                        "snapshot_id": last.get("snapshot_id"),
-                        "snapshot_label": last.get("snapshot_label"),
-                        "summary": f"Latest snapshot shows {last['skills_detected']} skill(s) and {last['total_lines']} line(s).",
-                        "metrics": {k: last[k] for k in ("commit_count", "total_files", "total_lines", "skills_detected")},
+                        "type": kind,
+                        "timestamp": snap.get("timestamp"),
+                        "snapshot_id": snap.get("snapshot_id"),
+                        "snapshot_label": snap.get("snapshot_label"),
+                        "summary": summary,
+                        "metrics": {k: snap[k] for k in ("commit_count", "total_files", "total_lines", "skills_detected")},
                     }
                 )
             summary = (

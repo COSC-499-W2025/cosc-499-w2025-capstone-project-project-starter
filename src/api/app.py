@@ -514,6 +514,38 @@ def _build_activity_heatmap(engine, portfolio_id: str) -> List[Dict[str, Any]]:
     return out
 
 
+def _build_top_project_showcase_payload(
+    *,
+    top_projects_payload: Dict[str, Any],
+    analytics_payload: Dict[str, Any],
+    limit: int = 3,
+) -> List[Dict[str, Any]]:
+    top_rows = (top_projects_payload or {}).get("top_projects") or []
+    evolution_rows = ((analytics_payload or {}).get("top_project_evolution") or {}).get("projects") or []
+    summary_by_project_id = {
+        str(row.get("project_id")): row
+        for row in top_rows
+        if isinstance(row, dict) and row.get("project_id")
+    }
+
+    out: List[Dict[str, Any]] = []
+    for row in evolution_rows[: int(limit)]:
+        project_id = str(row.get("project_id") or "")
+        summary_row = summary_by_project_id.get(project_id, {})
+        out.append(
+            {
+                "project_id": project_id,
+                "project_name": row.get("project_name") or summary_row.get("name") or project_id,
+                "rank_score": row.get("rank_score"),
+                "selection_features": row.get("selection_features") or {},
+                "process_narrative": row.get("evolution_summary") or "No evolution narrative available.",
+                "milestones": row.get("milestones") or [],
+                "summary": summary_row.get("summary") or {},
+            }
+        )
+    return out
+
+
 def _build_dashboard_snapshot(engine, portfolio_id: str) -> Dict[str, Any]:
     projects_payload = list_projects(portfolio_id=portfolio_id, user_id=None, credentials=None)
     top_payload = top_projects(portfolio_id=portfolio_id, limit=3, credentials=None)
@@ -525,12 +557,18 @@ def _build_dashboard_snapshot(engine, portfolio_id: str) -> Dict[str, Any]:
         top_limit=3,
     )
     showcases_payload = list_portfolio_showcases(engine=engine, portfolio_id=portfolio_id, limit=200)
+    top_project_showcase = _build_top_project_showcase_payload(
+        top_projects_payload=top_payload,
+        analytics_payload=analytics_payload,
+        limit=3,
+    )
 
     return {
         "generated_at": datetime.now(timezone.utc).isoformat(),
         "portfolio_id": portfolio_id,
         "projects": projects_payload.get("projects") or [],
         "top_projects": top_payload.get("top_projects") or [],
+        "top_project_showcase": top_project_showcase,
         "skills_timeline": ((analytics_payload.get("skills_timeline") or {}).get("events") or []),
         "activity_heatmap": ((analytics_payload.get("activity_heatmap") or {}).get("buckets") or []),
         "top_project_evolution": ((analytics_payload.get("top_project_evolution") or {}).get("projects") or []),
@@ -1758,6 +1796,44 @@ def top_projects(
             )
 
     return {"portfolio_id": portfolio_id, "limit": int(limit), "top_projects": summaries}
+
+
+@app.get("/portfolio/{portfolio_id}/top-project-showcase")
+def get_top_project_showcase(
+    portfolio_id: str,
+    credentials: Optional[HTTPAuthorizationCredentials] = Depends(auth_bearer),
+):
+    """
+    Returns exactly the top 3 projects selected via ranking rules,
+    each with process/evolution narrative and timeline milestones.
+    """
+    engine = get_engine()
+    auth = _resolve_auth_context(credentials, required=False)
+    with engine.connect() as conn:
+        if auth:
+            _assert_portfolio_owned_by(conn, portfolio_id=portfolio_id, user_id=auth["user_id"])
+        exists = conn.execute(text("SELECT 1 FROM portfolios WHERE id = :pid"), {"pid": portfolio_id}).scalar()
+        if not exists:
+            raise HTTPException(status_code=404, detail="Portfolio not found")
+
+    top_payload = top_projects(portfolio_id=portfolio_id, limit=3, credentials=None)
+    analytics_payload = build_portfolio_analytics(
+        engine=engine,
+        portfolio_id=portfolio_id,
+        timeline_limit=2000,
+        heatmap_bucket="day",
+        top_limit=3,
+    )
+    projects = _build_top_project_showcase_payload(
+        top_projects_payload=top_payload,
+        analytics_payload=analytics_payload,
+        limit=3,
+    )
+    return {
+        "portfolio_id": portfolio_id,
+        "limit": 3,
+        "projects": projects,
+    }
 
 
 @app.get("/portfolio/{portfolio_id}/analytics")

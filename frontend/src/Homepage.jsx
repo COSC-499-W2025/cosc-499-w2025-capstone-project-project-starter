@@ -2,6 +2,9 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Moon, Sun } from 'lucide-react';
 import { API_BASE_URL, authApi, dashboardApi, projectApi, resumeApi, userConfigApi } from './api';
+import ResumeSkillsSection from './ResumeSkillsSection';
+import TopProjectShowcase from './TopProjectShowcase';
+import ActivityHeatmap from './ActivityHeatmap';
 
 const TOKEN_STORAGE_KEY = 'artifactMiner.authToken';
 const THEME_STORAGE_KEY = 'artifactMiner.themeMode';
@@ -448,6 +451,8 @@ function Homepage() {
   const [projects, setProjects] = useState([]);
   const [topProjects, setTopProjects] = useState([]);
   const [chronologicalSkills, setChronologicalSkills] = useState([]);
+  const [activityHeatmapBuckets, setActivityHeatmapBuckets] = useState([]);
+  const [heatmapBucket, setHeatmapBucket] = useState('day');
   const [selectedProject, setSelectedProject] = useState(null);
   const [projectReport, setProjectReport] = useState(null);
   const [projectSkills, setProjectSkills] = useState(null);
@@ -548,6 +553,8 @@ function Homepage() {
     setProjects([]);
     setTopProjects([]);
     setChronologicalSkills([]);
+    setActivityHeatmapBuckets([]);
+    setHeatmapBucket('day');
     setSelectedProject(null);
     setProjectReport(null);
     setProjectSkills(null);
@@ -787,9 +794,31 @@ function Homepage() {
     setLoading(true);
     setDashboardError('');
     try {
-      const data = await projectApi.getPortfolioTopProjects(token, portfolioId, 5);
-      setTopProjects(data.top_projects || []);
+      const data = await projectApi.getPortfolioTopProjectShowcase(token, portfolioId);
+      setTopProjects(data.projects || []);
     } catch (error) {
+      // Backward compatibility: older backend images may not have /top-project-showcase yet.
+      if (error?.status === 404) {
+        try {
+          const fallback = await projectApi.getPortfolioTopProjects(token, portfolioId, 3);
+          const normalized = (fallback.top_projects || []).slice(0, 3).map((project) => ({
+            project_id: project.project_id,
+            project_name: project.name || project.project_name || project.project_id,
+            rank_score: project.rank_score,
+            selection_features: project.features || {},
+            process_narrative:
+              project.summary?.top_languages || project.summary?.top_skills
+                ? `Highlights: ${[project.summary?.top_languages, project.summary?.top_skills].filter(Boolean).join(' | ')}`
+                : 'Process narrative unavailable on this backend version.',
+            milestones: [],
+          }));
+          setTopProjects(normalized);
+          return;
+        } catch (fallbackError) {
+          setDashboardError(fallbackError.message || 'Unable to load top projects.');
+          return;
+        }
+      }
       setDashboardError(error.message || 'Unable to load top projects.');
     } finally {
       setLoading(false);
@@ -809,6 +838,24 @@ function Homepage() {
       setLoading(false);
     }
   }, [token, portfolioId]);
+
+  const fetchActivityHeatmap = useCallback(async () => {
+    if (!token || !portfolioId) return;
+    setLoading(true);
+    setDashboardError('');
+    try {
+      const data = await projectApi.getPortfolioAnalytics(token, portfolioId, {
+        timelineLimit: 1,
+        heatmapBucket,
+        topLimit: 1,
+      });
+      setActivityHeatmapBuckets(data?.activity_heatmap?.buckets || []);
+    } catch (error) {
+      setDashboardError(error.message || 'Unable to load activity heatmap.');
+    } finally {
+      setLoading(false);
+    }
+  }, [token, portfolioId, heatmapBucket]);
 
   const fetchUploadProjectHistory = useCallback(
     async (projectId) => {
@@ -837,7 +884,8 @@ function Homepage() {
     if (!isAuthenticated) return;
     if (view === 'top') fetchTopProjects();
     if (view === 'skills') fetchChronologicalSkills();
-  }, [view, isAuthenticated, fetchTopProjects, fetchChronologicalSkills]);
+    if (view === 'heatmap') fetchActivityHeatmap();
+  }, [view, isAuthenticated, fetchTopProjects, fetchChronologicalSkills, fetchActivityHeatmap]);
 
   useEffect(() => {
     if (uploadMode !== 'incremental') return;
@@ -2009,6 +2057,7 @@ function Homepage() {
       { id: 'compare', label: 'Compare' },
       { id: 'upload', label: 'Upload' },
       { id: 'skills', label: 'Skills Timeline' },
+      { id: 'heatmap', label: 'Activity Heatmap' },
       { id: 'top', label: 'Top Projects' },
       { id: 'resume', label: 'Resume' },
     ],
@@ -3580,27 +3629,12 @@ function Homepage() {
                 transition={{ duration: 0.25 }}
               >
               <h2>Top Ranked Projects</h2>
-              {loading ? (
-                <p>Loading top projects...</p>
-              ) : topProjects.length === 0 ? (
-                <p>No ranked projects yet.</p>
-              ) : (
-                <div className="top-list">
-                  {topProjects.map((project, index) => (
-                    <article key={project.project_id} className="top-card">
-                      <p className="top-rank">#{index + 1}</p>
-                      <div>
-                        <h3>{project.name}</h3>
-                        <p>Score: {project.rank_score?.toFixed(2) || 'N/A'}</p>
-                        <p>Your commits: {project.features?.user_commits || 0}</p>
-                        <p>Total commits: {project.features?.total_commits || 0}</p>
-                        {project.summary?.top_languages && <p>Languages: {project.summary.top_languages}</p>}
-                        {project.summary?.top_skills && <p>Skills: {project.summary.top_skills}</p>}
-                      </div>
-                    </article>
-                  ))}
-                </div>
-              )}
+              <TopProjectShowcase
+                projects={topProjects}
+                loading={loading}
+                emptyText="No ranked projects yet."
+                title="Top 3 Projects by Ranking Rules"
+              />
               </motion.section>
             </AnimatePresence>
           )}
@@ -3634,6 +3668,37 @@ function Homepage() {
                   ))}
                 </div>
               )}
+              </motion.section>
+            </AnimatePresence>
+          )}
+
+          {view === 'heatmap' && (
+            <AnimatePresence mode="wait">
+              <motion.section
+                key={view}
+                className="panel"
+                initial={{ opacity: 0, x: 16 }}
+                animate={{ opacity: 1, x: 0 }}
+                exit={{ opacity: 0, x: -16 }}
+                transition={{ duration: 0.25 }}
+              >
+                <div className="activity-heatmap-toolbar">
+                  <h2>Project Activity Heatmap</h2>
+                  <label className="field" style={{ maxWidth: '210px' }}>
+                    Time Bucket
+                    <select value={heatmapBucket} onChange={(event) => setHeatmapBucket(event.target.value)}>
+                      <option value="day">Day</option>
+                      <option value="week">Week</option>
+                      <option value="hour">Hour</option>
+                    </select>
+                  </label>
+                </div>
+                <ActivityHeatmap
+                  buckets={activityHeatmapBuckets}
+                  loading={loading}
+                  emptyText="No activity buckets available yet."
+                  title="Activity Intensity Over Time"
+                />
               </motion.section>
             </AnimatePresence>
           )}
