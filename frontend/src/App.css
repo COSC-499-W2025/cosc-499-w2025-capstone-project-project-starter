@@ -1586,13 +1586,6 @@ pre {
   color: #bdeecf;
 }
 
-/* ============================================================
-   AUTH PAGE DARK MODE
-   The auth page renders outside .app-layout so .theme-dark
-   doesn't apply. These rules use html[data-theme-mode='dark']
-   which is set by applyDocumentTheme() in Homepage.jsx.
-   ============================================================ */
-
 html[data-theme-mode='dark'] .auth-hero {
   background: linear-gradient(145deg, #111d35 0%, #0d1728 100%);
   border-color: #2e4676;
