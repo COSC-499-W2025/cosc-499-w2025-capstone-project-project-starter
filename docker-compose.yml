@@ -1,10 +1,7 @@
-version: '3.8'
-
 services:
   # PostgreSQL Database
   db:
     image: postgres:16
-    container_name: artifactminer-db
     restart: unless-stopped
     environment:
       POSTGRES_USER: postgres
@@ -25,7 +22,6 @@ services:
     build:
       context: .
       dockerfile: Dockerfile.api
-    container_name: artifactminer-migrate
     environment:
       DATABASE_URL: postgresql+psycopg2://postgres:postgres@db:5432/artifactminer
       ARTIFACT_MINER_BLOBSTORE: /blobstore
@@ -42,7 +38,6 @@ services:
     build:
       context: .
       dockerfile: Dockerfile.api
-    container_name: artifactminer-api
     environment:
       DATABASE_URL: postgresql+psycopg2://postgres:postgres@db:5432/artifactminer
       ARTIFACT_MINER_BLOBSTORE: /blobstore
@@ -58,7 +53,6 @@ services:
   ollama:
     profiles: ["external", "analysis"]
     image: ollama/ollama:latest
-    container_name: artifactminer-ollama
     volumes:
       - ollama:/root/.ollama
     ports:
@@ -70,7 +64,6 @@ services:
     build:
       context: .
       dockerfile: Dockerfile.worker
-    container_name: artifactminer-worker
     environment:
       DATABASE_URL: postgresql+psycopg2://postgres:postgres@db:5432/artifactminer
       ARTIFACT_MINER_BLOBSTORE: /blobstore
@@ -85,16 +78,15 @@ services:
       ollama:
         condition: service_started
 
-  # React Frontend - ADD THIS NEW SERVICE
   frontend:
     build: ./frontend
-    container_name: artifactminer-frontend
     ports:
-      - "3000:3000"
+      - "${FRONTEND_PORT:-3000}:3000"
     volumes:
       - ./frontend:/app           # Hot reload for development
       - /app/node_modules         # Keep node_modules in container
     environment:
+      HOST: 0.0.0.0
       REACT_APP_API_URL: http://localhost:5001  # Access backend on host
       # For Docker-to-Docker communication, use:
       # REACT_APP_API_URL: http://api:5000
@@ -102,8 +94,8 @@ services:
       - api
     stdin_open: true  # Enable interactive terminal
     tty: true         # Enable interactive terminal
-    # Use this command for development:
-    command: npm start
+    # Keep dependencies in sync with mounted source before starting dev server.
+    command: sh -c "npm install && npm start"
     # For production build, use:
     # command: serve -s build -l 3000
 
