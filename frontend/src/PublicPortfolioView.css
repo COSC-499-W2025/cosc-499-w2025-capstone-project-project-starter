@@ -126,6 +126,7 @@ html[data-theme-mode='dark'] .public-portfolio-view .theme-toggle-btn.active {
 html[data-theme-mode='dark'] .public-portfolio-view .panel,
 html[data-theme-mode='dark'] .public-portfolio-view .stack-block,
 html[data-theme-mode='dark'] .public-portfolio-view .project-card,
+html[data-theme-mode='dark'] .public-portfolio-view .skills-track-card,
 html[data-theme-mode='dark'] .public-portfolio-view .timeline-item {
   background: #121d31;
   border-color: #2b3b59;
@@ -134,6 +135,21 @@ html[data-theme-mode='dark'] .public-portfolio-view .timeline-item {
 
 html[data-theme-mode='dark'] .public-portfolio-view .muted {
   color: #97a7c5;
+}
+
+html[data-theme-mode='dark'] .public-portfolio-view .skill-stage-emerging {
+  background: #4b351f;
+  color: #ffdba6;
+}
+
+html[data-theme-mode='dark'] .public-portfolio-view .skill-stage-developing {
+  background: #1f2f4e;
+  color: #bcd4ff;
+}
+
+html[data-theme-mode='dark'] .public-portfolio-view .skill-stage-advanced {
+  background: #1f3d2d;
+  color: #bdeecf;
 }
 
 html[data-theme-mode='dark'] .public-portfolio-view .timeline-date {

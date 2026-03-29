@@ -785,9 +785,73 @@ thead th {
   color: #21417e;
 }
 
+.timeline-summary {
+  margin: 0;
+}
+
+.skills-track-list,
 .top-showcase-shell {
   display: grid;
   gap: 0.9rem;
+}
+
+.skills-track-card {
+  border: 1px solid #dbe4f8;
+  border-radius: 14px;
+  background: #f8fbff;
+  padding: 0.9rem;
+  display: grid;
+  gap: 0.45rem;
+}
+
+.skills-track-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.6rem;
+}
+
+.skills-track-events {
+  list-style: none;
+  margin: 0.25rem 0 0;
+  padding: 0;
+  display: grid;
+  gap: 0.6rem;
+}
+
+.skills-event-item {
+  grid-template-columns: 140px 1fr;
+}
+
+.skills-event-meta {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  margin-bottom: 0.22rem;
+}
+
+.skill-stage {
+  display: inline-flex;
+  align-items: center;
+  border-radius: 999px;
+  font-size: 0.77rem;
+  font-weight: 700;
+  padding: 0.15rem 0.56rem;
+}
+
+.skill-stage-emerging {
+  background: #fff3e2;
+  color: #8a4b07;
+}
+
+.skill-stage-developing {
+  background: #e9f2ff;
+  color: #1f4b92;
+}
+
+.skill-stage-advanced {
+  background: #e5f7eb;
+  color: #1f6e37;
 }
 
 .top-showcase-header {
@@ -1293,6 +1357,7 @@ pre {
 .app-layout.theme-dark .project-card,
 .app-layout.theme-dark .top-card,
 .app-layout.theme-dark .timeline-item,
+.app-layout.theme-dark .skills-track-card,
 .app-layout.theme-dark .table-wrap,
 .app-layout.theme-dark .simple-list li,
 .app-layout.theme-dark .evidence-section {
@@ -1506,6 +1571,21 @@ pre {
   color: #ffdca7;
 }
 
+.app-layout.theme-dark .skill-stage-emerging {
+  background: #4b351f;
+  color: #ffdba6;
+}
+
+.app-layout.theme-dark .skill-stage-developing {
+  background: #1f2f4e;
+  color: #bcd4ff;
+}
+
+.app-layout.theme-dark .skill-stage-advanced {
+  background: #1f3d2d;
+  color: #bdeecf;
+}
+
 @media (max-width: 960px) {
   .auth-layout {
     grid-template-columns: 1fr;
@@ -1514,6 +1594,10 @@ pre {
   .timeline-item {
     grid-template-columns: 1fr;
     gap: 0.45rem;
+  }
+
+  .skills-event-item {
+    grid-template-columns: 1fr;
   }
 
   .top-showcase-timeline ul::before {

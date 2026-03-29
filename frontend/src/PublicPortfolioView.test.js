@@ -8,6 +8,15 @@ jest.mock('./api', () => ({
   },
 }));
 
+jest.mock(
+  'lucide-react',
+  () => ({
+    Sun: () => null,
+    Moon: () => null,
+  }),
+  { virtual: true }
+);
+
 function mockDashboardPayload() {
   return {
     visibility_config: {
@@ -20,7 +29,39 @@ function mockDashboardPayload() {
     dashboard: {
       projects: [{ id: 'p1', name: 'Project One', created_at: '2024-01-01', metrics: { rank_score: 9.4 } }],
       top_projects: [{ project_id: 'p1', project_name: 'Project One', rank_score: 9.4 }],
-      skills_timeline: [{ project_id: 'p1', project_name: 'Project One', skill: 'react', first_seen_ts: '2024-01-02' }],
+      skills_timeline: [
+        {
+          project_id: 'p1',
+          project_name: 'Project One',
+          snapshot_id: 's1',
+          skill: 'react',
+          observed_at: '2024-01-02T00:00:00Z',
+          first_seen_ts: '2024-01-02T00:00:00Z',
+          signal: {
+            stage: 'emerging',
+            confidence: 0.45,
+            hits: 3,
+            cumulative_hits: 3,
+            observation_index: 1,
+          },
+        },
+        {
+          project_id: 'p1',
+          project_name: 'Project One',
+          snapshot_id: 's2',
+          skill: 'react',
+          observed_at: '2024-05-02T00:00:00Z',
+          first_seen_ts: '2024-01-02T00:00:00Z',
+          signal: {
+            stage: 'developing',
+            confidence: 0.73,
+            confidence_delta: 0.28,
+            hits: 8,
+            cumulative_hits: 11,
+            observation_index: 2,
+          },
+        },
+      ],
       activity_heatmap: [
         {
           bucket_start: '2024-01-02T00:00:00Z',
@@ -140,5 +181,19 @@ describe('PublicPortfolioView', () => {
     expect(screen.queryByRole('button', { name: /skills timeline/i })).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /top projects/i })).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /activity heatmap/i })).not.toBeInTheDocument();
+  });
+
+  test('renders progression details in skills timeline', async () => {
+    render(<PublicPortfolioView publicSlug="public-test-slug" />);
+
+    await waitFor(() => {
+      expect(dashboardApi.getPublicDashboard).toHaveBeenCalled();
+    });
+
+    fireEvent.click(screen.getByRole('button', { name: /skills timeline/i }));
+
+    expect(screen.getByText('Progression: Emerging -> Developing • Confidence +28%')).toBeInTheDocument();
+    expect(screen.getByText('Observation #2')).toBeInTheDocument();
+    expect(screen.getByText('Confidence: 73% (+28% vs previous) • Hits: 8 (total 11)')).toBeInTheDocument();
   });
 });

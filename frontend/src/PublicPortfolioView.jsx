@@ -1,6 +1,11 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { Moon, Sun } from 'lucide-react';
 import { dashboardApi } from './api';
+import {
+  buildSkillProgressionTimeline,
+  formatConfidencePercent,
+  formatSignedPercent,
+} from './skillsTimeline';
 import TopProjectShowcase from './TopProjectShowcase';
 import ActivityHeatmap from './ActivityHeatmap';
 import './PublicPortfolioView.css';
@@ -53,6 +58,11 @@ function formatDateOnly(value) {
   if (!value) return 'N/A';
   const parsed = new Date(value);
   return Number.isNaN(parsed.getTime()) ? 'N/A' : parsed.toLocaleDateString();
+}
+
+function stageClassName(stage) {
+  const normalized = ['emerging', 'developing', 'advanced'].includes(stage) ? stage : 'emerging';
+  return `skill-stage skill-stage-${normalized}`;
 }
 
 function Section({ title, empty, children }) {
@@ -152,7 +162,11 @@ function PublicPortfolioView({ publicSlug }) {
   const projects = dashboard.projects || [];
   const topProjects = dashboard.top_projects || [];
   const topProjectShowcase = dashboard.top_project_showcase || [];
-  const skillsTimeline = dashboard.skills_timeline || [];
+  const skillsTimeline = dashboard.skills_timeline;
+  const skillsTimelineModel = useMemo(
+    () => buildSkillProgressionTimeline(Array.isArray(skillsTimeline) ? skillsTimeline : []),
+    [skillsTimeline]
+  );
   const activityHeatmap = dashboard.activity_heatmap || [];
 
   useEffect(() => {
@@ -286,8 +300,59 @@ function PublicPortfolioView({ publicSlug }) {
             )}
 
             {visibility.skills_timeline && view === 'skills' && (
-              <Section title="Skills Timeline" empty={skillsTimeline.length === 0 ? 'No timeline events for current filters.' : ''}>
-              <div className="timeline">{skillsTimeline.map((event, index) => <article key={`${event.project_id}-${event.skill}-${index}`} className="timeline-item"><p className="timeline-date">{formatDateOnly(event.first_seen_ts)}</p><div><h3>{event.skill}</h3><p className="muted">{event.project_name || event.project_id}</p></div></article>)}</div>
+              <Section
+                title="Skills Timeline"
+                empty={
+                  skillsTimelineModel.summary.total_events === 0
+                    ? 'No timeline events for current filters.'
+                    : ''
+                }
+              >
+              <p className="muted timeline-summary">
+                {skillsTimelineModel.summary.total_skills} skill(s), {skillsTimelineModel.summary.total_events} event(s),{' '}
+                {skillsTimelineModel.summary.progressing_skills} showing progression.
+              </p>
+              <div className="skills-track-list">
+                {skillsTimelineModel.tracks.map((track) => (
+                  <article key={track.skill_key} className="skills-track-card">
+                    <div className="skills-track-header">
+                      <h3>{track.skill}</h3>
+                      <span className={stageClassName(track.latest_stage)}>{track.latest_stage_label}</span>
+                    </div>
+                    <p className="muted">
+                      {formatDateOnly(track.first_seen_ts)} to {formatDateOnly(track.latest_ts)} • {track.events.length}{' '}
+                      observation{track.events.length === 1 ? '' : 's'}
+                    </p>
+                    <p className="muted">
+                      Progression: {track.stage_path_labels.join(' -> ')}
+                      {track.confidence_change !== null
+                        ? ` • Confidence ${formatSignedPercent(track.confidence_change)}`
+                        : ''}
+                    </p>
+                    <ol className="skills-track-events">
+                      {track.events.map((event) => (
+                        <li key={event.id} className="timeline-item skills-event-item">
+                          <p className="timeline-date">{formatDateOnly(event.timestamp || event.first_seen_ts)}</p>
+                          <div>
+                            <div className="skills-event-meta">
+                              <span className={stageClassName(event.stage)}>{event.stage_label}</span>
+                              <span className="muted">Observation #{event.observation_index}</span>
+                            </div>
+                            <p className="muted">{event.project_name || event.project_id || 'Unknown project'}</p>
+                            <p className="muted">
+                              Confidence: {formatConfidencePercent(event.confidence)}
+                              {event.confidence_delta !== null
+                                ? ` (${formatSignedPercent(event.confidence_delta)} vs previous)`
+                                : ''}
+                              {' • '}Hits: {event.hits} (total {event.cumulative_hits})
+                            </p>
+                          </div>
+                        </li>
+                      ))}
+                    </ol>
+                  </article>
+                ))}
+              </div>
               </Section>
             )}
 
