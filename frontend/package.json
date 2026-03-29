@@ -21,7 +21,8 @@
     "test": "react-scripts test",
     "eject": "react-scripts eject",
     "test:e2e": "playwright test",
-    "test:e2e:ui": "playwright test --ui"
+    "test:e2e:ui": "playwright test --ui",
+    "postinstall": "node scripts/patch-react-scripts-wds5.cjs"
   },
   "eslintConfig": {
     "extends": [
@@ -49,8 +50,18 @@
     "@tootallnate/once": "^3.0.1",
     "nth-check": "^2.0.1",
     "postcss": "^8.4.31",
-    "serialize-javascript": "^7.0.4",
+    "serialize-javascript": "^7.0.5",
     "underscore": "^1.13.8",
-    "webpack-dev-server": "^5.2.3"
+    "webpack-dev-server": "5.2.3",
+    "path-to-regexp": "0.1.13",
+    "picomatch": "2.3.2",
+    "tinyglobby": {
+      "picomatch": "4.0.4"
+    },
+    "brace-expansion": "1.1.13",
+    "filelist": {
+      "brace-expansion": "2.0.3"
+    },
+    "yaml": "2.8.3"
   }
 }
