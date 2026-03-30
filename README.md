@@ -11,6 +11,10 @@ Skill Scope analyzes zipped project archives and turns them into structured insi
 - Resume and portfolio artifact generation and editing through the API
 - A standalone CLI and an API-backed CLI client
 
+## Video Demo
+
+Project demo: [Watch the video demo](https://drive.google.com/file/d/1Dp4hVczJzV1xmCK-5Sp2-MyDS67Xzi3J/view?usp=sharing)
+
 ## Prerequisites
 
 Before setting up the project, make sure you have:
