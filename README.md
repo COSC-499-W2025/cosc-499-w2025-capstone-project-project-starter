@@ -1,20 +1,38 @@
-# Project-Starter
-Please use the provided folder structure for your project. You are free to organize any additional internal folder structure as required by the project. 
+# Log Branch
 
-```
+This branch contains only the weekly individual and team logs.
+
+**Remember:** Checkout to your own branch `[name]-log`, push your changes (i.e., your weekly log), and make a PR to the `log` branch.
+
+
+## Directory Structure
+``` txt
 .
-├── docs                    # Documentation files
-│   ├── contract            # Team contract
-│   ├── proposal            # Project proposal 
-│   ├── design              # UI mocks
-│   ├── minutes             # Minutes from team meetings
-│   ├── logs                # Team and individual Logs
-│   └── ...          
-├── src                     # Source files (alternatively `app`)
-├── tests                   # Automated tests 
-├── utils                   # Utility files
-└── README.md
+└── logs/
+    ├── log_images/
+    │   ├── personal_log_imgs/
+    │   │   ├── alex/
+    │   │   │   ├── week3.png
+    │   │   │   ├── week4.png
+    │   │   │   └── etc...
+    │   │   ├── Erem
+    │   │   ├── jimi
+    │   │   ├── priyansh
+    │   │   ├── sam
+    │   │   └── tawana
+    │   └── team_log_imgs/
+    │       ├── burnup_week3.png
+    │       ├── burnup_week4.png
+    │       └── etc...
+    ├── team_logs/
+    │   ├── template.md
+    │   ├── week3.md
+    │   ├── week4.md
+    │   └── etc...
+    ├── Alex.md
+    ├── Erem.md
+    ├── Jimi.md
+    ├── Priyansh.md
+    ├── Sam.md
+    └── Tawana.md
 ```
-
-Please use a branching workflow, and once an item is ready, do remember to issue a PR, review, and merge it into the master branch.
-Be sure to keep your docs and README.md up-to-date.
