@@ -1,0 +1,769 @@
+
+## Weekly Navigation
+
+### Semester 2
+- [T2 Week 11–12 (Mar 16th – Mar 29th)](#t2-week-1112-personal-logs-mar-16th---mar-29th)
+- [T2 Week 10](#t2-week-10-march-9th---march-15th-2026)
+- [Week 9 (Mar 2 – Mar 8, 2026)](#t2-week-9-march-2nd---march-8th)
+- [Weeks 6–8 (Feb 9 – Mar 1, 2026)](#semester-2--weeks-68-personal-log-february-9th--march-1st-2026)
+- [Weeks 4 + 5 (Jan 26 – Feb 8, 2026)](#t2-week-45-personal-logs-jan-26th---feb-8th)
+- [Week 3 (Jan 19 – Jan 25, 2026)](#t2-week-3-january-19th-25th)
+- [Week 2 (Jan 12 – Jan 18, 2026)](#t2-week-2-personal-logs-jan-12th---18th)
+- [Week 1 (Jan 5 – Jan 11, 2026)](#week-1-january-5th---11th)
+
+### Semester 1
+- [Week 14 (Dec 1 – Dec 7, 2025)](#week-14-december-1st---7th)
+- [Week 13 (Nov 24 – Nov 30, 2025)](#week-13-november-24th---30th)
+- [Week 12 (Nov 17 – Nov 23, 2025)](#week-12-november-17th---23rd)
+- [Week 10 (Nov 3 – Nov 9, 2025)](#week-10-personal-log-nov-3rd--nov-9th)
+- [Week 9 (Oct 27 – Nov 2, 2025)](#week-9-october-27th---november-2nd)
+- [Week 8 (Oct 20 – Oct 26, 2025)](#week-8-personal-log-20th-26th-of-october)
+- [Week 7 (Oct 13 – Oct 19, 2025)](#week-7-personal-log-13th-19th-of-october)
+- [Week 6 (Oct 6 – Oct 12, 2025)](#week-6-personal-log-6th-12th-of-october)
+- [Week 5 (Sep 29 – Oct 5, 2025)](#week-5-personal-log-29th-5th-of-october)
+- [Week 4 (Sep 22 – Sep 28, 2025)](#week-4-personal-log-22nd-28th-of-september)
+- [Week 3 (Sep 15 – Sep 21, 2025)](#week-3-personal-log-15th-21st-of-september)
+
+
+
+
+
+
+
+
+# Week 3 Personal Log (15th-21st of September)
+
+The big focus of this week was creating some of the requirements for our project as well and creating the repository. 
+
+
+<img width="1512" height="982" alt="Screenshot 2025-09-21 at 12 51 56 PM" src="https://github.com/user-attachments/assets/ce22be10-f8f3-423e-929f-4f5996a88a33" />
+
+
+## Tasks Completed:
+I was involved with the following tasks either by myself or helping my peers.
+
+- Helped out think of ideas for capstone requirments specifically usage scenarios and target users 
+- Finished the Project requirements quiz 
+- Did the Weekly log and individual log  
+
+
+
+ # Week 4 Personal Log (22nd-28th of September)
+
+ This weeks focus was creating the system architecture design and making the final project proposal.  
+
+ <img width="1512" height="982" alt="week4logpic" src="https://github.com/user-attachments/assets/c17db5b7-4e4f-48f4-a483-8d12a377040c" />
+
+## Tasks Completed:
+I was involved with the following tasks either by myself or helping my classmates.
+
+- Finalizing project proposal (issue #8)
+- Worked on system architecture design (issue #9)
+- Individual Logs Week 4 (issue #10)
+
+
+ # Week 5 Personal Log (29th-5th of October)
+
+This week we focused on creating level 1 and 0 data flow diagrams. We then updated our design with the feedback we recived from other teams, and by comparing our diagrams to other teams to see what we could improve/what we were missing
+ 
+
+<img width="1512" height="982" alt="week5ss" src="https://github.com/user-attachments/assets/080f5072-eaa2-4f89-ba4a-1f39d282d39e" />
+
+
+
+
+#  Tasks Completed:
+- Week 5 Individual Logs (issue #14)
+- Helped Design level 1 Data flow diagram (issue #16)
+- Edidted level 1 DFD with peer/other groups feedback (issue #17)
+
+
+# Week 6 Personal Log (6th-12th of October)
+
+The week we focused on updating our system diagrams to reflect final requirements and also updating the read me to have links for the diagrams.
+
+<img width="1512" height="982" alt="Screenshot 2025-10-12 at 11 40 08 AM" src="https://github.com/user-attachments/assets/1bcc05da-6ccd-4f76-88fe-d47d8514b1ec" />
+
+## Tasks Completed:
+- reviewed with team members on Work Breakdown Structure 
+- Reviewed final WBS
+-Update Repo README to have explanations and links to System Architecture, DFD, #pr 51
+-Added WBS milestone 1 diagram to docs/proposal/wbs #pr 50
+- reviwed created basic file scanning script #43
+
+
+
+# Week 7 Personal Log (13th-19th of October)
+
+
+ <img width="1512" height="982" alt="Screenshot 2025-10-19 at 5 36 47 PM" src="https://github.com/user-attachments/assets/513b3a68-25c9-4a02-a890-63a93e22be45" />
+
+## Tasks Completed:
+- Tested and reviewed Tanner's user configuration code (issue #26)
+
+
+## In progress tasks
+- Parse Complicated Zipped Folder (issue #22)
+
+## Planned tasks for next sprint
+- Parse Complicated Zipped Folder (issue #22)
+- Data access consent (issue #21)
+- Return errors for incorrect file types (issue #23) 
+
+<img width="1512" height="982" alt="Screenshot 2025-10-19 at 5 41 25 PM" src="https://github.com/user-attachments/assets/780a3abc-7f44-4091-9062-d346928924c8" />
+
+# Week 8 Personal Log (20th-26th of October)
+
+This week, I implemented a new feature to automatically detect programming languages and frameworks within project directories. The new module, detect_langs.py, scans file extensions and configuration files (like package.json and requirements.txt) to identify frameworks such as Express, React, Flask, and more. I also created test_detect_langs.py to validate detection accuracy across multiple cases, including multi-framework projects, empty directories, and invalid inputs.
+In addition to development work, I reviewed teammates pull requests,specifically the User Consent Module (PR #84) and Database Schema & Setup (PR #88) , providing feedback on structure, clarity, and integration with the existing system.
+
+
+<img width="1512" height="982" alt="Screenshot 2025-10-26 at 6 53 00 PM" src="https://github.com/user-attachments/assets/4adfe1e2-ae24-4c8f-8183-99c583afa82c" />
+
+## Tasks Completed
+
+-Implemented Language & Framework Detection feature (detect_langs.py) (Issue #25, PR #91)
+
+-Created unit tests for framework and language detection (test_detect_langs.py)
+
+-Added  documentation and comments for clarity
+
+-Reviewed User Consent Module PR (#84)
+
+-Reviewed Database Schema and Setup PR (#88)
+
+-Updated .gitignore to exclude __pycache__ folders
+
+-Updated individual log and synced progress with the project board
+
+
+<img width="1097" height="36" alt="Screenshot 2025-10-26 at 7 16 37 PM" src="https://github.com/user-attachments/assets/4176de1b-1b05-4b3f-ad1c-aceec0ca73c0" />
+
+
+## Next Week (Week #9)
+
+Begin development for Issue #31: Extract Key “Skills” From a Given Project — implement functionality to analyze a project’s outputs (such as code quality, test coverage, or writing accuracy) and infer an individual’s key skills.
+
+Collaborate with teammates to clarify requirements and define measurable indicators for different skill domains (e.g., testing proficiency, documentation quality, or code structure).
+
+
+# Week 9 (October 27th - November 2nd)
+
+
+<img width="1056" height="621" alt="Screenshot 2025-11-02 at 8 31 01 PM" src="https://github.com/user-attachments/assets/2e4741ce-f360-4db6-95d7-6d40663d376b" />
+
+
+## Tasks Completed
+-Added skill extraction feature to detect technical and writing-based skills from scanned projects (issue #31).
+
+-Implemented regex pattern matching to identify programming concepts like recursion, OOP, and async, as well as writing-focused skills such as analytical and technical writing.
+
+-Integrated results with detect_langs.py to produce a combined summary of Languages, Frameworks, and Skills.
+
+-Created unit tests in test_detect_skills.py to validate accuracy across mixed project types and ensure no false positives.
+
+-Reviewed and approved code for Individual contributions within collaborative project issue(29) and Added functionality for ranking project scans chronologically issue (39)
+
+-week 9 team log
+
+-individual logs
+
+  ## Week 10 plans
+
+- Sort "Skills Exercised" Chronologically#40
+- modify my past features with suggestions left on pull requests
+- help the team out with prs and anything they might need help with 
+
+
+
+# Week 10 Personal Log (Nov 3rd – Nov 9th)
+
+This week, I implemented the feature for sorting skills exercised chronologically. I updated inspect_db.py so the database can display each detected skill in time order, along with the project where it first appeared. This lets us show how a user’s skills evolve across project scans. I tested the feature by running scans with save_to_db=True and verifying that the chronological output was correct, including edge cases where no skills are present.
+I also spent time reviewing team pull requests,” Updated database functionality for all scanning functions” #131
+and “Fix: file count always 0 & add per-author file tracking in collaboration summary “#133
+Both reviews focused on verifying database consistency, preventing incorrect data in summary features, and making sure the new persistence layer supports upcoming analysis tools like this skills timeline. Overall, the week was productive and helped advance both stability and reporting features for the project.
+
+
+<img width="1028" height="605" alt="Screenshot 2025-11-09 at 6 16 35 PM" src="https://github.com/user-attachments/assets/affed10e-3fca-47a4-bdc6-b5673e5fb734" />
+
+## Tasks Completed
+-Implemented chronological skill tracking by updating inspect_db.py to list skills in the order they first appeared across scans (PR #135)
+-Tested new feature using multiple scan runs with save_to_db=True to verify correct ordering and fallback behavior
+-Reviewed Updated Database Functionality for All Scanning Functions (PR #131)
+-Reviewed Fix: file count always 0 & add per-author file tracking in collaboration summary (PR #133)
+-Updated personal log and ensured progress was reflected on project board
+
+<img width="1234" height="51" alt="Screenshot 2025-11-09 at 6 34 47 PM" src="https://github.com/user-attachments/assets/c60f1321-0f6b-4b0e-9373-9405601409a6" />
+
+
+## Plans for Week 11
+- Start modifying and improving past functions with suggestions of peers left on pull requests 
+- Continue reviewing teammate PRs 
+- Contribute to documentation updates
+
+
+# Week 12 (November 17th - 23rd)
+
+<img width="1509" height="811" alt="Screenshot 2025-11-23 at 5 01 11 PM" src="https://github.com/user-attachments/assets/fb3e58f8-f501-4e7d-aead-1ab27900300a" />
+
+## Tasks Completed
+Implemented the improved Skills Exercised (Chronologically — Grouped by Skill) feature in inspect_db.py.
+
+-Groups duplicate skills under one header
+-Sorts occurrences chronologically
+-Repositions section for better readability
+-Significantly reduces output length for users with many scans
+
+Added code to:
+-Build grouped skill dictionaries
+-Format readable bullet-point timelines per skill
+-Integrate with existing DB queries without breaking prior output
+-Ensure timestamps are consistently formatted using human_ts
+
+Reviewed Daniel’s project-importance ranking PR 
+
+-Verified output from both contribution-summary functions
+-Pulled the branch and ran tests locally
+-Provided feedback on clarity, edge-case handling, and table readability
+
+Reviewed Travis’s summarize_projects.py 
+
+-Verified the manual Test A output
+-Ran tests locally
+-Provided structured feedback, suggestions, and readability considerations
+
+Completed weekly logs and ensured all GitHub workflow tasks (commits, pushes, reviews) were properly done.
+
+## Refelction
+After  reading break we got straight back into the routine of things and did pretty good this week, I implemented some suggestions that were left on a pr from a few weeks ago which i'm pretty satifised with.Since the milestone deadline is coming soon, we should make sure we are all communicating well with each other.
+
+
+## Week 13 Plans
+To be honest not a lot of issues left to picked up and the quiz upcoming this week and some other classes will be taking a lot of time from my week .But I will be helping my peers with reviews or tweaking  functions and helping plan for the demo and making sure we are prepared it for it. 
+
+# Week 13 (November 24th - 30th)
+
+<img width="1511" height="756" alt="Screenshot 2025-11-30 at 8 06 48 PM" src="https://github.com/user-attachments/assets/984de644-8c0c-4bda-8b4b-0eae42dee8d4" />
+
+## Tasks Completed
+Refactored the Skills Exercised (Chronologically) logic out of inspect_db.py into a new skill_timeline.py module.
+Updated inspect_db.py to use the new skills timeline module.
+Added unit tests for the skills timeline feature.
+Worked on the Milestone 1 presentation.
+Individual logs.
+
+## Reflection 
+As a team, we focused on finalizing the remaining deliverables and refining key features. My main contribution was Refactoring the skills exercise chronlogically and adding unit tests for it. Overall, this was a good week as we moved into the final stretch before the deadline.
+ 
+## Week 13 Plans
+We are in the final week of the semester so there is a lot of tasks that need to be completed. I will be working on and helping others with updating our documentation and helping complete the  project for video demo. And also working on our presentation that we have in class on Wednesday,
+
+
+
+# Week 14 (December 1st - 7th)
+
+<img width="1131" height="640" alt="Screenshot 2025-12-07 at 4 31 28 PM" src="https://github.com/user-attachments/assets/cc2959ca-e380-4324-9b4b-c7b4d705f9b8" />
+
+## Tasks completed:
+- Worked on the milestone 1 presentation slides
+- Presented milestone 1 in front of class
+- Created a new Level 1 Data Flow Diagram that accurately represents the project’s Python CLI architecture, data stores, and workflow.
+- Updated the entire README.md, replacing outdated Electron/FastAPI references with the current backend design.
+- Added full module breakdowns, detailed test descriptions, and proper Markdown formatting.
+- Improved overall documentation clarity and ensured consistency across sections (System Architecture, DFD, Src Folder, Test Folder, etc.).
+- Individual logs
+- Milestone 1 reflection quiz
+- Approved and reviewed PRs
+
+## Reflection
+This week was very stressfull but our team managed to pull through, even with last minute bug issues and I was very pleased how we overcame this week 
+
+# Week 1 (January 5th - 11th)
+
+<img width="1058" height="625" alt="Screenshot 2026-01-11 at 5 32 59 PM" src="https://github.com/user-attachments/assets/a5dbd9f1-2d29-4c65-b247-d94722dba05e" />
+
+## Tasks completed:
+-worked on Recognize duplicate files and maintain only one in the system
+-Designed and implemented a cleanup mechanism to ensure only the most recent scan for a project is kept.
+-Added database maintenance logic to remove outdated scans along with their related files, contributors, and language links.
+-Wrote and ran unit tests to ensure old scans are correctly removed and the latest scan data remains intact.
+- Reviewed PRs
+- Individual logs
+
+## Reflection
+In conclusion,this week went pretty decent since we all came back from a break and feeling rusty. We communicated well and started some new features.I was really happy with how our communication was this week espically coming back from a break.This was a positive week for the group as we try to improve our project.
+
+## Week 2 plans
+- start one of the issues we have in the kanban 
+- Look into APIs and LLMs
+
+
+# T2 Week #2 Personal Logs (Jan 12th - 18th)
+
+<img width="1060" height="624" alt="Screenshot 2026-01-18 at 3 20 38 PM" src="https://github.com/user-attachments/assets/99f1d413-a488-47bb-9279-5894503a9e33" />
+
+## Tasks Completed:
+- Implemented support for custom project display names in résumé generation, allowing users to override default folder-based project names with résumé-friendly titles.
+- Extended the database schema and access layer to persist and retrieve custom résumé display names without affecting existing project identifiers or file paths.
+- Updated the résumé generation logic to dynamically apply the saved display name when rendering project sections.
+- Added a CLI workflow that allows users to edit and manage project display names after generating a résumé.
+- Wrote and executed unit tests to verify that custom project names are correctly saved, retrieved, and reflected in the résumé output.
+- Verified that all existing tests pass and that the new feature does not introduce regressions.
+- Closed issue #271.
+- Contributed updates reflected in the team log.
+
+
+### Reflection of the past week:
+This week, we worked away on  Milestone 2 deliverables. Our communication was great and no problems there and we also had minimimal problems acomplishing our tasks and most of our code was done before late sunday night. Next week we will probably  plan to start on our LLM integration. 
+
+### Additions and Features:
+db.py: Added support for storing and retrieving custom resume display names for projects, including safeguards to ensure database paths are created correctly in test and local environments.
+
+generate_resume.py: Updated resume rendering logic to apply user-defined project display names when generating the Projects section, while preserving existing normalization and fallback behavior.
+
+main_menu.py: Introduced a CLI workflow that allows users to edit and manage project display names after generating a resume, with an option to re-generate the resume to apply changes.
+
+### Testing:
+
+test_generate_resume: Verified that resume aggregation and rendering correctly apply custom project display names, including fallback behavior when no override is set.
+
+test_project_display_names: Added unit tests to ensure project display names can be saved, cleared, and retrieved from the database without affecting other resume or project data.
+
+Regression testing: Ran the full test suite (pytest) to confirm existing resume, portfolio, and database functionality remained unaffected by the changes.
+
+### Reviews: 
+-  Jaxson's FastAPI Integration (PR #264)
+- Travis's Integrate project evidence into resume/portfolio and update tests (PR #265)
+- Daniel's Updated key roles to be project centric (Pr #267)
+
+## In progress tasks
+- Researching local LLMs for our project
+- Planning on how to add more functionality to allow users to customize additional resume content beyond just project titles (for example, editing bullet points, summaries, or highlighted skills directly from the CLI)
+
+## Planned tasks for next sprint
+- add more functionality to allow users to customize additional resume content beyond just project titles (for example, editing bullet points, summaries, or highlighted skills directly from the CLI)
+
+ <img width="1372" height="622" alt="Screenshot 2026-01-18 at 3 45 43 PM" src="https://github.com/user-attachments/assets/8c35c55c-4b72-4f2f-8945-66b0a4103211" />
+
+
+# T2 Week 3 (January 19th-25th)
+
+<img width="1071" height="608" alt="Screenshot 2026-01-25 at 3 29 37 PM" src="https://github.com/user-attachments/assets/5ad02f7a-2aa3-4be0-a5dd-08384e6f62d4" />
+
+## Overview 
+This week I focused on both feature development and peer testing. I merged a resume customization feature that allows users to control how project names appear on resumes, improved the professionalism of resume output, and reviewed and tested several major PRs related to Docker, scanning, and DB backed resume/portfolio generation.
+
+Key contributions this week:
+
+Merged PR #294 Add project resume display name editing
+
+Implemented resume output cleanup to remove non resume friendly metadata
+
+Reviewed and tested multiple high-impact PRs related to Docker, scanning, and generation
+
+Closed issue #293
+
+Closed issue #309
+
+ ## Reflection
+The team collaborated really well this week, especially around peer testing and large refactors. A lot of time was spent verifying whether reported issues were reproducible versus already resolved, which helped prevent unnecessary fixes. Communication during reviews was clear and constructive, and the team handled several large changes without breaking existing functionality. Overall, the workflow felt organized and productive.
+
+## Coding Tasks:
+Implemented custom resume display names per project by adding a custom_name column to the projects table.
+
+Added a new CLI workflow allowing users to view, set, update, or clear resume facing project names without rescanning.
+
+Updated resume generation to prefer custom names when present, with a safe fallback to default project names.
+
+Ensured the change was non-breaking and backward compatible.
+
+Resume output cleanup :
+
+Removed local filesystem paths from generated resumes, as these are environment specific and not appropriate for a professional resume.
+
+Removed low level Git metrics (commit counts and number of files changed) from individual project bullets to keep resumes focused on skills and contributions rather than raw implementation details.
+
+Ensured resume output emphasizes technologies used, skills demonstrated, and high level contribution descriptions.
+
+## Testing and Debugging:
+Ran the full pytest suite locally after resume display name and resume cleanup changes (213 passed, 1 skipped).
+
+Manually tested resume generation to confirm:
+
+Custom project names render correctly
+
+Removed metadata no longer appears in resume output
+
+Resume structure remains unchanged otherwise
+
+Investigated a peer reported issue claiming chronological skills could not generate when the skills table was empty.
+
+Reproduced the setup by scanning a real project, deleting all rows from the skills table, and generating a resume.
+
+Verified that resume generation succeeds and gracefully skips the chronological skills section when no skills are present.
+
+Determined that an earlier crash only occurs when the database has no scans (missing git metrics), not due to an empty skills table.
+
+
+## Reviewing and Collaboration
+Reviewed, tested, and provided feedback on the following PRs:
+
+#288 – Docker updates & test suite refactors
+Built Docker containers locally, ran the full test suite inside Docker, verified CLI and API startup, and confirmed test discovery improvements. Suggested adding a reload option for the API container during development.
+
+#291 – Fix portfolio generation to exclude non contributor projects
+Ran tests and performed manual scans to confirm portfolios only include projects the selected user contributed to. Verified metadata only projects still appear correctly.
+
+#292 – Reworked scan to fix nested folder scans
+Tested nested folder scenarios locally and reviewed changes to multi project detection, contribution summaries, and DB persistence. Confirmed scanning behavior is more reliable for mixed git and non-git directories.
+
+#297 – Reworked resume/portfolio generation to take info from DB
+Reset the database, ran scans, and verified resume/portfolio generation no longer depends on filesystem JSON output. Confirmed new DB fields are populated correctly.
+
+#298 – Resume/Portfolio tests update after rework
+Verified all tests pass locally (214 passed), confirmed temporary DB seeding works correctly, and ensured generation tests align with the new DB-first flow.
+
+## Issues and Blockers
+No main issues or blockers.
+
+## Plans for next week
+- Prepare for peer testing #1.
+- Fix existing bugs from Milestone 1 feedback.
+- Continue researching LLMs.
+
+# T2 Week 4/5 Personal Logs (Jan 26th - Feb 8th)
+
+<img width="1123" height="641" alt="Screenshot 2026-02-08 at 8 22 57 PM" src="https://github.com/user-attachments/assets/f2e07d8c-7244-4454-9647-bef9d9192fb0" />
+
+
+## Overview
+Over the past two weeks, my work focused on fixing and standardizing core CLI input flows, especially around path validation, username/identity selection, and resume/portfolio generation. The goal was to make user input handling predictable, reusable, and consistent across the system, while reducing crashes, silent failures, and confusing control flow. A large part of this effort involved refactoring duplicated logic into shared helpers, tightening validation against database-backed data, and adding tests to lock in correct behavior.
+
+
+## Coding Tasks
+introduced shared CLI path validation helpers to standardize how project paths and zip inputs are checked before scanning (PR #345).
+
+Refactored username selection into a shared helper used by both resume and portfolio generation to prevent invalid or arbitrary usernames from being accepted (PR #356).
+
+Extended CLI input validation to fully align resume and portfolio behavior, including blacklist handling, early failure for invalid usernames, and clearer error messages (PR #360).
+
+Implemented a unified identity selection flow allowing users to:
+
+Select a valid git contributor
+
+Use a local/guest (non-git) mode
+
+Optionally include non-git projects alongside git-based output (PR #361).
+
+Cleaned up control flow and comments across affected files to make validation logic easier to follow and maintain.
+
+Closed issue #336.
+
+
+
+## Testing and Debugging
+Added targeted unit tests for shared helpers, including:
+
+cli_validators.py path normalization and validation
+
+cli_username_selection logic and edge cases
+
+Ran the full pytest suite locally after each PR to ensure no regressions were introduced.
+
+Manually tested CLI flows through the main menu for:
+
+Resume generation
+
+Portfolio generation
+
+Valid and invalid usernames
+
+Blank inputs and cancel paths
+
+Guest/local-only generation
+
+Verified that invalid input consistently re-prompts instead of crashing or dumping the user back to the main menu.
+
+
+
+## Reviewing and Collaboration
+Reviewed and provided feedback on the following PRs:
+
+Travis — Refactor summarize_projects.py to use database-backed data only (PR #326)
+
+Tanner — Standardized error handling for core functionalities (PR #346)
+
+Tanner — Reworked Thumbnail Feature (PR #347)
+
+Jaxson — Improved error handling based on teammate feedback (PR #351)
+
+Feedback focused on correctness, control flow consistency, test coverage, and alignment with existing CLI behavior.
+
+
+## Issues / Blockers
+No major blockers during this period.
+
+Some care was required to avoid changing output formats or database structure while refactoring input flows.
+
+Coordinating overlapping CLI changes required frequent rebasing and validation to avoid merge conflicts, especially around main_menu.py
+
+
+## Plan for Next Week
+
+
+Build on the identity selection flow to support more granular project selection.
+
+Continue tightening CLI UX edge cases now that a stable validation base is in place.
+
+Assist with final Milestone 2 polish and testing as features converge.
+
+# Semester 2 – Weeks 6–8 Personal Log (February 9th – March 1st, 2026)
+
+During Weeks 6–8, my work focused on improving overall system usability and documentation alignment across both the CLI and the new Electron dashboard. This period involved strengthening input robustness in the CLI, finalizing architectural documentation for Milestone 2, and improving frontend interactivity to make the dashboard feel more responsive and state-aware.
+
+In Week 6, I completed PR #384, which improved the CLI username selection retry flow. Previously, invalid input during username selection would return the user to the main menu, which disrupted workflow. I refactored this logic so the system now re-prompts users until valid input is provided. I also introduced a shared `print_error()` helper to standardize CLI error output across modules, removed duplicated `get_candidate_usernames` logic, and cleaned minor wording inconsistencies in resume and portfolio flows. I added a test covering the invalid -> valid retry case to ensure stability.
+
+During this period, I also finalized PR #399, updating the Milestone 2 Data Flow Diagram. This required reviewing our actual architecture and ensuring the diagram accurately reflected LLM integration, Docker interaction, and updated data pathways between CLI, API, and storage components. The goal was to align documentation with implementation rather than leaving it conceptual.
+
+In Week 8, I completed PR #403, which introduced UI improvements to the Electron dashboard. I implemented active sidebar highlighting so the most recently selected menu item remains visually indicated. I also added a lightweight toast notification system that provides temporary feedback when sidebar actions are triggered. Toasts automatically dismiss after approximately 2.5 seconds and stack properly if multiple actions are triggered. I added frontend test coverage verifying toast rendering and active state behavior to ensure no regressions were introduced.
+
+In addition to coding, I contributed to Milestone 2 documentation alignment and participated in team reviews and discussions to ensure stability before merging.
+
+<img width="1167" height="610" alt="Screenshot 2026-03-01 at 12 38 52 PM" src="https://github.com/user-attachments/assets/c12482b4-847c-4d6f-b215-f07375d6559f" />
+
+
+
+## Coding Tasks
+- Refactored CLI username selection retry flow (PR #384)  
+- Introduced shared `print_error()` helper for standardized error output  
+- Removed duplicate username selection logic  
+- Updated Milestone 2 Data Flow Diagram to reflect current architecture (PR #399)  
+- Implemented active sidebar highlighting in dashboard (PR #403)  
+- Added toast notification system with auto-dismiss behavior (PR #403)  
+- Added frontend test verifying toast rendering and active state logic  
+
+## Testing Tasks
+- Added automated test covering invalid → valid CLI retry scenario  
+- Ran `npm test` to confirm all frontend tests pass  
+- Manually tested dashboard interactions via `npm start`  
+- Verified toast stacking and auto-dismiss behavior  
+- Confirmed no regressions in CLI flow or frontend behavior  
+
+## Reviewing / Collaboration Tasks
+- Reviewed peer PRs related to milestone stabilization and UI improvements  
+- Participated in discussions regarding frontend direction and architecture  
+- Contributed to Milestone 2 documentation refinement and verification  
+
+
+
+### Plans Going Forward
+- Continue refining dashboard interactivity as backend endpoints become functional  
+- Expand frontend-to-backend integration for Milestone 3  
+- Maintain and expand automated test coverage  
+- Support visualization feature planning for upcoming milestone
+- prepare for upcoming quiz
+
+
+
+# T2 Week 9 (March 2nd - March 8th)
+
+<img width="1191" height="671" alt="Screenshot 2026-03-08 at 8 27 52 PM" src="https://github.com/user-attachments/assets/68b299af-f23f-4b24-865d-1e94db479a26" />
+
+
+## Overview
+This week I worked on implementing the frontend for **View/Manage Scanned Projects**. The main goal was to replace the placeholder button on the main menu with a real page where users can browse previously scanned projects and inspect their saved project details. I also added a shared `api.js` file so frontend requests use one backend base URL instead of hardcoded URLs across multiple files.
+
+A good amount of time also went into debugging and testing. I ran into issues with `localhost` vs `127.0.0.1`, which caused problems when the frontend was trying to communicate with the backend. After fixing that, I was able to get the scanned projects page fully working and add a test for the navigation flow.
+
+Closed Issue: #413
+
+## Reflection:
+Overall this week went pretty well,the feature came together pretty smoothly. I also spent time reviewing teammates’ frontend PRs so I could stay up to date with the resume and portfolio work being added.
+
+## Coding Tasks
+- Created scanned projects page [PR #418](https://github.com/COSC-499-W2025/capstone-project-team-11/pull/418)
+  - Added new frontend page: `ScannedProjectsPage.jsx` for browsing scanned projects and viewing project details.
+  - Updated `App.jsx` so the **View/Manage Scanned Projects** button now routes to the new page.
+  - Added `frontend/src/api.js` to centralize the backend API base URL.
+  - Updated `ScanPage.jsx` to use the shared API base URL and cleaned up recent scan rendering.
+  - Added styling for the scanned projects layout and detail panels in `index.css`.
+  - Added a navigation test in `App.test.jsx` for the scanned projects page.
+
+## Tests and Debugging:
+- Ran frontend tests with `npm test` and confirmed all tests passed locally.
+- Manually tested:
+  - backend connection flow
+  - main menu navigation to scanned projects page
+  - loading project list from `/projects`
+  - loading project details from `/projects/{id}`
+  - scan page still working after the API URL cleanup
+- Debugged and fixed:
+  - `localhost` vs `127.0.0.1` mismatch causing frontend/backend issues
+  - incorrect `/projects/scan-stream` path
+  - frontend rendering mismatch caused by nested project detail response data
+
+## Reviews and Collaboration
+- Reviewed Travis’ Create initial resume generation page [PR #422](https://github.com/COSC-499-W2025/capstone-project-team-11/pull/422)
+- Reviewed Tanner’s Initial web portfolio generation functionality [PR #421](https://github.com/COSC-499-W2025/capstone-project-team-11/pull/421)
+- Reviewed Jaxson’s Add scan streaming endpoint and scanner ignore updates [PR #409](https://github.com/COSC-499-W2025/capstone-project-team-11/pull/409)
+- Reviewed Jaxson’s Frontend UI for scanning feature [PR #410](https://github.com/COSC-499-W2025/capstone-project-team-11/pull/410)
+
+## Issues and Blockers
+- Frontend/backend URL inconsistency (`localhost` vs `127.0.0.1`) caused testing issues at first.
+
+
+
+## Plans for week 10
+- Work on follow-up scanned project management features such as editing display names or deleting old scans.
+- Continue reviewing frontend PRs as the resume and portfolio pages get more fleshed out.
+- Improve consistency across frontend pages, especially shared API usage and routing.
+
+
+
+
+# T2 Week 10 (March 9th - March 15th, 2026)
+
+<img width="1196" height="633" alt="Image" src="https://github.com/user-attachments/assets/fd34711f-0415-4d20-a415-a3dae4d1591a" />
+
+## Overview
+This week I completed two pull requests focused on improving the **View/Manage Scanned Projects** workflow. The first PR added project deletion support and surfaced LLM generated summaries directly in the scanned project details view. The second PR added full project editing support, including a new backend update endpoint and frontend edit flow for project metadata like display name, repository URL, and thumbnail path.
+
+I also addressed review feedback from the first PR by cleaning up orphaned contributor and language records during project deletion and improving the delete confirmation dialog to show the project name instead of just the ID.
+
+Closed issue: #413
+
+## Reflection
+This week felt productive because my work built directly on earlier scanned projects functionality and reviewer feedback. After the first PR, I was able to quickly incorporate suggestions into the follow up PR instead of leaving them unresolved. That made the second PR stronger and more polished, and it also helped me get more comfortable working through review comments, retesting changes, and updating both frontend and backend behavior together.
+
+## Coding Tasks
+- Added project delete endpoint and LLM summary display with backend and frontend tests [#439](https://github.com/COSC-499-W2025/capstone-project-team-11/pull/439)
+  - Added backend `DELETE /projects/{project_id}` endpoint
+  - Added delete button and confirmation flow to the scanned projects page
+  - Refreshed the project list automatically after deletion
+  - Exposed LLM project summary data in the project details API response
+  - Rendered LLM summaries in the frontend project details panel
+  - Added backend and frontend tests for delete flow and summary display
+
+- Added project edit endpoint and UI support [#448](https://github.com/COSC-499-W2025/capstone-project-team-11/pull/448)
+  - Added backend `PATCH /projects/{project_id}` endpoint
+  - Added frontend edit flow for:
+    - display name
+    - repo URL
+    - thumbnail path
+  - Updated the UI after save so edits persist in the scanned projects page
+  - Cleaned up orphaned contributor and language rows when deleting projects
+  - Updated delete confirmation dialog to show the project name
+  - Fixed edit form sync when switching between selected projects
+  - Updated frontend tests to match the new edit/delete flow
+
+## Tests and Debugging
+`test/test_api.py`
+- Added backend coverage for `DELETE /projects/{project_id}`
+- Added backend coverage for `PATCH /projects/{project_id}`
+- Verified associated records were removed correctly during deletion
+- Added checks for cleanup of orphaned contributor and language records
+
+`ScannedProjectsPage.test.jsx`
+- Verified delete confirmation appears and uses the project name
+- Confirmed deleting a project updates the list correctly
+- Verified LLM summary content renders when present
+- Verified editing and saving project info works through the new PATCH flow
+- Fixed async button lookup issues in tests after UI changes
+- Added coverage for syncing edit state when `selectedProject` changes
+
+## Reviews and Collaboration
+- Tanner's Frontend portfolio generation: Project cards (initialization, animations, & favouriting) [#440](https://github.com/COSC-499-W2025/capstone-project-team-11/pull/440)
+- Daniel's Added custom ranking UI [#442](https://github.com/COSC-499-W2025/capstone-project-team-11/pull/442)
+- Tyler's Delete database functionality [#451](https://github.com/COSC-499-W2025/capstone-project-team-11/pull/451)
+- Jaxson's Project Summary Page Update: Thumbnail Management [#452](https://github.com/COSC-499-W2025/capstone-project-team-11/pull/452)
+- Jaxson's Project Summary Page Update: Revamp scanned projects page into interactive dashboard [#455](https://github.com/COSC-499-W2025/capstone-project-team-11/pull/455)
+- Jaxson's Project Summary Page Update: Refine scanned projects contributor and overview layout [#456](https://github.com/COSC-499-W2025/capstone-project-team-11/pull/456)
+
+## Issues and blockers
+One issue I ran into this week was around the new edit flow for scanned projects. During review, a bug was found where the edit form could stay stuck on the previously selected project’s values if the user switched projects while editing. I fixed this by syncing the form state when `selectedProject` changed. There were also a couple frontend test failures tied to async rendering of the Edit/Delete buttons, which I resolved by updating the tests to wait for those elements properly.
+
+## Plans for Week 11
+- Continue improving the scanned projects / project summary experience
+- Help with additional UI testing and bug fixes before milestone handoff
+- Review remaining open PRs and support merge cleanup where needed
+
+# T2 Week 11–12 Personal Logs (Mar 16th - Mar 29th)
+
+<img width="1262" height="628" alt="Screenshot 2026-03-29 at 3 37 05 PM" src="https://github.com/user-attachments/assets/f06f7a56-13c7-4e29-b8ec-f14e534a0805" />
+
+
+### Overview
+
+This week I focused on improving core functionality in the Scanned Projects workflow, especially around evidence management, project editing, and fixing reliability issues. A large portion of my work involved building out the full evidence pipeline (add, edit, delete, display) and ensuring it integrates properly with the backend.
+
+I also worked on fixing bugs related to project deletion and restoring broken API endpoints caused by merge conflicts. In addition, I improved usability in resume and portfolio generation and finalized both Level 0 and Level 1 DFD diagrams for Milestone 3 to accurately represent the system.
+
+---
+
+### Coding Tasks
+
+- Made the LLM summary editable from the Scanned Projects page so users can modify generated summaries and save changes ([PR #471](https://github.com/COSC-499-W2025/capstone-project-team-11/pull/471))
+
+- Implemented full evidence management (add, view, delete) with backend endpoints and frontend UI integration ([PR #478](https://github.com/COSC-499-W2025/capstone-project-team-11/pull/478))
+
+- Improved the evidence system by:
+  - Moving evidence into its own dedicated tab  
+  - Adding edit functionality using a PATCH endpoint  
+  - Making evidence links clickable and easier to read  
+  - Updating tests to reflect the new structure ([PR #483](https://github.com/COSC-499-W2025/capstone-project-team-11/pull/483))
+
+- Fixed a project deletion bug causing 500 errors by replacing unsafe SQL queries and removing problematic cleanup logic ([PR #476](https://github.com/COSC-499-W2025/capstone-project-team-11/pull/476))
+
+- Restored missing evidence API endpoints (POST/DELETE) after a merge conflict and fixed payload mismatches causing backend errors ([PR #485](https://github.com/COSC-499-W2025/capstone-project-team-11/pull/485))
+
+- Added Select All / Deselect All functionality to resume and portfolio project selection to improve usability ([PR #491](https://github.com/COSC-499-W2025/capstone-project-team-11/pull/491))
+
+- Created and finalized Level 1 and Level 0 DFD diagrams for Milestone 3 ([PR #507](https://github.com/COSC-499-W2025/capstone-project-team-11/pull/507), [PR #508](https://github.com/COSC-499-W2025/capstone-project-team-11/pull/508))
+
+---
+
+### Testing and Debugging
+
+- Tested full evidence workflow:
+  - Adding, editing, and deleting evidence  
+  - Verifying persistence after refresh  
+  - Ensuring UI and backend stay in sync  
+
+- Verified project deletion across multiple scenarios:
+  - No edits  
+  - Name change  
+  - Thumbnail added  
+  - Name + thumbnail (previous failing case)
+
+- Confirmed restored endpoints fixed 404 and 500 errors when interacting with evidence
+
+- Tested Select All / Deselect All functionality on both Resume and Portfolio pages
+
+- Ran frontend (`npm test`) and backend (`pytest`) tests to ensure no regressions
+
+---
+
+### Reviewing and Collaboration
+
+- Daniel’s Add delete endpoint and trashcan UI to resume gen ([PR #472](https://github.com/COSC-499-W2025/capstone-project-team-11/pull/472))  
+- Travis’s Support education entries in resume generation ([PR #492](https://github.com/COSC-499-W2025/capstone-project-team-11/pull/492))  
+- Daniel’s Updated menu with scan data ([PR #479](https://github.com/COSC-499-W2025/capstone-project-team-11/pull/479))  
+- Tanner’s Frontend portfolio generation (Part 1) ([PR #481](https://github.com/COSC-499-W2025/capstone-project-team-11/pull/481))  
+- Daniel’s Moved logo ([PR #499](https://github.com/COSC-499-W2025/capstone-project-team-11/pull/499))  
+- Travis’s Edge-case backend tests and frontend fallback ([PR #501](https://github.com/COSC-499-W2025/capstone-project-team-11/pull/501))  
+- Travis’s Updated api.md ([PR #502](https://github.com/COSC-499-W2025/capstone-project-team-11/pull/502))  
+
+- Reviewed PRs locally by pulling branches, running tests, and validating flows like resume generation, dashboard updates, and portfolio persistence
+
+- Provided feedback on API consistency, UI improvements, and edge cases (e.g., API base URL usage, sorting behavior, and error handling)
+
+---
+
+### Issues / Blockers
+
+- Encountered merge conflict issues where evidence endpoints were removed, causing 404 errors in the frontend
+
+- Faced database constraint issues during project deletion due to foreign key dependencies and unsafe SQL queries
+
+- Some additional iteration was needed to ensure frontend and backend behavior stayed aligned, especially for evidence editing and updates
+
