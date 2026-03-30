@@ -161,3 +161,23 @@ Additional testing documentation:
 - Test report: [`docs/testing/test-report.md`](docs/testing/test-report.md)
 - Known bugs: [`docs/testing/known-bugs.md`](docs/testing/known-bugs.md)
 - Architecture artifact: [`docs/plan/Milestone 1 Team 16 Architecture.jpg`](docs/plan/Milestone%201%20Team%2016%20Architecture.jpg)
+
+## DFD Diagram Level 0
+
+<img width="1124" height="850" alt="dfd lvl 0 of milestone 3 updated of DFD-Level 1 drawio" src="https://github.com/user-attachments/assets/9bb5f5d2-5666-4fea-b082-2bac82c33c04" />
+
+The Level 0 Data Flow Diagram presents Skill Scope as a single high-level system. Users interact with the system through either the CLI interface or the API client. Requests such as project scans or output generation are sent to the system, which processes them and returns results.
+
+The system communicates with a local database to store and retrieve scan data, configurations, and generated outputs. This diagram focuses on the overall flow of data without showing internal processing details.
+
+## DFD Diagram Level 1
+
+<img width="1974" height="1160" alt="final milestone 3 updated of DFD-Level 1 drawio (1)" src="https://github.com/user-attachments/assets/b67bd7ec-507b-40f9-aaba-baf6d24bb7a8" />
+
+The Level 1 Data Flow Diagram expands on the internal structure of Skill Scope. The system is coordinated by the Orchestrator, which manages the flow between different components.
+
+User requests from the CLI or API are processed through the FastAPI server and passed into the system. The Metadata Extractor and Analysis Engine handle project analysis, generating structured insights such as languages, frameworks, and contribution data.
+
+The Customization Manager allows user preferences to influence output generation, while the Resume and Portfolio Generators produce final artifacts. All results, configurations, and scan history are stored in the local database for future access.
+
+This diagram highlights how different modules collaborate to transform raw project data into meaningful outputs.
