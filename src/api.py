@@ -1583,4 +1583,5 @@ if __name__ == "__main__":
     except ImportError:  # pragma: no cover
         raise SystemExit("Install uvicorn to run the FastAPI app directly")
 
-    uvicorn.run("api:app", host="0.0.0.0", port=5000, reload=True)
+    port = int(os.environ.get("PORT", 8000))
+    uvicorn.run("api:app", host="0.0.0.0", port=port, reload=True)
