@@ -1,0 +1,127 @@
+{
+  "categories": {
+    "source_code": [
+      ".py", ".js", ".ts", ".java", ".cpp", ".c", ".cs", ".rb", ".go", ".rs", ".swift", ".kt", ".pl"
+    ],
+    "web_code": [
+      ".html", ".htm", ".css", ".scss", ".sass", ".less", ".jsx", ".tsx", ".vue", ".php"
+    ],
+    "documentation": [
+      ".md", ".txt", ".rst", ".pdf", ".docx"
+    ],
+    "configuration": [
+      ".json", ".yaml", ".yml", ".ini", ".env", ".toml", ".cfg", ".xml"
+    ],
+    "assets": [
+      ".png", ".jpg", ".jpeg", ".svg", ".gif", ".bmp", ".tiff", ".ico"
+    ],
+    "datasets": [
+      ".csv", ".xlsx", ".xml", ".parquet", ".tsv"
+    ],
+    "binaries": [
+      ".exe", ".dll", ".bin", ".so", ".dylib"
+    ],
+    "notebooks": [
+      ".ipynb"
+    ],
+    "git_metadata": [
+       ".gitignore",
+       ".gitattributes",
+       ".gitmodules",
+        ".gitkeep" 
+  ],
+  "repository": [
+    ".git",
+    ".hg",
+    ".svn"
+  ]
+
+
+  },
+
+  "languages": {
+  ".py": "Python",
+  ".js": "Javascript",
+  ".jsx": "Javascript",
+  ".ts": "Typescript",
+  ".tsx": "Typescript",
+  ".java": "Java",
+  ".cpp": "Cpp",
+  ".c": "C",
+  ".cs": "Csharp",
+  ".rb": "Ruby",
+  ".go": "Go",
+  ".rs": "Rust",
+  ".swift": "Swift",
+  ".kt": "Kotlin",
+  ".html": "HTML",
+  ".htm": "HTML",
+  ".css": "CSS",
+  ".scss": "SCSS",
+  ".sass": "Cass",
+  ".less": "Less",
+  ".vue": "Vue",
+  ".php": "Php",
+  ".pl": "Perl",
+  ".ipynb": "Jupyter Notebook",
+  ".tf": "Terraform",
+  ".md": "Markdown",
+  ".markdown": "Markdown",
+  ".rst": "ReStructuredText",
+  ".txt": "Plain Text",
+  ".pdf": "PDF",
+  ".docx": "Word Document"
+},
+
+"frameworks": [
+    "requirements.txt",
+    "environment.yml",
+    "Pipfile",
+    "package.json",
+    "package-lock.json",
+    "yarn.lock",
+    "pom.xml",
+    "build.gradle",
+    "settings.gradle",
+    "gradlew",
+    "gradlew.bat",
+    "Cargo.toml",
+    "Cargo.lock",
+    "go.mod",
+    "go.sum",
+    "pyproject.toml",
+    "Gemfile",
+    "Dockerfile",
+    "docker-compose.yml",
+    "composer.json",
+    "composer.lock"
+] ,
+"skills": {
+    "python": "Python Development",
+    "javascript": "JavaScript Development",
+    "typescript": "TypeScript Development",
+    "html": "HTML / Web Markup",
+    "css": "CSS / Web Styling",
+    "java": "Java Development",
+    "kotlin": "Kotlin Development",
+    "scala": "Scala Development",
+    "c": "C Programming",
+    "c++": "C++ Programming",
+    "c#": "C# / .NET Development",
+    "go": "Go Programming",
+    "rust": "Rust Systems Programming",
+    "php": "PHP Development",
+    "ruby": "Ruby Development",
+    "lua": "Lua Scripting",
+    "sql": "SQL / Database Management",
+    "shell": "Shell Scripting & Automation",
+    "perl": "Perl Scripting",
+    "jupyter notebook": "Data Science (Jupyter)",
+    "terraform": "Terraform / IaC",
+    "markdown": "Technical Documentation",
+    "restructuredtext": "Technical Documentation",
+    "plain text": "Technical Documentation",
+    "pdf": "Technical Documentation",
+    "word document": "Technical Documentation"
+  }
+}

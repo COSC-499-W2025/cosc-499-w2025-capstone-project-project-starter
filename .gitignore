@@ -1,0 +1,33 @@
+# --- OS settings ---
+.DS_Store
+
+
+# --- Virtual environments ---
+venv/
+.venv/
+env/
+.env/
+
+# Python cache
+__pycache__/
+*.pyc
+
+# pytest cache
+.pytest_cache/
+.pytest-tmp/
+
+# Node / frontend
+node_modules/
+src/ui/node_modules/
+dist/
+src/ui/dist/
+
+
+#Scan results
+output
+skillscope.db
+
+# Local validation and manual test-data repos
+input/test-data/full_project_detail_validation_repo/
+input/test-data/git_history_validation_repo/
+input/test-data/manual_git_check/
