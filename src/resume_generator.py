@@ -43,6 +43,19 @@ def _save_doc(doc, path):
             return None
 
 
+def _normalize_display_list(value, fallback):
+    """Converts list-like project metadata into a readable string."""
+    if value is None:
+        return fallback
+    if isinstance(value, str):
+        cleaned = value.strip()
+        return cleaned or fallback
+    if isinstance(value, (list, tuple, set)):
+        cleaned_parts = [str(part).strip() for part in value if str(part).strip()]
+        return ", ".join(cleaned_parts) if cleaned_parts else fallback
+    return str(value).strip() or fallback
+
+
 # -------------------------------------------------------------------------
 # 1. GENERAL PROJECT RESUME (Summary of all projects)
 # -------------------------------------------------------------------------
@@ -54,9 +67,9 @@ def build_project_line(p: dict) -> str:
     Used for the full resume summary.
     """
     name = p.get("project", "Unknown")
-    langs = p.get("languages", "Unknown")
-    skills = p.get("skills", "NA")
-    frameworks = p.get("frameworks", "None")
+    langs = _normalize_display_list(p.get("languages", "Unknown"), "Unknown")
+    skills = _normalize_display_list(p.get("skills", "NA"), "NA")
+    frameworks = _normalize_display_list(p.get("frameworks", "None"), "None")
     duration = p.get("duration_days", 0)
     code_files = p.get("code_files", 0)
     test_files = p.get("test_files", 0)
@@ -177,9 +190,9 @@ def _build_personal_project_description(project_name, project_context, user_stat
     Constructs a sentence describing the user's specific contribution to a project.
     """
     # Context from the project as a whole
-    langs = project_context.get("languages", "Unknown")
-    skills = project_context.get("skills", "NA")
-    frameworks = project_context.get("frameworks", "None")
+    langs = _normalize_display_list(project_context.get("languages", "Unknown"), "Unknown")
+    skills = _normalize_display_list(project_context.get("skills", "NA"), "NA")
+    frameworks = _normalize_display_list(project_context.get("frameworks", "None"), "None")
     
     # User specific stats
     u_files = user_stats.get("files_worked", 0)
